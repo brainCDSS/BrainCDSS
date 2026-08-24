@@ -1,0 +1,1 @@
+{"name":"brainon-assistant-service","private":true,"version":"0.1.0","type":"module","scripts":{"dev":"tsx src/api/server.ts","build":"tsc","start":"node dist/api/server.js","test":"vitest run"},"dependencies":{"tsx":"latest","typescript":"latest"},"devDependencies":{"@types/node":"latest","vitest":"latest"}}

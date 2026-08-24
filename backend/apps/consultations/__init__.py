@@ -1,0 +1,2 @@
+"""consultations domain application."""
+

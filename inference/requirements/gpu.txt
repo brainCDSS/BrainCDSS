@@ -1,0 +1,2 @@
+-r base.txt
+# TODO: add only the approved model runtime matching deployment hardware.

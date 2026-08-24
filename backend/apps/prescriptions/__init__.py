@@ -1,0 +1,2 @@
+"""prescriptions domain application."""
+

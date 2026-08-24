@@ -1,0 +1,2 @@
+"""appointments domain application."""
+

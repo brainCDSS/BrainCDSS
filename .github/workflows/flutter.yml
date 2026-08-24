@@ -1,0 +1,42 @@
+name: Flutter applications
+on: [push, pull_request]
+jobs:
+  patient:
+    name: Patient app
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: {channel: stable, cache: true}
+      - run: flutter pub get
+        working-directory: mobile/patient-app
+      - run: flutter analyze
+        working-directory: mobile/patient-app
+      - run: flutter test
+        working-directory: mobile/patient-app
+  clinician:
+    name: Clinician app
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: {channel: stable, cache: true}
+      - run: flutter pub get
+        working-directory: mobile/clinician-app
+      - run: flutter analyze
+        working-directory: mobile/clinician-app
+      - run: flutter test
+        working-directory: mobile/clinician-app
+  shared:
+    name: Shared mobile package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: {channel: stable, cache: true}
+      - run: flutter pub get
+        working-directory: mobile/packages/brainon_mobile_core
+      - run: flutter analyze
+        working-directory: mobile/packages/brainon_mobile_core
+      - run: flutter test
+        working-directory: mobile/packages/brainon_mobile_core

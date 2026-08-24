@@ -1,0 +1,2 @@
+"""accounts app test placeholder."""
+

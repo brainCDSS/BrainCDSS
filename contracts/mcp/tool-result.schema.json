@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","required":["status","is_mock","data"],"properties":{"status":{"type":"string"},"is_mock":{"type":"boolean"},"data":{"type":"object"}},"additionalProperties":false}

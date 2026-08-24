@@ -1,0 +1,2 @@
+"""integrations domain application."""
+

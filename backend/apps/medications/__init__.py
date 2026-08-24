@@ -1,0 +1,2 @@
+"""medications domain application."""
+

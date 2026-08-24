@@ -1,0 +1,2 @@
+"""notifications app test placeholder."""
+

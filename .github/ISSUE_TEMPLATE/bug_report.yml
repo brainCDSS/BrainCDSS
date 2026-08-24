@@ -1,0 +1,14 @@
+name: Bug report
+description: PHI와 secret 없이 재현 가능한 문제를 보고합니다.
+body:
+  - type: textarea
+    id: description
+    attributes: {label: 설명}
+    validations: {required: true}
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: 안전 확인
+      options:
+        - label: 실제 환자정보, 의료영상, secret을 포함하지 않았습니다.
+          required: true

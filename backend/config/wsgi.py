@@ -1,0 +1,6 @@
+"""WSGI entry point for synchronous production servers."""
+import os
+os.environ.setdefault("DJANGO_SETTINGS_MODULE","config.settings.production")
+from django.core.wsgi import get_wsgi_application
+application=get_wsgi_application()
+

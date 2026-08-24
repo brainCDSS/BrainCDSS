@@ -1,0 +1,2 @@
+/* Accessible, dependency-free shell styling. */
+:root{font-family:system-ui,sans-serif;color:#172033;background:#f5f7fa}body{margin:0}main{max-width:72rem;margin:auto;padding:2rem}header,section{background:white;padding:1.5rem;border-radius:.75rem;margin-bottom:1rem}

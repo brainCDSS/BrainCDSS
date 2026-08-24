@@ -1,0 +1,130 @@
+# BrainOn local runtime. Secrets below are placeholders and must be overridden via .env.
+services:
+  # Primary relational store for Django business state and optional task status.
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-brainon}
+      POSTGRES_USER: ${POSTGRES_USER:-brainon}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-TODO_LOCAL_DATABASE_PASSWORD}
+    ports: ["5432:5432"]
+    volumes: [postgres-data:/var/lib/postgresql/data]
+    healthcheck: {test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"], interval: 10s, timeout: 5s, retries: 5}
+    restart: unless-stopped
+  # Sole Celery broker and future event bridge source.
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-brainon}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-TODO_LOCAL_RABBITMQ_PASSWORD}
+    ports: ["5672:5672", "15672:15672"]
+    volumes: [rabbitmq-data:/var/lib/rabbitmq]
+    healthcheck: {test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"], interval: 10s, timeout: 5s, retries: 5}
+    restart: unless-stopped
+  # Django REST/ASGI modular monolith.
+  backend:
+    build: ./backend
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.base
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-TODO_REPLACE_WITH_LOCAL_ONLY_VALUE}
+      POSTGRES_DB: ${POSTGRES_DB:-brainon}
+      POSTGRES_USER: ${POSTGRES_USER:-brainon}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-TODO_LOCAL_DATABASE_PASSWORD}
+      POSTGRES_HOST: postgres
+      CELERY_BROKER_URL: amqp://${RABBITMQ_DEFAULT_USER:-brainon}:${RABBITMQ_DEFAULT_PASS:-TODO_LOCAL_RABBITMQ_PASSWORD}@rabbitmq:5672//
+    ports: ["8080:8080"]
+    depends_on: {postgres: {condition: service_healthy}, rabbitmq: {condition: service_healthy}}
+    healthcheck: {test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8080/api/v1/health/')"], interval: 15s, timeout: 5s, retries: 5}
+    restart: unless-stopped
+  # Background notification and business jobs; results are disabled by default.
+  celery-worker:
+    build: ./backend
+    command: celery -A config worker -l INFO
+    environment: {DJANGO_SETTINGS_MODULE: config.settings.base, POSTGRES_HOST: postgres, POSTGRES_DB: "${POSTGRES_DB:-brainon}", POSTGRES_USER: "${POSTGRES_USER:-brainon}", POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-TODO_LOCAL_DATABASE_PASSWORD}", CELERY_BROKER_URL: "amqp://${RABBITMQ_DEFAULT_USER:-brainon}:${RABBITMQ_DEFAULT_PASS:-TODO_LOCAL_RABBITMQ_PASSWORD}@rabbitmq:5672//"}
+    depends_on: {backend: {condition: service_healthy}}
+    restart: unless-stopped
+  # Scheduled jobs via Celery Beat.
+  celery-beat:
+    build: ./backend
+    command: celery -A config beat -l INFO
+    environment: {DJANGO_SETTINGS_MODULE: config.settings.base, POSTGRES_HOST: postgres, POSTGRES_DB: "${POSTGRES_DB:-brainon}", POSTGRES_USER: "${POSTGRES_USER:-brainon}", POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-TODO_LOCAL_DATABASE_PASSWORD}", CELERY_BROKER_URL: "amqp://${RABBITMQ_DEFAULT_USER:-brainon}:${RABBITMQ_DEFAULT_PASS:-TODO_LOCAL_RABBITMQ_PASSWORD}@rabbitmq:5672//"}
+    depends_on: {rabbitmq: {condition: service_healthy}}
+    restart: unless-stopped
+  # Clinician Vite development server.
+  frontend:
+    build: ./frontend
+    profiles: [web]
+    environment: {VITE_BACKEND_URL: "${BACKEND_URL:-http://localhost:8080}"}
+    ports: ["5173:5173"]
+    restart: unless-stopped
+  # Model-independent FastAPI control plane.
+  inference-api:
+    build: ./inference
+    profiles: [ai]
+    environment: {MODEL_BUNDLE_URI: "${MODEL_BUNDLE_URI:-}"}
+    ports: ["8100:8100"]
+    healthcheck: {test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8100/health')"], interval: 15s, timeout: 5s, retries: 5}
+    restart: unless-stopped
+  # MOSEC integration placeholder; same safe image reports the boundary only.
+  inference-worker:
+    build: ./inference
+    profiles: [ai]
+    command: ["python", "-c", "print('MODEL_NOT_CONFIGURED: MOSEC worker adapter TODO'); import time; time.sleep(86400)"]
+    ports: ["8000:8000"]
+    restart: unless-stopped
+  # Genkit/Gemini adapter with deterministic mock fallback.
+  assistant-service:
+    build: ./assistant-service
+    profiles: [assistant]
+    environment: {PORT: "8200", GEMINI_API_KEY: "${GEMINI_API_KEY:-}"}
+    ports: ["8200:8200"]
+    restart: unless-stopped
+  # Clinical MCP protocol adapter placeholder; backend-only data access.
+  mcp-server:
+    build: ./mcp-server
+    profiles: [assistant]
+    environment: {BACKEND_URL: "http://backend:8080", MCP_BACKEND_TOKEN: "${MCP_BACKEND_TOKEN:-}"}
+    ports: ["8300:8300"]
+    restart: "no"
+  # DICOM archive for synthetic/local data only.
+  orthanc:
+    image: orthancteam/orthanc:24.11.2
+    profiles: [imaging]
+    ports: ["8042:8042", "4242:4242"]
+    volumes: [orthanc-data:/var/lib/orthanc/db]
+    restart: unless-stopped
+  # DICOMweb viewer; configuration is a future integration template.
+  ohif:
+    image: ohif/app:v3.9.2
+    profiles: [imaging]
+    ports: ["3000:80"]
+    depends_on: [orthanc]
+    restart: unless-stopped
+  # Metrics scraper.
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    profiles: [observability]
+    volumes: ["./infra/observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro"]
+    ports: ["9090:9090"]
+  # Dashboard UI; datasource provisioning is TODO.
+  grafana:
+    image: grafana/grafana:11.4.0
+    profiles: [observability]
+    ports: ["3001:3000"]
+  # Log store.
+  loki:
+    image: grafana/loki:3.3.2
+    profiles: [observability]
+    command: -config.file=/etc/loki/local-config.yaml
+    ports: ["3100:3100"]
+  # OTel/log collector bridge.
+  alloy:
+    image: grafana/alloy:v1.5.1
+    profiles: [observability]
+    volumes: ["./infra/observability/alloy/config.alloy:/etc/alloy/config.alloy:ro"]
+    command: run /etc/alloy/config.alloy
+    ports: ["4317:4317"]
+volumes:
+  postgres-data:
+  rabbitmq-data:
+  orthanc-data:

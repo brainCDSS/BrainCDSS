@@ -1,0 +1,2 @@
+"""assistant domain application."""
+

@@ -1,0 +1,4 @@
+# SDK-neutral scaffold dependencies; official MCP SDK is TODO after verification.
+pydantic>=2.10,<3
+httpx>=0.28,<1
+pytest>=8,<9

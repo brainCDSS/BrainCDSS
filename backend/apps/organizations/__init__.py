@@ -1,0 +1,2 @@
+"""organizations domain application."""
+

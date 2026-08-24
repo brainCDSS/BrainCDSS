@@ -1,0 +1,2 @@
+"""notifications domain application."""
+

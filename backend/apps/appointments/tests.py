@@ -1,0 +1,2 @@
+"""appointments app test placeholder."""
+

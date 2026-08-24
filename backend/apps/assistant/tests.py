@@ -1,0 +1,2 @@
+"""assistant app test placeholder."""
+

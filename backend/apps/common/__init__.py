@@ -1,0 +1,2 @@
+"""common domain application."""
+

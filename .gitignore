@@ -1,0 +1,62 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+service-account*.json
+firebase-admin*.json
+google-services.json
+GoogleService-Info.plist
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+*.sqlite3
+
+# Node / React
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Flutter / Android / iOS
+.dart_tool/
+.flutter-plugins*
+.packages
+build/
+android/.gradle/
+android/local.properties
+ios/Pods/
+ios/.symlinks/
+
+# IDE, OS, containers, logs
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.log
+*.pid
+docker-data/
+
+# Medical images, model artifacts, experiments and outputs
+*.dcm
+*.dicom
+*.nii
+*.nii.gz
+*.nrrd
+*.mha
+*.mhd
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.engine
+mlruns/
+checkpoints/
+artifacts/
+datasets/
+outputs/

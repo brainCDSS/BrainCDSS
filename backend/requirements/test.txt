@@ -1,5 +1,5 @@
 -r base.txt
 # Test helpers; Django's test runner remains the default.
 pytest>=8,<9
-pytest-django>=4.9,<5
+pytest-django>=4.14.0,<5
 

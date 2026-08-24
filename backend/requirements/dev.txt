@@ -1,4 +1,4 @@
 -r base.txt
 # Local quality tools.
-ruff>=0.9,<1
+ruff>=0.16.4,<1
 

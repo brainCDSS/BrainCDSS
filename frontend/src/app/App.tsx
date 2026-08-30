@@ -3,12 +3,13 @@
 
 
 import AppShell from "../shared/layout/AppShell";
-import Dashboard from "../features/dashboard/Dashboard";
+//import Dashboard from "../features/dashboard/";
+import Patients from "../features/patients/Patients";
 
 export function App() {
   return (
     <AppShell>
-      <Dashboard />
+      <Patients />
     </AppShell>
   );
 }

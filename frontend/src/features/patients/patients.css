@@ -1,0 +1,107 @@
+.patients {
+  width: 100%;
+}
+
+.patients-heading {
+  margin-bottom: 24px;
+}
+
+.patients-label {
+  color: #426891;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.patients-heading h2 {
+  margin: 6px 0 0;
+  font-size: 26px;
+}
+
+.patients-heading p {
+  margin: 8px 0 0;
+  color: #748091;
+  font-size: 14px;
+}
+
+.patients-toolbar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 18px;
+  border: 1px solid #e1e6ed;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.patients-toolbar input {
+  width: 340px;
+  height: 40px;
+  padding: 0 13px;
+  border: 1px solid #d7dee7;
+  border-radius: 8px;
+  outline: none;
+  font: inherit;
+}
+
+.patients-toolbar input:focus {
+  border-color: #52779d;
+}
+
+.patients-toolbar button {
+  height: 40px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 8px;
+  background: #163457;
+  color: #ffffff;
+}
+
+.patients-toolbar button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.patients-table-wrap {
+  overflow: hidden;
+  border: 1px solid #e1e6ed;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.patients-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.patients-table th {
+  padding: 14px 16px;
+  border-bottom: 1px solid #e1e6ed;
+  background: #f8fafc;
+  color: #596778;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.patients-table td {
+  padding: 16px;
+  border-bottom: 1px solid #eef1f5;
+  font-size: 13px;
+}
+
+.patients-empty {
+  padding: 48px 20px;
+  text-align: center;
+}
+
+.patients-empty strong {
+  display: block;
+  font-size: 14px;
+}
+
+.patients-empty p {
+  margin: 8px 0 0;
+  color: #8a95a3;
+  font-size: 12px;
+}

@@ -45,6 +45,7 @@ BRAINON_APPS = [
     "medications",
     "test_results",
     "imaging",
+    "radiology",
     "ai_analysis",
     "cdss",
     "medication_safety",
@@ -71,6 +72,7 @@ INSTALLED_APPS = [
     *[f"apps.{app}" for app in BRAINON_APPS],
 ]
 
+AUTH_USER_MODEL = "accounts.User"
 
 # ---------------------------------------------------------------------
 # Middleware

@@ -3,7 +3,7 @@
 
 
 import AppShell from "../shared/layout/AppShell";
-//import Dashboard from "../features/dashboard/";
+//import Dashboard from "../features/dashboard/Dashboard";
 import Patients from "../features/patients/Patients";
 
 export function App() {

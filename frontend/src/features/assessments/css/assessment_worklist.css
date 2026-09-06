@@ -1,0 +1,355 @@
+/* =========================================================
+   Assessment Worklist
+   ========================================================= */
+
+.assessment-worklist {
+  width: 100%;
+  min-width: 0;
+
+  color: var(--text-primary);
+}
+
+
+/* =========================================================
+   1. 화면 상단 제목
+   ========================================================= */
+
+.assessment-worklist-page-heading {
+  margin-bottom: 18px;
+}
+
+.assessment-worklist-label {
+  display: block;
+
+  margin-bottom: 5px;
+
+  color: var(--primary);
+
+  font-size: 10px;
+  font-weight: 800;
+
+  letter-spacing: 0.08em;
+}
+
+.assessment-worklist-page-heading h1 {
+  margin: 0 0 5px;
+
+  color: var(--text-primary);
+
+  font-size: 24px;
+  font-weight: 800;
+
+  line-height: 1.25;
+}
+
+.assessment-worklist-page-heading p {
+  margin: 0;
+
+  color: var(--text-secondary);
+
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+
+/* =========================================================
+   2. Worklist 메인 카드
+   ========================================================= */
+
+.assessment-worklist-card {
+  width: 100%;
+
+  overflow: hidden;
+
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+
+  background: var(--bg-surface);
+
+  box-shadow: var(--shadow-soft);
+}
+
+
+/* =========================================================
+   3. 카드 Header
+
+   왼쪽
+   - 초기평가 대기
+   - 설명
+
+   오른쪽
+   - 전체 N건
+   ========================================================= */
+
+.assessment-worklist-card-header {
+  display: flex;
+
+  min-height: 82px;
+
+  align-items: center;
+  justify-content: space-between;
+
+  /*
+   * 카드 내부 좌우 여백
+   *
+   * 첫 번째 숫자: 위/아래
+   * 두 번째 숫자: 좌/우
+   */
+  padding: 18px 22px;
+
+  border-bottom: 1px solid var(--border-color);
+}
+
+
+/* 카드 제목 */
+
+.assessment-worklist-card-header h2 {
+  margin: 0 0 5px;
+
+  color: var(--text-primary);
+
+  font-size: 16px;
+  font-weight: 800;
+}
+
+
+/* 카드 설명 */
+
+.assessment-worklist-card-header p {
+  margin: 0;
+
+  color: var(--text-secondary);
+
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+
+/* =========================================================
+   4. 전체 건수
+   ========================================================= */
+
+.assessment-worklist-count {
+  display: flex;
+
+  align-items: baseline;
+
+  gap: 5px;
+
+  padding-left: 22px;
+
+  white-space: nowrap;
+}
+
+.assessment-worklist-count span {
+  color: var(--text-secondary);
+
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.assessment-worklist-count strong {
+  color: var(--primary);
+
+  font-size: 22px;
+  font-weight: 800;
+
+  line-height: 1;
+}
+
+
+/* =========================================================
+   5. Empty State
+
+   현재 Mock API:
+   results: []
+
+   대기 환자가 없을 때 보여주는 영역
+   ========================================================= */
+
+.assessment-worklist-empty {
+  display: flex;
+
+  /*
+   * 빈 화면 영역 높이
+   *
+   * 180px → 조금 작게
+   * 220px → 현재 추천
+   * 260px → 크게
+   */
+  min-height: 220px;
+
+  flex-direction: column;
+
+  align-items: center;
+  justify-content: center;
+
+  padding: 30px 20px;
+
+  text-align: center;
+}
+
+
+/* Empty 아이콘 */
+
+.assessment-worklist-empty-icon {
+  display: flex;
+
+  width: 42px;
+  height: 42px;
+
+  align-items: center;
+  justify-content: center;
+
+  margin-bottom: 12px;
+
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+
+  background: var(--bg-page);
+
+  color: var(--text-secondary);
+
+  font-size: 17px;
+}
+
+
+/* Empty 제목 */
+
+.assessment-worklist-empty strong {
+  margin-bottom: 6px;
+
+  color: var(--text-primary);
+
+  font-size: 13px;
+  font-weight: 700;
+}
+
+
+/* Empty 설명 */
+
+.assessment-worklist-empty p {
+  margin: 0;
+
+  color: var(--text-secondary);
+
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+
+/* =========================================================
+   6. 데이터가 있을 때 임시 영역
+
+   patient_summary 계약이 확정되면
+   실제 Table로 교체할 예정
+   ========================================================= */
+
+.assessment-worklist-data {
+  min-height: 180px;
+
+  padding: 22px;
+}
+
+.assessment-worklist-data strong {
+  display: block;
+
+  margin-bottom: 6px;
+
+  color: var(--text-primary);
+
+  font-size: 13px;
+}
+
+.assessment-worklist-data p {
+  margin: 0;
+
+  color: var(--text-secondary);
+
+  font-size: 12px;
+}
+
+
+/* =========================================================
+   7. Loading / Error 공통 상태
+   ========================================================= */
+
+.assessment-worklist-state {
+  display: flex;
+
+  min-height: 280px;
+
+  flex-direction: column;
+
+  align-items: center;
+  justify-content: center;
+
+  padding: 30px;
+
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+
+  background: var(--bg-surface);
+
+  text-align: center;
+
+  box-shadow: var(--shadow-soft);
+}
+
+.assessment-worklist-state-icon {
+  display: flex;
+
+  width: 42px;
+  height: 42px;
+
+  align-items: center;
+  justify-content: center;
+
+  margin-bottom: 12px;
+
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+
+  background: var(--bg-page);
+
+  color: var(--primary);
+
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.assessment-worklist-state strong {
+  margin-bottom: 6px;
+
+  color: var(--text-primary);
+
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.assessment-worklist-state span {
+  color: var(--text-secondary);
+
+  font-size: 12px;
+}
+
+
+/* =========================================================
+   8. Dark Mode
+   ========================================================= */
+
+[data-theme="dark"] .assessment-worklist-card,
+[data-theme="dark"] .assessment-worklist-state {
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.18);
+}
+
+
+/* =========================================================
+   9. 화면 폭이 줄어든 경우
+   ========================================================= */
+
+@media (max-width: 1180px) {
+  .assessment-worklist-card-header {
+    align-items: flex-start;
+  }
+}

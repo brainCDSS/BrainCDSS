@@ -7,7 +7,7 @@ import { getPatients } from "./api";
 // API에서 받아오는 환자 1명의 데이터 타입
 import type { Patient } from "./types";
 
-import "./patients.css";
+import "./css/patients.css";
 
 export default function Patients() {
   /**

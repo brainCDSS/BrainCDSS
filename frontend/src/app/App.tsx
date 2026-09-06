@@ -1,17 +1,23 @@
-/** Minimal shell; clinical screens remain explicit placeholders. */
-//export function App() { return <main><header><h1>BrainOn CDSS</h1><p>의료진 웹 개발 골격</p></header><section aria-labelledby="health"><h2 id="health">Health</h2><p data-testid="status">Frontend shell is ready.</p></section></main>; }
-
-
 import AppShell from "../shared/layout/AppShell";
-//import Dashboard from "../features/dashboard/Dashboard";
-import Patients from "../features/patients/Patients";
+import Dashboard from "../features/dashboard/Dashboard";
 
+
+/**
+ * Brain CDSS App
+ *
+ * AppShell의 기본 children은 Dashboard이다.
+ *
+ * Sidebar 메뉴에 따라
+ * AppShell 내부에서 Worklist / Triage 등의
+ * 화면으로 전환한다.
+ */
 export function App() {
   return (
     <AppShell>
-      <Patients />
+      <Dashboard />
     </AppShell>
   );
 }
+
 
 export default App;

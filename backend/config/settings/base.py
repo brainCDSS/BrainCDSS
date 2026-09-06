@@ -67,6 +67,7 @@ INSTALLED_APPS = [
 
     "corsheaders",
     "rest_framework",
+    "rest_framework_simplejwt.token_blacklist",
     "drf_spectacular",
 
     *[f"apps.{app}" for app in BRAINON_APPS],
@@ -209,3 +210,16 @@ CELERY_BROKER_URL = os.getenv(
 CELERY_RESULT_BACKEND = None
 CELERY_TASK_IGNORE_RESULT = True
 CELERY_TIMEZONE = TIME_ZONE
+
+# BEGIN BRAINON USER JWT SIGNING KEY
+# User JWT signing key.
+# Production: inject JWT_SIGNING_KEY through Cloud Run Secret Manager.
+_user_jwt_signing_key = os.getenv("JWT_SIGNING_KEY")
+
+if _user_jwt_signing_key:
+    SIMPLE_JWT = {
+        **globals().get("SIMPLE_JWT", {}),
+        "SIGNING_KEY": _user_jwt_signing_key,
+    }
+# END BRAINON USER JWT SIGNING KEY
+

@@ -40,7 +40,7 @@ interface ActiveAssessmentContext {
 
 
 /* =========================================================
-   Brain CDSS 공통 Layout
+   Brain CDSS AppShell
    ========================================================= */
 
 export default function AppShell({
@@ -71,7 +71,7 @@ export default function AppShell({
 
 
   /* ========================================================
-     3. 현재 열려 있는 일반 환자 Tabs
+     3. 일반 환자 Workspace Tabs
      ======================================================== */
 
   const [
@@ -105,14 +105,14 @@ export default function AppShell({
 
 
   /* ========================================================
-     6. 현재 보고 있는 협진
+     6. 현재 활성 협진
      --------------------------------------------------------
 
      null
      → 협진 목록
 
      consultation_id
-     → 해당 Consultation Patient Review
+     → 해당 협진 Patient Review
      ======================================================== */
 
   const [
@@ -124,7 +124,27 @@ export default function AppShell({
 
 
   /* ========================================================
-     7. 현재 활성 일반 환자 객체
+     7. 협진 환자 Workspace Tabs
+     ======================================================== */
+
+  const [
+    openConsultationTabs,
+    setOpenConsultationTabs,
+  ] = useState<ConsultationListItem[]>([]);
+
+
+  /* ========================================================
+     8. 협진 목록 Workspace Tab 열림 여부
+     ======================================================== */
+
+  const [
+    isConsultationListTabOpen,
+    setIsConsultationListTabOpen,
+  ] = useState(false);
+
+
+  /* ========================================================
+     9. 현재 활성 일반 환자 객체
      ======================================================== */
 
   const activePatient =
@@ -137,7 +157,17 @@ export default function AppShell({
 
 
   /* ========================================================
-     8. Sidebar 접기 / 펼치기
+     10. 현재 협진 목록 Tab 활성 여부
+     ======================================================== */
+
+  const isConsultationListActive =
+    activeMenu === "consultations" &&
+    activeConsultationId === null &&
+    activePatientId === null;
+
+
+  /* ========================================================
+     11. Sidebar 접기 / 펼치기
      ======================================================== */
 
   const handleToggleSidebar = () => {
@@ -150,7 +180,7 @@ export default function AppShell({
 
 
   /* ========================================================
-     9. Sidebar 메뉴 선택
+     12. Sidebar 메뉴 선택
      ======================================================== */
 
   const handleMenuSelect = (
@@ -158,7 +188,7 @@ export default function AppShell({
   ) => {
 
     /**
-     * 현재 실제 Content가 연결된 메뉴만 허용
+     * 현재 AppShell에서 실제 연결된 메뉴
      */
     if (
       menu !== "dashboard" &&
@@ -171,8 +201,7 @@ export default function AppShell({
 
 
     /**
-     * Sidebar 메뉴로 이동하면
-     * 일반 환자 Chart 비활성화
+     * 일반 환자 비활성
      */
     setActivePatientId(
       null,
@@ -180,7 +209,15 @@ export default function AppShell({
 
 
     /**
-     * Triage 이외 화면으로 이동하면
+     * 특정 협진 Patient Review 비활성
+     */
+    setActiveConsultationId(
+      null,
+    );
+
+
+    /**
+     * Triage 이외 화면 이동 시
      * Assessment Context 해제
      */
     if (menu !== "triage") {
@@ -193,15 +230,14 @@ export default function AppShell({
 
 
     /**
-     * 협진 목록을 Sidebar에서 직접 누른 경우
+     * Sidebar에서 협진 목록 선택
      *
-     * 현재 Patient Review를 종료하고
-     * 협진 목록부터 표시한다.
+     * 협진 목록 Workspace Tab 생성
      */
     if (menu === "consultations") {
 
-      setActiveConsultationId(
-        null,
+      setIsConsultationListTabOpen(
+        true,
       );
 
     }
@@ -215,7 +251,7 @@ export default function AppShell({
 
 
   /* ========================================================
-     10. Worklist → Triage 열기
+     13. Worklist → Triage
      ======================================================== */
 
   const handleOpenTriage = (
@@ -234,6 +270,11 @@ export default function AppShell({
     );
 
 
+    setActiveConsultationId(
+      null,
+    );
+
+
     setActiveMenu(
       "triage",
     );
@@ -242,16 +283,7 @@ export default function AppShell({
 
 
   /* ========================================================
-     11. 협진 목록 → Patient Review
-     --------------------------------------------------------
-
-     [검토하기]
-
-     ConsultationListItem
-     ↓
-     consultation_id 저장
-     ↓
-     Patient Review 표시
+     14. 협진 목록 → Patient Review
      ======================================================== */
 
   const handleOpenConsultationReview = (
@@ -259,8 +291,119 @@ export default function AppShell({
   ) => {
 
     /**
-     * 다른 업무 Context 해제
+     * 일반 환자 비활성
      */
+    setActivePatientId(
+      null,
+    );
+
+
+    /**
+     * Triage Context 비활성
+     */
+    setActiveAssessmentContext(
+      null,
+    );
+
+
+    /**
+     * 협진 목록에서 들어온 것이므로
+     * 협진 목록 Tab도 열린 상태 유지
+     */
+    setIsConsultationListTabOpen(
+      true,
+    );
+
+
+    /**
+     * 협진 Patient Review Tab 추가
+     *
+     * 같은 consultation_id는
+     * 중복으로 생성하지 않는다.
+     */
+    setOpenConsultationTabs(
+      (previousTabs) => {
+
+        const alreadyOpen =
+          previousTabs.some(
+            (openedConsultation) =>
+              openedConsultation.consultation_id ===
+              consultation.consultation_id,
+          );
+
+
+        if (alreadyOpen) {
+          return previousTabs;
+        }
+
+
+        return [
+          ...previousTabs,
+          consultation,
+        ];
+
+      },
+    );
+
+
+    /**
+     * 선택 협진 활성화
+     */
+    setActiveConsultationId(
+      consultation.consultation_id,
+    );
+
+
+    setActiveMenu(
+      "consultations",
+    );
+
+  };
+
+
+  /* ========================================================
+     15. Patient Review → 협진 목록
+     ======================================================== */
+
+  const handleBackToConsultationList = () => {
+
+    /**
+     * 협진 목록 Tab 생성 / 유지
+     */
+    setIsConsultationListTabOpen(
+      true,
+    );
+
+
+    /**
+     * 특정 협진 Patient Review 비활성
+     */
+    setActiveConsultationId(
+      null,
+    );
+
+
+    /**
+     * 일반 환자 비활성
+     */
+    setActivePatientId(
+      null,
+    );
+
+
+    setActiveMenu(
+      "consultations",
+    );
+
+  };
+
+
+  /* ========================================================
+     16. 협진 목록 Workspace Tab 선택
+     ======================================================== */
+
+  const handleSelectConsultationListTab = () => {
+
     setActivePatientId(
       null,
     );
@@ -272,32 +415,7 @@ export default function AppShell({
 
 
     /**
-     * 선택한 협진 ID 저장
-     */
-    setActiveConsultationId(
-      consultation.consultation_id,
-    );
-
-
-    /**
-     * Sidebar에서는 여전히
-     * 협진 업무 영역으로 처리
-     */
-    setActiveMenu(
-      "consultations",
-    );
-
-  };
-
-
-  /* ========================================================
-     12. Patient Review → 협진 목록
-     ======================================================== */
-
-  const handleBackToConsultationList = () => {
-
-    /**
-     * 현재 협진 상세 선택 해제
+     * 특정 협진 Patient Review 비활성
      */
     setActiveConsultationId(
       null,
@@ -312,7 +430,129 @@ export default function AppShell({
 
 
   /* ========================================================
-     13. Header에서 일반 환자 선택
+     17. 협진 목록 Workspace Tab 닫기
+     ======================================================== */
+
+  const handleCloseConsultationListTab = () => {
+
+    /**
+     * 목록 Tab 제거
+     */
+    setIsConsultationListTabOpen(
+      false,
+    );
+
+
+    /**
+     * 현재 보고 있던 화면이
+     * 협진 목록이라면 Dashboard 이동
+     */
+    if (isConsultationListActive) {
+
+      setActiveConsultationId(
+        null,
+      );
+
+
+      setActiveMenu(
+        "dashboard",
+      );
+
+    }
+
+  };
+
+
+  /* ========================================================
+     18. 협진 Patient Review Tab 선택
+     ======================================================== */
+
+  const handleSelectConsultationTab = (
+    consultationId: string,
+  ) => {
+
+    setActivePatientId(
+      null,
+    );
+
+
+    setActiveAssessmentContext(
+      null,
+    );
+
+
+    setActiveConsultationId(
+      consultationId,
+    );
+
+
+    setActiveMenu(
+      "consultations",
+    );
+
+  };
+
+
+  /* ========================================================
+     19. 협진 Patient Review Tab 닫기
+     ======================================================== */
+
+  const handleCloseConsultationTab = (
+    consultationId: string,
+  ) => {
+
+    /**
+     * 열린 협진 Tab 목록에서 제거
+     */
+    setOpenConsultationTabs(
+      (previousTabs) =>
+        previousTabs.filter(
+          (consultation) =>
+            consultation.consultation_id !==
+            consultationId,
+        ),
+    );
+
+
+    /**
+     * 현재 활성 협진을 닫은 경우
+     *
+     * 협진 목록 Tab이 열려 있으면
+     * 협진 목록으로 이동
+     *
+     * 목록 Tab도 없다면 Dashboard
+     */
+    if (
+      activeConsultationId ===
+      consultationId
+    ) {
+
+      setActiveConsultationId(
+        null,
+      );
+
+
+      if (isConsultationListTabOpen) {
+
+        setActiveMenu(
+          "consultations",
+        );
+
+      } else {
+
+        setActiveMenu(
+          "dashboard",
+        );
+
+      }
+
+    }
+
+  };
+
+
+  /* ========================================================
+     20. Header에서 일반 환자 선택
      ======================================================== */
 
   const handlePatientSelect = (
@@ -320,8 +560,7 @@ export default function AppShell({
   ) => {
 
     /**
-     * 이미 열려 있는 환자는
-     * 중복 Tab 생성하지 않음
+     * 동일 환자 중복 Tab 방지
      */
     setOpenPatientTabs(
       (previousTabs) => {
@@ -348,17 +587,21 @@ export default function AppShell({
     );
 
 
-    /**
-     * 다른 업무 Context 해제
-     */
     setActiveAssessmentContext(
       null,
     );
 
 
     /**
-     * 일반 환자 Chart 활성화
+     * 협진 상세 비활성
+     *
+     * 협진 Tabs 자체는 유지
      */
+    setActiveConsultationId(
+      null,
+    );
+
+
     setActivePatientId(
       patient.id,
     );
@@ -367,7 +610,7 @@ export default function AppShell({
 
 
   /* ========================================================
-     14. Dashboard Workspace Tab 선택
+     21. Dashboard Workspace Tab 선택
      ======================================================== */
 
   const handleSelectDashboard = () => {
@@ -382,6 +625,11 @@ export default function AppShell({
     );
 
 
+    setActiveConsultationId(
+      null,
+    );
+
+
     setActiveMenu(
       "dashboard",
     );
@@ -390,7 +638,7 @@ export default function AppShell({
 
 
   /* ========================================================
-     15. 일반 환자 Workspace Tab 선택
+     22. 일반 환자 Workspace Tab 선택
      ======================================================== */
 
   const handleSelectPatientTab = (
@@ -398,6 +646,11 @@ export default function AppShell({
   ) => {
 
     setActiveAssessmentContext(
+      null,
+    );
+
+
+    setActiveConsultationId(
       null,
     );
 
@@ -410,7 +663,7 @@ export default function AppShell({
 
 
   /* ========================================================
-     16. 일반 환자 Workspace Tab 닫기
+     23. 일반 환자 Workspace Tab 닫기
      ======================================================== */
 
   const handleClosePatientTab = (
@@ -421,17 +674,15 @@ export default function AppShell({
       (previousTabs) =>
         previousTabs.filter(
           (patient) =>
-            patient.id !== patientId,
+            patient.id !==
+            patientId,
         ),
     );
 
 
-    /**
-     * 현재 보고 있던 환자 Tab을 닫은 경우
-     * Dashboard로 이동
-     */
     if (
-      activePatientId === patientId
+      activePatientId ===
+      patientId
     ) {
 
       setActivePatientId(
@@ -449,7 +700,7 @@ export default function AppShell({
 
 
   /* ========================================================
-     17. Main Content
+     24. Main Content
      ======================================================== */
 
   function renderMainContent() {
@@ -476,7 +727,10 @@ export default function AppShell({
        Worklist
        ------------------------------------------------------- */
 
-    if (activeMenu === "worklist") {
+    if (
+      activeMenu ===
+      "worklist"
+    ) {
 
       return (
         <AssessmentWorklist
@@ -493,7 +747,10 @@ export default function AppShell({
        접수 / Triage
        ------------------------------------------------------- */
 
-    if (activeMenu === "triage") {
+    if (
+      activeMenu ===
+      "triage"
+    ) {
 
       const triageKey =
         activeAssessmentContext
@@ -524,16 +781,19 @@ export default function AppShell({
 
     /* -------------------------------------------------------
        협진
-       --------------------------------------------------------
+       -------------------------------------------------------
 
        activeConsultationId 있음
        → Patient Review
 
        activeConsultationId 없음
-       → 협진 목록
+       → ConsultationList
        ------------------------------------------------------- */
 
-    if (activeMenu === "consultations") {
+    if (
+      activeMenu ===
+      "consultations"
+    ) {
 
       if (activeConsultationId) {
 
@@ -564,7 +824,7 @@ export default function AppShell({
 
 
     /* -------------------------------------------------------
-       기본 Dashboard
+       Dashboard
        ------------------------------------------------------- */
 
     return children;
@@ -573,7 +833,7 @@ export default function AppShell({
 
 
   /* ========================================================
-     18. Layout
+     25. Layout
      ======================================================== */
 
   return (
@@ -603,6 +863,7 @@ export default function AppShell({
           ===================================================== */}
 
       <WorkspaceTabs
+
         sidebarCollapsed={
           sidebarCollapsed
         }
@@ -610,6 +871,9 @@ export default function AppShell({
         onToggleSidebar={
           handleToggleSidebar
         }
+
+
+        /* 일반 환자 */
 
         openPatientTabs={
           openPatientTabs
@@ -619,10 +883,6 @@ export default function AppShell({
           activePatientId
         }
 
-        onSelectDashboard={
-          handleSelectDashboard
-        }
-
         onSelectPatientTab={
           handleSelectPatientTab
         }
@@ -630,6 +890,52 @@ export default function AppShell({
         onClosePatientTab={
           handleClosePatientTab
         }
+
+
+        /* 협진 목록 */
+
+        isConsultationListTabOpen={
+          isConsultationListTabOpen
+        }
+
+        isConsultationListActive={
+          isConsultationListActive
+        }
+
+        onSelectConsultationListTab={
+          handleSelectConsultationListTab
+        }
+
+        onCloseConsultationListTab={
+          handleCloseConsultationListTab
+        }
+
+
+        /* 협진 Patient Review */
+
+        openConsultationTabs={
+          openConsultationTabs
+        }
+
+        activeConsultationId={
+          activeConsultationId
+        }
+
+        onSelectConsultationTab={
+          handleSelectConsultationTab
+        }
+
+        onCloseConsultationTab={
+          handleCloseConsultationTab
+        }
+
+
+        /* Dashboard */
+
+        onSelectDashboard={
+          handleSelectDashboard
+        }
+
       />
 
 
@@ -663,6 +969,7 @@ export default function AppShell({
 
 
       </div>
+
 
     </div>
 

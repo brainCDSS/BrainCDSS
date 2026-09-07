@@ -1,4 +1,7 @@
-import { useState } from "react";
+import {
+  useEffect,
+  useState,
+} from "react";
 
 import "./layout.css";
 
@@ -6,21 +9,39 @@ import "./layout.css";
 /* =========================================================
    Sidebar Menu Key
    ---------------------------------------------------------
-   AppShell에서 어떤 메뉴가 선택되었는지 관리할 때
-   동일한 key를 사용한다.
+   실제 화면을 식별하는 key
+
+   추후 역할별 권한을 적용할 때도
+   이 key 기준으로 메뉴 노출 여부를 제어한다.
    ========================================================= */
 
 export type SidebarMenuKey =
   | "dashboard"
-  | "worklist"
   | "patients"
+
+  | "worklist"
   | "triage"
+
   | "imaging"
   | "ai-results"
+  | "radiology-reports"
   | "cdss"
+
   | "consultations"
+  | "surgical-planning"
+
   | "prescriptions"
   | "notifications";
+
+
+/* =========================================================
+   Sidebar Group Key
+   ========================================================= */
+
+type SidebarGroupKey =
+  | "clinical"
+  | "analysis"
+  | "consultation";
 
 
 /* =========================================================
@@ -28,22 +49,8 @@ export type SidebarMenuKey =
    ========================================================= */
 
 interface SidebarProps {
-
-  /**
-   * 현재 선택된 메뉴
-   *
-   * AppShell에서 전달할 수 있다.
-   *
-   * 아직 AppShell 연결 전에는
-   * 내부 상태를 사용한다.
-   */
   activeMenu?: SidebarMenuKey;
 
-
-  /**
-   * 메뉴를 클릭했을 때
-   * 부모(AppShell)에게 선택된 menu key를 전달한다.
-   */
   onMenuSelect?: (
     menu: SidebarMenuKey,
   ) => void;
@@ -51,65 +58,274 @@ interface SidebarProps {
 
 
 /* =========================================================
-   Sidebar Menu
+   단일 메뉴
    ========================================================= */
 
-const menuItems: {
+interface SidebarSingleMenu {
+  type: "single";
+
   key: SidebarMenuKey;
+
   label: string;
+
   icon: string;
-}[] = [
+}
+
+
+/* =========================================================
+   2Depth 메뉴
+   ========================================================= */
+
+interface SidebarChildMenu {
+  key: SidebarMenuKey;
+
+  label: string;
+}
+
+
+interface SidebarGroupMenu {
+  type: "group";
+
+  key: SidebarGroupKey;
+
+  label: string;
+
+  icon: string;
+
+  children: SidebarChildMenu[];
+}
+
+
+type SidebarMenuItem =
+  | SidebarSingleMenu
+  | SidebarGroupMenu;
+
+
+/* =========================================================
+   Sidebar Menu Structure
+   ---------------------------------------------------------
+   CLINICAL WORKSPACE
+
+   Dashboard
+   환자 관리
+
+   진료 업무
+     - Worklist
+     - 접수 / Triage
+
+   검사 · 분석
+     - 검사 / 영상
+     - AI 분석 결과
+     - 최종 판독
+     - CDSS 결과
+
+   협진
+     - 협진 목록
+     - 수술 · 시술 플래닝
+
+   처방 / DUR
+   알림 센터
+   ========================================================= */
+
+const menuItems: SidebarMenuItem[] = [
+
+  /* -------------------------------------------------------
+     Dashboard
+     ------------------------------------------------------- */
+
   {
+    type: "single",
+
     key: "dashboard",
+
     label: "Dashboard",
+
     icon: "▦",
   },
+
+
+  /* -------------------------------------------------------
+     환자 관리
+     ------------------------------------------------------- */
+
   {
-    key: "worklist",
-    label: "Worklist",
-    icon: "☷",
-  },
-  {
+    type: "single",
+
     key: "patients",
+
     label: "환자 관리",
+
     icon: "○",
   },
+
+
+  /* -------------------------------------------------------
+     진료 업무
+     ------------------------------------------------------- */
+
   {
-    key: "triage",
-    label: "접수 / Triage",
+    type: "group",
+
+    key: "clinical",
+
+    label: "진료 업무",
+
     icon: "✓",
+
+    children: [
+      {
+        key: "worklist",
+
+        label: "Worklist",
+      },
+
+      {
+        key: "triage",
+
+        label: "접수 / Triage",
+      },
+    ],
   },
+
+
+  /* -------------------------------------------------------
+     검사 · 분석
+     ------------------------------------------------------- */
+
   {
-    key: "imaging",
-    label: "검사 / 영상",
-    icon: "▣",
-  },
-  {
-    key: "ai-results",
-    label: "AI / 판독 결과",
+    type: "group",
+
+    key: "analysis",
+
+    label: "검사 · 분석",
+
     icon: "◇",
+
+    children: [
+      {
+        key: "imaging",
+
+        label: "검사 / 영상",
+      },
+
+      {
+        key: "ai-results",
+
+        label: "AI 분석 결과",
+      },
+
+      {
+        key: "radiology-reports",
+
+        label: "최종 판독",
+      },
+
+      {
+        key: "cdss",
+
+        label: "CDSS 결과",
+      },
+    ],
   },
+
+
+  /* -------------------------------------------------------
+     협진
+     ------------------------------------------------------- */
+
   {
-    key: "cdss",
-    label: "CDSS 결과",
-    icon: "◆",
-  },
-  {
-    key: "consultations",
+    type: "group",
+
+    key: "consultation",
+
     label: "협진",
+
     icon: "◎",
+
+    children: [
+      {
+        key: "consultations",
+
+        label: "협진 목록",
+      },
+
+      {
+        key: "surgical-planning",
+
+        label: "수술 · 시술 플래닝",
+      },
+    ],
   },
+
+
+  /* -------------------------------------------------------
+     처방 / DUR
+     ------------------------------------------------------- */
+
   {
+    type: "single",
+
     key: "prescriptions",
+
     label: "처방 / DUR",
+
     icon: "+",
   },
+
+
+  /* -------------------------------------------------------
+     알림 센터
+     ------------------------------------------------------- */
+
   {
+    type: "single",
+
     key: "notifications",
+
     label: "알림 센터",
+
     icon: "!",
   },
+
 ];
+
+
+/* =========================================================
+   현재 메뉴가 어느 Group에 속하는지 확인
+   ========================================================= */
+
+function getMenuGroup(
+  menu: SidebarMenuKey,
+): SidebarGroupKey | null {
+
+  if (
+    menu === "worklist" ||
+    menu === "triage"
+  ) {
+    return "clinical";
+  }
+
+
+  if (
+    menu === "imaging" ||
+    menu === "ai-results" ||
+    menu === "radiology-reports" ||
+    menu === "cdss"
+  ) {
+    return "analysis";
+  }
+
+
+  if (
+    menu === "consultations" ||
+    menu === "surgical-planning"
+  ) {
+    return "consultation";
+  }
+
+
+  return null;
+}
 
 
 /* =========================================================
@@ -121,51 +337,108 @@ export default function Sidebar({
   onMenuSelect,
 }: SidebarProps) {
 
-  /* ========================================================
-     부모 연결 전 사용할 내부 선택 상태
 
-     현재 단계에서도 메뉴 클릭 시
-     active 디자인이 정상적으로 바뀌도록 한다.
+  /* ========================================================
+     내부 Active Menu
+
+     AppShell에서 activeMenu가 전달되면
+     AppShell 상태를 우선 사용한다.
      ======================================================== */
 
   const [
     internalActiveMenu,
     setInternalActiveMenu,
-  ] = useState<SidebarMenuKey>("dashboard");
+  ] = useState<SidebarMenuKey>(
+    "dashboard",
+  );
 
 
-  /**
-   * AppShell에서 activeMenu를 전달하면
-   * 부모 상태를 우선 사용한다.
-   *
-   * 아직 전달하지 않았다면
-   * Sidebar 내부 상태를 사용한다.
-   */
   const currentActiveMenu =
-    activeMenu ?? internalActiveMenu;
+    activeMenu ??
+    internalActiveMenu;
 
 
   /* ========================================================
-     메뉴 클릭
+     현재 열려 있는 1Depth Group
+
+     한 번에 하나의 Group만 펼친다.
+     ======================================================== */
+
+  const [
+    openGroup,
+    setOpenGroup,
+  ] = useState<SidebarGroupKey | null>(
+    null,
+  );
+
+
+  /* ========================================================
+     현재 Active Menu가 2Depth 메뉴라면
+     해당 부모 Group 자동 펼침
+     ======================================================== */
+
+  useEffect(() => {
+
+    const parentGroup =
+      getMenuGroup(
+        currentActiveMenu,
+      );
+
+
+    if (parentGroup) {
+
+      setOpenGroup(
+        parentGroup,
+      );
+
+    }
+
+  }, [
+    currentActiveMenu,
+  ]);
+
+
+  /* ========================================================
+     단일 / 2Depth 메뉴 선택
      ======================================================== */
 
   function handleMenuSelect(
     menu: SidebarMenuKey,
   ) {
 
-    /**
-     * 현재 단계에서 active 표시 변경
-     */
-    setInternalActiveMenu(menu);
+    setInternalActiveMenu(
+      menu,
+    );
 
 
-    /**
-     * AppShell이 연결되어 있다면
-     * 부모에게 선택한 메뉴 전달
-     */
-    onMenuSelect?.(menu);
+    onMenuSelect?.(
+      menu,
+    );
+
   }
 
+
+  /* ========================================================
+     1Depth Group 펼치기 / 닫기
+     ======================================================== */
+
+  function handleGroupToggle(
+    group: SidebarGroupKey,
+  ) {
+
+    setOpenGroup(
+      (previousGroup) =>
+        previousGroup === group
+          ? null
+          : group,
+    );
+
+  }
+
+
+  /* ========================================================
+     Render
+     ======================================================== */
 
   return (
     <aside className="sidebar">
@@ -182,45 +455,188 @@ export default function Sidebar({
 
         {menuItems.map((item) => {
 
-          /**
-           * 현재 선택된 메뉴인지 확인
-           */
-          const isActive =
-            currentActiveMenu === item.key;
+
+          /* =================================================
+             단일 1Depth 메뉴
+             ================================================= */
+
+          if (item.type === "single") {
+
+            const isActive =
+              currentActiveMenu ===
+              item.key;
+
+
+            return (
+              <button
+                key={item.key}
+                type="button"
+                className={
+                  isActive
+                    ? "sidebar-menu active"
+                    : "sidebar-menu"
+                }
+                onClick={() => {
+                  handleMenuSelect(
+                    item.key,
+                  );
+                }}
+              >
+
+                <span
+                  className="sidebar-menu-icon"
+                  aria-hidden="true"
+                >
+                  {item.icon}
+                </span>
+
+
+                <span className="sidebar-menu-label">
+                  {item.label}
+                </span>
+
+              </button>
+            );
+
+          }
+
+
+          /* =================================================
+             Group Menu
+             ================================================= */
+
+          const isOpen =
+            openGroup ===
+            item.key;
+
+
+          const hasActiveChild =
+            item.children.some(
+              (child) =>
+                child.key ===
+                currentActiveMenu,
+            );
 
 
           return (
-            <button
+            <div
               key={item.key}
-              type="button"
-
               className={
-                isActive
-                  ? "sidebar-menu active"
-                  : "sidebar-menu"
+                hasActiveChild
+                  ? "sidebar-group active"
+                  : "sidebar-group"
               }
-
-              /**
-               * Sidebar 메뉴 선택
-               */
-              onClick={() => {
-                handleMenuSelect(item.key);
-              }}
             >
 
-              <span
-                className="sidebar-menu-icon"
-                aria-hidden="true"
+              {/* =============================================
+                  1Depth
+                  ============================================= */}
+
+              <button
+                type="button"
+                className={
+                  hasActiveChild
+                    ? "sidebar-menu sidebar-group-button active"
+                    : "sidebar-menu sidebar-group-button"
+                }
+                aria-expanded={
+                  isOpen
+                }
+                onClick={() => {
+                  handleGroupToggle(
+                    item.key,
+                  );
+                }}
               >
-                {item.icon}
-              </span>
 
-              <span>
-                {item.label}
-              </span>
+                <span
+                  className="sidebar-menu-icon"
+                  aria-hidden="true"
+                >
+                  {item.icon}
+                </span>
 
-            </button>
+
+                <span className="sidebar-menu-label">
+                  {item.label}
+                </span>
+
+
+                <span
+                  className={
+                    isOpen
+                      ? "sidebar-group-arrow open"
+                      : "sidebar-group-arrow"
+                  }
+                  aria-hidden="true"
+                >
+                  ▾
+                </span>
+
+              </button>
+
+
+              {/* =============================================
+                  2Depth
+                  ============================================= */}
+
+              {isOpen && (
+
+                <div className="sidebar-submenu">
+
+                  {item.children.map(
+                    (child) => {
+
+                      const isChildActive =
+                        currentActiveMenu ===
+                        child.key;
+
+
+                      return (
+                        <button
+                          key={
+                            child.key
+                          }
+                          type="button"
+                          className={
+                            isChildActive
+                              ? "sidebar-submenu-item active"
+                              : "sidebar-submenu-item"
+                          }
+                          onClick={() => {
+                            handleMenuSelect(
+                              child.key,
+                            );
+                          }}
+                        >
+
+                          <span
+                            className="sidebar-submenu-dot"
+                            aria-hidden="true"
+                          >
+                            ·
+                          </span>
+
+
+                          <span>
+                            {
+                              child.label
+                            }
+                          </span>
+
+                        </button>
+                      );
+
+                    },
+                  )}
+
+                </div>
+
+              )}
+
+            </div>
           );
+
         })}
 
       </nav>

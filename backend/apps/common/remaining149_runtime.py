@@ -70,15 +70,109 @@ def _field_map(model):
 
 
 def _safe_value(value):
-    if isinstance(value, (datetime, date)):
-        return value.isoformat()
-    if isinstance(value, uuid.UUID):
+    """
+    AuditLog / OutboxEvent JSONField에 저장할 값을
+    JSON 직렬화 가능한 형태로 재귀 변환한다.
+
+    Django/Python 객체 중 JSON에서 직접 지원하지 않는
+    Decimal, UUID, datetime/date/time, timedelta,
+    bytes, Model instance 등을 처리한다.
+    """
+    from datetime import (
+        date,
+        datetime,
+        time,
+        timedelta,
+    )
+    from decimal import Decimal
+    import uuid as uuid_module
+
+    from django.db.models import Model
+
+    if value is None:
+        return None
+
+    if isinstance(
+        value,
+        (
+            str,
+            int,
+            float,
+            bool,
+        ),
+    ):
+        return value
+
+    # Decimal은 의료 dose 등의 정밀도를 보존하기 위해
+    # float가 아닌 문자열로 저장한다.
+    if isinstance(value, Decimal):
         return str(value)
+
+    if isinstance(
+        value,
+        uuid_module.UUID,
+    ):
+        return str(value)
+
+    if isinstance(
+        value,
+        (
+            datetime,
+            date,
+            time,
+        ),
+    ):
+        return value.isoformat()
+
+    if isinstance(
+        value,
+        timedelta,
+    ):
+        return value.total_seconds()
+
+    if isinstance(value, bytes):
+        return value.decode(
+            "utf-8",
+            errors="replace",
+        )
+
+    if isinstance(value, Model):
+        return str(value.pk)
+
     if isinstance(value, dict):
-        return {str(k): _safe_value(v) for k, v in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_safe_value(v) for v in value]
-    return value
+        return {
+            str(key): _safe_value(item)
+            for key, item
+            in value.items()
+        }
+
+    if isinstance(
+        value,
+        (
+            list,
+            tuple,
+            set,
+        ),
+    ):
+        return [
+            _safe_value(item)
+            for item in value
+        ]
+
+    # numpy 계열 scalar가 들어오는 경우도 대비
+    if hasattr(value, "item"):
+        try:
+            return _safe_value(
+                value.item()
+            )
+        except Exception:
+            pass
+
+    # JSONField 저장 실패로 전체 API가 500이 되는 것을
+    # 방지하기 위한 최종 fallback
+    return str(value)
+
+
 
 
 def serialize_instance(obj):
@@ -914,7 +1008,1311 @@ def _medication_safety_check(request, spec, kwargs):
     }, status=200)
 
 
+# === BATCH_B_LOCAL_HANDLERS_START ===
+
+def _batchb_prescription_payload(prescription):
+    item_model = apps.get_model(
+        "prescriptions",
+        "PrescriptionItem",
+    )
+
+    data = serialize_instance(prescription)
+    data["prescription_id"] = str(prescription.pk)
+
+    prescriber = getattr(
+        prescription,
+        "prescribed_by",
+        None,
+    )
+
+    data["doctor"] = (
+        str(prescriber)
+        if prescriber is not None
+        else None
+    )
+
+    department = getattr(
+        prescriber,
+        "department",
+        None,
+    ) if prescriber is not None else None
+
+    data["department"] = (
+        str(department)
+        if department is not None
+        else None
+    )
+
+    items = []
+
+    for item in (
+        item_model.objects
+        .filter(
+            prescription_id=prescription.pk
+        )
+        .order_by("created_at")
+    ):
+        row = serialize_instance(item)
+        row["item_id"] = str(item.pk)
+        items.append(row)
+
+    data["items"] = items
+
+    return data
+
+
+def _batchb_prescriber_scope(
+    request,
+    prescription,
+):
+    from rest_framework.exceptions import (
+        PermissionDenied,
+    )
+
+    prescriber = getattr(
+        prescription,
+        "prescribed_by",
+        None,
+    )
+
+    if prescriber is None:
+        return
+
+    # prescribed_by -> accounts.User
+    try:
+        if (
+            prescriber._meta.label_lower
+            == request.user._meta.label_lower
+        ):
+            if (
+                str(prescriber.pk)
+                != str(request.user.pk)
+            ):
+                raise PermissionDenied({
+                    "code":
+                        "PRESCRIPTION_VIEW_FORBIDDEN",
+                    "detail":
+                        "Prescription is outside "
+                        "the clinician scope.",
+                })
+
+            return
+    except AttributeError:
+        pass
+
+    # prescribed_by -> Clinician -> user
+    user_id = getattr(
+        prescriber,
+        "user_id",
+        None,
+    )
+
+    if (
+        user_id is not None
+        and str(user_id)
+        != str(request.user.pk)
+    ):
+        raise PermissionDenied({
+            "code":
+                "PRESCRIPTION_VIEW_FORBIDDEN",
+            "detail":
+                "Prescription is outside "
+                "the clinician scope.",
+        })
+
+
+def _batchb_rx_detail(
+    request,
+    spec,
+    kwargs,
+):
+    from rest_framework.exceptions import (
+        PermissionDenied,
+    )
+
+    prescription_model = apps.get_model(
+        "prescriptions",
+        "Prescription",
+    )
+
+    prescription = _get_instance(
+        prescription_model,
+        request,
+        kwargs,
+    )
+
+    if _role_code(request.user) == "PATIENT":
+        patient = _patient_for_user(
+            request.user
+        )
+
+        encounter = getattr(
+            prescription,
+            "encounter",
+            None,
+        )
+
+        valid = (
+            patient is not None
+            and encounter is not None
+            and str(
+                getattr(
+                    encounter,
+                    "patient_id",
+                    "",
+                )
+            ) == str(patient.pk)
+            and getattr(
+                prescription,
+                "status",
+                None,
+            ) == "FINAL"
+        )
+
+        if not valid:
+            raise PermissionDenied({
+                "code":
+                    "PRESCRIPTION_VIEW_FORBIDDEN",
+                "detail":
+                    "Prescription access denied.",
+            })
+
+    else:
+        _batchb_prescriber_scope(
+            request,
+            prescription,
+        )
+
+    return Response(
+        _batchb_prescription_payload(
+            prescription
+        ),
+        status=200,
+    )
+
+
+def _batchb_active_medication(
+    medication_id,
+):
+    medication_model = apps.get_model(
+        "medications",
+        "Medication",
+    )
+
+    try:
+        return medication_model.objects.get(
+            pk=medication_id,
+            is_active=True,
+        )
+    except (
+        medication_model.DoesNotExist
+    ) as exc:
+        raise NotFound({
+            "code":
+                "MEDICATION_NOT_FOUND",
+            "detail":
+                "Active medication was not found.",
+        }) from exc
+
+
+def _batchb_apply_item(
+    item,
+    payload,
+    medication,
+):
+    item.medication_id = medication.pk
+
+    if hasattr(
+        item,
+        "medication_code",
+    ):
+        item.medication_code = getattr(
+            medication,
+            "medication_code",
+            None,
+        )
+
+    if hasattr(
+        item,
+        "medication_name",
+    ):
+        item.medication_name = getattr(
+            medication,
+            "medication_name",
+            None,
+        )
+
+    for name in (
+        "dose",
+        "dose_unit",
+        "route",
+        "frequency_per_day",
+        "timing",
+        "start_date",
+        "duration_days",
+        "instructions",
+    ):
+        if name in payload:
+            setattr(
+                item,
+                name,
+                payload[name],
+            )
+
+
+def _batchb_rx_patch(
+    request,
+    spec,
+    kwargs,
+):
+    prescription_model = apps.get_model(
+        "prescriptions",
+        "Prescription",
+    )
+
+    item_model = apps.get_model(
+        "prescriptions",
+        "PrescriptionItem",
+    )
+
+    prescription = _get_instance(
+        prescription_model,
+        request,
+        kwargs,
+        for_update=True,
+    )
+
+    _batchb_prescriber_scope(
+        request,
+        prescription,
+    )
+
+    if getattr(
+        prescription,
+        "status",
+        None,
+    ) != "DRAFT":
+        raise ContractError({
+            "code":
+                "PRESCRIPTION_FINAL_LOCKED",
+            "detail":
+                "Only DRAFT prescriptions "
+                "may be modified.",
+        })
+
+    before = _batchb_prescription_payload(
+        prescription
+    )
+
+    items = request.data.get("items")
+
+    if items is not None:
+        if not isinstance(items, list):
+            raise ContractError({
+                "code":
+                    "PRESCRIPTION_INVALID_ITEM",
+                "detail":
+                    "items must be an array.",
+            })
+
+        for payload in items:
+            if not isinstance(
+                payload,
+                dict,
+            ):
+                raise ContractError({
+                    "code":
+                        "PRESCRIPTION_INVALID_ITEM",
+                    "detail":
+                        "Invalid prescription item.",
+                })
+
+            item_id = payload.get(
+                "item_id"
+            )
+
+            medication_id = payload.get(
+                "medication_id"
+            )
+
+            if item_id:
+                try:
+                    item = (
+                        item_model.objects
+                        .select_for_update()
+                        .get(
+                            pk=item_id,
+                            prescription_id=
+                                prescription.pk,
+                        )
+                    )
+                except (
+                    item_model.DoesNotExist
+                ) as exc:
+                    raise NotFound({
+                        "code":
+                            "PRESCRIPTION_ITEM_NOT_FOUND",
+                        "detail":
+                            "Prescription item "
+                            "was not found.",
+                    }) from exc
+
+                if medication_id:
+                    medication = (
+                        _batchb_active_medication(
+                            medication_id
+                        )
+                    )
+                else:
+                    medication = (
+                        item.medication
+                    )
+
+            else:
+                if not medication_id:
+                    raise ContractError({
+                        "code":
+                            "PRESCRIPTION_INVALID_ITEM",
+                        "detail":
+                            "medication_id is required "
+                            "for a new item.",
+                    })
+
+                medication = (
+                    _batchb_active_medication(
+                        medication_id
+                    )
+                )
+
+                item = item_model(
+                    prescription_id=
+                        prescription.pk
+                )
+
+            _batchb_apply_item(
+                item,
+                payload,
+                medication,
+            )
+
+            item.save()
+
+    fields = _field_map(
+        prescription_model
+    )
+
+    if "updated_at" in fields:
+        prescription.updated_at = (
+            timezone.now()
+        )
+
+    prescription.save()
+
+    after = _batchb_prescription_payload(
+        prescription
+    )
+
+    _audit(
+        request,
+        spec,
+        prescription,
+        before,
+        after,
+    )
+
+    _outbox(
+        spec,
+        prescription,
+        after,
+    )
+
+    return Response(
+        after,
+        status=200,
+    )
+
+
+def _batchb_ingredient_ids(
+    prescription,
+):
+    item_model = apps.get_model(
+        "prescriptions",
+        "PrescriptionItem",
+    )
+
+    medication_ids = list(
+        item_model.objects
+        .filter(
+            prescription_id=
+                prescription.pk
+        )
+        .exclude(
+            medication_id__isnull=True
+        )
+        .values_list(
+            "medication_id",
+            flat=True,
+        )
+    )
+
+    if not medication_ids:
+        return []
+
+    try:
+        link_model = apps.get_model(
+            "medication_safety",
+            "MedicationIngredient",
+        )
+    except LookupError:
+        return []
+
+    fields = _field_map(link_model)
+
+    medication_field = fields.get(
+        "medication"
+    )
+
+    ingredient_field = fields.get(
+        "ingredient"
+    )
+
+    if (
+        medication_field is None
+        or ingredient_field is None
+    ):
+        return []
+
+    return list(
+        link_model.objects
+        .filter(
+            **{
+                f"{medication_field.attname}__in":
+                    medication_ids
+            }
+        )
+        .values_list(
+            ingredient_field.attname,
+            flat=True,
+        )
+    )
+
+
+def _batchb_safety_alerts(
+    patient_id,
+    ingredient_ids,
+):
+    from apps.medication_safety.models import (
+        DURAgeRule,
+        DURDoseRule,
+        DURDuplicateRule,
+        DURElderlyRule,
+        DURInteractionRule,
+        DURPregnancyRule,
+        PatientAllergy,
+    )
+
+    alerts = []
+
+    allergies = (
+        PatientAllergy.objects
+        .filter(
+            patient_id=patient_id,
+            status="ACTIVE",
+        )
+    )
+
+    if ingredient_ids:
+        allergies = allergies.filter(
+            Q(
+                ingredient_id__in=
+                    ingredient_ids
+            )
+            |
+            Q(
+                ingredient_id__isnull=True
+            )
+        )
+    else:
+        allergies = allergies.filter(
+            ingredient_id__isnull=True
+        )
+
+    for allergy in allergies:
+        severity = str(
+            getattr(
+                allergy,
+                "severity",
+                None,
+            )
+            or "WARNING"
+        ).upper()
+
+        severity = {
+            "HIGH": "MAJOR",
+            "SEVERE": "MAJOR",
+            "CRITICAL": "BLOCK",
+        }.get(
+            severity,
+            severity,
+        )
+
+        alerts.append({
+            "type": "ALLERGY",
+            "rule_type": "ALLERGY",
+            "rule_id": str(
+                allergy.pk
+            ),
+            "severity": severity,
+            "message": (
+                getattr(
+                    allergy,
+                    "reaction",
+                    None,
+                )
+                or getattr(
+                    allergy,
+                    "substance",
+                    None,
+                )
+            ),
+            "_rule_obj": allergy,
+        })
+
+    if ingredient_ids:
+        for rule in (
+            DURInteractionRule.objects
+            .filter(
+                is_active=True,
+                ingredient_a_id__in=
+                    ingredient_ids,
+                ingredient_b_id__in=
+                    ingredient_ids,
+            )
+        ):
+            alerts.append({
+                "type":
+                    "INTERACTION",
+                "rule_type":
+                    "INTERACTION",
+                "rule_id":
+                    str(rule.pk),
+                "severity":
+                    "MAJOR",
+                "message":
+                    getattr(
+                        rule,
+                        "description",
+                        None,
+                    ),
+                "_rule_obj": rule,
+            })
+
+        for code, model in (
+            ("DOSE", DURDoseRule),
+            (
+                "DUPLICATE",
+                DURDuplicateRule,
+            ),
+            ("AGE", DURAgeRule),
+            (
+                "ELDERLY",
+                DURElderlyRule,
+            ),
+            (
+                "PREGNANCY",
+                DURPregnancyRule,
+            ),
+        ):
+            for rule in (
+                model.objects.filter(
+                    ingredient_id__in=
+                        ingredient_ids,
+                    is_active=True,
+                )
+            ):
+                alerts.append({
+                    "type": code,
+                    "rule_type": code,
+                    "rule_id":
+                        str(rule.pk),
+                    "severity":
+                        "WARNING",
+                    "message":
+                        getattr(
+                            rule,
+                            "description",
+                            None,
+                        ),
+                    "_rule_obj": rule,
+                })
+
+    return alerts
+
+
+def _batchb_public_alert(
+    alert,
+):
+    return {
+        key: value
+        for key, value in alert.items()
+        if not key.startswith("_")
+    }
+
+
+def _batchb_create_override(
+    prescription,
+    patient_id,
+    alert,
+    payload,
+):
+    model = apps.get_model(
+        "medication_safety",
+        "MedicationSafetyOverride",
+    )
+
+    fields = _field_map(model)
+
+    reason = str(
+        payload.get("reason")
+        or ""
+    ).strip()
+
+    if not reason:
+        raise ContractError({
+            "code":
+                "OVERRIDE_REASON_REQUIRED",
+            "detail":
+                "Override reason is required.",
+        })
+
+    data = {
+        "alert_type":
+            alert["type"],
+        "severity":
+            alert["severity"],
+        "rule_type":
+            alert["rule_type"],
+        "reason":
+            reason,
+    }
+
+    if "patient" in fields:
+        data[
+            fields[
+                "patient"
+            ].attname
+        ] = patient_id
+
+    if "prescription" in fields:
+        data[
+            fields[
+                "prescription"
+            ].attname
+        ] = prescription.pk
+
+    if (
+        "doctor" in fields
+        and getattr(
+            prescription,
+            "prescribed_by_id",
+            None,
+        ) is not None
+    ):
+        data[
+            fields[
+                "doctor"
+            ].attname
+        ] = (
+            prescription
+            .prescribed_by_id
+        )
+
+    rule_field = fields.get("rule")
+    rule_obj = alert.get("_rule_obj")
+
+    if (
+        rule_field is not None
+        and rule_obj is not None
+    ):
+        if rule_field.is_relation:
+            target_model = (
+                rule_field
+                .remote_field
+                .model
+            )
+
+            if isinstance(
+                rule_obj,
+                target_model,
+            ):
+                data[
+                    rule_field.attname
+                ] = rule_obj.pk
+        else:
+            data[
+                rule_field.name
+            ] = str(rule_obj.pk)
+
+    return model.objects.create(
+        **data
+    )
+
+
+def _batchb_create_schedules(
+    prescription,
+):
+    item_model = apps.get_model(
+        "prescriptions",
+        "PrescriptionItem",
+    )
+
+    schedule_model = apps.get_model(
+        "medications",
+        "MedicationSchedule",
+    )
+
+    created = 0
+
+    for item in (
+        item_model.objects
+        .filter(
+            prescription_id=
+                prescription.pk
+        )
+    ):
+        exists = (
+            schedule_model.objects
+            .filter(
+                prescription_item_id=
+                    item.pk
+            )
+            .exists()
+        )
+
+        if exists:
+            continue
+
+        create_data = {
+            "prescription_item_id":
+                item.pk,
+            "scheduled_at":
+                timezone.now(),
+            "time_slot": (
+                getattr(
+                    item,
+                    "timing",
+                    None,
+                )
+                or "DEFAULT"
+            ),
+            "dose": getattr(
+                item,
+                "dose",
+                None,
+            ),
+        }
+
+        schedule_fields = _field_map(
+            schedule_model
+        )
+
+        if "created_at" in schedule_fields:
+            create_data["created_at"] = (
+                timezone.now()
+            )
+
+        schedule_model.objects.create(
+            **create_data
+        )
+
+        created += 1
+
+    return created
+
+
+def _batchb_rx_finalize(
+    request,
+    spec,
+    kwargs,
+):
+    prescription_model = apps.get_model(
+        "prescriptions",
+        "Prescription",
+    )
+
+    item_model = apps.get_model(
+        "prescriptions",
+        "PrescriptionItem",
+    )
+
+    prescription = _get_instance(
+        prescription_model,
+        request,
+        kwargs,
+        for_update=True,
+    )
+
+    _batchb_prescriber_scope(
+        request,
+        prescription,
+    )
+
+    if getattr(
+        prescription,
+        "status",
+        None,
+    ) != "DRAFT":
+        raise ContractError({
+            "code":
+                "PRESCRIPTION_INVALID_STATE",
+            "detail":
+                "Prescription must be DRAFT.",
+        })
+
+    items = list(
+        item_model.objects
+        .filter(
+            prescription_id=
+                prescription.pk
+        )
+    )
+
+    if not items:
+        raise ContractError({
+            "code":
+                "PRESCRIPTION_EMPTY",
+            "detail":
+                "Prescription has no items.",
+        })
+
+    for item in items:
+        medication = getattr(
+            item,
+            "medication",
+            None,
+        )
+
+        if (
+            medication is None
+            or not getattr(
+                medication,
+                "is_active",
+                False,
+            )
+        ):
+            raise ContractError({
+                "code":
+                    "PRESCRIPTION_INVALID_ITEM",
+                "detail":
+                    "Inactive medication exists.",
+            })
+
+    encounter = getattr(
+        prescription,
+        "encounter",
+        None,
+    )
+
+    patient_id = getattr(
+        encounter,
+        "patient_id",
+        None,
+    )
+
+    if patient_id is None:
+        raise ContractError({
+            "code":
+                "PRESCRIPTION_PATIENT_MISMATCH",
+            "detail":
+                "Patient could not be resolved.",
+        })
+
+    ingredient_ids = (
+        _batchb_ingredient_ids(
+            prescription
+        )
+    )
+
+    alerts = _batchb_safety_alerts(
+        patient_id,
+        ingredient_ids,
+    )
+
+    blocking = [
+        alert
+        for alert in alerts
+        if str(
+            alert.get(
+                "severity"
+            )
+            or ""
+        ).upper()
+        in {"MAJOR", "BLOCK"}
+    ]
+
+    requested_overrides = (
+        request.data.get(
+            "overrides"
+        )
+        or []
+    )
+
+    created_overrides = []
+
+    for alert in blocking:
+        matched = None
+
+        for candidate in (
+            requested_overrides
+        ):
+            if not isinstance(
+                candidate,
+                dict,
+            ):
+                continue
+
+            if (
+                str(
+                    candidate.get(
+                        "alert_type"
+                    )
+                )
+                ==
+                str(alert["type"])
+                and
+                str(
+                    candidate.get(
+                        "rule_id"
+                    )
+                )
+                ==
+                str(alert["rule_id"])
+            ):
+                matched = candidate
+                break
+
+        if matched is None:
+            raise ContractError({
+                "code":
+                    "MEDICATION_SAFETY_BLOCKED",
+                "detail":
+                    "Blocking safety alert "
+                    "requires override.",
+                "alerts": [
+                    _batchb_public_alert(
+                        item
+                    )
+                    for item in blocking
+                ],
+            })
+
+        override = (
+            _batchb_create_override(
+                prescription,
+                patient_id,
+                alert,
+                matched,
+            )
+        )
+
+        created_overrides.append({
+            "override_id":
+                str(override.pk),
+            "alert_type":
+                alert["type"],
+            "severity":
+                alert["severity"],
+            "reason":
+                matched["reason"],
+        })
+
+    before = (
+        _batchb_prescription_payload(
+            prescription
+        )
+    )
+
+    prescription.status = "FINAL"
+    prescription.finalized_at = (
+        timezone.now()
+    )
+
+    fields = _field_map(
+        prescription_model
+    )
+
+    if "updated_at" in fields:
+        prescription.updated_at = (
+            timezone.now()
+        )
+
+    prescription.save()
+
+    schedules_created = (
+        _batchb_create_schedules(
+            prescription
+        )
+    )
+
+    after = (
+        _batchb_prescription_payload(
+            prescription
+        )
+    )
+
+    audit_after = {
+        **after,
+        "safety": {
+            "alerts": [
+                _batchb_public_alert(
+                    alert
+                )
+                for alert in alerts
+            ],
+            "overrides":
+                created_overrides,
+        },
+    }
+
+    _audit(
+        request,
+        spec,
+        prescription,
+        before,
+        audit_after,
+    )
+
+    # Outbox DB 저장까지는 Backend 내부 검증 대상.
+    # 실제 RabbitMQ publish는 외부연동 후 검증한다.
+    _outbox(
+        spec,
+        prescription,
+        {
+            "prescription_id":
+                str(prescription.pk),
+            "status":
+                "FINAL",
+            "schedules_created":
+                schedules_created,
+        },
+    )
+
+    return Response({
+        "prescription_id":
+            str(prescription.pk),
+        "status":
+            "FINAL",
+        "finalized_at":
+            prescription.finalized_at,
+        "safety": {
+            "safe":
+                len(alerts) == 0,
+            "alerts": [
+                _batchb_public_alert(
+                    alert
+                )
+                for alert in alerts
+            ],
+            "overrides":
+                created_overrides,
+        },
+        "schedules_created":
+            schedules_created,
+    }, status=200)
+
+
+def _batchb_allergy_deactivate(
+    request,
+    spec,
+    kwargs,
+):
+    allergy_model = apps.get_model(
+        "medication_safety",
+        "PatientAllergy",
+    )
+
+    patient_id = kwargs.get(
+        "patient_id"
+    )
+
+    allergy_id = kwargs.get(
+        "allergy_id"
+    )
+
+    qs = (
+        allergy_model.objects
+        .select_for_update()
+        .filter(
+            pk=allergy_id,
+            patient_id=patient_id,
+            status="ACTIVE",
+        )
+    )
+
+    qs = _owner_scope(
+        qs,
+        allergy_model,
+        request,
+    )
+
+    allergy = qs.first()
+
+    if allergy is None:
+        raise NotFound({
+            "code":
+                "PATIENT_ALLERGY_NOT_FOUND",
+            "detail":
+                "Active patient allergy "
+                "was not found.",
+        })
+
+    before = serialize_instance(
+        allergy
+    )
+
+    allergy.status = "INACTIVE"
+
+    fields = _field_map(
+        allergy_model
+    )
+
+    if "updated_at" in fields:
+        allergy.updated_at = (
+            timezone.now()
+        )
+
+    update_fields = ["status"]
+
+    if "updated_at" in fields:
+        update_fields.append(
+            "updated_at"
+        )
+
+    allergy.save(
+        update_fields=update_fields
+    )
+
+    patient_model = apps.get_model(
+        "patients",
+        "Patient",
+    )
+
+    patient_fields = _field_map(
+        patient_model
+    )
+
+    if "allergy_info" in patient_fields:
+        try:
+            patient = (
+                patient_model.objects
+                .select_for_update()
+                .get(pk=patient_id)
+            )
+        except (
+            patient_model.DoesNotExist
+        ) as exc:
+            raise NotFound({
+                "code":
+                    "PATIENT_NOT_FOUND",
+                "detail":
+                    "Patient was not found.",
+            }) from exc
+
+        active = (
+            allergy_model.objects
+            .filter(
+                patient_id=patient_id,
+                status="ACTIVE",
+            )
+            .select_related(
+                "ingredient"
+            )
+            .order_by("created_at")
+        )
+
+        labels = []
+
+        for item in active:
+            label = getattr(
+                item,
+                "substance",
+                None,
+            )
+
+            if not label:
+                ingredient = getattr(
+                    item,
+                    "ingredient",
+                    None,
+                )
+
+                if ingredient is not None:
+                    label = str(
+                        ingredient
+                    )
+
+            if (
+                label
+                and str(label)
+                not in labels
+            ):
+                labels.append(
+                    str(label)
+                )
+
+        patient.allergy_info = (
+            ", ".join(labels)
+            if labels
+            else None
+        )
+
+        patient_update = [
+            "allergy_info"
+        ]
+
+        if "updated_at" in patient_fields:
+            patient.updated_at = (
+                timezone.now()
+            )
+
+            patient_update.append(
+                "updated_at"
+            )
+
+        patient.save(
+            update_fields=
+                patient_update
+        )
+
+    after = serialize_instance(
+        allergy
+    )
+
+    _audit(
+        request,
+        spec,
+        allergy,
+        before,
+        after,
+    )
+
+    _outbox(
+        spec,
+        allergy,
+        after,
+    )
+
+    return Response(status=204)
+
+
+# === BATCH_B_LOCAL_HANDLERS_END ===
+
+
 CUSTOM_HANDLERS = {
+    "API-ALLERGY-003": _batchb_allergy_deactivate,
+    "API-RX-002": _batchb_rx_detail,
+    "API-RX-003": _batchb_rx_patch,
+    "API-RX-004": _batchb_rx_finalize,
     "API-SCH-002": _schedule_put,
     "API-APP-001": _appointment_create,
     "API-NOTI-003": _notification_preferences_get,
@@ -1051,3 +2449,2008 @@ def build_contract_view(specs):
         for spec in specs
     )
     return type(name, (APIView,), attrs)
+
+# === BATCH_C_CDS_RAD_FINAL_START ===
+
+
+# ============================================================
+# Shared Radiology helpers
+# ============================================================
+
+def _batchc_rad_model(name):
+    return apps.get_model(
+        "radiology",
+        name,
+    )
+
+
+def _batchc_rad_get_report(
+    request,
+    kwargs,
+    *,
+    for_update=True,
+):
+    report_model = _batchc_rad_model(
+        "RadiologyReport"
+    )
+
+    qs = report_model.objects.all()
+
+    if for_update:
+        qs = qs.select_for_update()
+
+    report_id = kwargs.get(
+        "report_id"
+    )
+
+    if not report_id:
+        raise ContractError({
+            "code": "REPORT_ID_REQUIRED",
+            "detail": "report_id is required.",
+        })
+
+    try:
+        return qs.get(
+            pk=report_id
+        )
+
+    except report_model.DoesNotExist as exc:
+        raise NotFound({
+            "code": "RESOURCE_NOT_FOUND",
+            "detail": (
+                "RadiologyReport was not found."
+            ),
+        }) from exc
+
+
+def _batchc_user_relation_id(
+    field,
+    user,
+):
+    """
+    User FK 또는 User profile FK에
+    현재 로그인 사용자를 안전하게 연결한다.
+    """
+
+    if (
+        field is None
+        or not field.is_relation
+        or not getattr(
+            user,
+            "pk",
+            None,
+        )
+    ):
+        return None
+
+    related_model = (
+        field.remote_field.model
+    )
+
+    try:
+        if isinstance(
+            user,
+            related_model,
+        ):
+            return user.pk
+    except TypeError:
+        pass
+
+    related_fields = _field_map(
+        related_model
+    )
+
+    user_field = (
+        related_fields.get("user")
+    )
+
+    if (
+        user_field is not None
+        and user_field.is_relation
+    ):
+        obj = (
+            related_model.objects
+            .filter(
+                **{
+                    user_field.attname:
+                        user.pk
+                }
+            )
+            .first()
+        )
+
+        if obj is not None:
+            return obj.pk
+
+    return None
+
+
+def _batchc_rad_snapshot(report):
+    """
+    Revision snapshot은 반드시 JSON-safe 값으로 저장한다.
+    """
+    return _safe_value(
+        serialize_instance(
+            report
+        )
+    )
+
+
+def _batchc_rad_revision(
+    request,
+    report,
+    *,
+    previous_snapshot,
+    new_snapshot,
+    reason=None,
+    version=None,
+):
+    revision_model = _batchc_rad_model(
+        "RadiologyReportRevision"
+    )
+
+    fields = _field_map(
+        revision_model
+    )
+
+    data = {}
+
+    # Report FK
+    for name in (
+        "report",
+        "radiology_report",
+    ):
+        field = fields.get(name)
+
+        if (
+            field is not None
+            and field.is_relation
+        ):
+            data[field.attname] = (
+                report.pk
+            )
+            break
+
+    # version
+    if "version" in fields:
+        data["version"] = (
+            version
+            if version is not None
+            else getattr(
+                report,
+                "version",
+                1,
+            )
+        )
+
+    # Snapshot
+    if "previous_snapshot" in fields:
+        data["previous_snapshot"] = (
+            _safe_value(
+                previous_snapshot
+                or {}
+            )
+        )
+
+    if "new_snapshot" in fields:
+        data["new_snapshot"] = (
+            _safe_value(
+                new_snapshot
+                or {}
+            )
+        )
+
+    # 변경 사유
+    if "change_reason" in fields:
+        data["change_reason"] = (
+            reason or ""
+        )
+
+    # 변경자
+    for name in (
+        "changed_by",
+        "created_by",
+    ):
+        field = fields.get(name)
+
+        if (
+            field is not None
+            and field.is_relation
+        ):
+            relation_id = (
+                _batchc_user_relation_id(
+                    field,
+                    request.user,
+                )
+            )
+
+            if relation_id is not None:
+                data[field.attname] = (
+                    relation_id
+                )
+            break
+
+    # 생성시각
+    for name in (
+        "created_at",
+        "changed_at",
+    ):
+        if name in fields:
+            data[name] = timezone.now()
+
+    # 아직 남은 NOT NULL / no default 필드 탐지
+    unresolved = []
+
+    for field in (
+        revision_model._meta.fields
+    ):
+        if field.primary_key:
+            continue
+
+        if (
+            field.name in data
+            or field.attname in data
+        ):
+            continue
+
+        if (
+            field.null
+            or field.has_default()
+            or getattr(
+                field,
+                "auto_now",
+                False,
+            )
+            or getattr(
+                field,
+                "auto_now_add",
+                False,
+            )
+        ):
+            continue
+
+        # 의미가 명확한 안전한 fallback만 허용
+        if isinstance(
+            field,
+            models.JSONField,
+        ):
+            data[field.name] = {}
+
+        elif isinstance(
+            field,
+            (
+                models.CharField,
+                models.TextField,
+            ),
+        ):
+            data[field.name] = ""
+
+        elif isinstance(
+            field,
+            models.DateTimeField,
+        ):
+            data[field.name] = (
+                timezone.now()
+            )
+
+        elif (
+            field.name == "version"
+            and isinstance(
+                field,
+                (
+                    models.IntegerField,
+                    models.BigIntegerField,
+                    models.SmallIntegerField,
+                ),
+            )
+        ):
+            data[field.name] = (
+                version
+                or getattr(
+                    report,
+                    "version",
+                    1,
+                )
+                or 1
+            )
+
+        else:
+            unresolved.append(
+                field.name
+            )
+
+    if unresolved:
+        raise ContractError({
+            "code":
+                "RADIOLOGY_REVISION_SCHEMA_ERROR",
+
+            "detail":
+                (
+                    "Required Revision fields "
+                    "could not be resolved: "
+                    + ", ".join(
+                        unresolved
+                    )
+                ),
+        })
+
+    return (
+        revision_model.objects.create(
+            **data
+        )
+    )
+
+
+def _batchc_rad_check_version(
+    request,
+    report,
+):
+    if not isinstance(
+        request.data,
+        dict,
+    ):
+        return
+
+    requested = (
+        request.data.get(
+            "version"
+        )
+    )
+
+    if requested in (
+        None,
+        "",
+    ):
+        return
+
+    actual = getattr(
+        report,
+        "version",
+        None,
+    )
+
+    if (
+        actual is not None
+        and int(requested)
+        != int(actual)
+    ):
+        raise ContractError({
+            "code":
+                "RADIOLOGY_VERSION_CONFLICT",
+
+            "detail":
+                (
+                    f"version mismatch: "
+                    f"request={requested}, "
+                    f"current={actual}"
+                ),
+        })
+
+
+def _batchc_rad_require_confirmation(
+    request,
+):
+    if (
+        not isinstance(
+            request.data,
+            dict,
+        )
+        or request.data.get(
+            "confirmation"
+        )
+        is not True
+    ):
+        raise ContractError({
+            "code":
+                "CONFIRMATION_REQUIRED",
+
+            "detail":
+                "confirmation=true is required.",
+        })
+
+
+def _batchc_rad_apply_content(
+    report,
+    request,
+):
+    fields = _field_map(
+        report.__class__
+    )
+
+    allowed = (
+        "findings",
+        "impression",
+        "recommendation",
+        "structured_findings",
+        "critical_finding",
+        "critical_level",
+    )
+
+    for name in allowed:
+        if (
+            name in fields
+            and name in request.data
+        ):
+            setattr(
+                report,
+                name,
+                request.data[name],
+            )
+
+
+def _batchc_rad_increment_version(
+    report,
+):
+    fields = _field_map(
+        report.__class__
+    )
+
+    if "version" in fields:
+        report.version = (
+            int(
+                getattr(
+                    report,
+                    "version",
+                    0,
+                )
+                or 0
+            )
+            + 1
+        )
+
+
+def _batchc_rad_set_actor(
+    report,
+    request,
+    field_name,
+):
+    fields = _field_map(
+        report.__class__
+    )
+
+    field = fields.get(
+        field_name
+    )
+
+    if (
+        field is None
+        or not field.is_relation
+    ):
+        return
+
+    relation_id = (
+        _batchc_user_relation_id(
+            field,
+            request.user,
+        )
+    )
+
+    if relation_id is not None:
+        setattr(
+            report,
+            field.attname,
+            relation_id,
+        )
+
+
+# ============================================================
+# RAD-002 : 판독문 생성
+# ============================================================
+
+def _batchc_rad_create(
+    request,
+    spec,
+    kwargs,
+):
+    report_model = _batchc_rad_model(
+        "RadiologyReport"
+    )
+
+    fields = _field_map(
+        report_model
+    )
+
+    data = _write_data(
+        report_model,
+        request,
+    )
+
+    data = _apply_server_defaults(
+        report_model,
+        data,
+    )
+
+    # study_id
+    study_id = (
+        request.data.get("study_id")
+        if isinstance(
+            request.data,
+            dict,
+        )
+        else None
+    )
+
+    study_field = (
+        fields.get("study")
+    )
+
+    if (
+        study_id
+        and study_field is not None
+        and study_field.is_relation
+    ):
+        data[
+            study_field.attname
+        ] = study_id
+
+    if "version" in fields:
+        data["version"] = 1
+
+    if "status" in fields:
+        data["status"] = "DRAFT"
+
+    if "is_current" in fields:
+        data["is_current"] = True
+
+    for name in (
+        "created_at",
+        "updated_at",
+    ):
+        if name in fields:
+            data[name] = timezone.now()
+
+    for actor_name in (
+        "author",
+        "created_by",
+        "radiologist",
+    ):
+        field = fields.get(
+            actor_name
+        )
+
+        if (
+            field is not None
+            and field.is_relation
+        ):
+            actor_id = (
+                _batchc_user_relation_id(
+                    field,
+                    request.user,
+                )
+            )
+
+            if actor_id is not None:
+                data[
+                    field.attname
+                ] = actor_id
+
+            break
+
+    try:
+        report = (
+            report_model.objects
+            .create(
+                **data
+            )
+        )
+
+    except (
+        IntegrityError,
+        TypeError,
+        ValueError,
+    ) as exc:
+        raise ContractError({
+            "code":
+                "VALIDATION_ERROR",
+
+            "detail":
+                str(exc),
+        }) from exc
+
+    after = _batchc_rad_snapshot(
+        report
+    )
+
+    _batchc_rad_revision(
+        request,
+        report,
+        previous_snapshot={},
+        new_snapshot=after,
+        reason="initial report created",
+        version=getattr(
+            report,
+            "version",
+            1,
+        ),
+    )
+
+    _audit(
+        request,
+        spec,
+        report,
+        None,
+        after,
+    )
+
+    _outbox(
+        spec,
+        report,
+        after,
+    )
+
+    return Response(
+        after,
+        status=201,
+    )
+
+
+# ============================================================
+# RAD-004 : 판독문 수정
+# ============================================================
+
+def _batchc_rad_update(
+    request,
+    spec,
+    kwargs,
+):
+    report = (
+        _batchc_rad_get_report(
+            request,
+            kwargs,
+            for_update=True,
+        )
+    )
+
+    if getattr(
+        report,
+        "status",
+        None,
+    ) not in {
+        "DRAFT",
+        "PRELIMINARY",
+    }:
+        raise ContractError({
+            "code":
+                "RADIOLOGY_INVALID_STATE",
+
+            "detail":
+                "Only DRAFT/PRELIMINARY report can be edited.",
+        })
+
+    _batchc_rad_check_version(
+        request,
+        report,
+    )
+
+    before = _batchc_rad_snapshot(
+        report
+    )
+
+    _batchc_rad_apply_content(
+        report,
+        request,
+    )
+
+    _batchc_rad_increment_version(
+        report
+    )
+
+    fields = _field_map(
+        report.__class__
+    )
+
+    if "updated_at" in fields:
+        report.updated_at = (
+            timezone.now()
+        )
+
+    report.save()
+
+    after = _batchc_rad_snapshot(
+        report
+    )
+
+    _batchc_rad_revision(
+        request,
+        report,
+        previous_snapshot=before,
+        new_snapshot=after,
+        reason=(
+            request.data.get(
+                "reason",
+                "report updated",
+            )
+            if isinstance(
+                request.data,
+                dict,
+            )
+            else "report updated"
+        ),
+        version=getattr(
+            report,
+            "version",
+            None,
+        ),
+    )
+
+    _audit(
+        request,
+        spec,
+        report,
+        before,
+        after,
+    )
+
+    _outbox(
+        spec,
+        report,
+        after,
+    )
+
+    return Response(
+        after,
+        status=200,
+    )
+
+
+# ============================================================
+# RAD-005 : Preliminary
+# ============================================================
+
+def _batchc_rad_preliminary(
+    request,
+    spec,
+    kwargs,
+):
+    report = (
+        _batchc_rad_get_report(
+            request,
+            kwargs,
+            for_update=True,
+        )
+    )
+
+    if getattr(
+        report,
+        "status",
+        None,
+    ) != "DRAFT":
+        raise ContractError({
+            "code":
+                "RADIOLOGY_INVALID_STATE",
+
+            "detail":
+                "submit-preliminary requires DRAFT.",
+        })
+
+    _batchc_rad_check_version(
+        request,
+        report,
+    )
+
+    _batchc_rad_require_confirmation(
+        request
+    )
+
+    before = _batchc_rad_snapshot(
+        report
+    )
+
+    _batchc_rad_apply_content(
+        report,
+        request,
+    )
+
+    report.status = "PRELIMINARY"
+
+    fields = _field_map(
+        report.__class__
+    )
+
+    if "preliminary_at" in fields:
+        report.preliminary_at = (
+            timezone.now()
+        )
+
+    _batchc_rad_increment_version(
+        report
+    )
+
+    if "updated_at" in fields:
+        report.updated_at = (
+            timezone.now()
+        )
+
+    report.save()
+
+    after = _batchc_rad_snapshot(
+        report
+    )
+
+    _batchc_rad_revision(
+        request,
+        report,
+        previous_snapshot=before,
+        new_snapshot=after,
+        reason="submit preliminary",
+        version=getattr(
+            report,
+            "version",
+            None,
+        ),
+    )
+
+    _audit(
+        request,
+        spec,
+        report,
+        before,
+        after,
+    )
+
+    _outbox(
+        spec,
+        report,
+        after,
+    )
+
+    return Response(
+        after,
+        status=200,
+    )
+
+
+# ============================================================
+# RAD-006 : Finalize
+# ============================================================
+
+def _batchc_rad_finalize(
+    request,
+    spec,
+    kwargs,
+):
+    report = (
+        _batchc_rad_get_report(
+            request,
+            kwargs,
+            for_update=True,
+        )
+    )
+
+    if getattr(
+        report,
+        "status",
+        None,
+    ) not in {
+        "DRAFT",
+        "PRELIMINARY",
+    }:
+        raise ContractError({
+            "code":
+                "RADIOLOGY_INVALID_STATE",
+
+            "detail":
+                "finalize requires DRAFT/PRELIMINARY.",
+        })
+
+    _batchc_rad_check_version(
+        request,
+        report,
+    )
+
+    _batchc_rad_require_confirmation(
+        request
+    )
+
+    findings = (
+        getattr(
+            report,
+            "findings",
+            None,
+        )
+    )
+
+    impression = (
+        getattr(
+            report,
+            "impression",
+            None,
+        )
+    )
+
+    if not findings or not impression:
+        raise ContractError({
+            "code":
+                "RADIOLOGY_CONTENT_REQUIRED",
+
+            "detail":
+                "findings and impression are required.",
+        })
+
+    before = _batchc_rad_snapshot(
+        report
+    )
+
+    report.status = "FINAL"
+
+    fields = _field_map(
+        report.__class__
+    )
+
+    if "finalized_at" in fields:
+        report.finalized_at = (
+            timezone.now()
+        )
+
+    _batchc_rad_set_actor(
+        report,
+        request,
+        "finalized_by",
+    )
+
+    _batchc_rad_increment_version(
+        report
+    )
+
+    if "updated_at" in fields:
+        report.updated_at = (
+            timezone.now()
+        )
+
+    report.save()
+
+    after = _batchc_rad_snapshot(
+        report
+    )
+
+    _batchc_rad_revision(
+        request,
+        report,
+        previous_snapshot=before,
+        new_snapshot=after,
+        reason="finalized",
+        version=getattr(
+            report,
+            "version",
+            None,
+        ),
+    )
+
+    _audit(
+        request,
+        spec,
+        report,
+        before,
+        after,
+    )
+
+    _outbox(
+        spec,
+        report,
+        after,
+    )
+
+    return Response(
+        after,
+        status=200,
+    )
+
+
+# ============================================================
+# RAD-007 : Amend
+# ============================================================
+
+def _batchc_rad_amend(
+    request,
+    spec,
+    kwargs,
+):
+    old = (
+        _batchc_rad_get_report(
+            request,
+            kwargs,
+            for_update=True,
+        )
+    )
+
+    if (
+        getattr(
+            old,
+            "status",
+            None,
+        )
+        not in {
+            "FINAL",
+            "AMENDED",
+        }
+        or (
+            hasattr(
+                old,
+                "is_current",
+            )
+            and old.is_current
+            is not True
+        )
+    ):
+        raise ContractError({
+            "code":
+                "RADIOLOGY_INVALID_STATE",
+
+            "detail":
+                (
+                    "amend requires current "
+                    "FINAL/AMENDED report."
+                ),
+        })
+
+    _batchc_rad_require_confirmation(
+        request
+    )
+
+    reason = (
+        request.data.get(
+            "change_reason"
+        )
+        if isinstance(
+            request.data,
+            dict,
+        )
+        else None
+    )
+
+    if (
+        not reason
+        or len(
+            str(reason)
+        ) < 10
+    ):
+        raise ContractError({
+            "code":
+                "CHANGE_REASON_REQUIRED",
+
+            "detail":
+                "change_reason must be at least 10 characters.",
+        })
+
+    old_before = (
+        _batchc_rad_snapshot(
+            old
+        )
+    )
+
+    report_model = (
+        old.__class__
+    )
+
+    fields = _field_map(
+        report_model
+    )
+
+    # 기존 Report 값 복제
+    clone = {}
+
+    for field in (
+        report_model._meta.fields
+    ):
+        if field.primary_key:
+            continue
+
+        if field.name in {
+            "created_at",
+            "updated_at",
+        }:
+            continue
+
+        if field.is_relation:
+            clone[
+                field.attname
+            ] = getattr(
+                old,
+                field.attname,
+            )
+
+        else:
+            clone[
+                field.name
+            ] = getattr(
+                old,
+                field.name,
+            )
+
+    # 기존 current 해제
+    if "is_current" in fields:
+        old.is_current = False
+
+    if "updated_at" in fields:
+        old.updated_at = (
+            timezone.now()
+        )
+
+    old.save()
+
+    clone["status"] = "AMENDED"
+
+    if "is_current" in fields:
+        clone["is_current"] = True
+
+    if "version" in fields:
+        clone["version"] = (
+            int(
+                getattr(
+                    old,
+                    "version",
+                    0,
+                )
+                or 0
+            )
+            + 1
+        )
+
+    if "created_at" in fields:
+        clone["created_at"] = (
+            timezone.now()
+        )
+
+    if "updated_at" in fields:
+        clone["updated_at"] = (
+            timezone.now()
+        )
+
+    # 요청의 정정 내용 적용
+    for name in (
+        "findings",
+        "impression",
+        "recommendation",
+        "structured_findings",
+        "critical_finding",
+        "critical_level",
+    ):
+        if (
+            name in fields
+            and name in request.data
+        ):
+            clone[name] = (
+                request.data[name]
+            )
+
+    new = report_model.objects.create(
+        **clone
+    )
+
+    new_after = (
+        _batchc_rad_snapshot(
+            new
+        )
+    )
+
+    _batchc_rad_revision(
+        request,
+        new,
+        previous_snapshot=old_before,
+        new_snapshot=new_after,
+        reason=str(reason),
+        version=getattr(
+            new,
+            "version",
+            None,
+        ),
+    )
+
+    _audit(
+        request,
+        spec,
+        new,
+        old_before,
+        new_after,
+    )
+
+    _outbox(
+        spec,
+        new,
+        new_after,
+    )
+
+    return Response(
+        new_after,
+        status=201,
+    )
+
+
+# ============================================================
+# RAD-009 : Measurement Create
+# ============================================================
+
+def _batchc_rad_measurement_create(
+    request,
+    spec,
+    kwargs,
+):
+    report = (
+        _batchc_rad_get_report(
+            request,
+            kwargs,
+            for_update=True,
+        )
+    )
+
+    if getattr(
+        report,
+        "status",
+        None,
+    ) not in {
+        "DRAFT",
+        "PRELIMINARY",
+    }:
+        raise ContractError({
+            "code":
+                "RADIOLOGY_INVALID_STATE",
+
+            "detail":
+                (
+                    "measurement creation requires "
+                    "DRAFT/PRELIMINARY."
+                ),
+        })
+
+    model = _batchc_rad_model(
+        "RadiologyMeasurement"
+    )
+
+    fields = _field_map(
+        model
+    )
+
+    data = _write_data(
+        model,
+        request,
+    )
+
+    # report FK
+    for name in (
+        "report",
+        "radiology_report",
+    ):
+        field = fields.get(name)
+
+        if (
+            field is not None
+            and field.is_relation
+        ):
+            data[
+                field.attname
+            ] = report.pk
+            break
+
+    # created_by
+    field = fields.get(
+        "created_by"
+    )
+
+    if (
+        field is not None
+        and field.is_relation
+    ):
+        actor_id = (
+            _batchc_user_relation_id(
+                field,
+                request.user,
+            )
+        )
+
+        if actor_id is not None:
+            data[
+                field.attname
+            ] = actor_id
+
+    if "created_at" in fields:
+        data["created_at"] = (
+            timezone.now()
+        )
+
+    try:
+        obj = model.objects.create(
+            **data
+        )
+
+    except (
+        IntegrityError,
+        TypeError,
+        ValueError,
+    ) as exc:
+        raise ContractError({
+            "code":
+                "VALIDATION_ERROR",
+
+            "detail":
+                str(exc),
+        }) from exc
+
+    after = serialize_instance(
+        obj
+    )
+
+    _audit(
+        request,
+        spec,
+        obj,
+        None,
+        after,
+    )
+
+    return Response(
+        after,
+        status=201,
+    )
+
+
+# ============================================================
+# RAD-011 : Cancel
+# ============================================================
+
+def _batchc_rad_cancel(
+    request,
+    spec,
+    kwargs,
+):
+    report = (
+        _batchc_rad_get_report(
+            request,
+            kwargs,
+            for_update=True,
+        )
+    )
+
+    if getattr(
+        report,
+        "status",
+        None,
+    ) not in {
+        "DRAFT",
+        "PRELIMINARY",
+    }:
+        raise ContractError({
+            "code":
+                "RADIOLOGY_INVALID_STATE",
+
+            "detail":
+                (
+                    "Only DRAFT/PRELIMINARY "
+                    "report can be cancelled."
+                ),
+        })
+
+    if (
+        hasattr(
+            report,
+            "is_current",
+        )
+        and report.is_current
+        is not True
+    ):
+        raise ContractError({
+            "code":
+                "RADIOLOGY_NOT_CURRENT",
+
+            "detail":
+                "Only current report can be cancelled.",
+        })
+
+    _batchc_rad_check_version(
+        request,
+        report,
+    )
+
+    reason = (
+        request.data.get(
+            "reason"
+        )
+        if isinstance(
+            request.data,
+            dict,
+        )
+        else None
+    )
+
+    if not reason:
+        raise ContractError({
+            "code":
+                "CANCEL_REASON_REQUIRED",
+
+            "detail":
+                "reason is required.",
+        })
+
+    before = _batchc_rad_snapshot(
+        report
+    )
+
+    report.status = "CANCELLED"
+
+    fields = _field_map(
+        report.__class__
+    )
+
+    if "is_current" in fields:
+        report.is_current = False
+
+    _batchc_rad_increment_version(
+        report
+    )
+
+    if "updated_at" in fields:
+        report.updated_at = (
+            timezone.now()
+        )
+
+    report.save()
+
+    after = _batchc_rad_snapshot(
+        report
+    )
+
+    _batchc_rad_revision(
+        request,
+        report,
+        previous_snapshot=before,
+        new_snapshot=after,
+        reason=str(reason),
+        version=getattr(
+            report,
+            "version",
+            None,
+        ),
+    )
+
+    _audit(
+        request,
+        spec,
+        report,
+        before,
+        after,
+    )
+
+    _outbox(
+        spec,
+        report,
+        after,
+    )
+
+    return Response(
+        after,
+        status=200,
+    )
+
+
+# ============================================================
+# CDS helpers
+# ============================================================
+
+def _batchc_cds_uuid(value):
+    if not value:
+        return None
+
+    value = str(value)
+
+    if "/" in value:
+        value = value.rsplit(
+            "/",
+            1,
+        )[-1]
+
+    try:
+        return uuid.UUID(
+            value
+        )
+    except Exception:
+        return None
+
+
+def _batchc_cds_validate_hook(
+    request,
+    expected_hook,
+):
+    if not isinstance(
+        request.data,
+        dict,
+    ):
+        raise ContractError({
+            "code":
+                "INVALID_CDS_REQUEST",
+
+            "detail":
+                "JSON object is required.",
+        })
+
+    if (
+        request.data.get("hook")
+        != expected_hook
+    ):
+        raise ContractError({
+            "code":
+                "INVALID_CDS_HOOK",
+
+            "detail":
+                (
+                    f"hook must be "
+                    f"{expected_hook}."
+                ),
+        })
+
+    context = (
+        request.data.get(
+            "context"
+        )
+        or {}
+    )
+
+    return context
+
+
+def _batchc_cds_patient(
+    context,
+):
+    patient_id = (
+        _batchc_cds_uuid(
+            context.get(
+                "patientId"
+            )
+        )
+    )
+
+    if patient_id is None:
+        raise ContractError({
+            "code":
+                "CDS_PATIENT_REQUIRED",
+
+            "detail":
+                "context.patientId is required.",
+        })
+
+    patient_model = apps.get_model(
+        "patients",
+        "Patient",
+    )
+
+    try:
+        return (
+            patient_model.objects
+            .get(
+                pk=patient_id
+            )
+        )
+
+    except patient_model.DoesNotExist as exc:
+        raise NotFound({
+            "code":
+                "PATIENT_NOT_FOUND",
+
+            "detail":
+                "Patient was not found.",
+        }) from exc
+
+
+def _batchc_cds_cards_from_alerts(
+    alerts,
+):
+    cards = []
+
+    for alert in alerts:
+        severity = str(
+            alert.get(
+                "severity",
+                "WARNING",
+            )
+        ).upper()
+
+        indicator = (
+            "critical"
+            if severity in {
+                "HIGH",
+                "MAJOR",
+                "BLOCK",
+                "CRITICAL",
+            }
+            else "warning"
+        )
+
+        cards.append({
+            "summary":
+                (
+                    alert.get("message")
+                    or alert.get("type")
+                    or "Medication safety alert"
+                ),
+
+            "indicator":
+                indicator,
+
+            "source": {
+                "label":
+                    "BrainOn Medication Safety"
+            },
+
+            "detail":
+                str(
+                    alert.get("type")
+                    or ""
+                ),
+        })
+
+    return cards
+
+
+def _batchc_cds_medication(
+    request,
+    spec,
+    kwargs,
+    expected_hook,
+):
+    context = (
+        _batchc_cds_validate_hook(
+            request,
+            expected_hook,
+        )
+    )
+
+    patient = (
+        _batchc_cds_patient(
+            context
+        )
+    )
+
+    # 기존 실제 Medication Safety 로직 재사용
+    class SafetyRequest:
+        pass
+
+    safety_request = (
+        SafetyRequest()
+    )
+
+    safety_request.data = {
+        "patient_id":
+            str(patient.pk),
+
+        # 현재 CDS FHIR Adapter 상세 매핑 전에는
+        # Patient Allergy + Local DUR 기반 검사 수행
+        "ingredient_ids":
+            [],
+    }
+
+    safety_request.user = (
+        request.user
+    )
+
+    response = (
+        _medication_safety_check(
+            safety_request,
+            spec,
+            {},
+        )
+    )
+
+    body = (
+        response.data
+        if hasattr(
+            response,
+            "data",
+        )
+        else {}
+    )
+
+    cards = (
+        _batchc_cds_cards_from_alerts(
+            body.get(
+                "alerts",
+                [],
+            )
+        )
+    )
+
+    return Response({
+        "cards":
+            cards,
+    }, status=200)
+
+
+def _batchc_cds_002(
+    request,
+    spec,
+    kwargs,
+):
+    return _batchc_cds_medication(
+        request,
+        spec,
+        kwargs,
+        "order-select",
+    )
+
+
+def _batchc_cds_003(
+    request,
+    spec,
+    kwargs,
+):
+    return _batchc_cds_medication(
+        request,
+        spec,
+        kwargs,
+        "order-sign",
+    )
+
+
+def _batchc_cds_004(
+    request,
+    spec,
+    kwargs,
+):
+    context = (
+        _batchc_cds_validate_hook(
+            request,
+            "patient-view",
+        )
+    )
+
+    patient = (
+        _batchc_cds_patient(
+            context
+        )
+    )
+
+    encounter_id = (
+        _batchc_cds_uuid(
+            context.get(
+                "encounterId"
+            )
+        )
+    )
+
+    if encounter_id is None:
+        raise ContractError({
+            "code":
+                "CDS_ENCOUNTER_REQUIRED",
+
+            "detail":
+                "context.encounterId is required.",
+        })
+
+    encounter_model = apps.get_model(
+        "clinical_records",
+        "Encounter",
+    )
+
+    encounter = (
+        encounter_model.objects
+        .filter(
+            pk=encounter_id,
+            patient_id=patient.pk,
+        )
+        .first()
+    )
+
+    if encounter is None:
+        raise NotFound({
+            "code":
+                "ENCOUNTER_NOT_FOUND",
+
+            "detail":
+                "Encounter was not found.",
+        })
+
+    # 현재 Final/Amended 판독 존재 여부
+    report_model = apps.get_model(
+        "radiology",
+        "RadiologyReport",
+    )
+
+    report_qs = (
+        report_model.objects
+        .filter(
+            status__in=[
+                "FINAL",
+                "AMENDED",
+            ]
+        )
+    )
+
+    report_fields = (
+        _field_map(
+            report_model
+        )
+    )
+
+    if "is_current" in report_fields:
+        report_qs = (
+            report_qs.filter(
+                is_current=True
+            )
+        )
+
+    cards = []
+
+    current_report = (
+        report_qs
+        .order_by("-created_at")
+        .first()
+    )
+
+    if current_report is not None:
+        cards.append({
+            "summary":
+                "Current radiology report available",
+
+            "indicator":
+                "info",
+
+            "source": {
+                "label":
+                    "BrainOn Stroke CDSS"
+            },
+
+            "detail":
+                (
+                    getattr(
+                        current_report,
+                        "impression",
+                        None,
+                    )
+                    or ""
+                ),
+        })
+
+    # IntegrationTransaction 저장
+    try:
+        tx_model = apps.get_model(
+            "integrations",
+            "IntegrationTransaction",
+        )
+
+        tx_fields = _field_map(
+            tx_model
+        )
+
+        tx_data = {}
+
+        candidates = {
+            "direction":
+                "INBOUND",
+
+            "interface_type":
+                "CDS_HOOK",
+
+            "status":
+                "COMPLETED",
+
+            "request_payload":
+                _safe_value(
+                    request.data
+                ),
+
+            "response_payload":
+                {
+                    "cards":
+                        cards
+                },
+
+            "created_at":
+                timezone.now(),
+
+            "updated_at":
+                timezone.now(),
+
+            "completed_at":
+                timezone.now(),
+        }
+
+        for name, value in (
+            candidates.items()
+        ):
+            if name in tx_fields:
+                tx_data[name] = value
+
+        # required fields 중 안전한 값만 보완
+        for field in (
+            tx_model._meta.fields
+        ):
+            if field.primary_key:
+                continue
+
+            if (
+                field.name in tx_data
+                or field.attname in tx_data
+                or field.null
+                or field.has_default()
+                or getattr(
+                    field,
+                    "auto_now",
+                    False,
+                )
+                or getattr(
+                    field,
+                    "auto_now_add",
+                    False,
+                )
+            ):
+                continue
+
+            if isinstance(
+                field,
+                models.JSONField,
+            ):
+                tx_data[
+                    field.name
+                ] = {}
+
+            elif isinstance(
+                field,
+                (
+                    models.CharField,
+                    models.TextField,
+                ),
+            ):
+                tx_data[
+                    field.name
+                ] = (
+                    "CDS_HOOK"
+                )
+
+            elif isinstance(
+                field,
+                models.DateTimeField,
+            ):
+                tx_data[
+                    field.name
+                ] = (
+                    timezone.now()
+                )
+
+        tx_model.objects.create(
+            **tx_data
+        )
+
+    except LookupError:
+        pass
+
+    return Response({
+        "cards":
+            cards,
+    }, status=200)
+
+
+# ============================================================
+# Register
+# ============================================================
+
+CUSTOM_HANDLERS.update({
+    "API-CDS-002":
+        _batchc_cds_002,
+
+    "API-CDS-003":
+        _batchc_cds_003,
+
+    "API-CDS-004":
+        _batchc_cds_004,
+
+    "API-RAD-002":
+        _batchc_rad_create,
+
+    "API-RAD-004":
+        _batchc_rad_update,
+
+    "API-RAD-005":
+        _batchc_rad_preliminary,
+
+    "API-RAD-006":
+        _batchc_rad_finalize,
+
+    "API-RAD-007":
+        _batchc_rad_amend,
+
+    "API-RAD-009":
+        _batchc_rad_measurement_create,
+
+    "API-RAD-011":
+        _batchc_rad_cancel,
+})
+
+
+# === BATCH_C_CDS_RAD_FINAL_END ===

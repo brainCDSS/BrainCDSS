@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 
+import Patients from "../../features/patients/Patients";
 import AssessmentWorklist from "../../features/assessments/AssessmentWorklist";
 import TriageAssessment from "../../features/assessments/TriageAssessment";
 
@@ -190,14 +191,15 @@ export default function AppShell({
     /**
      * 현재 AppShell에서 실제 연결된 메뉴
      */
-    if (
-      menu !== "dashboard" &&
-      menu !== "worklist" &&
-      menu !== "triage" &&
-      menu !== "consultations"
-    ) {
-      return;
-    }
+  if (
+    menu !== "dashboard" &&
+    menu !== "patients" &&
+    menu !== "worklist" &&
+    menu !== "triage" &&
+    menu !== "consultations"
+  ) {
+    return;
+  }
 
 
     /**
@@ -721,7 +723,15 @@ export default function AppShell({
       );
 
     }
+    /* -------------------------------------------------------
+      환자 관리
+      ------------------------------------------------------- */
 
+    if (
+      activeMenu === "patients"
+    ) {
+      return <Patients />;
+    }
 
     /* -------------------------------------------------------
        Worklist

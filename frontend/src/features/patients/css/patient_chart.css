@@ -1,0 +1,411 @@
+/* =========================================================
+   Patient Chart
+   ========================================================= */
+
+
+/* =========================================================
+   1. 전체 영역
+   ========================================================= */
+
+.patient-chart {
+  width: 100%;
+  min-width: 0;
+
+  color: var(--text-primary);
+}
+
+
+/* =========================================================
+   2. 화면 제목
+   ========================================================= */
+
+.patient-chart-page-heading {
+  margin-bottom: 16px;
+}
+
+
+.patient-chart-label {
+  display: block;
+
+  margin-bottom: 5px;
+
+  color: var(--primary);
+
+  font-size: 10px;
+  font-weight: 800;
+
+  letter-spacing: 0.08em;
+}
+
+
+.patient-chart-page-heading p {
+  margin: 0;
+
+  color: var(--text-secondary);
+
+  font-size: 13px;
+
+  line-height: 1.5;
+}
+
+
+/* =========================================================
+   3. 환자 식별 Card
+
+   환자명 + 환자번호 + 기본정보를
+   하나의 영역에 통합한다.
+   ========================================================= */
+
+.patient-identity-card {
+  width: 100%;
+
+  margin-bottom: 18px;
+
+  padding: 20px 22px;
+
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+
+  background: var(--bg-surface);
+
+  box-shadow: var(--shadow-soft);
+}
+
+
+/* =========================================================
+   4. 환자명 + 환자번호
+   ========================================================= */
+
+.patient-identity-header {
+  display: flex;
+
+  align-items: center;
+
+  gap: 14px;
+
+  margin-bottom: 18px;
+
+  padding-bottom: 16px;
+
+  border-bottom: 1px solid var(--border-color);
+}
+
+
+/* 환자명 */
+.patient-identity-header h2 {
+  margin: 0;
+
+  color: var(--text-primary);
+
+  font-size: 27px;
+  font-weight: 800;
+
+  line-height: 1.2;
+}
+
+
+/* 환자번호
+
+   박스 형태를 없애고
+   이름 옆에서 식별정보로 자연스럽게 강조
+*/
+.patient-identity-number {
+  display: inline-flex;
+
+  align-items: center;
+
+  padding-left: 14px;
+
+  border-left: 1px solid var(--border-color);
+
+  color: var(--primary);
+
+  font-size: 14px;
+  font-weight: 800;
+
+  letter-spacing: 0.02em;
+
+  white-space: nowrap;
+}
+
+
+/* =========================================================
+   5. 기본정보
+
+   한 줄에 쭉 배치해서
+   의료진이 한 번에 훑을 수 있도록 구성
+   ========================================================= */
+
+.patient-identity-info {
+  display: flex;
+
+  align-items: center;
+
+  flex-wrap: wrap;
+
+  row-gap: 14px;
+}
+
+
+/* =========================================================
+   기본정보 하나
+
+   성별 M
+   생년월일 1986-12-15
+   ...
+   ========================================================= */
+
+.patient-identity-item {
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+  /*
+   * 다음 정보와 구분하기 위한 오른쪽 선
+   */
+  margin-right: 22px;
+  padding-right: 22px;
+
+  border-right: 1px solid var(--border-color);
+}
+
+
+/* 마지막 항목은 구분선 제거 */
+.patient-identity-item:last-child {
+  margin-right: 0;
+  padding-right: 0;
+
+  border-right: 0;
+}
+
+
+/* 성별 / 생년월일 / 연락처 등 */
+.patient-identity-item > span {
+  color: var(--text-secondary);
+
+  font-size: 11px;
+  font-weight: 600;
+
+  white-space: nowrap;
+}
+
+
+/* 실제 값 */
+.patient-identity-item > strong {
+  color: var(--text-primary);
+
+  font-size: 13px;
+  font-weight: 700;
+
+  white-space: nowrap;
+}
+
+
+/* =========================================================
+   6. 진료정보 등 하위 Section
+   ========================================================= */
+
+.patient-chart-section {
+  width: 100%;
+
+  margin-bottom: 18px;
+
+  padding: 20px;
+
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+
+  background: var(--bg-surface);
+
+  box-shadow: var(--shadow-soft);
+}
+
+
+.patient-chart-section-heading {
+  display: flex;
+
+  align-items: center;
+
+  margin-bottom: 14px;
+}
+
+
+.patient-chart-section-heading h3 {
+  margin: 0;
+
+  color: var(--text-primary);
+
+  font-size: 15px;
+  font-weight: 800;
+}
+
+
+/* =========================================================
+   7. API 미연동 영역
+   ========================================================= */
+
+.patient-chart-empty {
+  display: flex;
+
+  min-height: 120px;
+
+  align-items: center;
+  justify-content: center;
+
+  padding: 20px;
+
+  border: 1px dashed var(--border-color);
+  border-radius: 9px;
+
+  background: var(--bg-page);
+
+  color: var(--text-secondary);
+
+  font-size: 12px;
+
+  text-align: center;
+}
+
+
+/* =========================================================
+   8. Dark Mode
+   ========================================================= */
+
+[data-theme="dark"] .patient-identity-card,
+[data-theme="dark"] .patient-chart-section {
+  box-shadow:
+    0 2px 14px rgba(0, 0, 0, 0.18);
+}
+
+
+/* =========================================================
+   9. 좁은 화면
+
+   정보가 화면을 넘으면 자연스럽게 다음 줄로 내려간다.
+   ========================================================= */
+
+@media (max-width: 1180px) {
+  .patient-identity-info {
+    align-items: flex-start;
+  }
+}
+
+/* =========================================================
+   Patient Chart 내부 업무 Tabs
+   ---------------------------------------------------------
+   진료정보 / 검사·Lab / 영상·AI / 협진 / 처방·DUR
+   ========================================================= */
+
+
+/* =========================================================
+   1. Tab 전체 영역
+   ========================================================= */
+
+.patient-chart-tabs {
+  display: flex;
+
+  width: 100%;
+
+  align-items: center;
+
+  /*
+   * 탭 사이 간격
+   * 4px → 거의 붙어 보임
+   * 6px → 현재 추천
+   * 8px → 조금 더 분리됨
+   */
+  gap: 6px;
+
+  /*
+   * 탭과 아래 Content 사이 구분선
+   */
+  padding-bottom: 12px;
+
+  border-bottom: 1px solid var(--border-color);
+}
+
+
+/* =========================================================
+   2. 개별 Tab
+   ========================================================= */
+
+.patient-chart-tab {
+  display: inline-flex;
+
+  min-height: 36px;
+
+  align-items: center;
+  justify-content: center;
+
+  /*
+   * 좌우 여백
+   * 숫자를 키우면 탭 폭도 넓어진다.
+   */
+  padding: 0 14px;
+
+  border: 0;
+  border-radius: 7px;
+
+  background: transparent;
+
+  color: var(--text-secondary);
+
+  font-size: 12px;
+  font-weight: 600;
+
+  white-space: nowrap;
+
+  cursor: pointer;
+
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+
+/* =========================================================
+   3. Tab Hover
+   ========================================================= */
+
+.patient-chart-tab:hover {
+  background: var(--bg-hover);
+
+  color: var(--text-primary);
+}
+
+
+/* =========================================================
+   4. 현재 선택된 Tab
+
+   예:
+   [ 진료정보 ]
+
+   배경을 아주 연하게 주고
+   글자만 Primary로 강조한다.
+   ========================================================= */
+
+.patient-chart-tab.active {
+  background: var(--bg-active);
+
+  color: var(--primary);
+
+  font-weight: 800;
+}
+
+
+/* =========================================================
+   5. Tab Content
+
+   탭 메뉴와 실제 내용 사이 간격
+   ========================================================= */
+
+.patient-chart-tab-content {
+  width: 100%;
+
+  /*
+   * 탭 아래 실제 Content까지 거리
+   */
+  padding-top: 16px;
+}

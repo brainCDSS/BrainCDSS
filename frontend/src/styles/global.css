@@ -1,2 +1,345 @@
-/* Accessible, dependency-free shell styling. */
-:root{font-family:system-ui,sans-serif;color:#172033;background:#f5f7fa}body{margin:0}main{max-width:72rem;margin:auto;padding:2rem}header,section{background:white;padding:1.5rem;border-radius:.75rem;margin-bottom:1rem}
+/* =========================================================
+   Brain CDSS Global Style
+   ========================================================= */
+
+/*
+ * 이 파일에서는 앱 전체에 필요한
+ * 최소한의 전역 설정과
+ * 공통 Color Token만 관리한다.
+ *
+ * Header / Sidebar / Dashboard / Patients 등의
+ * 실제 Layout 스타일은 각 CSS 파일에서 관리한다.
+ */
+
+
+/* =========================================================
+   0. Global Color Theme
+   ---------------------------------------------------------
+   전체 화면에서 공통으로 사용할 색상이다.
+
+   메인 컨셉
+   - Blue Sidebar
+   - Light Blue Gray Background
+   - White Card
+   - Soft Border
+   ========================================================= */
+
+:root {
+
+  /* -------------------------------------------------------
+     Brand
+     ------------------------------------------------------- */
+
+  --color-primary: #4f8fe8;
+
+  --color-primary-hover: #3e7fd8;
+
+  --color-primary-soft: #edf5ff;
+
+  --color-primary-border: #cfe0f5;
+
+
+  /* -------------------------------------------------------
+     Sidebar
+     ------------------------------------------------------- */
+
+  --color-sidebar: #4f8fe8;
+
+  --color-sidebar-hover:
+    rgba(255, 255, 255, 0.10);
+
+  --color-sidebar-active:
+    rgba(255, 255, 255, 0.18);
+
+  --color-sidebar-text: #ffffff;
+
+  --color-sidebar-text-muted:
+    rgba(255, 255, 255, 0.72);
+
+
+  /* -------------------------------------------------------
+     Background
+     ------------------------------------------------------- */
+
+  --color-page-bg: #f3f7fc;
+
+  --color-surface: #ffffff;
+
+  --color-surface-soft: #f8fafc;
+
+
+  /* -------------------------------------------------------
+     Border
+     ------------------------------------------------------- */
+
+  --color-border: #e4ebf3;
+
+  --color-border-strong: #d5dfeb;
+
+
+  /* -------------------------------------------------------
+     Text
+     ------------------------------------------------------- */
+
+  --color-text-primary: #263247;
+
+  --color-text-secondary: #667085;
+
+  --color-text-muted: #8a97a8;
+
+
+  /* -------------------------------------------------------
+     Clinical / Status
+     -------------------------------------------------------
+     메인 UI 색상과 임상 상태 색상은 분리한다.
+     ------------------------------------------------------- */
+
+  --color-success: #2f7d4c;
+
+  --color-success-bg: #eaf7ee;
+
+  --color-warning: #b45309;
+
+  --color-warning-bg: #fff3e8;
+
+  --color-danger: #b42318;
+
+  --color-danger-bg: #fff0f0;
+
+
+  /* -------------------------------------------------------
+     기존 CSS 호환 변수
+
+     현재 layout.css 등에서 이미
+     --bg-page / --text-primary를 사용하고 있으므로
+     기존 이름을 유지하면서 새 Theme와 연결한다.
+     ------------------------------------------------------- */
+
+  --bg-page: var(--color-page-bg);
+
+  --text-primary:
+    var(--color-text-primary);
+
+  --text-secondary:
+    var(--color-text-secondary);
+}
+
+
+/* =========================================================
+   Dark Theme
+   ---------------------------------------------------------
+   기존 Dark Mode 기능 유지
+   ========================================================= */
+
+[data-theme="dark"] {
+
+  --color-primary: #69a5f3;
+
+  --color-primary-hover: #7bb1f4;
+
+  --color-primary-soft: #213653;
+
+  --color-primary-border: #345277;
+
+
+  --color-sidebar: #274e82;
+
+  --color-sidebar-hover:
+    rgba(255, 255, 255, 0.08);
+
+  --color-sidebar-active:
+    rgba(255, 255, 255, 0.16);
+
+
+  --color-page-bg: #111827;
+
+  --color-surface: #1b2432;
+
+  --color-surface-soft: #202b3a;
+
+
+  --color-border: #344154;
+
+  --color-border-strong: #425168;
+
+
+  --color-text-primary: #e8edf5;
+
+  --color-text-secondary: #b1bdcc;
+
+  --color-text-muted: #8f9caf;
+
+
+  --color-success: #a7e3b8;
+
+  --color-success-bg: #163c2a;
+
+
+  --color-warning: #f3ba71;
+
+  --color-warning-bg: #49331f;
+
+
+  --color-danger: #f3aaaa;
+
+  --color-danger-bg: #432626;
+
+
+  --bg-page:
+    var(--color-page-bg);
+
+  --text-primary:
+    var(--color-text-primary);
+
+  --text-secondary:
+    var(--color-text-secondary);
+}
+
+
+/* =========================================================
+   1. Box Model
+   ========================================================= */
+
+*,
+*::before,
+*::after {
+
+  /*
+   * width / height에 padding과 border를 포함해서 계산한다.
+   * 화면 크기 계산이 예측 가능해진다.
+   */
+  box-sizing: border-box;
+}
+
+
+/* =========================================================
+   2. HTML / BODY / ROOT
+   ========================================================= */
+
+html,
+body,
+#root {
+
+  /*
+   * 브라우저 기본 바깥 여백 제거
+   */
+  margin: 0;
+
+
+  /*
+   * 화면 전체 높이를 사용할 수 있도록 설정
+   */
+  width: 100%;
+
+  min-height: 100%;
+}
+
+
+body {
+  margin: 0;
+  min-height: 100vh;
+
+  background:
+    var(--color-page-bg);
+
+  color:
+    var(--color-text-primary);
+
+  -webkit-font-smoothing:
+    antialiased;
+
+  -moz-osx-font-smoothing:
+    grayscale;
+}
+
+
+/* =========================================================
+   3. 기본 Element Reset
+   ========================================================= */
+
+/*
+ * 제목 / 문단의 브라우저 기본 margin 때문에
+ * 화면 간격이 예상하지 못하게 커지는 것을 방지한다.
+ *
+ * Dashboard 등 각 화면 CSS에서 필요한 margin은
+ * 다시 직접 지정한다.
+ */
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  margin-top: 0;
+}
+
+
+/*
+ * Button / Input에서
+ * 부모 Font를 그대로 사용한다.
+ */
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+
+/*
+ * Button 기본 동작
+ */
+
+button {
+  cursor: pointer;
+}
+
+
+/*
+ * Link 기본 색상이 갑자기
+ * 파란색 / 보라색으로 바뀌는 것을 방지한다.
+ */
+
+a {
+  color: inherit;
+
+  text-decoration: none;
+}
+
+
+/* =========================================================
+   중요
+   ========================================================= */
+
+/*
+ * 여기에는 아래와 같은 전역 Layout 스타일을 절대 넣지 않는다.
+
+   main {
+     max-width: ...;
+     margin: auto;
+   }
+
+   section {
+     background: white;
+     padding: ...;
+   }
+
+   header {
+     padding: ...;
+   }
+
+ * 이유:
+ * AppShell / Dashboard / Patients 등의
+ * 개별 CSS와 충돌하기 때문이다.
+
+ * 또한 이 파일에서는
+ * height / overflow / position 등의
+ * AppShell Layout 구조를 변경하지 않는다.
+
+ * Header / WorkspaceTabs / Sidebar 고정 및
+ * app-content Scroll 구조는
+ * layout.css에서 관리한다.
+ */

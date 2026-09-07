@@ -170,7 +170,7 @@ interface ConsultationItemProps {
   number: number;
 
   onOpenReview?: (
-    consultationId: string,
+    consultation: ConsultationListItem,
   ) => void;
 }
 
@@ -306,9 +306,7 @@ function ConsultationItem({
           type="button"
           className="consultation-review-button"
           onClick={() => {
-            onOpenReview?.(
-              item.consultation_id,
-            );
+                onOpenReview?.(item);
           }}
         >
           검토하기
@@ -330,7 +328,7 @@ function ConsultationItem({
    ========================================================= */
 interface ConsultationListProps {
   onOpenReview?: (
-    consultationId: string,
+    consultationId: ConsultationListItem,
   ) => void;
 }
 

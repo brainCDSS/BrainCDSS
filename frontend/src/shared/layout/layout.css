@@ -1,3 +1,5 @@
+@import url("https://cdn.jsdelivr.net/gh/sun-typeface/SUIT@2/fonts/variable/woff2/SUIT-Variable.css");
+
 /* =========================================================
    Brain CDSS Common Layout
    - Light / Dark Mode
@@ -26,20 +28,37 @@ body {
   background: var(--bg-page);
   color: var(--text-primary);
 
-  font-family:
-    Pretendard,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-
+font-family:
+  "SUIT Variable",
+  "Malgun Gothic",
+  sans-serif;
+    
   transition:
     background-color 0.2s ease,
     color 0.2s ease;
 }
 
+/* body {
+  min-width: 1180px;
+
+  background: var(--bg-page);
+  color: var(--text-primary);
+
+font-family:
+  "Nanum Gothic",
+  "Malgun Gothic",
+   sans-serif;/*폰트변경하려면 여기 수정
+
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+} */
+
+/* 사이드바, 헤더, 버튼, 앱, 입력창등의 대부분글씨체 통일 부분*/
 button,
-input {
+input,
+select,
+textarea{
   font: inherit;
 }
 
@@ -685,20 +704,16 @@ input {
 
   text-align: left;
 
+  /* 추가 */
+  font-size: 14px;
+  font-weight: 700;
+
   cursor: pointer;
 
   transition:
     background-color 0.15s ease,
     color 0.15s ease;
 }
-
-
-.sidebar-menu:hover {
-  background: rgba(255, 255, 255, 0.09);
-
-  color: #ffffff;
-}
-
 
 /* 현재 선택
    ---------------------------------------------------------
@@ -774,6 +789,274 @@ input {
   justify-content: center;
 
   font-size: 14px;
+}
+
+/* =========================================================
+   SIDEBAR 1Depth / 2Depth
+   ========================================================= */
+
+
+/* ---------------------------------------------------------
+   1Depth Group
+   --------------------------------------------------------- */
+
+.sidebar-group {
+  display: flex;
+
+  width: 100%;
+
+  flex-direction: column;
+}
+
+
+/* Group 버튼은 기존 sidebar-menu 스타일을 사용하되
+   하위 메뉴가 선택되어 있어도
+   일반 단일 메뉴의 연결형 Active 모양은 사용하지 않는다. */
+
+.sidebar-group-button.active {
+  width: 100%;
+
+  margin-right: 0;
+
+  padding-right: 13px;
+
+  border-radius: 8px;
+
+  background:
+    rgba(255, 255, 255, 0.10);
+
+  color: #ffffff;
+
+  font-weight: 700;
+}
+
+
+/* 기존 sidebar-menu.active 곡선 제거 */
+
+.sidebar-group-button.active::before,
+.sidebar-group-button.active::after {
+  display: none;
+}
+
+
+/* ---------------------------------------------------------
+   메뉴 Label
+   --------------------------------------------------------- */
+
+.sidebar-menu-label {
+  min-width: 0;
+
+  flex: 1;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+
+  white-space: nowrap;
+}
+
+
+/* ---------------------------------------------------------
+   펼침 / 닫힘 화살표
+   --------------------------------------------------------- */
+
+.sidebar-group-arrow {
+  display: flex;
+
+  width: 18px;
+  height: 18px;
+
+  flex-shrink: 0;
+
+  align-items: center;
+  justify-content: center;
+
+  margin-left: auto;
+
+  color:
+    rgba(255, 255, 255, 0.64);
+
+  font-size: 10px;
+
+  transition:
+    transform 0.18s ease,
+    color 0.18s ease;
+}
+
+
+.sidebar-group-button:hover
+.sidebar-group-arrow {
+  color: #ffffff;
+}
+
+
+.sidebar-group-arrow.open {
+  transform: rotate(180deg);
+}
+
+
+/* =========================================================
+   2Depth Submenu
+   ========================================================= */
+
+.sidebar-submenu {
+  display: flex;
+
+  width: calc(100% - 26px);
+
+  flex-direction: column;
+
+  gap: 2px;
+
+  margin:
+    3px
+    0
+    5px
+    26px;
+
+  padding:
+    3px
+    0
+    3px
+    10px;
+
+  border-left:
+    1px solid
+    rgba(255, 255, 255, 0.18);
+}
+
+
+/* ---------------------------------------------------------
+   2Depth Menu Item
+   --------------------------------------------------------- */
+
+.sidebar-submenu-item {
+  display: flex;
+
+  width: 100%;
+  min-height: 34px;
+
+  align-items: center;
+
+  gap: 7px;
+
+  padding:
+    7px
+    9px;
+
+  border: 0;
+
+  border-radius: 7px;
+
+  background: transparent;
+
+  color:
+    rgba(255, 255, 255, 0.72);
+
+  /* 사이드바 글씨 폰트 굵기 및 크기*/
+  font-size: 14px;
+  font-weight: 600;
+
+  text-align: left;
+
+  cursor: pointer;
+
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+
+.sidebar-submenu-item:hover {
+  background:
+    rgba(255, 255, 255, 0.08);
+
+  color: #ffffff;
+}
+
+
+/* ---------------------------------------------------------
+   선택된 2Depth
+   --------------------------------------------------------- */
+
+.sidebar-submenu-item.active {
+  background:
+    rgba(255, 255, 255, 0.17);
+
+  color: #ffffff;
+
+  font-weight: 700;
+}
+
+
+/* 작은 점 */
+
+.sidebar-submenu-dot {
+  display: flex;
+
+  width: 8px;
+
+  flex-shrink: 0;
+
+  align-items: center;
+  justify-content: center;
+
+  color:
+    rgba(255, 255, 255, 0.50);
+
+  font-size: 13px;
+}
+
+
+.sidebar-submenu-item.active
+.sidebar-submenu-dot {
+  color: #ffffff;
+}
+
+
+/* =========================================================
+   Sidebar 접힌 상태
+   ---------------------------------------------------------
+   접었을 때는 1Depth 아이콘만 표시하고
+   2Depth는 숨긴다.
+   ========================================================= */
+
+.sidebar-collapsed
+.sidebar-submenu {
+  display: none;
+}
+
+
+.sidebar-collapsed
+.sidebar-group-arrow {
+  display: none;
+}
+
+
+.sidebar-collapsed
+.sidebar-menu-label {
+  display: none;
+}
+
+
+/* Group이 active여도 접힌 상태에서는
+   기존 Icon Button 모양으로 표시 */
+
+.sidebar-collapsed
+.sidebar-group-button.active {
+  width: 44px;
+
+  margin-left: auto;
+  margin-right: auto;
+
+  padding-right: 0;
+
+  border-radius: 10px;
+
+  background:
+    rgba(255, 255, 255, 0.16);
+
+  color: #ffffff;
 }
 
 

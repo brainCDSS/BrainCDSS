@@ -12,6 +12,16 @@ import type { PatientListResponse } from "./types";
  * 나중에 Django Backend가 완성되면
  * VITE_BACKEND_URL만 Django 주소로 변경하면 된다.
  */
-export function getPatients(): Promise<PatientListResponse> {
-  return apiRequest<PatientListResponse>("/api/v1/patients"); //api호출부분
+export function getPatients(search?: string): Promise<PatientListResponse> {
+  const query = new URLSearchParams();
+
+  if (search?.trim()) {
+    query.set("search", search.trim());
+  }
+
+  const queryString = query.toString();
+
+  return apiRequest<PatientListResponse>(
+    `/api/v1/patients${queryString ? `?${queryString}` : ""}`,
+  );
 }

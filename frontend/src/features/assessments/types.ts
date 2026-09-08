@@ -150,6 +150,30 @@ export interface CompleteAssessmentResponse {
   completed_at: string;
 }
 
+
+/* =========================================================
+   진료과별 의료진 목록
+   GET /api/v1/departments/{department_id}/clinicians
+   ========================================================= */
+
+export interface Clinician {
+  id: string;
+  name: string;
+  specialty: string | null;
+  license_no: string | null;
+  is_active: boolean;
+}
+
+export interface ClinicianListResponse {
+  department: {
+    id: string;
+    name: string;
+  };
+
+  clinicians: Clinician[];
+}
+
+
 /* =========================================================
    Assessment Worklist Types
    ========================================================= */

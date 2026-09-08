@@ -1,17 +1,29 @@
+import {
+  useEffect,
+  useState,
+} from "react";
+
+import {
+  completeAssessment,
+  getClinicians,
+} from "./api";
+
 import type {
   AssessmentDetailResponse,
+  Clinician,
 } from "./types";
 
 import "./css/triage_assessment.css";
 
 
-interface TriageResultProps {
 
+interface TriageResultProps {
   result:
     AssessmentDetailResponse | null;
 
-  onBack: () => void;
+  departmentId?: string | null;
 
+  onBack: () => void;
 }
 
 
@@ -48,9 +60,41 @@ function getPriorityLabel(
 
 export default function TriageResult({
   result,
+  departmentId,
   onBack,
 }: TriageResultProps) {
 
+/*=========상태추가================*/
+
+const [
+  clinicians,
+  setClinicians,
+] = useState<Clinician[]>([]);
+
+const [
+  selectedClinicianId,
+  setSelectedClinicianId,
+] = useState("");
+
+const [
+  loadingClinicians,
+  setLoadingClinicians,
+] = useState(false);
+
+const [
+  submitting,
+  setSubmitting,
+] = useState(false);
+
+const [
+  apiError,
+  setApiError,
+] = useState<string | null>(null);
+
+const [
+  submitMessage,
+  setSubmitMessage,
+] = useState<string | null>(null);
 
   /* ========================================================
      Red Flag 항목

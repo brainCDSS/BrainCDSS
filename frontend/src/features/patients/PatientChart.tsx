@@ -5,366 +5,186 @@ import type { Patient } from "./types";
 import "./css/patient_chart.css";
 
 
-/* =========================================================
-   PatientChart Props
-   ========================================================= */
-
 interface PatientChartProps {
-  /**
-   * Header 검색에서 선택된 실제 환자 객체
-   *
-   * 환자 데이터를 직접 하드코딩하지 않는다.
-   */
   patient: Patient;
+  patients?: Patient[];
+  onSelectPatient?: (patient: Patient) => void;
+  onBackToList?: () => void;
 }
 
-
-/* =========================================================
-   Patient Chart 내부 Tab 종류
-   ========================================================= */
-
-/**
- * Patient Chart 안에서 볼 수 있는 업무 영역
- *
- * 현재는 화면 구조만 만든다.
- *
- * 각 API가 연결되면
- * 해당 Tab 안에 실제 데이터를 넣을 예정이다.
- */
 type PatientChartTab =
+  | "basic"
   | "clinical"
-  | "lab"
   | "imaging"
-  | "consultation"
-  | "medication";
+  | "medication"
+  | "consultation";
 
-
-/* =========================================================
-   Patient Chart 내부 Tab 설정
-   ========================================================= */
-
-/**
- * 화면에 보여줄 메뉴명과
- * 내부에서 사용할 id를 한 곳에서 관리한다.
- *
- * 실제 환자 데이터가 아니라
- * UI 메뉴 설정이므로 정적 선언 가능.
- */
-const patientChartTabs: {
-  id: PatientChartTab;
-  label: string;
-}[] = [
-  {
-    id: "clinical",
-    label: "진료정보",
-  },
-  {
-    id: "lab",
-    label: "검사 / Lab",
-  },
-  {
-    id: "imaging",
-    label: "영상 · AI",
-  },
-  {
-    id: "consultation",
-    label: "협진",
-  },
-  {
-    id: "medication",
-    label: "처방 · DUR",
-  },
+const patientChartTabs: Array<{ id: PatientChartTab; label: string }> = [
+  { id: "basic", label: "기본정보" },
+  { id: "clinical", label: "임상데이터" },
+  { id: "imaging", label: "영상 · AI" },
+  { id: "medication", label: "처방 · DUR" },
+  { id: "consultation", label: "협진 · 진료" },
 ];
 
 
-/**
- * 환자 Chart
- *
- * 구성
- * ---------------------------------------------------------
- *
- * 1. Patient Chart 제목
- * 2. 환자 식별 + 기본정보
- * 3. 환자 내부 업무 Tab
- * 4. 선택한 Tab의 Content
- */
 export default function PatientChart({
   patient,
+  patients = [],
+  onSelectPatient,
+  onBackToList,
 }: PatientChartProps) {
-
-  /* ========================================================
-     1. 현재 선택된 Patient Chart 내부 Tab
-
-     처음 환자 Chart를 열면
-     진료정보가 기본 선택된다.
-     ======================================================== */
-
-  const [
-    activeTab,
-    setActiveTab,
-  ] = useState<PatientChartTab>("clinical");
+  const [activeTab, setActiveTab] = useState<PatientChartTab>("basic");
+  const [isRailPinned, setIsRailPinned] = useState(false);
+  const hasPatientRail = patients.length > 0 && Boolean(onSelectPatient);
 
 
-  /* ========================================================
-     2. 선택한 Tab의 Content
-     ======================================================== */
-
-  /**
-   * 현재 단계에서는 API를 임의로 만들지 않고
-   * 어떤 영역이 선택되었는지만 표시한다.
-   *
-   * 다음 단계부터
-   * 진료정보 → 실제 API
-   * 검사/Lab → 실제 API
-   *
-   * 순서대로 연결한다.
-   */
   function renderTabContent() {
-    switch (activeTab) {
+    if (activeTab === "basic") {
+      return (
+        <div className="patient-chart-basic">
+          <section className="patient-chart-info-section">
+            <h3>기본 정보</h3>
+            <dl className="patient-chart-info-grid">
+              <div><dt>환자번호</dt><dd>{patient.patient_no}</dd></div>
+              <div><dt>이름</dt><dd>{patient.name}</dd></div>
+              <div><dt>생년월일</dt><dd>{patient.birth_date ?? "-"}</dd></div>
+              <div><dt>나이</dt><dd>{patient.estimated_age !== null ? `${patient.estimated_age}세` : "-"}</dd></div>
+              <div><dt>성별</dt><dd>{patient.sex ?? "-"}</dd></div>
+              <div><dt>연락처</dt><dd>{patient.phone ?? "-"}</dd></div>
+              <div><dt>상태</dt><dd><span className={`patient-status is-${patient.status.toLowerCase()}`}>{patient.status}</span></dd></div>
+            </dl>
+          </section>
 
-      /* -----------------------------------------------------
-         진료정보
-         ----------------------------------------------------- */
-
-      case "clinical":
-        return (
-          <div className="patient-chart-empty">
-            진료정보 API 연동 예정
-          </div>
-        );
-
-
-      /* -----------------------------------------------------
-         검사 / Lab
-         ----------------------------------------------------- */
-
-      case "lab":
-        return (
-          <div className="patient-chart-empty">
-            검사 / Lab API 연동 예정
-          </div>
-        );
-
-
-      /* -----------------------------------------------------
-         영상 / AI
-         ----------------------------------------------------- */
-
-      case "imaging":
-        return (
-          <div className="patient-chart-empty">
-            영상 / AI API 연동 예정
-          </div>
-        );
-
-
-      /* -----------------------------------------------------
-         협진
-         ----------------------------------------------------- */
-
-      case "consultation":
-        return (
-          <div className="patient-chart-empty">
-            협진 API 연동 예정
-          </div>
-        );
-
-
-      /* -----------------------------------------------------
-         처방 / DUR
-         ----------------------------------------------------- */
-
-      case "medication":
-        return (
-          <div className="patient-chart-empty">
-            처방 / DUR API 연동 예정
-          </div>
-        );
+          <section className="patient-chart-management">
+            <h3>관리 정보</h3>
+            <span>환자 ID</span>
+            <code>{patient.id}</code>
+          </section>
+        </div>
+      );
     }
+
+    const emptyMessages: Record<Exclude<PatientChartTab, "basic">, { title: string; description: string }> = {
+      clinical: {
+        title: "임상데이터",
+        description: "연결된 임상 데이터가 없습니다. API 연동 후 이 영역에 표시됩니다.",
+      },
+      imaging: {
+        title: "영상 · AI",
+        description: "연결된 영상 및 AI 분석 결과가 없습니다.",
+      },
+      medication: {
+        title: "처방 · DUR",
+        description: "연결된 처방 및 DUR 정보가 없습니다.",
+      },
+      consultation: {
+        title: "협진 · 진료",
+        description: "연결된 협진 및 진료 정보가 없습니다.",
+      },
+    };
+    const message = emptyMessages[activeTab];
+
+    return (
+      <div className="patient-chart-empty">
+        <strong>{message.title}</strong>
+        <p>{message.description}</p>
+      </div>
+    );
   }
 
 
   return (
-    <section className="patient-chart">
+    <section className={isRailPinned ? "patient-detail-layout is-pinned" : "patient-detail-layout"}>
+      {hasPatientRail && (
+        <div className="patient-rail-wrap">
+          <aside className="patient-rail" aria-label="열린 환자 목록">
+            <header className="patient-rail-header">
+              <div>
+                <strong>환자 목록</strong>
+                <small>마우스를 올리면 펼쳐집니다.</small>
+              </div>
+              <button
+                type="button"
+                className={isRailPinned ? "patient-rail-pin is-active" : "patient-rail-pin"}
+                onClick={() => setIsRailPinned((previous) => !previous)}
+                aria-pressed={isRailPinned}
+                title={isRailPinned ? "환자 목록 고정 해제" : "환자 목록 고정"}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                  <path d="m14 4 6 6-3 1-4 4-1 5-3-3-5 3 3-5 4-4 1-3Z" />
+                </svg>
+              </button>
+            </header>
 
-      {/* =====================================================
-          1. Patient Chart 화면 제목
-          ===================================================== */}
-
-      <div className="patient-chart-page-heading">
-
-        <span className="patient-chart-label">
-          PATIENT CHART
-        </span>
-
-        <p>
-          환자 기본정보 및 진료 정보를 확인합니다.
-        </p>
-
-      </div>
-
-
-      {/* =====================================================
-          2. 환자 식별 + 기본정보
-
-          여기 디자인은 완료했으므로
-          이번 단계에서는 건드리지 않는다.
-          ===================================================== */}
-
-      <section className="patient-identity-card">
-
-        {/* 환자명 + 환자번호 */}
-        <div className="patient-identity-header">
-
-          <h2>
-            {patient.name}
-          </h2>
-
-          <span className="patient-identity-number">
-            {patient.patient_no}
-          </span>
-
+            <div className="patient-rail-list">
+              {patients.map((railPatient) => (
+                <button
+                  key={railPatient.id}
+                  type="button"
+                  className={railPatient.id === patient.id ? "patient-rail-item is-selected" : "patient-rail-item"}
+                  onClick={() => onSelectPatient?.(railPatient)}
+                  title={`${railPatient.name} · ${railPatient.patient_no}`}
+                >
+                  <strong>{railPatient.name}</strong>
+                  <span className="patient-rail-details">
+                    <small>{railPatient.patient_no}</small>
+                    <small>{railPatient.sex ?? "-"} · {railPatient.estimated_age !== null ? `${railPatient.estimated_age}세` : "-"}</small>
+                    <small>{railPatient.status}</small>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </aside>
         </div>
+      )}
 
+      <article className="patient-chart">
+        <header className="patient-chart-toolbar">
+          <div>
+            <strong>Patient Chart</strong>
+            <span>선택 환자 상세정보</span>
+          </div>
+          {onBackToList && (
+            <button type="button" onClick={onBackToList}>환자 목록 전체 보기</button>
+          )}
+        </header>
 
-        {/* 환자 기본정보 */}
-        <div className="patient-identity-info">
-
-          {/* 성별 */}
-          <div className="patient-identity-item">
-            <span>
-              성별
-            </span>
-
-            <strong>
-              {patient.sex ?? "-"}
-            </strong>
+        <section className="patient-identity-card">
+          <div className="patient-identity-header">
+            <div>
+              <h2>{patient.name}</h2>
+              <span className="patient-identity-number">{patient.patient_no}</span>
+            </div>
+            <span className={`patient-status is-${patient.status.toLowerCase()}`}>{patient.status}</span>
           </div>
 
-
-          {/* 생년월일 */}
-          <div className="patient-identity-item">
-            <span>
-              생년월일
-            </span>
-
-            <strong>
-              {patient.birth_date ?? "-"}
-            </strong>
+          <div className="patient-identity-info">
+            <div><span>생년월일</span><strong>{patient.birth_date ?? "-"}</strong></div>
+            <div><span>나이</span><strong>{patient.estimated_age !== null ? `${patient.estimated_age}세` : "-"}</strong></div>
+            <div><span>성별</span><strong>{patient.sex ?? "-"}</strong></div>
+            <div><span>연락처</span><strong>{patient.phone ?? "-"}</strong></div>
           </div>
+        </section>
 
-
-          {/* 나이 */}
-          <div className="patient-identity-item">
-            <span>
-              나이
-            </span>
-
-            <strong>
-              {patient.estimated_age !== null
-                ? `${patient.estimated_age}세`
-                : "-"}
-            </strong>
-          </div>
-
-
-          {/* 연락처 */}
-          <div className="patient-identity-item">
-            <span>
-              연락처
-            </span>
-
-            <strong>
-              {patient.phone ?? "-"}
-            </strong>
-          </div>
-
-
-          {/* 상태 */}
-          <div className="patient-identity-item">
-            <span>
-              상태
-            </span>
-
-            <strong>
-              {patient.status}
-            </strong>
-          </div>
-
-        </div>
-
-      </section>
-
-
-      {/* =====================================================
-          3. Patient Chart 내부 업무 영역
-          ===================================================== */}
-
-      <section className="patient-chart-section">
-
-        {/* ===================================================
-            내부 Tab 메뉴
-
-            예:
-            진료정보 | 검사/Lab | 영상·AI | 협진 | 처방·DUR
-            =================================================== */}
-
-        <div
-          className="patient-chart-tabs"
-          role="tablist"
-          aria-label="환자 진료정보 메뉴"
-        >
-
-          {patientChartTabs.map((tab) => {
-
-            /**
-             * 현재 선택된 Tab인지 확인
-             */
-            const isActive =
-              activeTab === tab.id;
-
-
-            return (
+        <section className="patient-chart-section">
+          <div className="patient-chart-tabs" role="tablist" aria-label="환자 진료정보 메뉴">
+            {patientChartTabs.map((tab) => (
               <button
                 key={tab.id}
                 type="button"
-
                 role="tab"
-
-                aria-selected={isActive}
-
-                className={
-                  isActive
-                    ? "patient-chart-tab active"
-                    : "patient-chart-tab"
-                }
-
-                /**
-                 * 클릭한 메뉴를
-                 * 현재 activeTab으로 변경한다.
-                 */
-                onClick={() => {
-                  setActiveTab(tab.id);
-                }}
+                aria-selected={activeTab === tab.id}
+                className={activeTab === tab.id ? "patient-chart-tab active" : "patient-chart-tab"}
+                onClick={() => setActiveTab(tab.id)}
               >
                 {tab.label}
               </button>
-            );
-          })}
-
-        </div>
-
-
-        {/* ===================================================
-            4. 선택한 Tab의 실제 Content
-            =================================================== */}
-
-        <div className="patient-chart-tab-content">
-          {renderTabContent()}
-        </div>
-
-      </section>
-
+            ))}
+          </div>
+          <div className="patient-chart-tab-content">{renderTabContent()}</div>
+        </section>
+      </article>
     </section>
   );
 }

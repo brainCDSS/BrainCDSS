@@ -552,6 +552,52 @@ textarea {
   font-size: 11px;
 }
 
+/* 로그아웃 버튼 */
+
+.header-logout-button {
+  height: 36px;
+
+  padding: 0 12px;
+
+  flex-shrink: 0;
+
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+
+  font-size: 11px;
+  font-weight: 700;
+
+  white-space: nowrap;
+  cursor: pointer;
+
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.header-logout-button:hover {
+  border-color: #fca5a5;
+
+  background: #fff1f2;
+  color: #dc2626;
+}
+
+[data-theme="dark"] .header-logout-button {
+  background: #1c2838;
+  border-color: var(--border-color);
+  color: var(--text-secondary);
+}
+
+[data-theme="dark"] .header-logout-button:hover {
+  background: #3b2025;
+  border-color: #b94b58;
+  color: #fda4af;
+}
+
 
 /* =========================================================
    11. WORKSPACE
@@ -605,7 +651,7 @@ textarea {
 
   align-self: stretch;
 
-  min-height: calc(100vh - 72px);
+  min-height: calc(100vh - 116px);
 
   /*
    * Brand와 실제로 붙어 있도록
@@ -706,66 +752,8 @@ textarea {
     color 0.15s ease;
 }
 
-/* 현재 선택
-   ---------------------------------------------------------
-   선택된 메뉴가 Sidebar 오른쪽 끝까지 이어지고
-   Main Content와 연결된 하나의 Tab처럼 보이게 한다.
-   Workspace Tab Bar는 별도로 얇은 underline만 유지한다.
-   --------------------------------------------------------- */
-
-.sidebar-menu.active {
-  position: relative;
-  z-index: 2;
-
-  width: calc(100% + 18px);
-  margin-right: -18px;
-  padding-right: 31px;
-
-  border-radius: 10px 0 0 10px;
-
-  background: var(--bg-page);
-
-  color: var(--primary-dark);
-
-  font-weight: 700;
-}
-
-/* 선택 영역 위쪽 연결 곡선 */
-.sidebar-menu.active::before {
-  content: "";
-
-  position: absolute;
-  top: -14px;
-  right: 0;
-
-  width: 14px;
-  height: 14px;
-
-  border-bottom-right-radius: 14px;
-
-  box-shadow: 6px 6px 0 6px var(--bg-page);
-
-  pointer-events: none;
-}
-
-/* 선택 영역 아래쪽 연결 곡선 */
-.sidebar-menu.active::after {
-  content: "";
-
-  position: absolute;
-  right: 0;
-  bottom: -14px;
-
-  width: 14px;
-  height: 14px;
-
-  border-top-right-radius: 14px;
-
-  box-shadow: 6px -6px 0 6px var(--bg-page);
-
-  pointer-events: none;
-}
-
+/* 실제 Page 선택 스타일은 아래의
+   .sidebar-page-menu.active 공통 규칙에서 처리한다. */
 
 /* Sidebar Icon */
 
@@ -780,6 +768,16 @@ textarea {
   justify-content: center;
 
   font-size: 14px;
+}
+
+.sidebar-menu-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* 펼친 Sidebar에서는 짧은 접힘 전용 라벨을 숨긴다. */
+.sidebar-collapsed-label {
+  display: none;
 }
 
 /* =========================================================
@@ -804,7 +802,7 @@ textarea {
    하위 메뉴가 선택되어 있어도
    일반 단일 메뉴의 연결형 Active 모양은 사용하지 않는다. */
 
-.sidebar-group-button.active {
+.sidebar-group-button.expanded {
   width: 100%;
 
   margin-right: 0;
@@ -824,8 +822,8 @@ textarea {
 
 /* 기존 sidebar-menu.active 곡선 제거 */
 
-.sidebar-group-button.active::before,
-.sidebar-group-button.active::after {
+.sidebar-group-button.expanded::before,
+.sidebar-group-button.expanded::after {
   display: none;
 }
 
@@ -872,6 +870,11 @@ textarea {
   transition:
     transform 0.18s ease,
     color 0.18s ease;
+}
+
+.sidebar-group-arrow svg {
+  width: 14px;
+  height: 14px;
 }
 
 
@@ -970,16 +973,6 @@ textarea {
    선택된 2Depth
    --------------------------------------------------------- */
 
-.sidebar-submenu-item.active {
-  background:
-    rgba(255, 255, 255, 0.17);
-
-  color: #ffffff;
-
-  font-weight: 700;
-}
-
-
 /* 작은 점 */
 
 .sidebar-submenu-dot {
@@ -995,13 +988,86 @@ textarea {
   color:
     rgba(255, 255, 255, 0.50);
 
-  font-size: 13px;
+  font-size: 0;
+}
+
+.sidebar-submenu-dot::before {
+  width: 4px;
+  height: 4px;
+
+  border-radius: 50%;
+
+  background: currentColor;
+
+  content: "";
 }
 
 
 .sidebar-submenu-item.active
 .sidebar-submenu-dot {
-  color: #ffffff;
+  color: var(--primary-dark);
+}
+
+
+/* ---------------------------------------------------------
+   실제 Page 메뉴 공통 Active
+   ---------------------------------------------------------
+   Dashboard와 단일 메뉴, 2Depth leaf 모두 같은 선택 모양을
+   사용한다. Group 펼침 상태는 이 규칙을 사용하지 않는다.
+   --------------------------------------------------------- */
+
+.sidebar-page-menu.active {
+  position: relative;
+
+  z-index: 2;
+
+  width: calc(100% + 18px);
+
+  margin-right: -18px;
+
+  padding: 11px 31px 11px 13px;
+
+  border-radius: 10px 0 0 10px;
+
+  background: var(--bg-page);
+
+  color: var(--primary-dark);
+
+  font-weight: 700;
+}
+
+.sidebar-page-menu.active::before,
+.sidebar-page-menu.active::after {
+  position: absolute;
+
+  right: 0;
+
+  display: block;
+
+  width: 14px;
+  height: 14px;
+
+  pointer-events: none;
+}
+
+.sidebar-page-menu.active::before {
+  top: -14px;
+
+  border-bottom-right-radius: 14px;
+
+  box-shadow: 6px 6px 0 6px var(--bg-page);
+
+  content: "";
+}
+
+.sidebar-page-menu.active::after {
+  bottom: -14px;
+
+  border-top-right-radius: 14px;
+
+  box-shadow: 6px -6px 0 6px var(--bg-page);
+
+  content: "";
 }
 
 
@@ -1034,7 +1100,7 @@ textarea {
    기존 Icon Button 모양으로 표시 */
 
 .sidebar-collapsed
-.sidebar-group-button.active {
+.sidebar-group-button.expanded {
   width: 44px;
 
   margin-left: auto;
@@ -1096,11 +1162,11 @@ textarea {
 
   min-width: 0;
 
-  min-height: calc(100vh - 72px);
+  min-height: calc(100vh - 116px);
 
   margin: 0;
 
-  padding: 26px 28px 36px;
+  padding: 16px 28px 16px;
 
   /*
    * 사용자가 원하는
@@ -1528,7 +1594,7 @@ textarea {
    *
    * 너무 좁으면 68~72px 정도로 바꿔도 된다.
    */
-  width: 64px;
+  width: 80px;
 
   /*
    * 접힌 상태에서는 아이콘이 가운데 오도록
@@ -1562,7 +1628,7 @@ textarea {
   /*
    * ★ Sidebar와 반드시 동일한 값
    */
-  width: 64px;
+  width: 80px;
 
   padding-left: 0;
   padding-right: 0;
@@ -1604,12 +1670,14 @@ textarea {
   /*
    * 아이콘을 Sidebar 중앙에 위치시킨다.
    */
+  flex-direction: column;
+
   justify-content: center;
 
   /*
    * 기존 icon-text gap 제거
    */
-  gap: 0;
+  gap: 4px;
 
   /*
    * ★ 접힌 메뉴 버튼 높이/폭
@@ -1617,9 +1685,9 @@ textarea {
    * Sidebar 64px 안에서
    * 약 40px 정도 버튼이 보이도록 한다.
    */
-  width: 44px;
+  width: 60px;
 
-  min-height: 42px;
+  min-height: 52px;
 
   margin-left: auto;
   margin-right: auto;
@@ -1651,7 +1719,7 @@ textarea {
 /* 접힌 Sidebar에서는 연결형 Active 모양 대신
    작은 Icon Button 형태로 단순화한다. */
 .sidebar-collapsed .sidebar-menu.active {
-  width: 44px;
+  width: 60px;
 
   margin-left: auto;
   margin-right: auto;
@@ -1676,7 +1744,30 @@ textarea {
 
   flex-shrink: 0;
 
-  font-size: 14px;
+  font-size: 0;
+}
+
+/*
+ * 접힌 Sidebar 전용 아이콘/라벨 크기.
+ * 폭을 다시 조정할 때는 위의 Sidebar와 Hamburger 폭을 같은 값으로
+ * 유지하고, 버튼 폭(60px)만 함께 조정하면 된다.
+ */
+.sidebar-collapsed .sidebar-menu-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.sidebar-collapsed .sidebar-collapsed-label {
+  display: block;
+
+  color: inherit;
+
+  font-size: 10px;
+  font-weight: 700;
+
+  line-height: 1;
+
+  white-space: nowrap;
 }
 
 
@@ -1739,7 +1830,10 @@ textarea {
    * 190px = 현재 추천
    * 조금 넓게 하고 싶으면 210~220px
    */
-  width: 190px;
+  width: 230px;
+
+  max-height: calc(100vh - 138px);
+  overflow-y: auto;
 
   padding: 8px;
 
@@ -1774,6 +1868,24 @@ textarea {
   font-weight: 800;
 
   letter-spacing: 0.06em;
+}
+
+.workspace-new-work-group +
+.workspace-new-work-group {
+  margin-top: 5px;
+
+  padding-top: 5px;
+
+  border-top: 1px solid var(--border-color);
+}
+
+.workspace-new-work-group-title {
+  padding: 5px 9px 3px;
+
+  color: var(--text-secondary);
+
+  font-size: 10px;
+  font-weight: 800;
 }
 
 
@@ -2221,4 +2333,3 @@ body,
 [data-theme="dark"] .sidebar {
   background: var(--bg-sidebar);
 }
-

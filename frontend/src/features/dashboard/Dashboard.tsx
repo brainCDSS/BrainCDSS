@@ -1,3 +1,8 @@
+import { useEffect, useState } from "react";
+
+import { getPatients } from "../patients/api";
+import type { Patient } from "../patients/types";
+
 import "./dashboard.css";
 
 /**
@@ -105,9 +110,48 @@ const quickActions = [
   },
 ];
 
-export default function Dashboard() {
+interface DashboardProps {
+  onOpenPatient?: (patient: Patient) => void;
+}
+
+export default function Dashboard({ onOpenPatient }: DashboardProps) {
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [search, setSearch] = useState("");
+  const [patientError, setPatientError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    getPatients()
+      .then((response) => { if (active) setPatients(response.results); })
+      .catch(() => { if (active) setPatientError("환자 목록을 불러오지 못했습니다."); });
+    return () => { active = false; };
+  }, []);
+
+  const keyword = search.trim().toLowerCase();
+  const visiblePatients = patients.filter((patient) =>
+    !keyword || patient.name.toLowerCase().includes(keyword) || patient.patient_no.toLowerCase().includes(keyword),
+  );
+
   return (
     <section className="dashboard">
+      <div className="dashboard-reference-layout">
+        <aside className="dashboard-patient-list">
+          <header><div><span>PATIENT LIST</span><h2>환자 목록</h2></div><strong>{patients.length}명</strong></header>
+          <label><span aria-hidden="true">⌕</span><input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="이름 또는 등록번호 검색" /></label>
+          <div className="dashboard-patient-list__scroll">
+            {visiblePatients.map((patient) => (
+              <button key={patient.id} type="button" onClick={() => onOpenPatient?.(patient)}>
+                <span><strong>{patient.name}</strong><em>{patient.status}</em></span>
+                <small>{patient.sex ?? "-"} · {patient.estimated_age === null ? "-" : `${patient.estimated_age}세`} · {patient.birth_date ?? "-"}</small>
+                <small>진료과 미연결 · 내원 형태 미연결</small>
+                <span className="dashboard-patient-tags"><i>영상 상태 미확인</i><i>AI 상태 미확인</i></span>
+              </button>
+            ))}
+            {patientError && <div className="dashboard-patient-list__empty">{patientError}</div>}
+            {!patientError && visiblePatients.length === 0 && <div className="dashboard-patient-list__empty">조회된 환자가 없습니다.</div>}
+          </div>
+        </aside>
+        <div className="dashboard-reference-content">
       {/* =====================================================
           Dashboard 제목 영역
           ===================================================== */}
@@ -373,6 +417,8 @@ export default function Dashboard() {
             ))}
           </div>
         </section>
+      </div>
+        </div>
       </div>
     </section>
   );

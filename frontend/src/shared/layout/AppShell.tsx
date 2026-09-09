@@ -35,7 +35,7 @@ import "./layout.css";
    ========================================================= */
 
 interface AppShellProps {
-  children: ReactNode;
+  children: ReactNode | ((onOpenPatient: (patient: Patient) => void) => ReactNode);
   currentUser: LoginUser;
   onLogout: () => void;
 }
@@ -685,32 +685,8 @@ export default function AppShell({
     patient: Patient,
   ) => {
 
-    /**
-     * 동일 환자 중복 Tab 방지
-     */
-    setOpenPatientTabs(
-      (previousTabs) => {
-
-        const alreadyOpen =
-          previousTabs.some(
-            (openedPatient) =>
-              openedPatient.id ===
-              patient.id,
-          );
-
-
-        if (alreadyOpen) {
-          return previousTabs;
-        }
-
-
-        return [
-          ...previousTabs,
-          patient,
-        ];
-
-      },
-    );
+    /* 환자 상세는 하나의 Context 탭만 유지한다. */
+    setOpenPatientTabs([patient]);
 
 
     setActiveAssessmentContext(
@@ -826,18 +802,7 @@ export default function AppShell({
       );
 
 
-      const adjacentMenu =
-        openMenuTabs[openMenuTabs.length - 1];
-
-      if (adjacentMenu) {
-        handleSelectMenuTab(adjacentMenu);
-      } else if (isConsultationListTabOpen) {
-        handleSelectConsultationListTab();
-      } else {
-        setActiveMenu(
-          "dashboard",
-        );
-      }
+      setActiveMenu("dashboard");
 
     }
 
@@ -885,7 +850,7 @@ export default function AppShell({
       activeMenu === "patients"
     ) {
 
-      return <Patients />;
+      return <Patients onOpenPatient={handlePatientSelect} />;
 
     }
 
@@ -1057,7 +1022,9 @@ export default function AppShell({
        Dashboard
        ------------------------------------------------------- */
 
-    return children;
+    return typeof children === "function"
+      ? children(handlePatientSelect)
+      : children;
 
   }
 

@@ -507,11 +507,7 @@ export default function WorkspaceTabs({
 
                 <span className="workspace-tab-label">
 
-                  {patient.name}
-
-                  {" | "}
-
-                  Chart
+                  환자 관리 · {patient.name}
 
                 </span>
 

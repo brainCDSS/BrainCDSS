@@ -62,7 +62,9 @@ export function App() {
       currentUser={authSession.user}
       onLogout={handleLogout}
     >
-      <Dashboard />
+      {(onOpenPatient) => (
+        <Dashboard onOpenPatient={onOpenPatient} />
+      )}
     </AppShell>
 );
 

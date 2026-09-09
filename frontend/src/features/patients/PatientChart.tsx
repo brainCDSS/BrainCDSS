@@ -335,17 +335,19 @@ export default function PatientChart({ patient, patients = [], onSelectPatient, 
 
   return (
     <section className="patient-context-dashboard">
-      <PatientRail patient={patient} patients={patientList.length > 0 ? patientList : (patients.length > 0 ? patients : [patient])} studies={data.studies} analyses={data.analyses} onSelectPatient={onSelectPatient} />
-      <main className="patient-context-main">
-        <PatientHeader patient={patient} onNavigate={onNavigate} />
-        {dataError && <div className="patient-data-warning" role="status">{dataError}</div>}
-        <div className="patient-clinical-focus">
-          <BrainImagingPanel studies={patientStudies} selectedStudy={selectedStudy} onSelectStudy={(study) => setSelectedStudyId(study.id)} onOpenImaging={onNavigate ? () => onNavigate("imaging") : undefined} />
-          <AIAnalysisPanel analyses={patientAnalyses} result={analysisResult} isLoading={isLoading || analysisLoading} error={analysisError} onSelectAnalysis={(analysis) => setSelectedAnalysisId(analysis.analysis_id)} />
-        </div>
-        <SummaryCards patient={patient} studies={patientStudies} consultations={patientConsultations} onNavigate={onNavigate} />
-        {onBackToList && <button className="patient-back-link" type="button" onClick={onBackToList}>환자 목록 전체보기</button>}
-      </main>
+      <div className="patient-workspace">
+        <PatientRail patient={patient} patients={patientList.length > 0 ? patientList : (patients.length > 0 ? patients : [patient])} studies={data.studies} analyses={data.analyses} onSelectPatient={onSelectPatient} />
+        <main className="patient-context-main">
+          <PatientHeader patient={patient} onNavigate={onNavigate} />
+          {dataError && <div className="patient-data-warning" role="status">{dataError}</div>}
+          <div className="patient-clinical-focus">
+            <BrainImagingPanel studies={patientStudies} selectedStudy={selectedStudy} onSelectStudy={(study) => setSelectedStudyId(study.id)} onOpenImaging={onNavigate ? () => onNavigate("imaging") : undefined} />
+            <AIAnalysisPanel analyses={patientAnalyses} result={analysisResult} isLoading={isLoading || analysisLoading} error={analysisError} onSelectAnalysis={(analysis) => setSelectedAnalysisId(analysis.analysis_id)} />
+          </div>
+          <SummaryCards patient={patient} studies={patientStudies} consultations={patientConsultations} onNavigate={onNavigate} />
+          {onBackToList && <button className="patient-back-link" type="button" onClick={onBackToList}>환자 목록 전체보기</button>}
+        </main>
+      </div>
       <aside className="patient-context-aside"><SchedulePanel /><TimelinePanel events={timelineEvents} onOpenConsultations={onNavigate ? () => onNavigate("consultations") : undefined} /></aside>
     </section>
   );

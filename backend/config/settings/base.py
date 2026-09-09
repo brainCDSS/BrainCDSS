@@ -2,10 +2,13 @@
 
 import os
 from pathlib import Path
-
+from datetime import timedelta
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parents[2]
+ROOT_DIR = BASE_DIR.parent
 
+load_dotenv(ROOT_DIR / ".env")
 
 # ---------------------------------------------------------------------
 # Core
@@ -166,7 +169,7 @@ CORS_ALLOWED_ORIGINS = [
     origin.strip()
     for origin in os.getenv(
         "CORS_ALLOWED_ORIGINS",
-        "http://localhost:5173",
+        "http://localhost:5173,http://127.0.0.1:5173",
     ).split(",")
     if origin.strip()
 ]
@@ -211,15 +214,66 @@ CELERY_RESULT_BACKEND = None
 CELERY_TASK_IGNORE_RESULT = True
 CELERY_TIMEZONE = TIME_ZONE
 
-# BEGIN BRAINON USER JWT SIGNING KEY
-# User JWT signing key.
-# Production: inject JWT_SIGNING_KEY through Cloud Run Secret Manager.
+
+
+
+# =====================================================================
+# 기본 JWT 설정 : 개발 종료 후 이거 사용하세요.
+# =====================================================================
+# # BEGIN BRAINON USER JWT SETTINGS
+# # User JWT signing key.
+# # Production: inject JWT_SIGNING_KEY through Cloud Run Secret Manager.
+
+# _user_jwt_signing_key = os.getenv("JWT_SIGNING_KEY")
+
+# SIMPLE_JWT = {
+#     **globals().get("SIMPLE_JWT", {}),
+
+#     # Access Token 유효시간
+#     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
+
+#     # Refresh Token 유효시간
+#     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+# }
+
+# # JWT 전용 서명키가 환경변수에 있으면 사용
+# if _user_jwt_signing_key:
+#     SIMPLE_JWT["SIGNING_KEY"] = _user_jwt_signing_key
+
+# # END BRAINON USER JWT SETTINGS
+
+
+
+# =====================================================================
+# 개발용 임시 JWT 설정
+# =====================================================================
+# JWT 설정
+# 토큰 유효시간은 환경변수에서 관리
+# 환경변수가 없으면 Simple JWT 기본값과 동일하게
+# Access 5분 / Refresh 1일 사용
+# =====================================================================
+
 _user_jwt_signing_key = os.getenv("JWT_SIGNING_KEY")
 
-if _user_jwt_signing_key:
-    SIMPLE_JWT = {
-        **globals().get("SIMPLE_JWT", {}),
-        "SIGNING_KEY": _user_jwt_signing_key,
-    }
-# END BRAINON USER JWT SIGNING KEY
+# SIMPLE_JWT = {
+#     **globals().get("SIMPLE_JWT", {}),
 
+#     "ACCESS_TOKEN_LIFETIME": timedelta(
+#         minutes=int(os.getenv("JWT_ACCESS_TOKEN_MINUTES", "5"))
+#     ),
+
+#     "REFRESH_TOKEN_LIFETIME": timedelta(
+#         days=int(os.getenv("JWT_REFRESH_TOKEN_DAYS", "1"))
+#     ),
+# }
+
+SIMPLE_JWT = {
+    **globals().get("SIMPLE_JWT", {}),
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=3650),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=3650),
+}
+
+if _user_jwt_signing_key:
+    SIMPLE_JWT["SIGNING_KEY"] = _user_jwt_signing_key
+
+# =====================================================================

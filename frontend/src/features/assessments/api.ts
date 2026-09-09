@@ -9,6 +9,7 @@ import type {
   StartAssessmentResponse,
   UpdateAssessmentRequest,
   UpdateAssessmentResponse,
+  ClinicianListResponse,
 } from "./types";
 
 
@@ -144,5 +145,24 @@ export function completeAssessment(
 
       body: JSON.stringify(payload),
     },
+  );
+}
+
+/* =========================================================
+   의료진 목록 조회
+   ---------------------------------------------------------
+   선택한 진료과의 활성 의료진 목록을 조회한다.
+
+   GET /api/v1/departments/{department_id}/clinicians
+   ========================================================= */
+
+export function getClinicians(
+  departmentId: string,
+): Promise<ClinicianListResponse> {
+
+  return apiRequest<ClinicianListResponse>(
+    `/api/v1/departments/${
+      encodeURIComponent(departmentId)
+    }/clinicians`,
   );
 }

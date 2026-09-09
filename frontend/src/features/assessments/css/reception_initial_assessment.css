@@ -1,0 +1,456 @@
+/* =========================================================
+   접수 · 초기평가
+   기존 의료진 화면의 카드, 색상 변수와 화면 밀도를 그대로 사용한다.
+   Encounter API 연결 전에는 입력 구조와 비활성 상태만 표현한다.
+   ========================================================= */
+
+.reception-initial-assessment {
+  width: 100%;
+  min-width: 0;
+  color: var(--text-primary);
+}
+
+.reception-initial-assessment__heading {
+  margin-bottom: 18px;
+}
+
+.reception-initial-assessment__heading > span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--primary);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.reception-initial-assessment__heading h1 {
+  margin: 0 0 5px;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.reception-initial-assessment__heading p,
+.reception-card p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+
+/* 접수부터 Triage 완료까지의 위치를 보여주는 compact workflow */
+.reception-flow {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0 0 14px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--border-color);
+  list-style: none;
+}
+
+.reception-flow li {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 12px;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.reception-flow li span {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--bg-page);
+  font-size: 10px;
+}
+
+.reception-flow li.current {
+  background: var(--bg-active);
+  color: var(--primary-dark);
+}
+
+.reception-flow li.current span {
+  background: var(--primary);
+  color: #fff;
+}
+
+
+/* 접수 카드: 현재 Dashboard와 Worklist의 surface 표현을 재사용한다. */
+.reception-card {
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.reception-card__header,
+.reception-card__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px 20px;
+}
+
+.reception-card__header {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.reception-card__header h2 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.reception-card__status {
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: var(--bg-page);
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.reception-card__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+}
+
+.reception-patient-search,
+.reception-information {
+  min-width: 0;
+  padding: 18px 20px;
+}
+
+.reception-patient-search {
+  border-right: 1px solid var(--border-color);
+}
+
+.reception-section-title {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 14px;
+}
+
+.reception-section-title strong {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.reception-section-title span,
+.reception-search-row label > span,
+.reception-form-grid label > span {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.reception-search-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+}
+
+.reception-search-row label,
+.reception-form-grid label {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.reception-search-row input,
+.reception-form-grid input,
+.reception-form-grid select {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 11px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  outline: none;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 12px;
+}
+
+.reception-search-row input:focus,
+.reception-form-grid input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(79, 143, 232, 0.1);
+}
+
+.reception-search-row button,
+.reception-card__actions button {
+  min-height: 38px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--primary);
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.reception-search-row button:disabled,
+.reception-card__actions button:disabled,
+.reception-form-grid select:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.reception-patient-empty {
+  display: flex;
+  min-height: 92px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px dashed var(--border-color);
+  border-radius: 9px;
+  background: var(--bg-page);
+  text-align: center;
+}
+
+.reception-patient-results {
+  margin-top: 12px;
+}
+
+.reception-patient-empty.is-error {
+  color: #c2414f;
+}
+
+.reception-patient-list {
+  display: flex;
+  max-height: 190px;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  padding-right: 3px;
+}
+
+.reception-patient-item {
+  display: flex;
+  width: 100%;
+  min-height: 54px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 9px 11px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.reception-patient-item:hover {
+  background: var(--bg-hover);
+}
+
+.reception-patient-item.is-selected {
+  border-color: var(--primary);
+  background: var(--bg-active);
+}
+
+.reception-patient-item > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.reception-patient-item > span:last-child {
+  align-items: flex-end;
+  flex: 0 0 auto;
+}
+
+.reception-patient-item strong {
+  font-size: 12px;
+}
+
+.reception-patient-item small {
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+
+.reception-patient-empty strong {
+  margin-bottom: 3px;
+  font-size: 12px;
+}
+
+.reception-selected-patient {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+  background: var(--bg-surface);
+}
+
+.reception-selected-patient div {
+  min-width: 0;
+  padding: 0 10px;
+  border-right: 1px solid var(--border-color);
+}
+
+.reception-selected-patient div:first-child {
+  padding-left: 0;
+}
+
+.reception-selected-patient div:last-child {
+  padding-right: 0;
+  border-right: 0;
+}
+
+.reception-selected-patient dt {
+  margin-bottom: 4px;
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+
+.reception-selected-patient dd {
+  margin: 0;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reception-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 12px;
+}
+
+.reception-form-grid label:last-child {
+  grid-column: 1 / -1;
+}
+
+.reception-card__actions {
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-page);
+}
+
+.reception-card__actions button {
+  min-width: 112px;
+}
+
+.reception-assessment-worklist {
+  margin-top: 22px;
+}
+
+.reception-assessment-worklist__heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 12px;
+}
+
+.reception-assessment-worklist__heading span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--primary);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.reception-assessment-worklist__heading h2 {
+  margin: 0 0 4px;
+  font-size: 17px;
+}
+
+.reception-assessment-worklist__heading p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.reception-next-step {
+  flex: 0 0 auto;
+  padding: 8px 11px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* 통합 페이지에 이미 상위 제목이 있으므로 Worklist의 중복 페이지 제목만 숨긴다. */
+.reception-assessment-worklist .assessment-worklist-page-heading {
+  display: none;
+}
+
+@media (max-width: 980px) {
+  .reception-flow {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .reception-card__body {
+    grid-template-columns: 1fr;
+  }
+
+  .reception-patient-search {
+    border-right: 0;
+    border-bottom: 1px solid var(--border-color);
+  }
+}
+
+@media (max-width: 640px) {
+  .reception-flow {
+    grid-template-columns: 1fr;
+  }
+
+  .reception-selected-patient {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 0;
+  }
+
+  .reception-selected-patient div:nth-child(2) {
+    border-right: 0;
+  }
+
+  .reception-assessment-worklist__heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .reception-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .reception-form-grid label:last-child {
+    grid-column: auto;
+  }
+
+  .reception-card__actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

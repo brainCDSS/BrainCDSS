@@ -9,6 +9,53 @@ import type { Patient } from "../../features/patients/types";
 import type {
   ConsultationListItem,
 } from "../../features/consultations/types";
+import type { SidebarMenuKey } from "./Sidebar";
+import { MENU_LABELS } from "./menuConfig";
+
+export type MenuWorkspaceTabKey = Exclude<
+  SidebarMenuKey,
+  "dashboard" | "consultations"
+>;
+
+const NEW_WORK_GROUPS: Array<{
+  label: string;
+  items: Array<{
+    key: Exclude<SidebarMenuKey, "dashboard">;
+    icon: string;
+  }>;
+}> = [
+  {
+    label: "진료",
+    items: [
+      { key: "patients", icon: "○" },
+      { key: "worklist", icon: "✓" },
+      { key: "triage", icon: "✓" },
+    ],
+  },
+  {
+    label: "검사 · 분석",
+    items: [
+      { key: "imaging", icon: "◇" },
+      { key: "ai-results", icon: "◇" },
+      { key: "radiology-reports", icon: "◇" },
+      { key: "cdss", icon: "◇" },
+    ],
+  },
+  {
+    label: "협업",
+    items: [
+      { key: "consultations", icon: "◎" },
+    ],
+  },
+  {
+    label: "기타",
+    items: [
+      { key: "surgical-planning", icon: "○" },
+      { key: "prescriptions", icon: "+" },
+      { key: "notifications", icon: "!" },
+    ],
+  },
+];
 
 
 /* =========================================================
@@ -22,6 +69,24 @@ interface WorkspaceTabsProps {
   sidebarCollapsed?: boolean;
 
   onToggleSidebar?: () => void;
+
+  /* Sidebar menu pages */
+
+  openMenuTabs?: MenuWorkspaceTabKey[];
+
+  activeMenu?: SidebarMenuKey;
+
+  onSelectMenuTab?: (
+    menu: MenuWorkspaceTabKey,
+  ) => void;
+
+  onCloseMenuTab?: (
+    menu: MenuWorkspaceTabKey,
+  ) => void;
+
+  onOpenMenu?: (
+    menu: SidebarMenuKey,
+  ) => void;
 
 
   /* 일반 환자 */
@@ -81,6 +146,16 @@ export default function WorkspaceTabs({
   sidebarCollapsed = false,
 
   onToggleSidebar = () => {},
+
+  openMenuTabs = [],
+
+  activeMenu = "dashboard",
+
+  onSelectMenuTab = () => {},
+
+  onCloseMenuTab = () => {},
+
+  onOpenMenu = () => {},
 
 
   /* 일반 환자 */
@@ -196,12 +271,32 @@ export default function WorkspaceTabs({
       handleOutsideClick,
     );
 
+    const handleEscape = (
+      event: KeyboardEvent,
+    ) => {
+
+      if (event.key === "Escape") {
+        setIsNewWorkMenuOpen(false);
+      }
+
+    };
+
+    document.addEventListener(
+      "keydown",
+      handleEscape,
+    );
+
 
     return () => {
 
       document.removeEventListener(
         "mousedown",
         handleOutsideClick,
+      );
+
+      document.removeEventListener(
+        "keydown",
+        handleEscape,
       );
 
     };
@@ -223,6 +318,7 @@ export default function WorkspaceTabs({
      ======================================================== */
 
   const isDashboardActive =
+    activeMenu === "dashboard" &&
     activePatientId === null &&
     activeConsultationId === null &&
     !isConsultationListActive;
@@ -275,6 +371,7 @@ export default function WorkspaceTabs({
 
         </button>
 
+
       </div>
 
 
@@ -283,6 +380,8 @@ export default function WorkspaceTabs({
           ===================================================== */}
 
       <div className="workspace-tabs-list">
+
+        <div className="workspace-tabs-scroll">
 
 
         {/* ===================================================
@@ -308,6 +407,66 @@ export default function WorkspaceTabs({
           </span>
 
         </button>
+
+
+        {/* ===================================================
+            Sidebar menu page Tabs
+            =================================================== */}
+
+        {openMenuTabs.map((menu) => {
+
+          const label = MENU_LABELS[menu];
+
+          const isActive =
+            activeMenu === menu &&
+            activePatientId === null &&
+            activeConsultationId === null;
+
+
+          return (
+            <button
+              key={menu}
+              type="button"
+              className={
+                isActive
+                  ? "workspace-tab active"
+                  : "workspace-tab"
+              }
+              onClick={() => {
+                onSelectMenuTab(menu);
+              }}
+            >
+              <span className="workspace-tab-label">
+                {label}
+              </span>
+
+              <span
+                className="workspace-tab-close"
+                role="button"
+                tabIndex={0}
+                aria-label={`${label} 탭 닫기`}
+                title="탭 닫기"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onCloseMenuTab(menu);
+                }}
+                onKeyDown={(event) => {
+                  if (
+                    event.key === "Enter" ||
+                    event.key === " "
+                  ) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onCloseMenuTab(menu);
+                  }
+                }}
+              >
+                ×
+              </span>
+            </button>
+          );
+
+        })}
 
 
         {/* ===================================================
@@ -596,6 +755,8 @@ export default function WorkspaceTabs({
           },
         )}
 
+        </div>
+
 
         {/* ===================================================
             새 업무 +
@@ -648,52 +809,36 @@ export default function WorkspaceTabs({
               </div>
 
 
-              {/* 영상 / 검사 */}
+              {NEW_WORK_GROUPS.map((group) => (
+                <div
+                  className="workspace-new-work-group"
+                  key={group.label}
+                >
+                  <div className="workspace-new-work-group-title">
+                    {group.label}
+                  </div>
 
-              <button
-                type="button"
+                  {group.items.map((item) => (
+                    <button
+                      key={item.key}
+                      type="button"
+                      className="workspace-new-work-item"
+                      onClick={() => {
+                        onOpenMenu(item.key);
+                        setIsNewWorkMenuOpen(false);
+                      }}
+                    >
+                      <span className="workspace-new-work-icon">
+                        {item.icon}
+                      </span>
 
-                className="workspace-new-work-item"
-              >
-
-                <span className="workspace-new-work-icon">
-
-                  I
-
-                </span>
-
-
-                <span>
-
-                  영상 / 검사
-
-                </span>
-
-              </button>
-
-
-              {/* 협진 */}
-
-              <button
-                type="button"
-
-                className="workspace-new-work-item"
-              >
-
-                <span className="workspace-new-work-icon">
-
-                  C
-
-                </span>
-
-
-                <span>
-
-                  협진
-
-                </span>
-
-              </button>
+                      <span>
+                        {MENU_LABELS[item.key]}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ))}
 
 
             </div>

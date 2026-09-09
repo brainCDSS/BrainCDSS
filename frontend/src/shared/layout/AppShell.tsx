@@ -2,21 +2,30 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 
 import Patients from "../../features/patients/Patients";
-import AssessmentWorklist from "../../features/assessments/AssessmentWorklist";
 import TriageAssessment from "../../features/assessments/TriageAssessment";
+import ReceptionInitialAssessment from "../../features/assessments/ReceptionInitialAssessment";
 
 import PatientChart from "../../features/patients/PatientChart";
 
 import ConsultationList from "../../features/consultations/ConsultationList";
 import ConsultationPatientReview from "../../features/consultations/ConsultationPatientReview";
+import ImagingPage from "../../features/imaging/ImagingPage";
+import AIAnalysisResultsPage from "../../features/ai-analysis/AIAnalysisResultsPage";
+import RadiologyReportsPage from "../../features/radiology/RadiologyReportsPage";
+import CDSSResultsPage from "../../features/cdss/CDSSResultsPage";
+import MedicationSafetyPage from "../../features/medication-safety/MedicationSafetyPage";
+import NotificationsPage from "../../features/notifications/NotificationsPage";
+import SurgicalPlanningPage from "../../features/surgical-planning/SurgicalPlanningPage";
 
 import type { Patient } from "../../features/patients/types";
 import type { ConsultationListItem } from "../../features/consultations/types";
+import type { LoginUser } from "../../features/auth/types";
 import type { SidebarMenuKey } from "./Sidebar";
 
 import Header from "./Header";
 import Sidebar from "./Sidebar";
 import WorkspaceTabs from "./WorkspaceTabs";
+import type { MenuWorkspaceTabKey } from "./WorkspaceTabs";
 
 import "./layout.css";
 
@@ -27,6 +36,8 @@ import "./layout.css";
 
 interface AppShellProps {
   children: ReactNode;
+  currentUser: LoginUser;
+  onLogout: () => void;
 }
 
 
@@ -46,6 +57,8 @@ interface ActiveAssessmentContext {
 
 export default function AppShell({
   children,
+  currentUser,
+  onLogout,
 }: AppShellProps) {
 
 
@@ -145,6 +158,16 @@ export default function AppShell({
 
 
   /* ========================================================
+     9. Sidebar menu Workspace Tabs
+     ======================================================== */
+
+  const [
+    openMenuTabs,
+    setOpenMenuTabs,
+  ] = useState<MenuWorkspaceTabKey[]>([]);
+
+
+  /* ========================================================
      9. 현재 활성 일반 환자 객체
      ======================================================== */
 
@@ -191,15 +214,22 @@ export default function AppShell({
     /**
      * 현재 AppShell에서 실제 연결된 메뉴
      */
-  if (
-    menu !== "dashboard" &&
-    menu !== "patients" &&
-    menu !== "worklist" &&
-    menu !== "triage" &&
-    menu !== "consultations"
-  ) {
-    return;
-  }
+    if (
+      menu !== "dashboard" &&
+      menu !== "patients" &&
+      menu !== "worklist" &&
+      menu !== "triage" &&
+      menu !== "consultations" &&
+      menu !== "imaging" &&
+      menu !== "ai-results" &&
+      menu !== "radiology-reports" &&
+      menu !== "cdss" &&
+      menu !== "surgical-planning" &&
+      menu !== "prescriptions" &&
+      menu !== "notifications"
+    ) {
+      return;
+    }
 
 
     /**
@@ -245,9 +275,90 @@ export default function AppShell({
     }
 
 
+    if (
+      menu !== "dashboard" &&
+      menu !== "consultations"
+    ) {
+
+      setOpenMenuTabs(
+        (previousTabs) =>
+          previousTabs.includes(menu)
+            ? previousTabs
+            : [...previousTabs, menu],
+      );
+
+    }
+
+
     setActiveMenu(
       menu,
     );
+
+  };
+
+
+  /* ========================================================
+     Sidebar menu Workspace Tab 선택 / 닫기
+     ======================================================== */
+
+  const handleSelectMenuTab = (
+    menu: MenuWorkspaceTabKey,
+  ) => {
+
+    setActivePatientId(null);
+    setActiveConsultationId(null);
+
+    if (menu !== "triage") {
+      setActiveAssessmentContext(null);
+    }
+
+    setActiveMenu(menu);
+
+  };
+
+
+  const handleCloseMenuTab = (
+    menu: MenuWorkspaceTabKey,
+  ) => {
+
+    const closedIndex =
+      openMenuTabs.indexOf(menu);
+
+    const remainingTabs =
+      openMenuTabs.filter(
+        (openedMenu) => openedMenu !== menu,
+      );
+
+    setOpenMenuTabs(remainingTabs);
+
+    const isClosingActiveMenu =
+      activeMenu === menu &&
+      activePatientId === null &&
+      activeConsultationId === null;
+
+    if (!isClosingActiveMenu) {
+      return;
+    }
+
+    const adjacentMenu =
+      remainingTabs[
+        Math.min(
+          closedIndex,
+          remainingTabs.length - 1,
+        )
+      ];
+
+    if (adjacentMenu) {
+      handleSelectMenuTab(adjacentMenu);
+      return;
+    }
+
+    if (isConsultationListTabOpen) {
+      handleSelectConsultationListTab();
+      return;
+    }
+
+    handleSelectDashboard();
 
   };
 
@@ -455,10 +566,16 @@ export default function AppShell({
         null,
       );
 
+      const adjacentMenu =
+        openMenuTabs[openMenuTabs.length - 1];
 
-      setActiveMenu(
-        "dashboard",
-      );
+      if (adjacentMenu) {
+        handleSelectMenuTab(adjacentMenu);
+      } else {
+        setActiveMenu(
+          "dashboard",
+        );
+      }
 
     }
 
@@ -542,9 +659,16 @@ export default function AppShell({
 
       } else {
 
-        setActiveMenu(
-          "dashboard",
-        );
+        const adjacentMenu =
+          openMenuTabs[openMenuTabs.length - 1];
+
+        if (adjacentMenu) {
+          handleSelectMenuTab(adjacentMenu);
+        } else {
+          setActiveMenu(
+            "dashboard",
+          );
+        }
 
       }
 
@@ -608,6 +732,11 @@ export default function AppShell({
       patient.id,
     );
 
+
+    setActiveMenu(
+      "patients",
+    );
+
   };
 
 
@@ -661,6 +790,11 @@ export default function AppShell({
       patientId,
     );
 
+
+    setActiveMenu(
+      "patients",
+    );
+
   };
 
 
@@ -692,9 +826,18 @@ export default function AppShell({
       );
 
 
-      setActiveMenu(
-        "dashboard",
-      );
+      const adjacentMenu =
+        openMenuTabs[openMenuTabs.length - 1];
+
+      if (adjacentMenu) {
+        handleSelectMenuTab(adjacentMenu);
+      } else if (isConsultationListTabOpen) {
+        handleSelectConsultationListTab();
+      } else {
+        setActiveMenu(
+          "dashboard",
+        );
+      }
 
     }
 
@@ -719,33 +862,14 @@ export default function AppShell({
           patient={
             activePatient
           }
-        />
-      );
-
-    }
-    /* -------------------------------------------------------
-      환자 관리
-      ------------------------------------------------------- */
-
-    if (
-      activeMenu === "patients"
-    ) {
-      return <Patients />;
-    }
-
-    /* -------------------------------------------------------
-       Worklist
-       ------------------------------------------------------- */
-
-    if (
-      activeMenu ===
-      "worklist"
-    ) {
-
-      return (
-        <AssessmentWorklist
-          onOpenTriage={
-            handleOpenTriage
+          patients={
+            openPatientTabs
+          }
+          onSelectPatient={
+            handlePatientSelect
+          }
+          onNavigate={
+            handleMenuSelect
           }
         />
       );
@@ -754,7 +878,56 @@ export default function AppShell({
 
 
     /* -------------------------------------------------------
-       접수 / Triage
+       환자 관리
+       ------------------------------------------------------- */
+
+    if (
+      activeMenu === "patients"
+    ) {
+
+      return <Patients />;
+
+    }
+
+
+    /* -------------------------------------------------------
+       신경과 응급 Worklist
+
+       GET /api/v1/neurology/emergency-worklist 전용 화면은
+       아직 구현되지 않았으므로 초기평가 Worklist를 대신 연결하지 않는다.
+       ------------------------------------------------------- */
+
+    if (
+      activeMenu ===
+      "worklist"
+    ) {
+
+      return (
+        <section className="clinical-page">
+          <header className="clinical-page__heading">
+            <h2>응급 Worklist</h2>
+            <p>
+              Triage 완료 후 긴급·응급으로 분류된 환자를
+              신경과 의료진이 확인하는 업무 화면입니다.
+            </p>
+          </header>
+
+          <div className="clinical-card">
+            <div className="clinical-state">
+              신경과 응급 Worklist API 화면은 아직 구현되지 않았습니다.
+            </div>
+          </div>
+        </section>
+      );
+
+    }
+
+
+    /* -------------------------------------------------------
+       접수 · 초기평가
+
+       Assessment가 선택되기 전에는 초기평가 대기목록을 표시하고,
+       대기목록에서 Triage를 시작하면 기존 입력 화면으로 이어진다.
        ------------------------------------------------------- */
 
     if (
@@ -762,10 +935,21 @@ export default function AppShell({
       "triage"
     ) {
 
+      if (!activeAssessmentContext) {
+
+        return (
+          <ReceptionInitialAssessment
+            onOpenTriage={
+              handleOpenTriage
+            }
+          />
+        );
+
+      }
+
+
       const triageKey =
-        activeAssessmentContext
-          ? `${activeAssessmentContext.assessmentId}:${activeAssessmentContext.encounterId}`
-          : "triage-direct";
+        `${activeAssessmentContext.assessmentId}:${activeAssessmentContext.encounterId}`;
 
 
       return (
@@ -775,13 +959,11 @@ export default function AppShell({
           }
 
           assessmentId={
-            activeAssessmentContext?.assessmentId ??
-            null
+            activeAssessmentContext.assessmentId
           }
 
           encounterId={
-            activeAssessmentContext?.encounterId ??
-            null
+            activeAssessmentContext.encounterId
           }
         />
       );
@@ -834,6 +1016,44 @@ export default function AppShell({
 
 
     /* -------------------------------------------------------
+       검사 / 영상
+       ------------------------------------------------------- */
+
+    if (
+      activeMenu ===
+      "imaging"
+    ) {
+
+      return <ImagingPage />;
+
+    }
+
+    if (activeMenu === "ai-results") {
+      return <AIAnalysisResultsPage />;
+    }
+
+    if (activeMenu === "radiology-reports") {
+      return <RadiologyReportsPage />;
+    }
+
+    if (activeMenu === "cdss") {
+      return <CDSSResultsPage />;
+    }
+
+    if (activeMenu === "surgical-planning") {
+      return <SurgicalPlanningPage />;
+    }
+
+    if (activeMenu === "prescriptions") {
+      return <MedicationSafetyPage />;
+    }
+
+    if (activeMenu === "notifications") {
+      return <NotificationsPage />;
+    }
+
+
+    /* -------------------------------------------------------
        Dashboard
        ------------------------------------------------------- */
 
@@ -865,6 +1085,8 @@ export default function AppShell({
         onPatientSelect={
           handlePatientSelect
         }
+        currentUser={currentUser}
+        onLogout={onLogout}
       />
 
 
@@ -880,6 +1102,26 @@ export default function AppShell({
 
         onToggleSidebar={
           handleToggleSidebar
+        }
+
+        openMenuTabs={
+          openMenuTabs
+        }
+
+        activeMenu={
+          activeMenu
+        }
+
+        onSelectMenuTab={
+          handleSelectMenuTab
+        }
+
+        onCloseMenuTab={
+          handleCloseMenuTab
+        }
+
+        onOpenMenu={
+          handleMenuSelect
         }
 
 

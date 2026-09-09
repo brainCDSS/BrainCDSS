@@ -2356,3 +2356,68 @@ body,
 [data-theme="dark"] .sidebar {
   background: var(--bg-sidebar);
 }
+
+/* Workspace tabs shrink to a readable minimum before their own strip scrolls. */
+.workspace-tabs-scroll > .workspace-tab {
+  width: 170px;
+  min-width: 125px;
+  max-width: 170px;
+  flex: 0 1 170px;
+}
+
+.workspace-tab-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-tab-close,
+.workspace-new-work,
+.workspace-add-tab-button {
+  flex-shrink: 0;
+}
+
+/* Fixed controls precede the independently scrolling work-tab strip. */
+.workspace-tabs {
+  position: relative;
+  z-index: 200;
+  overflow: visible;
+}
+
+.workspace-tabs-list > .workspace-tab--dashboard {
+  order: 0;
+}
+
+.workspace-tabs-list > .workspace-new-work {
+  order: 1;
+  z-index: 401;
+}
+
+.workspace-tabs-list > .workspace-tabs-scroll {
+  order: 2;
+  flex: 1 1 auto;
+}
+
+.workspace-tabs-list > .workspace-tab--dashboard {
+  width: 126px;
+  min-width: 126px;
+  max-width: 126px;
+  flex: 0 0 126px;
+}
+
+.workspace-new-work-menu {
+  top: calc(100% + 6px);
+  right: auto;
+  left: 0;
+  z-index: 500;
+}
+/* Preserve the original Sidebar geometry; only soften interaction states. */
+.sidebar-menu:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+}
+
+.sidebar-group-button.expanded {
+  background: rgba(255, 255, 255, 0.10);
+}

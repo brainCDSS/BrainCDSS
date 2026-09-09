@@ -381,9 +381,6 @@ export default function WorkspaceTabs({
 
       <div className="workspace-tabs-list">
 
-        <div className="workspace-tabs-scroll">
-
-
         {/* ===================================================
             Dashboard
             =================================================== */}
@@ -393,8 +390,8 @@ export default function WorkspaceTabs({
 
           className={
             isDashboardActive
-              ? "workspace-tab active"
-              : "workspace-tab"
+              ? "workspace-tab workspace-tab--dashboard active"
+              : "workspace-tab workspace-tab--dashboard"
           }
 
           onClick={
@@ -407,6 +404,9 @@ export default function WorkspaceTabs({
           </span>
 
         </button>
+
+
+        <div className="workspace-tabs-scroll">
 
 
         {/* ===================================================

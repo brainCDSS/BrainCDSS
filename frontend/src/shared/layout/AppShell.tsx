@@ -35,7 +35,10 @@ import "./layout.css";
    ========================================================= */
 
 interface AppShellProps {
-  children: ReactNode | ((onOpenPatient: (patient: Patient) => void) => ReactNode);
+  children: ReactNode | ((
+    onOpenPatient: (patient: Patient) => void,
+    onOpenMenu: (menu: SidebarMenuKey) => void,
+  ) => ReactNode);
   currentUser: LoginUser;
   onLogout: () => void;
 }
@@ -1023,7 +1026,7 @@ export default function AppShell({
        ------------------------------------------------------- */
 
     return typeof children === "function"
-      ? children(handlePatientSelect)
+      ? children(handlePatientSelect, handleMenuSelect)
       : children;
 
   }

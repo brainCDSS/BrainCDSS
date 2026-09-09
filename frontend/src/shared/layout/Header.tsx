@@ -9,6 +9,7 @@ import type {
 
 import { getPatients } from "../../features/patients/api";
 import type { Patient } from "../../features/patients/types";
+import type { LoginUser } from "../../features/auth/types";
 
 import "./layout.css";
 
@@ -23,6 +24,8 @@ import "./layout.css";
 
 interface HeaderProps {
   onPatientSelect?: (patient: Patient) => void;
+  currentUser: LoginUser;
+  onLogout: () => void;
 }
 
 
@@ -44,6 +47,8 @@ interface HeaderProps {
  */
 export default function Header({
   onPatientSelect,
+  currentUser,
+  onLogout,
 }: HeaderProps) {
 
   /* ========================================================
@@ -503,7 +508,7 @@ export default function Header({
           type="button"
           className="header-organization"
         >
-          소속 기관
+          {currentUser.hospital?.name ?? "소속 기관"}
 
           <span>
             ⌄
@@ -657,20 +662,31 @@ export default function Header({
           <div className="user-info">
 
             <div className="user-avatar">
-              의료
+              {currentUser.name.slice(0, 2)}
             </div>
 
             <div className="user-text">
 
               <strong>
-                의료진
+                {currentUser.name}
               </strong>
 
               <span>
-                Role 연동 예정
+                {currentUser.role.name}
               </span>
 
             </div>
+
+          </div>
+
+
+          <button
+            type="button"
+            className="header-logout-button"
+            onClick={onLogout}
+          >
+            로그아웃
+          </button>
 
             <span className="user-menu-arrow">
               ⌄
@@ -679,8 +695,6 @@ export default function Header({
           </div>
 
         </div>
-
-      </div>
 
     </header>
   );

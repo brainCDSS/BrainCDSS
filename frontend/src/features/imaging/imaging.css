@@ -1,0 +1,2548 @@
+/* =========================================================
+   Brain CDSS
+   Imaging / AI Analysis
+   ========================================================= */
+
+
+/* =========================================================
+   1. Page
+   ========================================================= */
+
+.imaging-page {
+  width: 100%;
+  max-width: none;
+
+  min-width: 0;
+
+  margin: 0;
+
+  /* Workspace Tab과 너무 붙지 않게 */
+  padding: 7px 0 0;
+
+  color: var(--text-primary);
+}
+
+
+/* =========================================================
+   2. Heading
+   검사 · 분석 | 설명
+   ========================================================= */
+
+.imaging-heading {
+  display: flex;
+
+  align-items: center;
+
+  gap: 12px;
+
+  margin-bottom: 13px;
+}
+
+.imaging-heading h2 {
+  display: flex;
+
+  align-items: center;
+
+  margin: 0;
+
+  color: var(--text-primary);
+
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1;
+
+  letter-spacing: -0.03em;
+
+  white-space: nowrap;
+}
+
+.imaging-heading h2::after {
+  margin-left: 13px;
+
+  color: #cbd5e1;
+
+  font-size: 18px;
+  font-weight: 400;
+
+  content: "|";
+}
+
+.imaging-heading p {
+  margin: 0;
+
+  color: var(--text-secondary);
+
+  font-size: 12px;
+  line-height: 1;
+
+  white-space: nowrap;
+}
+
+
+/* =========================================================
+   3. 영상 목록 Main Card
+   ========================================================= */
+
+.imaging-list-card {
+  overflow: hidden;
+
+  margin-bottom: 12px;
+
+  background: var(--bg-surface);
+
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+
+  box-shadow: var(--shadow-soft);
+}
+
+
+/* =========================================================
+   4. 영상 목록 Header
+   ========================================================= */
+
+.imaging-list-header {
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+
+  min-height: 68px;
+
+  padding: 13px 18px 10px 20px;
+
+  gap: 20px;
+}
+
+.imaging-list-heading {
+  min-width: 0;
+}
+
+.imaging-list-heading h3 {
+  margin: 0;
+
+  color: var(--text-primary);
+
+  font-size: 17px;
+  font-weight: 800;
+
+  letter-spacing: -0.02em;
+}
+
+.imaging-list-heading p {
+  margin: 5px 0 0;
+
+  color: var(--text-secondary);
+
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+
+/* =========================================================
+   5. Orthanc Server Status
+   ========================================================= */
+
+.imaging-server-status {
+  display: flex;
+
+  flex-shrink: 0;
+
+  align-items: center;
+
+  gap: 16px;
+}
+
+.imaging-server-info {
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+}
+
+.imaging-server-info strong {
+  color: var(--text-primary);
+
+  font-size: 11px;
+  font-weight: 700;
+
+  white-space: nowrap;
+}
+
+.server-dot {
+  display: inline-block;
+
+  width: 7px;
+  height: 7px;
+
+  flex-shrink: 0;
+
+  border-radius: 50%;
+}
+
+.server-dot.connected {
+  background: #22a06b;
+
+  box-shadow:
+    0 0 0 4px
+    rgba(34, 160, 107, 0.09);
+}
+
+.server-dot.error {
+  background: #dc4c5a;
+
+  box-shadow:
+    0 0 0 4px
+    rgba(220, 76, 90, 0.09);
+}
+
+.server-divider {
+  color: var(--border-color);
+
+  font-size: 13px;
+}
+
+.last-loaded {
+  color: var(--text-secondary);
+
+  font-size: 10px;
+
+  white-space: nowrap;
+}
+
+
+/* =========================================================
+   6. Refresh Button
+   ========================================================= */
+
+.imaging-refresh-button {
+  display: inline-flex;
+
+  height: 33px;
+
+  align-items: center;
+  justify-content: center;
+
+  padding: 0 14px;
+
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+
+  background: var(--bg-surface);
+
+  color: var(--primary);
+
+  font-size: 10px;
+  font-weight: 750;
+
+  cursor: pointer;
+
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.imaging-refresh-button:hover:not(:disabled) {
+  border-color: rgba(79, 130, 189, 0.45);
+
+  background: var(--bg-active);
+
+  color: var(--primary-dark);
+}
+
+.imaging-refresh-button:disabled {
+  cursor: not-allowed;
+
+  opacity: 0.5;
+}
+
+
+/* =========================================================
+   7. CT / MRI / MRA Tabs
+   ========================================================= */
+
+.imaging-tabs {
+  display: flex;
+
+  height: 46px;
+
+  align-items: flex-end;
+
+  padding: 0 20px;
+
+  gap: 34px;
+
+  border-top:
+    1px solid
+    rgba(226, 232, 240, 0.65);
+
+  border-bottom:
+    1px solid
+    var(--border-color);
+}
+
+.imaging-tab {
+  position: relative;
+
+  display: flex;
+
+  height: 46px;
+
+  align-items: center;
+
+  gap: 5px;
+
+  padding: 0 4px;
+
+  border: 0;
+
+  background: transparent;
+
+  color: var(--text-secondary);
+
+  font-size: 13px;
+  font-weight: 650;
+
+  cursor: pointer;
+
+  transition:
+    color 0.15s ease;
+}
+
+.imaging-tab span {
+  color: inherit;
+
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.imaging-tab:hover {
+  color: var(--primary);
+}
+
+.imaging-tab.active {
+  color: var(--primary);
+
+  font-weight: 800;
+}
+
+.imaging-tab.active::after {
+  position: absolute;
+
+  right: 0;
+  bottom: -1px;
+  left: 0;
+
+  height: 3px;
+
+  border-radius: 3px 3px 0 0;
+
+  background: var(--primary);
+
+  content: "";
+}
+
+
+/* =========================================================
+   8. Filters
+   ========================================================= */
+
+.imaging-filters {
+  display: flex;
+
+  align-items: center;
+
+  padding: 10px 20px;
+
+  gap: 14px;
+}
+
+.imaging-filters label {
+  display: flex;
+
+  align-items: center;
+
+  gap: 7px;
+}
+
+.imaging-filters label > span {
+  color: var(--text-secondary);
+
+  font-size: 11px;
+  font-weight: 650;
+
+  white-space: nowrap;
+}
+
+.imaging-filters select {
+  width: 128px;
+  height: 33px;
+
+  padding: 0 28px 0 10px;
+
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+
+  outline: none;
+
+  background: var(--bg-surface);
+
+  color: var(--text-primary);
+
+  font-size: 11px;
+
+  cursor: pointer;
+}
+
+.imaging-filters select:hover {
+  border-color: rgba(79, 130, 189, 0.45);
+}
+
+.imaging-filters select:focus {
+  border-color: var(--primary);
+
+  box-shadow:
+    0 0 0 3px
+    rgba(79, 130, 189, 0.08);
+}
+
+
+/* =========================================================
+   9. Loading / Error
+   ========================================================= */
+
+.imaging-message {
+  display: flex;
+
+  min-height: 200px;
+
+  align-items: center;
+  justify-content: center;
+
+  margin: 0 20px 12px;
+
+  border: 1px dashed var(--border-color);
+  border-radius: 8px;
+
+  background: var(--bg-page);
+
+  color: var(--text-secondary);
+
+  font-size: 11px;
+}
+
+.imaging-message.error {
+  border-color:
+    rgba(220, 76, 90, 0.25);
+
+  background:
+    rgba(220, 76, 90, 0.04);
+
+  color: #c2414f;
+}
+
+
+/* =========================================================
+   10. Table
+   ========================================================= */
+
+.imaging-table-wrapper {
+  overflow-x: auto;
+
+  margin: 0 20px;
+
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.imaging-table {
+  width: 100%;
+
+  min-width: 900px;
+
+  border-collapse: collapse;
+
+  table-layout: auto;
+}
+
+.imaging-table thead {
+  background: var(--bg-hover);
+}
+
+
+/* Table Header */
+
+.imaging-table th {
+  height: 39px;
+
+  padding: 0 13px;
+
+  border-bottom: 1px solid var(--border-color);
+
+  color: var(--text-secondary);
+
+  font-size: 13px; /*테이블 상단 항목 폰트 */
+  font-weight: 750;
+
+  text-align: left;
+
+  white-space: nowrap;
+}
+
+
+/* Table Body */
+
+.imaging-table td {
+  height: 43px;
+
+  padding: 0 11px;
+
+  border-bottom: 1px solid var(--border-color);
+
+  color: var(--text-primary);
+
+  font-size: 13px;
+
+  white-space: nowrap;
+
+  transition:
+    background-color 0.14s ease;
+}
+
+.imaging-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.imaging-table tbody tr:hover td {
+  background: var(--bg-hover);
+}
+
+
+/* =========================================================
+   11. 선택 행
+   ========================================================= */
+
+.imaging-table tbody tr.selected td {
+  background:
+    rgba(79, 130, 189, 0.075);
+}
+
+.imaging-table tbody tr.selected:hover td {
+  background:
+    rgba(79, 130, 189, 0.1);
+}
+
+
+/* =========================================================
+   12. Checkbox
+   ========================================================= */
+
+.imaging-table input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+
+  accent-color: var(--primary);
+
+  cursor: pointer;
+}
+
+.imaging-table th:first-child,
+.imaging-table td:first-child {
+  width: 40px;
+
+  padding-left: 14px;
+
+  text-align: center;
+}
+
+
+/* =========================================================
+   13. Column Detail
+   ========================================================= */
+
+/* 검사일시 */
+
+.imaging-table th:nth-child(2),
+.imaging-table td:nth-child(2) {
+  width: 155px;
+}
+
+
+/* 환자명 */
+
+.imaging-table th:nth-child(3),
+.imaging-table td:nth-child(3) {
+  min-width: 90px;
+}
+
+.imaging-table td:nth-child(3) {
+  font-weight: 700;
+}
+
+
+/* 환자 등록번호 */
+
+.imaging-table th:nth-child(4),
+.imaging-table td:nth-child(4) {
+  min-width: 110px;
+}
+
+
+/* 모달리티 */
+
+.imaging-table th:nth-child(5),
+.imaging-table td:nth-child(5) {
+  width: 90px;
+}
+
+.imaging-table td:nth-child(5) {
+  color: var(--primary);
+
+  font-weight: 800;
+}
+
+
+/* 시리즈 */
+
+.imaging-table th:nth-child(6),
+.imaging-table td:nth-child(6) {
+  min-width: 120px;
+}
+
+
+/* 추천 분석 */
+
+.imaging-table th:nth-child(7),
+.imaging-table td:nth-child(7) {
+  min-width: 105px;
+}
+
+.imaging-table td:nth-child(7) {
+  font-weight: 650;
+}
+
+
+/* 상태 */
+
+.imaging-table th:nth-child(8),
+.imaging-table td:nth-child(8) {
+  width: 105px;
+}
+
+
+/* Empty */
+
+.imaging-empty {
+  height: 160px !important;
+
+  color: var(--text-secondary) !important;
+
+  text-align: center !important;
+}
+
+
+/* =========================================================
+   14. Status Badge
+   ========================================================= */
+
+.imaging-status {
+  display: inline-flex;
+
+  min-width: 66px;
+  height: 24px;
+
+  align-items: center;
+  justify-content: center;
+
+  padding: 0 8px;
+
+  border-radius: 999px;
+
+  font-size: 10px;
+  font-weight: 750;
+
+  white-space: nowrap;
+}
+
+
+/* 준비완료 */
+
+.imaging-status-ready {
+  background:
+    rgba(34, 160, 107, 0.1);
+
+  color: #198754;
+}
+
+
+/* 확인필요 */
+
+.imaging-status-review_required {
+  background:
+    rgba(217, 119, 6, 0.1);
+
+  color: #b96805;
+}
+
+
+/* 분석대기 */
+
+.imaging-status-queued {
+  background:
+    rgba(79, 130, 189, 0.11);
+
+  color: var(--primary-dark);
+}
+
+
+/* =========================================================
+   15. Pagination
+   ========================================================= */
+
+.imaging-pagination {
+  display: flex;
+
+  min-height: 44px;
+
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 6px 20px;
+}
+
+.imaging-pagination > span {
+  color: var(--text-secondary);
+
+  font-size: 10px;
+}
+
+.imaging-pagination > div {
+  display: flex;
+
+  align-items: center;
+
+  gap: 4px;
+}
+
+.imaging-pagination button,
+.imaging-pagination .current-page {
+  display: inline-flex;
+
+  width: 27px;
+  height: 27px;
+
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 6px;
+
+  font-size: 10px;
+}
+
+.imaging-pagination button {
+  border: 1px solid var(--border-color);
+
+  background: var(--bg-surface);
+
+  color: var(--text-secondary);
+
+  cursor: pointer;
+}
+
+.imaging-pagination button:hover:not(:disabled) {
+  background: var(--bg-hover);
+
+  color: var(--primary);
+}
+
+.imaging-pagination button:disabled {
+  cursor: default;
+
+  opacity: 0.3;
+}
+
+.imaging-pagination .current-page {
+  background: var(--primary);
+
+  color: #ffffff;
+
+  font-weight: 750;
+}
+
+
+/* =========================================================
+   16. AI 분석 Bar
+   ========================================================= */
+
+.imaging-analysis-bar {
+  display: grid;
+
+  grid-template-columns:
+    minmax(260px, 1fr)
+    auto;
+
+  min-height: 78px;
+
+  align-items: center;
+
+  padding: 12px 18px;
+
+  gap: 20px;
+
+  background:
+    linear-gradient(
+      90deg,
+      rgba(79, 130, 189, 0.055),
+      var(--bg-surface) 48%
+    );
+
+  border:
+    1px solid
+    rgba(79, 130, 189, 0.2);
+
+  border-radius: 11px;
+
+  box-shadow: var(--shadow-soft);
+}
+
+
+/* =========================================================
+   17. 선택 영상 안내
+   ========================================================= */
+
+.analysis-selected-info {
+  display: flex;
+
+  min-width: 0;
+
+  align-items: center;
+
+  gap: 11px;
+}
+
+.analysis-info-icon {
+  display: flex;
+
+  width: 31px;
+  height: 31px;
+
+  flex-shrink: 0;
+
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background:
+    rgba(79, 130, 189, 0.12);
+
+  color: var(--primary);
+
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.analysis-selected-info strong {
+  display: block;
+
+  overflow: hidden;
+
+  color: var(--primary-dark);
+
+  font-size: 12px;
+  font-weight: 800;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.analysis-selected-info p {
+  margin: 4px 0 0;
+
+  color: var(--text-secondary);
+
+  font-size: 10px;
+}
+
+
+/* =========================================================
+   18. Analysis Controls
+   ========================================================= */
+
+.analysis-controls {
+  display: flex;
+
+  align-items: flex-end;
+
+  gap: 9px;
+}
+
+.analysis-controls label {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 4px;
+}
+
+.analysis-controls label > span {
+  color: var(--text-secondary);
+
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.analysis-controls select {
+  width: 150px;
+  height: 35px;
+
+  padding: 0 28px 0 10px;
+
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+
+  outline: none;
+
+  background: var(--bg-surface);
+
+  color: var(--text-primary);
+
+  font-size: 10px;
+
+  cursor: pointer;
+}
+
+.analysis-controls select:focus {
+  border-color: var(--primary);
+
+  box-shadow:
+    0 0 0 3px
+    rgba(79, 130, 189, 0.08);
+}
+
+.analysis-controls select:disabled {
+  cursor: not-allowed;
+
+  opacity: 0.55;
+}
+
+
+/* =========================================================
+   19. AI 분석 시작 Button
+   ========================================================= */
+
+.analysis-start-button {
+  display: inline-flex;
+
+  height: 35px;
+
+  align-items: center;
+  justify-content: center;
+
+  padding: 0 19px;
+
+  border: 0;
+  border-radius: 7px;
+
+  background: var(--primary);
+
+  color: #ffffff;
+
+  font-size: 10px;
+  font-weight: 800;
+
+  cursor: pointer;
+
+  white-space: nowrap;
+
+  transition:
+    background-color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.analysis-start-button:hover:not(:disabled) {
+  background: var(--primary-dark);
+
+  transform: translateY(-1px);
+}
+
+.analysis-start-button:disabled {
+  background: #b6c1cd;
+
+  cursor: not-allowed;
+
+  transform: none;
+}
+
+
+/* =========================================================
+   20. Dark Mode
+   ========================================================= */
+
+[data-theme="dark"]
+.imaging-table tbody tr.selected td {
+  background:
+    rgba(107, 157, 213, 0.11);
+}
+
+[data-theme="dark"]
+.imaging-table tbody tr.selected:hover td {
+  background:
+    rgba(107, 157, 213, 0.15);
+}
+
+[data-theme="dark"]
+.imaging-analysis-bar {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(107, 157, 213, 0.08),
+      var(--bg-surface) 48%
+    );
+}
+
+
+/* =========================================================
+   21. 좁은 화면
+   ========================================================= */
+
+@media (max-width: 1280px) {
+
+  .last-loaded {
+    display: none;
+  }
+
+  .imaging-tabs {
+    gap: 24px;
+  }
+
+  .imaging-heading h2 {
+    font-size: 24px;
+  }
+
+  .imaging-analysis-bar {
+    grid-template-columns:
+      minmax(220px, 1fr)
+      auto;
+  }
+
+  .analysis-controls select {
+    width: 140px;
+  }
+
+}
+
+
+/* =========================================================
+   Brain CDSS
+   Imaging / AI Analysis
+   ========================================================= */
+
+
+/* =========================================================
+   1. Page
+   ========================================================= */
+
+.imaging-page {
+  width: 100%;
+  max-width: none;
+
+  min-width: 0;
+
+  margin: 0;
+
+  /* Workspace Tab과 너무 붙지 않게 */
+  padding: 7px 0 0;
+
+  color: var(--text-primary);
+}
+
+
+/* =========================================================
+   2. Heading
+   검사 · 분석 | 설명
+   ========================================================= */
+
+.imaging-heading {
+  display: flex;
+
+  align-items: center;
+
+  gap: 12px;
+
+  margin-bottom: 13px;
+}
+
+.imaging-heading h2 {
+  display: flex;
+
+  align-items: center;
+
+  margin: 0;
+
+  color: var(--text-primary);
+
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1;
+
+  letter-spacing: -0.03em;
+
+  white-space: nowrap;
+}
+
+.imaging-heading h2::after {
+  margin-left: 13px;
+
+  color: #cbd5e1;
+
+  font-size: 18px;
+  font-weight: 400;
+
+  content: "|";
+}
+
+.imaging-heading p {
+  margin: 0;
+
+  color: var(--text-secondary);
+
+  font-size: 12px;
+  line-height: 1;
+
+  white-space: nowrap;
+}
+
+
+/* =========================================================
+   3. 영상 목록 Main Card
+   ========================================================= */
+
+.imaging-list-card {
+  overflow: hidden;
+
+  margin-bottom: 12px;
+
+  background: var(--bg-surface);
+
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+
+  box-shadow: var(--shadow-soft);
+}
+
+
+/* =========================================================
+   4. 영상 목록 Header
+   ========================================================= */
+
+.imaging-list-header {
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+
+  min-height: 68px;
+
+  padding: 13px 18px 10px 20px;
+
+  gap: 20px;
+}
+
+.imaging-list-heading {
+  min-width: 0;
+}
+
+.imaging-list-heading h3 {
+  margin: 0;
+
+  color: var(--text-primary);
+
+  font-size: 17px;
+  font-weight: 800;
+
+  letter-spacing: -0.02em;
+}
+
+.imaging-list-heading p {
+  margin: 5px 0 0;
+
+  color: var(--text-secondary);
+
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+
+/* =========================================================
+   5. Orthanc Server Status
+   ========================================================= */
+
+.imaging-server-status {
+  display: flex;
+
+  flex-shrink: 0;
+
+  align-items: center;
+
+  gap: 16px;
+}
+
+.imaging-server-info {
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+}
+
+.imaging-server-info strong {
+  color: var(--text-primary);
+
+  font-size: 11px;
+  font-weight: 700;
+
+  white-space: nowrap;
+}
+
+.server-dot {
+  display: inline-block;
+
+  width: 7px;
+  height: 7px;
+
+  flex-shrink: 0;
+
+  border-radius: 50%;
+}
+
+.server-dot.connected {
+  background: #22a06b;
+
+  box-shadow:
+    0 0 0 4px
+    rgba(34, 160, 107, 0.09);
+}
+
+.server-dot.error {
+  background: #dc4c5a;
+
+  box-shadow:
+    0 0 0 4px
+    rgba(220, 76, 90, 0.09);
+}
+
+.server-divider {
+  color: var(--border-color);
+
+  font-size: 13px;
+}
+
+.last-loaded {
+  color: var(--text-secondary);
+
+  font-size: 10px;
+
+  white-space: nowrap;
+}
+
+
+/* =========================================================
+   6. Refresh Button
+   ========================================================= */
+
+.imaging-refresh-button {
+  display: inline-flex;
+
+  height: 33px;
+
+  align-items: center;
+  justify-content: center;
+
+  padding: 0 14px;
+
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+
+  background: var(--bg-surface);
+
+  color: var(--primary);
+
+  font-size: 10px;
+  font-weight: 750;
+
+  cursor: pointer;
+
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.imaging-refresh-button:hover:not(:disabled) {
+  border-color: rgba(79, 130, 189, 0.45);
+
+  background: var(--bg-active);
+
+  color: var(--primary-dark);
+}
+
+.imaging-refresh-button:disabled {
+  cursor: not-allowed;
+
+  opacity: 0.5;
+}
+
+
+/* =========================================================
+   7. CT / MRI / MRA Tabs
+   ========================================================= */
+
+.imaging-tabs {
+  display: flex;
+
+  height: 46px;
+
+  align-items: flex-end;
+
+  padding: 0 20px;
+
+  gap: 34px;
+
+  border-top:
+    1px solid
+    rgba(226, 232, 240, 0.65);
+
+  border-bottom:
+    1px solid
+    var(--border-color);
+}
+
+.imaging-tab {
+  position: relative;
+
+  display: flex;
+
+  height: 46px;
+
+  align-items: center;
+
+  gap: 5px;
+
+  padding: 0 4px;
+
+  border: 0;
+
+  background: transparent;
+
+  color: var(--text-secondary);
+
+  font-size: 13px;
+  font-weight: 650;
+
+  cursor: pointer;
+
+  transition:
+    color 0.15s ease;
+}
+
+.imaging-tab span {
+  color: inherit;
+
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.imaging-tab:hover {
+  color: var(--primary);
+}
+
+.imaging-tab.active {
+  color: var(--primary);
+
+  font-weight: 800;
+}
+
+.imaging-tab.active::after {
+  position: absolute;
+
+  right: 0;
+  bottom: -1px;
+  left: 0;
+
+  height: 3px;
+
+  border-radius: 3px 3px 0 0;
+
+  background: var(--primary);
+
+  content: "";
+}
+
+
+/* =========================================================
+   8. Filters
+   ========================================================= */
+
+.imaging-filters {
+  display: flex;
+
+  align-items: center;
+
+  padding: 10px 20px;
+
+  gap: 14px;
+}
+
+.imaging-filters label {
+  display: flex;
+
+  align-items: center;
+
+  gap: 7px;
+}
+
+.imaging-filters label > span {
+  color: var(--text-secondary);
+
+  font-size: 11px;
+  font-weight: 650;
+
+  white-space: nowrap;
+}
+
+.imaging-filters select {
+  width: 128px;
+  height: 33px;
+
+  padding: 0 28px 0 10px;
+
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+
+  outline: none;
+
+  background: var(--bg-surface);
+
+  color: var(--text-primary);
+
+  font-size: 11px;
+
+  cursor: pointer;
+}
+
+.imaging-filters select:hover {
+  border-color: rgba(79, 130, 189, 0.45);
+}
+
+.imaging-filters select:focus {
+  border-color: var(--primary);
+
+  box-shadow:
+    0 0 0 3px
+    rgba(79, 130, 189, 0.08);
+}
+
+
+/* =========================================================
+   9. Loading / Error
+   ========================================================= */
+
+.imaging-message {
+  display: flex;
+
+  min-height: 200px;
+
+  align-items: center;
+  justify-content: center;
+
+  margin: 0 20px 12px;
+
+  border: 1px dashed var(--border-color);
+  border-radius: 8px;
+
+  background: var(--bg-page);
+
+  color: var(--text-secondary);
+
+  font-size: 11px;
+}
+
+.imaging-message.error {
+  border-color:
+    rgba(220, 76, 90, 0.25);
+
+  background:
+    rgba(220, 76, 90, 0.04);
+
+  color: #c2414f;
+}
+
+
+/* =========================================================
+   10. Table
+   ========================================================= */
+
+.imaging-table-wrapper {
+  overflow-x: auto;
+
+  margin: 0 20px;
+
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.imaging-table {
+  width: 100%;
+
+  min-width: 900px;
+
+  border-collapse: collapse;
+
+  table-layout: auto;
+}
+
+.imaging-table thead {
+  background: var(--bg-hover);
+}
+
+
+/* Table Header */
+
+.imaging-table th {
+  height: 39px;
+
+  padding: 0 13px;
+
+  border-bottom: 1px solid var(--border-color);
+
+  color: var(--text-secondary);
+
+  font-size: 13px; /*테이블 상단 항목 폰트 */
+  font-weight: 750;
+
+  text-align: left;
+
+  white-space: nowrap;
+}
+
+
+/* Table Body */
+
+.imaging-table td {
+  height: 43px;
+
+  padding: 0 11px;
+
+  border-bottom: 1px solid var(--border-color);
+
+  color: var(--text-primary);
+
+  font-size: 13px;
+
+  white-space: nowrap;
+
+  transition:
+    background-color 0.14s ease;
+}
+
+.imaging-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.imaging-table tbody tr:hover td {
+  background: var(--bg-hover);
+}
+
+
+/* =========================================================
+   11. 선택 행
+   ========================================================= */
+
+.imaging-table tbody tr.selected td {
+  background:
+    rgba(79, 130, 189, 0.075);
+}
+
+.imaging-table tbody tr.selected:hover td {
+  background:
+    rgba(79, 130, 189, 0.1);
+}
+
+
+/* =========================================================
+   12. Checkbox
+   ========================================================= */
+
+.imaging-table input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+
+  accent-color: var(--primary);
+
+  cursor: pointer;
+}
+
+.imaging-table th:first-child,
+.imaging-table td:first-child {
+  width: 40px;
+
+  padding-left: 14px;
+
+  text-align: center;
+}
+
+
+/* =========================================================
+   13. Column Detail
+   ========================================================= */
+
+/* 검사일시 */
+
+.imaging-table th:nth-child(2),
+.imaging-table td:nth-child(2) {
+  width: 155px;
+}
+
+
+/* 환자명 */
+
+.imaging-table th:nth-child(3),
+.imaging-table td:nth-child(3) {
+  min-width: 90px;
+}
+
+.imaging-table td:nth-child(3) {
+  font-weight: 700;
+}
+
+
+/* 환자 등록번호 */
+
+.imaging-table th:nth-child(4),
+.imaging-table td:nth-child(4) {
+  min-width: 110px;
+}
+
+
+/* 모달리티 */
+
+.imaging-table th:nth-child(5),
+.imaging-table td:nth-child(5) {
+  width: 90px;
+}
+
+.imaging-table td:nth-child(5) {
+  color: var(--primary);
+
+  font-weight: 800;
+}
+
+
+/* 시리즈 */
+
+.imaging-table th:nth-child(6),
+.imaging-table td:nth-child(6) {
+  min-width: 120px;
+}
+
+
+/* 추천 분석 */
+
+.imaging-table th:nth-child(7),
+.imaging-table td:nth-child(7) {
+  min-width: 105px;
+}
+
+.imaging-table td:nth-child(7) {
+  font-weight: 650;
+}
+
+
+/* 상태 */
+
+.imaging-table th:nth-child(8),
+.imaging-table td:nth-child(8) {
+  width: 105px;
+}
+
+
+/* Empty */
+
+.imaging-empty {
+  height: 160px !important;
+
+  color: var(--text-secondary) !important;
+
+  text-align: center !important;
+}
+
+
+/* =========================================================
+   14. Status Badge
+   ========================================================= */
+
+.imaging-status {
+  display: inline-flex;
+
+  min-width: 66px;
+  height: 24px;
+
+  align-items: center;
+  justify-content: center;
+
+  padding: 0 8px;
+
+  border-radius: 999px;
+
+  font-size: 10px;
+  font-weight: 750;
+
+  white-space: nowrap;
+}
+
+
+/* 준비완료 */
+
+.imaging-status-ready {
+  background:
+    rgba(34, 160, 107, 0.1);
+
+  color: #198754;
+}
+
+
+/* 확인필요 */
+
+.imaging-status-review_required {
+  background:
+    rgba(217, 119, 6, 0.1);
+
+  color: #b96805;
+}
+
+
+/* 분석대기 */
+
+.imaging-status-queued {
+  background:
+    rgba(79, 130, 189, 0.11);
+
+  color: var(--primary-dark);
+}
+
+
+/* =========================================================
+   15. Pagination
+   ========================================================= */
+
+.imaging-pagination {
+  display: flex;
+
+  min-height: 44px;
+
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 6px 20px;
+}
+
+.imaging-pagination > span {
+  color: var(--text-secondary);
+
+  font-size: 10px;
+}
+
+.imaging-pagination > div {
+  display: flex;
+
+  align-items: center;
+
+  gap: 4px;
+}
+
+.imaging-pagination button,
+.imaging-pagination .current-page {
+  display: inline-flex;
+
+  width: 27px;
+  height: 27px;
+
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 6px;
+
+  font-size: 10px;
+}
+
+.imaging-pagination button {
+  border: 1px solid var(--border-color);
+
+  background: var(--bg-surface);
+
+  color: var(--text-secondary);
+
+  cursor: pointer;
+}
+
+.imaging-pagination button:hover:not(:disabled) {
+  background: var(--bg-hover);
+
+  color: var(--primary);
+}
+
+.imaging-pagination button:disabled {
+  cursor: default;
+
+  opacity: 0.3;
+}
+
+.imaging-pagination .current-page {
+  background: var(--primary);
+
+  color: #ffffff;
+
+  font-weight: 750;
+}
+
+
+/* =========================================================
+   16. AI 분석 Bar
+   ========================================================= */
+
+.imaging-analysis-bar {
+  display: grid;
+
+  grid-template-columns:
+    minmax(260px, 1fr)
+    auto;
+
+  min-height: 78px;
+
+  align-items: center;
+
+  padding: 12px 18px;
+
+  gap: 20px;
+
+  background:
+    linear-gradient(
+      90deg,
+      rgba(79, 130, 189, 0.055),
+      var(--bg-surface) 48%
+    );
+
+  border:
+    1px solid
+    rgba(79, 130, 189, 0.2);
+
+  border-radius: 11px;
+
+  box-shadow: var(--shadow-soft);
+}
+
+
+/* =========================================================
+   17. 선택 영상 안내
+   ========================================================= */
+
+.analysis-selected-info {
+  display: flex;
+
+  min-width: 0;
+
+  align-items: center;
+
+  gap: 11px;
+}
+
+.analysis-info-icon {
+  display: flex;
+
+  width: 31px;
+  height: 31px;
+
+  flex-shrink: 0;
+
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background:
+    rgba(79, 130, 189, 0.12);
+
+  color: var(--primary);
+
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.analysis-selected-info strong {
+  display: block;
+
+  overflow: hidden;
+
+  color: var(--primary-dark);
+
+  font-size: 12px;
+  font-weight: 800;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.analysis-selected-info p {
+  margin: 4px 0 0;
+
+  color: var(--text-secondary);
+
+  font-size: 10px;
+}
+
+
+/* =========================================================
+   18. Analysis Controls
+   ========================================================= */
+
+.analysis-controls {
+  display: flex;
+
+  align-items: flex-end;
+
+  gap: 9px;
+}
+
+.analysis-controls label {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 4px;
+}
+
+.analysis-controls label > span {
+  color: var(--text-secondary);
+
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.analysis-controls select {
+  width: 150px;
+  height: 35px;
+
+  padding: 0 28px 0 10px;
+
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+
+  outline: none;
+
+  background: var(--bg-surface);
+
+  color: var(--text-primary);
+
+  font-size: 10px;
+
+  cursor: pointer;
+}
+
+.analysis-controls select:focus {
+  border-color: var(--primary);
+
+  box-shadow:
+    0 0 0 3px
+    rgba(79, 130, 189, 0.08);
+}
+
+.analysis-controls select:disabled {
+  cursor: not-allowed;
+
+  opacity: 0.55;
+}
+
+
+/* =========================================================
+   19. AI 분석 시작 Button
+   ========================================================= */
+
+.analysis-start-button {
+  display: inline-flex;
+
+  height: 35px;
+
+  align-items: center;
+  justify-content: center;
+
+  padding: 0 19px;
+
+  border: 0;
+  border-radius: 7px;
+
+  background: var(--primary);
+
+  color: #ffffff;
+
+  font-size: 10px;
+  font-weight: 800;
+
+  cursor: pointer;
+
+  white-space: nowrap;
+
+  transition:
+    background-color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.analysis-start-button:hover:not(:disabled) {
+  background: var(--primary-dark);
+
+  transform: translateY(-1px);
+}
+
+.analysis-start-button:disabled {
+  background: #b6c1cd;
+
+  cursor: not-allowed;
+
+  transform: none;
+}
+
+
+/* =========================================================
+   20. Dark Mode
+   ========================================================= */
+
+[data-theme="dark"]
+.imaging-table tbody tr.selected td {
+  background:
+    rgba(107, 157, 213, 0.11);
+}
+
+[data-theme="dark"]
+.imaging-table tbody tr.selected:hover td {
+  background:
+    rgba(107, 157, 213, 0.15);
+}
+
+[data-theme="dark"]
+.imaging-analysis-bar {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(107, 157, 213, 0.08),
+      var(--bg-surface) 48%
+    );
+}
+
+
+/* =========================================================
+   21. 좁은 화면
+   ========================================================= */
+
+@media (max-width: 1280px) {
+
+  .last-loaded {
+    display: none;
+  }
+
+  .imaging-tabs {
+    gap: 24px;
+  }
+
+  .imaging-heading h2 {
+    font-size: 24px;
+  }
+
+  .imaging-analysis-bar {
+    grid-template-columns:
+      minmax(220px, 1fr)
+      auto;
+  }
+
+  .analysis-controls select {
+    width: 140px;
+  }
+
+}
+
+/* =========================================================
+   22. Imaging Balanced Layout Override
+   - 한 화면에 보기 좋게 정리
+   - 글씨 너무 작지 않게 유지
+   - 여백 / 간격 / 컬럼 밸런스 정리
+   ========================================================= */
+
+/* 전체 페이지 */
+.imaging-page {
+  padding-top: 10px;
+}
+
+/* 상단 제목 */
+.imaging-heading {
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.imaging-heading h2 {
+  font-size: 30px;
+}
+
+.imaging-heading h2::after {
+  margin-left: 14px;
+  font-size: 18px;
+}
+
+.imaging-heading p {
+  font-size: 13px;
+}
+
+
+/* =========================================================
+   영상 목록 카드
+   ========================================================= */
+
+.imaging-list-card {
+  margin-bottom: 12px;
+  border-radius: 14px;
+}
+
+.imaging-list-header {
+  min-height: 72px;
+  padding: 14px 20px 12px 20px;
+  gap: 20px;
+  align-items: center;
+}
+
+.imaging-list-heading h3 {
+  font-size: 18px;
+}
+
+.imaging-list-heading p {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+
+/* =========================================================
+   서버 상태 영역
+   ========================================================= */
+
+.imaging-server-status {
+  gap: 14px;
+}
+
+.imaging-server-info {
+  gap: 8px;
+}
+
+.imaging-server-info strong {
+  font-size: 12px;
+}
+
+.last-loaded {
+  font-size: 11px;
+}
+
+.imaging-refresh-button {
+  height: 34px;
+  padding: 0 15px;
+  font-size: 11px;
+}
+
+
+/* =========================================================
+   상단 탭
+   ========================================================= */
+
+.imaging-tabs {
+  height: 48px;
+  padding: 0 20px;
+  gap: 36px;
+}
+
+.imaging-tab {
+  height: 48px;
+  gap: 5px;
+  font-size: 14px;
+}
+
+.imaging-tab span {
+  font-size: 12px;
+}
+
+
+/* =========================================================
+   필터
+   ========================================================= */
+
+.imaging-filters {
+  padding: 10px 20px 10px;
+  gap: 14px;
+}
+
+.imaging-filters label > span {
+  font-size: 12px;
+}
+
+.imaging-filters select {
+  width: 132px;
+  height: 36px;
+  font-size: 12px;
+}
+
+
+/* =========================================================
+   테이블
+   - 한 화면에서 보기 좋게
+   - 빨간 표시한 큰 빈공간 줄이기
+   ========================================================= */
+
+.imaging-table-wrapper {
+  margin: 0 20px;
+}
+
+.imaging-table {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.imaging-table th {
+  height: 42px;
+  padding: 0 14px;
+  font-size: 12px;
+}
+
+.imaging-table td {
+  height: 46px;
+  padding: 0 14px;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 체크박스 */
+.imaging-table th:first-child,
+.imaging-table td:first-child {
+  width: 44px;
+  padding-left: 12px;
+}
+
+/* 검사일시 */
+.imaging-table th:nth-child(2),
+.imaging-table td:nth-child(2) {
+  width: 180px;
+}
+
+/* 환자명 */
+.imaging-table th:nth-child(3),
+.imaging-table td:nth-child(3) {
+  width: 110px;
+}
+
+/* 환자 등록번호 */
+.imaging-table th:nth-child(4),
+.imaging-table td:nth-child(4) {
+  width: 150px;
+}
+
+/* 모달리티 */
+.imaging-table th:nth-child(5),
+.imaging-table td:nth-child(5) {
+  width: 90px;
+}
+
+/* 시리즈 */
+.imaging-table th:nth-child(6),
+.imaging-table td:nth-child(6) {
+  width: 150px;
+}
+
+/* 추천 분석 */
+.imaging-table th:nth-child(7),
+.imaging-table td:nth-child(7) {
+  width: 120px;
+}
+
+/* 상태 */
+.imaging-table th:nth-child(8),
+.imaging-table td:nth-child(8) {
+  width: 110px;
+}
+
+
+/* 상태 배지 */
+.imaging-status {
+  min-width: 76px;
+  height: 28px;
+  font-size: 11px;
+}
+
+
+/* =========================================================
+   페이지네이션
+   ========================================================= */
+
+.imaging-pagination {
+  min-height: 42px;
+  padding: 5px 20px 6px;
+}
+
+.imaging-pagination > span {
+  font-size: 11px;
+}
+
+.imaging-pagination button,
+.imaging-pagination .current-page {
+  width: 28px;
+  height: 28px;
+  font-size: 11px;
+}
+
+
+/* =========================================================
+   하단 분석 바
+   ========================================================= */
+
+.imaging-analysis-bar {
+  min-height: 74px;
+  padding: 11px 18px;
+  gap: 18px;
+  border-radius: 12px;
+}
+
+.analysis-selected-info {
+  gap: 10px;
+}
+
+.analysis-info-icon {
+  width: 32px;
+  height: 32px;
+  font-size: 13px;
+}
+
+.analysis-selected-info strong {
+  font-size: 13px;
+}
+
+.analysis-selected-info p {
+  font-size: 11px;
+}
+
+.analysis-controls {
+  gap: 9px;
+}
+
+.analysis-controls label > span {
+  font-size: 11px;
+}
+
+.analysis-controls select {
+  width: 155px;
+  height: 37px;
+  font-size: 11px;
+}
+
+.analysis-start-button {
+  height: 37px;
+  padding: 0 20px;
+  font-size: 11px;
+}
+/* =========================================================
+   23. Imaging Final Balance Override
+   - 테이블 컬럼 균형
+   - 하단 추천 분석 강조
+   ========================================================= */
+
+
+/* =========================================================
+   1. 테이블 컬럼 균형 재조정
+   ========================================================= */
+
+.imaging-table {
+  width: 100%;
+  table-layout: fixed;
+}
+
+
+/* 선택 */
+.imaging-table th:nth-child(1),
+.imaging-table td:nth-child(1) {
+  width: 4%;
+  text-align: center;
+}
+
+
+/* 검사일시 */
+.imaging-table th:nth-child(2),
+.imaging-table td:nth-child(2) {
+  width: 18%;
+  text-align: center;
+}
+
+
+/* 환자명 */
+.imaging-table th:nth-child(3),
+.imaging-table td:nth-child(3) {
+  width: 12%;
+  text-align: left;
+}
+
+
+/* 환자 등록번호 */
+.imaging-table th:nth-child(4),
+.imaging-table td:nth-child(4) {
+  width: 15%;
+  text-align: center;
+}
+
+
+/* 모달리티 */
+.imaging-table th:nth-child(5),
+.imaging-table td:nth-child(5) {
+  width: 9%;
+  text-align: center;
+}
+
+
+/* 시리즈 */
+.imaging-table th:nth-child(6),
+.imaging-table td:nth-child(6) {
+  width: 14%;
+  text-align: center;
+}
+
+
+/* 추천 분석 */
+.imaging-table th:nth-child(7),
+.imaging-table td:nth-child(7) {
+  width: 16%;
+  text-align: center;
+}
+
+
+/* 상태 */
+.imaging-table th:nth-child(8),
+.imaging-table td:nth-child(8) {
+  width: 12%;
+  text-align: center;
+}
+
+
+/* 기존 min-width 값 영향 제거 */
+.imaging-table th:nth-child(n),
+.imaging-table td:nth-child(n) {
+  min-width: 0;
+}
+
+
+/* =========================================================
+   2. 하단 AI 분석 영역 조금 더 강조
+   ========================================================= */
+
+.imaging-analysis-bar {
+  min-height: 82px;
+
+  padding:
+    12px
+    20px;
+
+  background:
+    linear-gradient(
+      90deg,
+      rgba(79, 130, 189, 0.09),
+      rgba(79, 130, 189, 0.025) 52%,
+      var(--bg-surface) 100%
+    );
+
+  border:
+    1px solid
+    rgba(79, 130, 189, 0.28);
+}
+
+
+/* 왼쪽 안내 아이콘 */
+
+.analysis-info-icon {
+  width: 36px;
+  height: 36px;
+
+  font-size: 14px;
+}
+
+
+/* 선택된 영상 제목 */
+
+.analysis-selected-info strong {
+  font-size: 14px;
+  font-weight: 800;
+
+  color: var(--text-primary);
+}
+
+
+/* =========================================================
+   추천 분석
+   뇌출혈 / 뇌경색 / 뇌동맥류가 바로 보이도록
+   ========================================================= */
+
+.analysis-selected-info p {
+  display: inline-flex;
+
+  align-items: center;
+
+  min-height: 27px;
+
+  margin: 6px 0 0;
+
+  padding:
+    4px
+    10px;
+
+  border-radius: 999px;
+
+  background:
+    rgba(79, 130, 189, 0.12);
+
+  color:
+    var(--primary-dark);
+
+  font-size: 13px;
+  font-weight: 800;
+
+  line-height: 1;
+}
+
+
+/* =========================================================
+   3. 오른쪽 분석 선택 영역도 존재감 강화
+   ========================================================= */
+
+.analysis-controls label > span {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.analysis-controls select {
+  width: 165px;
+  height: 39px;
+
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.analysis-start-button {
+  height: 39px;
+
+  padding: 0 22px;
+
+  font-size: 12px;
+  font-weight: 800;
+}

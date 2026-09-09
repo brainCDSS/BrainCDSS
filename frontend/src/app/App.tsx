@@ -1,22 +1,71 @@
-import AppShell from "../shared/layout/AppShell";
-import Dashboard from "../features/dashboard/Dashboard";
+import {
+  useState,
+} from "react";
+
+import AppShell from
+  "../shared/layout/AppShell";
+
+import Dashboard from
+  "../features/dashboard/Dashboard";
+
+import LoginPage from
+  "../features/auth/LoginPage";
+
+import {
+  clearAuthSession,
+  loadAuthSession,
+} from "../features/auth/session";
+
+import type {
+  LoginResponse,
+} from "../features/auth/types";
 
 
 /**
  * Brain CDSS App
  *
- * AppShell의 기본 children은 Dashboard이다.
+ * 로그인 전:
+ * LoginPage 표시
  *
- * Sidebar 메뉴에 따라
- * AppShell 내부에서 Worklist / Triage 등의
- * 화면으로 전환한다.
+ * 로그인 후:
+ * 기존 AppShell과 Dashboard 표시
  */
 export function App() {
+
+  const [
+    authSession,
+    setAuthSession,
+  ] = useState<LoginResponse | null>(
+    () => loadAuthSession(),
+  );
+
+  function handleLogout() { //로그아웃 함수
+    clearAuthSession();
+    setAuthSession(null);
+  }
+
+  if (!authSession) {
+
+    return (
+      <LoginPage
+        onLoginSuccess={
+          setAuthSession
+        }
+      />
+    );
+
+  }
+
+
   return (
-    <AppShell>
+    <AppShell
+      currentUser={authSession.user}
+      onLogout={handleLogout}
+    >
       <Dashboard />
     </AppShell>
-  );
+);
+
 }
 
 

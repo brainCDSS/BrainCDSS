@@ -1,0 +1,2 @@
+import"./surgical-planning.css";
+export default function SurgicalPlanningPage(){return <section className="clinical-page"><header className="clinical-page__heading"><h2>수술 · 시술 플래닝</h2><p>수술 및 시술 계획을 검토하는 업무 화면입니다.</p></header><article className="clinical-card"><div className="clinical-card__title"><h3>플래닝 Worklist</h3></div><div className="clinical-state">Swagger에서 사용할 수 있는 수술·시술 플래닝 API가 확인되지 않았습니다.</div><div className="clinical-action-bar"><button className="clinical-action" type="button" disabled>새 계획 작성</button></div></article></section>}

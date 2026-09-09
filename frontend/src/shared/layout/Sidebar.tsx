@@ -4,6 +4,7 @@ import {
 } from "react";
 
 import "./layout.css";
+import { MENU_LABELS } from "./menuConfig";
 
 
 /* =========================================================
@@ -45,6 +46,57 @@ type SidebarGroupKey =
 
 
 /* =========================================================
+   접힘 Sidebar용 Lucide 스타일 아이콘
+   ---------------------------------------------------------
+   별도 아이콘 dependency 없이 이 파일 안에서 관리한다.
+   아이콘을 바꾸려면 아래 이름과 SidebarIcon의 path만 수정한다.
+   ========================================================= */
+
+type SidebarIconName =
+  | "home"
+  | "users"
+  | "stethoscope"
+  | "scan-line"
+  | "messages-square"
+  | "pill"
+  | "bell";
+
+
+function SidebarIcon({
+  name,
+}: {
+  name: SidebarIconName;
+}) {
+
+  const paths: Record<SidebarIconName, React.ReactNode> = {
+    home: <><path d="m3 11 9-8 9 8" /><path d="M5 10v10h14V10" /><path d="M9 20v-6h6v6" /></>,
+    users: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></>,
+    stethoscope: <><path d="M11 2v2" /><path d="M5 2v2" /><path d="M5 3H4a2 2 0 0 0-2 2v3a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2h-1" /><path d="M8 14a6 6 0 0 0 12 0v-3" /><circle cx="20" cy="10" r="2" /></>,
+    "scan-line": <><path d="M3 7V5a2 2 0 0 1 2-2h2" /><path d="M17 3h2a2 2 0 0 1 2 2v2" /><path d="M21 17v2a2 2 0 0 1-2 2h-2" /><path d="M7 21H5a2 2 0 0 1-2-2v-2" /><path d="M7 12h10" /></>,
+    "messages-square": <><path d="M7 18H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2v2" /><path d="m2 16 4 4v-4" /><path d="M10 11a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2l-4 3v-3h-2a2 2 0 0 1-2-2z" /></>,
+    pill: <><path d="m10.5 20.5 10-10a4.95 4.95 0 0 0-7-7l-10 10a4.95 4.95 0 0 0 7 7Z" /><path d="m8.5 8.5 7 7" /></>,
+    bell: <><path d="M10.27 21a2 2 0 0 0 3.46 0" /><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" /></>,
+  };
+
+
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {paths[name]}
+    </svg>
+  );
+
+}
+
+
+/* =========================================================
    Sidebar Props
    ========================================================= */
 
@@ -68,7 +120,9 @@ interface SidebarSingleMenu {
 
   label: string;
 
-  icon: string;
+  icon: SidebarIconName;
+
+  collapsedLabel: string;
 }
 
 
@@ -90,7 +144,9 @@ interface SidebarGroupMenu {
 
   label: string;
 
-  icon: string;
+  icon: SidebarIconName;
+
+  collapsedLabel: string;
 
   children: SidebarChildMenu[];
 }
@@ -138,9 +194,11 @@ const menuItems: SidebarMenuItem[] = [
 
     key: "dashboard",
 
-    label: "Dashboard",
+    label: MENU_LABELS.dashboard,
 
-    icon: "▦",
+    icon: "home",
+
+    collapsedLabel: "홈",
   },
 
 
@@ -153,9 +211,11 @@ const menuItems: SidebarMenuItem[] = [
 
     key: "patients",
 
-    label: "환자 관리",
+    label: MENU_LABELS.patients,
 
-    icon: "○",
+    icon: "users",
+
+    collapsedLabel: "환자",
   },
 
 
@@ -170,19 +230,21 @@ const menuItems: SidebarMenuItem[] = [
 
     label: "진료 업무",
 
-    icon: "✓",
+    icon: "stethoscope",
+
+    collapsedLabel: "진료",
 
     children: [
       {
-        key: "worklist",
+        key: "triage",
 
-        label: "Worklist",
+        label: MENU_LABELS.triage,
       },
 
       {
-        key: "triage",
+        key: "worklist",
 
-        label: "접수 / Triage",
+        label: MENU_LABELS.worklist,
       },
     ],
   },
@@ -199,31 +261,33 @@ const menuItems: SidebarMenuItem[] = [
 
     label: "검사 · 분석",
 
-    icon: "◇",
+    icon: "scan-line",
+
+    collapsedLabel: "검사",
 
     children: [
       {
         key: "imaging",
 
-        label: "검사 / 영상",
+        label: MENU_LABELS.imaging,
       },
 
       {
         key: "ai-results",
 
-        label: "AI 분석 결과",
+        label: MENU_LABELS["ai-results"],
       },
 
       {
         key: "radiology-reports",
 
-        label: "최종 판독",
+        label: MENU_LABELS["radiology-reports"],
       },
 
       {
         key: "cdss",
 
-        label: "CDSS 결과",
+        label: MENU_LABELS.cdss,
       },
     ],
   },
@@ -240,19 +304,21 @@ const menuItems: SidebarMenuItem[] = [
 
     label: "협진",
 
-    icon: "◎",
+    icon: "messages-square",
+
+    collapsedLabel: "협진",
 
     children: [
       {
         key: "consultations",
 
-        label: "협진 목록",
+        label: MENU_LABELS.consultations,
       },
 
       {
         key: "surgical-planning",
 
-        label: "수술 · 시술 플래닝",
+        label: MENU_LABELS["surgical-planning"],
       },
     ],
   },
@@ -267,9 +333,11 @@ const menuItems: SidebarMenuItem[] = [
 
     key: "prescriptions",
 
-    label: "처방 / DUR",
+    label: MENU_LABELS.prescriptions,
 
-    icon: "+",
+    icon: "pill",
+
+    collapsedLabel: "처방",
   },
 
 
@@ -282,9 +350,11 @@ const menuItems: SidebarMenuItem[] = [
 
     key: "notifications",
 
-    label: "알림 센터",
+    label: MENU_LABELS.notifications,
 
-    icon: "!",
+    icon: "bell",
+
+    collapsedLabel: "알림",
   },
 
 ];
@@ -473,26 +543,32 @@ export default function Sidebar({
                 type="button"
                 className={
                   isActive
-                    ? "sidebar-menu active"
-                    : "sidebar-menu"
+                    ? "sidebar-menu sidebar-page-menu active"
+                    : "sidebar-menu sidebar-page-menu"
                 }
                 onClick={() => {
                   handleMenuSelect(
                     item.key,
                   );
                 }}
+                title={item.label}
               >
 
                 <span
                   className="sidebar-menu-icon"
                   aria-hidden="true"
                 >
-                  {item.icon}
+                  <SidebarIcon name={item.icon} />
                 </span>
 
 
                 <span className="sidebar-menu-label">
                   {item.label}
+                </span>
+
+                {/* 접힌 상태에서만 표시되는 짧은 메뉴명 */}
+                <span className="sidebar-collapsed-label">
+                  {item.collapsedLabel}
                 </span>
 
               </button>
@@ -510,22 +586,10 @@ export default function Sidebar({
             item.key;
 
 
-          const hasActiveChild =
-            item.children.some(
-              (child) =>
-                child.key ===
-                currentActiveMenu,
-            );
-
-
           return (
             <div
               key={item.key}
-              className={
-                hasActiveChild
-                  ? "sidebar-group active"
-                  : "sidebar-group"
-              }
+              className="sidebar-group"
             >
 
               {/* =============================================
@@ -535,8 +599,8 @@ export default function Sidebar({
               <button
                 type="button"
                 className={
-                  hasActiveChild
-                    ? "sidebar-menu sidebar-group-button active"
+                  isOpen
+                    ? "sidebar-menu sidebar-group-button expanded"
                     : "sidebar-menu sidebar-group-button"
                 }
                 aria-expanded={
@@ -547,18 +611,24 @@ export default function Sidebar({
                     item.key,
                   );
                 }}
+                title={item.label}
               >
 
                 <span
                   className="sidebar-menu-icon"
                   aria-hidden="true"
                 >
-                  {item.icon}
+                  <SidebarIcon name={item.icon} />
                 </span>
 
 
                 <span className="sidebar-menu-label">
                   {item.label}
+                </span>
+
+                {/* 접힌 상태에서만 표시되는 짧은 그룹명 */}
+                <span className="sidebar-collapsed-label">
+                  {item.collapsedLabel}
                 </span>
 
 
@@ -570,7 +640,16 @@ export default function Sidebar({
                   }
                   aria-hidden="true"
                 >
-                  ▾
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
                 </span>
 
               </button>
@@ -600,8 +679,8 @@ export default function Sidebar({
                           type="button"
                           className={
                             isChildActive
-                              ? "sidebar-submenu-item active"
-                              : "sidebar-submenu-item"
+                              ? "sidebar-submenu-item sidebar-page-menu active"
+                              : "sidebar-submenu-item sidebar-page-menu"
                           }
                           onClick={() => {
                             handleMenuSelect(
@@ -613,9 +692,7 @@ export default function Sidebar({
                           <span
                             className="sidebar-submenu-dot"
                             aria-hidden="true"
-                          >
-                            ·
-                          </span>
+                          />
 
 
                           <span>

@@ -1370,14 +1370,26 @@ textarea {
   background: transparent;
 }
 
+.workspace-tabs-scroll {
+  display: flex;
+  min-width: 0;
+  height: 44px;
+  flex: 1 1 auto;
+  align-items: stretch;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  overscroll-behavior-x: contain;
+}
+
 
 /* Scrollbar */
-.workspace-tabs-list::-webkit-scrollbar {
+.workspace-tabs-scroll::-webkit-scrollbar {
   height: 4px;
 }
 
 
-.workspace-tabs-list::-webkit-scrollbar-thumb {
+.workspace-tabs-scroll::-webkit-scrollbar-thumb {
   background: var(--border-color);
 
   border-radius: 999px;
@@ -1490,6 +1502,9 @@ textarea {
 
 /* Tab Text */
 .workspace-tab-label {
+  min-width: 0;
+  flex: 1 1 auto;
+
   overflow: hidden;
 
   text-overflow: ellipsis;
@@ -1509,6 +1524,9 @@ textarea {
   height: 20px;
 
   flex-shrink: 0;
+
+  position: relative;
+  z-index: 2;
 
   align-items: center;
   justify-content: center;
@@ -2271,6 +2289,11 @@ body,
   overflow-y: auto;
 
   overscroll-behavior: contain;
+}
+
+/* Patient CDSS dashboard keeps its clinical columns usable on narrow desktops. */
+.app-content:has(.patient-context-dashboard) {
+  overflow-x: auto;
 }
 
 /* =========================================================

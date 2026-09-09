@@ -381,6 +381,8 @@ export default function WorkspaceTabs({
 
       <div className="workspace-tabs-list">
 
+        <div className="workspace-tabs-scroll">
+
 
         {/* ===================================================
             Dashboard
@@ -752,6 +754,8 @@ export default function WorkspaceTabs({
 
           },
         )}
+
+        </div>
 
 
         {/* ===================================================

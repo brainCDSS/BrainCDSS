@@ -862,6 +862,15 @@ export default function AppShell({
           patient={
             activePatient
           }
+          patients={
+            openPatientTabs
+          }
+          onSelectPatient={
+            handlePatientSelect
+          }
+          onNavigate={
+            handleMenuSelect
+          }
         />
       );
 

@@ -32,6 +32,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-TODO_LOCAL_DATABASE_PASSWORD}
       POSTGRES_HOST: postgres
       CELERY_BROKER_URL: amqp://${RABBITMQ_DEFAULT_USER:-brainon}:${RABBITMQ_DEFAULT_PASS:-TODO_LOCAL_RABBITMQ_PASSWORD}@rabbitmq:5672//
+      INFERENCE_API_URL: http://inference-api:8100
+      INFERENCE_USE_ID_TOKEN: "false"
     ports: ["8080:8080"]
     depends_on: {postgres: {condition: service_healthy}, rabbitmq: {condition: service_healthy}}
     healthcheck: {test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8080/api/v1/health/')"], interval: 15s, timeout: 5s, retries: 5}
@@ -39,8 +41,15 @@ services:
   # Background notification and business jobs; results are disabled by default.
   celery-worker:
     build: ./backend
-    command: celery -A config worker -l INFO
-    environment: {DJANGO_SETTINGS_MODULE: config.settings.base, POSTGRES_HOST: postgres, POSTGRES_DB: "${POSTGRES_DB:-brainon}", POSTGRES_USER: "${POSTGRES_USER:-brainon}", POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-TODO_LOCAL_DATABASE_PASSWORD}", CELERY_BROKER_URL: "amqp://${RABBITMQ_DEFAULT_USER:-brainon}:${RABBITMQ_DEFAULT_PASS:-TODO_LOCAL_RABBITMQ_PASSWORD}@rabbitmq:5672//"}
+    command: celery -A config worker -l INFO -Q brainon.default,brainon.notifications,brainon.integrations -n general@%h
+    environment: {DJANGO_SETTINGS_MODULE: config.settings.base, POSTGRES_HOST: postgres, POSTGRES_DB: "${POSTGRES_DB:-brainon}", POSTGRES_USER: "${POSTGRES_USER:-brainon}", POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-TODO_LOCAL_DATABASE_PASSWORD}", CELERY_BROKER_URL: "amqp://${RABBITMQ_DEFAULT_USER:-brainon}:${RABBITMQ_DEFAULT_PASS:-TODO_LOCAL_RABBITMQ_PASSWORD}@rabbitmq:5672//", CELERY_QUEUE_PREFIX: brainon, INFERENCE_API_URL: "http://inference-api:8100", INFERENCE_USE_ID_TOKEN: "false"}
+    depends_on: {backend: {condition: service_healthy}}
+    restart: unless-stopped
+  # AI orchestration is isolated so long-running requests do not block other jobs.
+  celery-inference-worker:
+    build: ./backend
+    command: celery -A config worker -l INFO -Q brainon.inference -n inference@%h --prefetch-multiplier=1
+    environment: {DJANGO_SETTINGS_MODULE: config.settings.base, POSTGRES_HOST: postgres, POSTGRES_DB: "${POSTGRES_DB:-brainon}", POSTGRES_USER: "${POSTGRES_USER:-brainon}", POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-TODO_LOCAL_DATABASE_PASSWORD}", CELERY_BROKER_URL: "amqp://${RABBITMQ_DEFAULT_USER:-brainon}:${RABBITMQ_DEFAULT_PASS:-TODO_LOCAL_RABBITMQ_PASSWORD}@rabbitmq:5672//", CELERY_QUEUE_PREFIX: brainon, INFERENCE_API_URL: "http://inference-api:8100", INFERENCE_USE_ID_TOKEN: "false"}
     depends_on: {backend: {condition: service_healthy}}
     restart: unless-stopped
   # Scheduled jobs via Celery Beat.
@@ -57,20 +66,17 @@ services:
     environment: {VITE_BACKEND_URL: "${BACKEND_URL:-http://localhost:8080}"}
     ports: ["5173:5173"]
     restart: unless-stopped
-  # Model-independent FastAPI control plane.
+  # FastAPI GPU inference service; this is the same image deployed to brainon-inference.
   inference-api:
-    build: ./inference
+    build:
+      context: ./inference
+      args:
+        BRAINON_MODEL_REPO: ${BRAINON_MODEL_REPO:-https://github.com/brainCDSS/model.git}
+        BRAINON_MODEL_REF: ${BRAINON_MODEL_REF:-dev}
     profiles: [ai]
-    environment: {MODEL_BUNDLE_URI: "${MODEL_BUNDLE_URI:-}"}
+    environment: {GCS_MODEL_BUCKET: "${GCS_MODEL_BUCKET:-brainon-cdss-models}", GCS_RESULT_BUCKET: "${GCS_RESULT_BUCKET:-TODO_RESULT_BUCKET}", GCS_ALLOWED_BUCKETS: "${GCS_ALLOWED_BUCKETS:-brainon-cdss-models,TODO_RESULT_BUCKET}"}
     ports: ["8100:8100"]
     healthcheck: {test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8100/health')"], interval: 15s, timeout: 5s, retries: 5}
-    restart: unless-stopped
-  # MOSEC integration placeholder; same safe image reports the boundary only.
-  inference-worker:
-    build: ./inference
-    profiles: [ai]
-    command: ["python", "-c", "print('MODEL_NOT_CONFIGURED: MOSEC worker adapter TODO'); import time; time.sleep(86400)"]
-    ports: ["8000:8000"]
     restart: unless-stopped
   # Genkit/Gemini adapter with deterministic mock fallback.
   assistant-service:
@@ -90,7 +96,13 @@ services:
   orthanc:
     image: orthancteam/orthanc:24.11.2
     profiles: [imaging]
-    ports: ["8042:8042", "4242:4242"]
+    environment:
+      ORTHANC__NAME: BrainOn-CDSS
+      ORTHANC__AUTHENTICATION_ENABLED: "true"
+      ORTHANC__REMOTE_ACCESS_ALLOWED: "true"
+      ORTHANC__REGISTERED_USERS: '{"${ORTHANC_USERNAME:-brainon}": "${ORTHANC_PASSWORD:-TODO_LOCAL_ORTHANC_PASSWORD}"}'
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+    ports: ["127.0.0.1:8042:8042", "127.0.0.1:4242:4242"]
     volumes: [orthanc-data:/var/lib/orthanc/db]
     restart: unless-stopped
   # DICOMweb viewer; configuration is a future integration template.

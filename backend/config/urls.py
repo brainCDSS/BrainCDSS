@@ -7,9 +7,21 @@ from drf_spectacular.views import (
 )
 
 from apps.common.views import health
+from apps.ai_analysis.api.development import DevelopmentAnalysisView
+from apps.ai_analysis.api.inference import AnalysisCollectionView, AnalysisDetailView
 
 
 urlpatterns = [
+    path("api/v1/ai-analyses", AnalysisCollectionView.as_view()),
+    path("api/v1/ai-analyses/<uuid:analysis_id>", AnalysisDetailView.as_view()),
+    path(
+        "api/v1/dev/ai-analyses",
+        DevelopmentAnalysisView.as_view(),
+    ),
+    path(
+        "api/v1/dev/ai-analyses/<uuid:analysis_id>",
+        DevelopmentAnalysisView.as_view(),
+    ),
     path("api/v1/", include("apps.organizations.api.urls")),
     path("api/v1/", include("apps.patients.api.urls")),
     path(
@@ -174,4 +186,3 @@ urlpatterns += [
     ),
 ]
 # END BRAINON GENERATED FINAL API CONTRACT ROUTES
-

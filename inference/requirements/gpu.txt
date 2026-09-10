@@ -1,2 +1,4 @@
 -r base.txt
-# TODO: add only the approved model runtime matching deployment hardware.
+torch>=2.7,<3
+nnunetv2>=2.6,<3
+PyYAML>=6,<7

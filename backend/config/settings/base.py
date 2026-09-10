@@ -5,6 +5,8 @@ from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
 
+from config.celery_queues import DEFAULT_QUEUE, TASK_QUEUES, TASK_ROUTES
+
 BASE_DIR = Path(__file__).resolve().parents[2]
 ROOT_DIR = BASE_DIR.parent
 
@@ -213,6 +215,42 @@ CELERY_BROKER_URL = os.getenv(
 CELERY_RESULT_BACKEND = None
 CELERY_TASK_IGNORE_RESULT = True
 CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_DEFAULT_QUEUE = DEFAULT_QUEUE
+CELERY_TASK_QUEUES = TASK_QUEUES
+CELERY_TASK_ROUTES = TASK_ROUTES
+CELERY_TASK_CREATE_MISSING_QUEUES = False
+CELERY_TASK_DEFAULT_DELIVERY_MODE = "persistent"
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+# RabbitMQ 4.3 rejects transient non-exclusive queues.
+CELERY_CONTROL_QUEUE_EXCLUSIVE = True
+CELERY_EVENT_QUEUE_EXCLUSIVE = True
+
+# Local-only bridge for synthetic inference verification. Disabled by default.
+AI_INFERENCE_DEVELOPMENT_ENABLED = (
+    os.getenv("AI_INFERENCE_DEVELOPMENT_ENABLED", "false").lower()
+    == "true"
+)
+INFERENCE_API_URL = os.getenv(
+    "INFERENCE_API_URL",
+    "http://inference-api:8100",
+)
+INFERENCE_TIMEOUT_SECONDS = int(
+    os.getenv("INFERENCE_TIMEOUT_SECONDS", "10")
+)
+INFERENCE_USE_ID_TOKEN = (
+    os.getenv("INFERENCE_USE_ID_TOKEN", "false").lower() == "true"
+)
+INFERENCE_AUTH_AUDIENCE = os.getenv(
+    "INFERENCE_AUTH_AUDIENCE",
+    INFERENCE_API_URL,
+)
+
+# Orthanc is accessed only by backend/worker code. Browser clients use backend
+# APIs and never receive these credentials.
+ORTHANC_URL = os.getenv("ORTHANC_URL", "http://orthanc:8042").rstrip("/")
+ORTHANC_USERNAME = os.getenv("ORTHANC_USERNAME", "brainon")
+ORTHANC_PASSWORD = os.getenv("ORTHANC_PASSWORD", "")
+ORTHANC_TIMEOUT_SECONDS = int(os.getenv("ORTHANC_TIMEOUT_SECONDS", "60"))
 
 
 
@@ -269,8 +307,12 @@ _user_jwt_signing_key = os.getenv("JWT_SIGNING_KEY")
 
 SIMPLE_JWT = {
     **globals().get("SIMPLE_JWT", {}),
-    "ACCESS_TOKEN_LIFETIME": timedelta(days=3650),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=3650),
+    "ACCESS_TOKEN_LIFETIME": timedelta(
+        minutes=int(os.getenv("JWT_ACCESS_TOKEN_MINUTES", "5256000"))
+    ),
+    "REFRESH_TOKEN_LIFETIME": timedelta(
+        days=int(os.getenv("JWT_REFRESH_TOKEN_DAYS", "3650"))
+    ),
 }
 
 if _user_jwt_signing_key:

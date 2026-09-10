@@ -79,6 +79,7 @@ export interface ImagingSeries {
   series_number?: number;
   modality: string;
   series_description?: string;
+  protocol_name?: string;
 
   instance_count: number;
   slice_thickness?: number | null;

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 
-import Patients from "../../features/patients/Patients";
 import TriageAssessment from "../../features/assessments/TriageAssessment";
 import ReceptionInitialAssessment from "../../features/assessments/ReceptionInitialAssessment";
 
@@ -16,6 +15,7 @@ import CDSSResultsPage from "../../features/cdss/CDSSResultsPage";
 import MedicationSafetyPage from "../../features/medication-safety/MedicationSafetyPage";
 import NotificationsPage from "../../features/notifications/NotificationsPage";
 import SurgicalPlanningPage from "../../features/surgical-planning/SurgicalPlanningPage";
+import AppointmentsPage from "../../features/appointments/AppointmentsPage";
 
 import type { Patient } from "../../features/patients/types";
 import type { ConsultationListItem } from "../../features/consultations/types";
@@ -35,7 +35,10 @@ import "./layout.css";
    ========================================================= */
 
 interface AppShellProps {
-  children: ReactNode;
+  children: ReactNode | ((
+    onOpenPatient: (patient: Patient) => void,
+    onOpenMenu: (menu: SidebarMenuKey) => void,
+  ) => ReactNode);
   currentUser: LoginUser;
   onLogout: () => void;
 }
@@ -219,6 +222,7 @@ export default function AppShell({
       menu !== "patients" &&
       menu !== "worklist" &&
       menu !== "triage" &&
+      menu !== "appointments" &&
       menu !== "consultations" &&
       menu !== "imaging" &&
       menu !== "ai-results" &&
@@ -685,30 +689,21 @@ export default function AppShell({
     patient: Patient,
   ) => {
 
-    /**
-     * 동일 환자 중복 Tab 방지
-     */
+    /* patient.id별 차트 탭을 유지하고, 같은 환자는 기존 탭을 재사용한다. */
     setOpenPatientTabs(
       (previousTabs) => {
+        const existingIndex = previousTabs.findIndex(
+          (openedPatient) => openedPatient.id === patient.id,
+        );
 
-        const alreadyOpen =
-          previousTabs.some(
-            (openedPatient) =>
-              openedPatient.id ===
-              patient.id,
-          );
-
-
-        if (alreadyOpen) {
-          return previousTabs;
+        if (existingIndex === -1) {
+          return [...previousTabs, patient];
         }
 
-
-        return [
-          ...previousTabs,
-          patient,
-        ];
-
+        return previousTabs.map(
+          (openedPatient, index) =>
+            index === existingIndex ? patient : openedPatient,
+        );
       },
     );
 
@@ -797,7 +792,6 @@ export default function AppShell({
 
   };
 
-
   /* ========================================================
      23. 일반 환자 Workspace Tab 닫기
      ======================================================== */
@@ -809,37 +803,11 @@ export default function AppShell({
     setOpenPatientTabs(
       (previousTabs) =>
         previousTabs.filter(
-          (patient) =>
-            patient.id !==
-            patientId,
+          (patient) => patient.id !== patientId,
         ),
     );
 
-
-    if (
-      activePatientId ===
-      patientId
-    ) {
-
-      setActivePatientId(
-        null,
-      );
-
-
-      const adjacentMenu =
-        openMenuTabs[openMenuTabs.length - 1];
-
-      if (adjacentMenu) {
-        handleSelectMenuTab(adjacentMenu);
-      } else if (isConsultationListTabOpen) {
-        handleSelectConsultationListTab();
-      } else {
-        setActiveMenu(
-          "dashboard",
-        );
-      }
-
-    }
+    handleSelectDashboard();
 
   };
 
@@ -859,6 +827,7 @@ export default function AppShell({
 
       return (
         <PatientChart
+          key={`patient-chart:${activePatient.id}`}
           patient={
             activePatient
           }
@@ -885,7 +854,14 @@ export default function AppShell({
       activeMenu === "patients"
     ) {
 
-      return <Patients />;
+      return (
+        <PatientChart
+          key="patient-management"
+          patient={null}
+          onSelectPatient={handlePatientSelect}
+          onNavigate={handleMenuSelect}
+        />
+      );
 
     }
 
@@ -968,6 +944,10 @@ export default function AppShell({
         />
       );
 
+    }
+
+    if (activeMenu === "appointments") {
+      return <AppointmentsPage currentUser={currentUser} />;
     }
 
 
@@ -1057,7 +1037,9 @@ export default function AppShell({
        Dashboard
        ------------------------------------------------------- */
 
-    return children;
+    return typeof children === "function"
+      ? children(handlePatientSelect, handleMenuSelect)
+      : children;
 
   }
 

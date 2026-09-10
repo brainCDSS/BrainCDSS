@@ -30,6 +30,7 @@ const NEW_WORK_GROUPS: Array<{
       { key: "patients", icon: "○" },
       { key: "worklist", icon: "✓" },
       { key: "triage", icon: "✓" },
+      { key: "appointments", icon: "□" },
     ],
   },
   {
@@ -381,9 +382,6 @@ export default function WorkspaceTabs({
 
       <div className="workspace-tabs-list">
 
-        <div className="workspace-tabs-scroll">
-
-
         {/* ===================================================
             Dashboard
             =================================================== */}
@@ -393,8 +391,8 @@ export default function WorkspaceTabs({
 
           className={
             isDashboardActive
-              ? "workspace-tab active"
-              : "workspace-tab"
+              ? "workspace-tab workspace-tab--dashboard active"
+              : "workspace-tab workspace-tab--dashboard"
           }
 
           onClick={
@@ -407,6 +405,9 @@ export default function WorkspaceTabs({
           </span>
 
         </button>
+
+
+        <div className="workspace-tabs-scroll">
 
 
         {/* ===================================================
@@ -485,7 +486,7 @@ export default function WorkspaceTabs({
 
               <button
                 key={
-                  patient.id
+                  `patient-chart:${patient.id}`
                 }
 
                 type="button"
@@ -507,11 +508,7 @@ export default function WorkspaceTabs({
 
                 <span className="workspace-tab-label">
 
-                  {patient.name}
-
-                  {" | "}
-
-                  Chart
+                  {patient.name} 차트
 
                 </span>
 

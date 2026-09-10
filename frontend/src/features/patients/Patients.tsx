@@ -7,7 +7,11 @@ import PatientChart from "./PatientChart";
 import "./css/patients.css";
 
 
-export default function Patients() {
+interface PatientsProps {
+  onOpenPatient?: (patient: Patient) => void;
+}
+
+export default function Patients({ onOpenPatient }: PatientsProps) {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -66,13 +70,12 @@ export default function Patients() {
   }
 
 
-  if (selectedPatient) {
+  if (selectedPatient && !onOpenPatient) {
     return (
       <PatientChart
         patient={selectedPatient}
         patients={filteredPatients.length > 0 ? filteredPatients : patients}
         onSelectPatient={setSelectedPatient}
-        onBackToList={() => setSelectedPatient(null)}
       />
     );
   }
@@ -155,7 +158,7 @@ export default function Patients() {
                 <tr><td colSpan={7}><div className="patients-empty"><strong>환자 목록 조회에 실패했습니다.</strong><p>{error}</p></div></td></tr>
               )}
               {!isLoading && !error && filteredPatients.map((patient) => (
-                <tr key={patient.id} onClick={() => setSelectedPatient(patient)}>
+                <tr key={patient.id} onClick={() => onOpenPatient ? onOpenPatient(patient) : setSelectedPatient(patient)}>
                   <td className="patients-number">{patient.patient_no}</td>
                   <td><strong>{patient.name}</strong></td>
                   <td>{patient.birth_date ?? "-"}</td>

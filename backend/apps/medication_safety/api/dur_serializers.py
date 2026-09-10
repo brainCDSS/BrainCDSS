@@ -1,0 +1,62 @@
+from rest_framework import serializers
+
+
+SUPPORTED_DUR_SYNC_TYPES = (
+    "INTERACTION",
+    "DOSE",
+)
+
+
+class DurSyncRequestSerializer(serializers.Serializer):
+    sync_types = serializers.ListField(
+        child=serializers.ChoiceField(
+            choices=SUPPORTED_DUR_SYNC_TYPES,
+        ),
+        required=False,
+        allow_empty=False,
+    )
+
+    full_sync = serializers.BooleanField(
+        required=False,
+        default=False,
+    )
+
+    def validate(self, attrs):
+        if attrs.get("full_sync"):
+            raise serializers.ValidationError(
+                {
+                    "full_sync": (
+                        "Full DUR synchronization is not yet "
+                        "supported. Current supported types are "
+                        "INTERACTION and DOSE."
+                    )
+                }
+            )
+
+        sync_types = attrs.get(
+            "sync_types",
+            list(SUPPORTED_DUR_SYNC_TYPES),
+        )
+
+        # 중복 제거, 요청 순서 유지
+        normalized = list(
+            dict.fromkeys(sync_types)
+        )
+
+        attrs["sync_types"] = normalized
+
+        return attrs
+
+
+class DurSyncResponseSerializer(serializers.Serializer):
+    task_id = serializers.UUIDField()
+
+    status = serializers.ChoiceField(
+        choices=("ACCEPTED",),
+    )
+
+    requested_sync_types = serializers.ListField(
+        child=serializers.CharField(),
+    )
+
+    requested_at = serializers.DateTimeField()

@@ -189,3 +189,30 @@ class RolePermissionResponseSerializer(serializers.Serializer):
         many=True,
     )
     updated_at = serializers.DateTimeField()
+
+
+
+class PaginatedUserSummaryResponseSerializer(
+    serializers.Serializer
+):
+    count = serializers.IntegerField()
+
+    next = serializers.URLField(
+        allow_null=True,
+    )
+
+    previous = serializers.URLField(
+        allow_null=True,
+    )
+
+    results = UserSummarySerializer(
+        many=True,
+    )
+
+
+class RoleListResponseSerializer(
+    serializers.Serializer
+):
+    roles = RoleWithPermissionsSerializer(
+        many=True,
+    )

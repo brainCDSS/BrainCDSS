@@ -97,6 +97,8 @@ class DURInteractionRule(models.Model):
 
     description = models.TextField()
 
+    source_payload = models.JSONField(default=dict, blank=True)
+
     source = models.CharField(
         max_length=50,
         default="MFDS_DUR",
@@ -186,6 +188,9 @@ class DURDoseRule(models.Model):
     )
 
     description = models.TextField()
+
+    form_name = models.CharField(max_length=200, blank=True, default="")
+    source_payload = models.JSONField(default=dict, blank=True)
 
     is_active = models.BooleanField(
         default=True,

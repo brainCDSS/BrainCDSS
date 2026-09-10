@@ -1,6 +1,6 @@
 # BrainOn CDSS
 
-BrainOn CDSS는 진료 workflow, 의료영상 AI 결과, 약물 안전성, 알림과 보조 AI를 연결하기 위한 초기 개발 모노레포다. 현재 범위는 팀이 같은 경계와 계약에서 개발을 시작할 수 있는 실행 가능한 골격이며 임상 업무 규칙이나 실제 AI 모델은 구현하지 않는다.
+BrainOn CDSS는 진료 workflow, 의료영상 AI 결과, 약물 안전성, 알림과 보조 AI를 연결하는 뇌혈관질환 CDSS 모노레포다. Django Backend에서는 인증·RBAC, DUR 연동, 약물안전성 검사, 비동기 작업 및 CDS Hooks 등 핵심 기능을 실제 구현하고 있으며, 영상 AI 추론과 일부 외부 시스템 연동은 별도 구현 단계로 관리한다.
 
 ## 기술 스택과 서비스
 
@@ -53,6 +53,6 @@ flowchart LR
 기본 health는 backend `http://localhost:8080/api/v1/health/`, inference `http://localhost:8100/health`, assistant `http://localhost:8200/health`다. 테스트 명령은 `AGENTS.md`와 각 서비스 README에 있다.
 
 ## 구현 상태
-Health endpoint, API client 경계, deterministic mock, JSON Schema와 안전검사는 구현되어 있다. 임상 모델/API, JWT 발급 flow, 실제 Gemini/FCM/DUR/허가정보/GCS/MLflow/MOSEC/OHIF 연결, DICOM SEG/SR 생성, RabbitMQ→WebSocket bridge는 명시적 Placeholder다. 개발용 in-memory WebSocket channel은 단일 프로세스 전용이며 현재 dependency에 포함하지 않았다.
+Backend에서는 Health endpoint, JWT 인증·RBAC, request_id/trace_id 전파와 Audit 기반, MFDS DUR OpenAPI 연동 및 로컬 기준정보 저장·활성화, RabbitMQ/Celery 비동기 DUR Sync, Medication Safety 검사, RX-004 처방 확정, CDS Hooks Discovery/order-select/order-sign/stroke-patient-view를 구현하였다. 현재 실제 DUR 기준정보 연동 및 검증 범위는 DDI(병용금기)와 DOSE(용량주의)이며, 나머지 약물안전성 Rule은 기준정보 확보 범위에 따라 확장한다. 영상 AI 추론 연동, Orthanc/OHIF 운영 연계, Gemini/FCM 및 일부 외부기관 연동은 계속 구현 중이다.
 
 > 실제 환자정보, 비식별화되지 않은 영상, secret 또는 모델 가중치를 이 저장소에 저장하지 않는다.

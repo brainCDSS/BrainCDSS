@@ -72,6 +72,44 @@ urlpatterns += [
 ]
 # END BRAINON COMMON AUDIT REAL API ROUTES
 
+# BEGIN BRAINON MEDICATION SAFETY REAL API ROUTES
+# Real DUR API must stay before generated remaining-149 routes.
+urlpatterns += [
+    path(
+        "",
+        include(
+            "apps.medication_safety.api.urls"
+        ),
+    ),
+]
+# END BRAINON MEDICATION SAFETY REAL API ROUTES
+
+# BEGIN BRAINON PRESCRIPTIONS REAL API ROUTES
+# Actual prescription finalize implementation.
+# Must stay before generated remaining-149 routes.
+urlpatterns += [
+    path(
+        "",
+        include(
+            "apps.prescriptions.api.urls"
+        ),
+    ),
+]
+# END BRAINON PRESCRIPTIONS REAL API ROUTES
+
+# BEGIN BRAINON CDS HOOKS REAL API ROUTES
+# Actual CDS Hooks API-CDS-001~003.
+# Must stay before generated remaining-149 routes.
+urlpatterns += [
+    path(
+        "",
+        include(
+            "apps.cdss.api.urls"
+        ),
+    ),
+]
+# END BRAINON CDS HOOKS REAL API ROUTES
+
 # BEGIN BRAINON REMAINING 149 REAL ROUTES
 # Generated DB-backed routes for the remaining 149 contract APIs.
 # Keep this block before the legacy generated scaffold routes.

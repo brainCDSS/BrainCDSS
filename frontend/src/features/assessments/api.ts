@@ -12,6 +12,9 @@ import type {
   ClinicianListResponse,
   CreateEncounterRequest,
   EncounterResponse,
+  // [추가] 신경과 응급 Worklist 연결
+  EmergencyWorklistResponse,
+  // [추가 끝] 신경과 응급 Worklist 연결
 } from "./types";
 
 export async function createEncounter(payload: CreateEncounterRequest): Promise<EncounterResponse> {
@@ -182,3 +185,11 @@ export function getClinicians(
 export function acknowledgeEmergencyEvent(eventId: string): Promise<{ event_id: string; status: string; acknowledged_at: string }> {
   return apiRequest(`/api/v1/emergency-events/${encodeURIComponent(eventId)}/acknowledge`, { method: "POST" });
 }
+
+// [추가] 신경과 응급 Worklist 연결
+export function getEmergencyWorklist(): Promise<EmergencyWorklistResponse> {
+  return apiRequest<EmergencyWorklistResponse>(
+    "/api/v1/neurology/emergency-worklist",
+  );
+}
+// [추가 끝] 신경과 응급 Worklist 연결

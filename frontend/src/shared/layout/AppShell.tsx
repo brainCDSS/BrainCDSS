@@ -3,6 +3,9 @@ import type { ReactNode } from "react";
 
 import TriageAssessment from "../../features/assessments/TriageAssessment";
 import ReceptionInitialAssessment from "../../features/assessments/ReceptionInitialAssessment";
+// [추가] 신경과 응급 Worklist 연결
+import EmergencyWorklist from "../../features/assessments/EmergencyWorklist";
+// [추가 끝] 신경과 응급 Worklist 연결
 
 import PatientChart from "../../features/patients/PatientChart";
 
@@ -922,24 +925,9 @@ export default function AppShell({
       activeMenu ===
       "worklist"
     ) {
-
-      return (
-        <section className="clinical-page">
-          <header className="clinical-page__heading">
-            <h2>응급 Worklist</h2>
-            <p>
-              Triage 완료 후 긴급·응급으로 분류된 환자를
-              신경과 의료진이 확인하는 업무 화면입니다.
-            </p>
-          </header>
-
-          <div className="clinical-card">
-            <div className="clinical-state">
-              신경과 응급 Worklist API 화면은 아직 구현되지 않았습니다.
-            </div>
-          </div>
-        </section>
-      );
+      // [추가] 신경과 응급 Worklist 연결
+      return <EmergencyWorklist onOpenPatient={handlePatientSelect} />;
+      // [추가 끝] 신경과 응급 Worklist 연결
 
     }
 

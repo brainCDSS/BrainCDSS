@@ -48,7 +48,8 @@ export interface ImagingStudyApiItem {
   study_id: string;
   accession_number: string;
   study_datetime: string;
-  modalities: string[];
+  modalities?: string[];
+  modality?: string;
 
   status: ImagingStatus;
   series_count: number;

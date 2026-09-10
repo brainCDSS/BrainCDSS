@@ -2,7 +2,14 @@ import { apiRequest } from "../../api/client";
 import type { ImagingOrderListResponse, ImagingOrderResponse, ImagingOrderTimelineResponse, ImagingSeriesResponse, ImagingStudy, ImagingStudyApiItem, ImagingStudyDetail, ImagingStudyListResponse, KeyImage, KeyImagesResponse, StudyAIHistoryResponse, StudyAIInputsResponse, ViewerContextResponse, ViewerSessionResponse } from "./types";
 
 function toScreenStudy(item: ImagingStudyApiItem): ImagingStudy {
-  const modality = item.scan_type === "MRA" ? "MRA" : item.modalities[0] === "MR" ? "MRI" : item.modalities[0] ?? "";
+  const sourceModality = Array.isArray(item.modalities)
+    ? item.modalities[0]
+    : item.modality;
+  const modality = item.scan_type === "MRA"
+    ? "MRA"
+    : sourceModality === "MR"
+      ? "MRI"
+      : sourceModality ?? "";
   return {
     id: item.study_id,
     patient_id: item.patient?.patient_id ?? item.patient_id,

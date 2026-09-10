@@ -4,7 +4,7 @@ export const MENU_LABELS: Record<SidebarMenuKey, string> = {
   dashboard: "Dashboard",
   patients: "환자 관리",
   worklist: "응급 Worklist",
-  triage: "접수 · 초기평가",
+  triage: "접수",
   appointments: "예약 · 일정",
   imaging: "검사 / 영상",
   "ai-results": "AI 분석 결과",

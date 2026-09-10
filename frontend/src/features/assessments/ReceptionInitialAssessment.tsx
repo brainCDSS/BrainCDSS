@@ -22,7 +22,7 @@ import "./css/reception_initial_assessment.css";
 
 
 type Step = 1 | 2 | 3 | 4 | 5;
-type Sex = "M" | "F" | "U";
+type Sex = "M" | "F";
 
 
 interface ReceptionInitialAssessmentProps {
@@ -31,6 +31,22 @@ interface ReceptionInitialAssessmentProps {
     encounterId: string,
   ) => void;
 }
+
+
+interface NewPatientForm {
+  name: string;
+  birth_date: string;
+  sex: Sex | "";
+  phone: string;
+}
+
+
+const EMPTY_NEW_PATIENT: NewPatientForm = {
+  name: "",
+  birth_date: "",
+  sex: "",
+  phone: "",
+};
 
 
 const STEPS = [
@@ -42,12 +58,17 @@ const STEPS = [
 ];
 
 
-const sexLabel = (sex: string | null) =>
-  sex === "M"
-    ? "남"
-    : sex === "F"
-      ? "여"
-      : "미상";
+const sexLabel = (sex: string | null) => {
+  if (sex === "M") {
+    return "남";
+  }
+
+  if (sex === "F") {
+    return "여";
+  }
+
+  return "-";
+};
 
 
 const phoneLabel = (phone: string | null) => {
@@ -77,7 +98,25 @@ const phoneLabel = (phone: string | null) => {
 
 const dateTimeLocal = (
   value?: string | null,
-) => value ? value.slice(0, 16) : "";
+) => {
+  return value
+    ? value.slice(0, 16)
+    : "";
+};
+
+
+const getTodayDate = () => {
+  const today = new Date();
+
+  const localDate = new Date(
+    today.getTime() -
+      today.getTimezoneOffset() * 60 * 1000,
+  );
+
+  return localDate
+    .toISOString()
+    .slice(0, 10);
+};
 
 
 const apiError = (
@@ -107,38 +146,42 @@ export default function ReceptionInitialAssessment(
 ) {
   void props.onOpenTriage;
 
-  const [step, setStep] = useState<Step>(1);
+  const [step, setStep] =
+    useState<Step>(1);
 
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<Patient[]>([]);
+  const [query, setQuery] =
+    useState("");
+
+  const [results, setResults] =
+    useState<Patient[]>([]);
+
   const [
     selectedPatient,
     setSelectedPatient,
-  ] = useState<Patient | null>(null);
-
-  const [searched, setSearched] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(
+  ] = useState<Patient | null>(
     null,
   );
 
-  const [showCreate, setShowCreate] =
+  const [searched, setSearched] =
     useState(false);
+
+  const [loading, setLoading] =
+    useState(false);
+
+  const [error, setError] =
+    useState<string | null>(null);
+
+  const [
+    showCreate,
+    setShowCreate,
+  ] = useState(false);
 
   const [
     newPatient,
     setNewPatient,
-  ] = useState<{
-    name: string;
-    birth_date: string;
-    sex: Sex;
-    phone: string;
-  }>({
-    name: "",
-    birth_date: "",
-    sex: "U",
-    phone: "",
-  });
+  ] = useState<NewPatientForm>(
+    EMPTY_NEW_PATIENT,
+  );
 
   const [
     visitType,
@@ -150,7 +193,9 @@ export default function ReceptionInitialAssessment(
   const [
     appointments,
     setAppointments,
-  ] = useState<StaffAppointment[]>([]);
+  ] = useState<StaffAppointment[]>(
+    [],
+  );
 
   const [
     appointmentId,
@@ -160,7 +205,9 @@ export default function ReceptionInitialAssessment(
   const [
     encounter,
     setEncounter,
-  ] = useState<EncounterResponse | null>(null);
+  ] = useState<
+    EncounterResponse | null
+  >(null);
 
   const [
     assessment,
@@ -174,17 +221,30 @@ export default function ReceptionInitialAssessment(
     setSymptomNote,
   ] = useState("");
 
-  const [onsetAt, setOnsetAt] = useState("");
-  const [lkwAt, setLkwAt] = useState("");
+  const [
+    onsetAt,
+    setOnsetAt,
+  ] = useState("");
 
-  const [fastFace, setFastFace] =
-    useState("");
+  const [
+    lkwAt,
+    setLkwAt,
+  ] = useState("");
 
-  const [fastArm, setFastArm] =
-    useState("");
+  const [
+    fastFace,
+    setFastFace,
+  ] = useState("");
 
-  const [bpSys, setBpSys] =
-    useState("");
+  const [
+    fastArm,
+    setFastArm,
+  ] = useState("");
+
+  const [
+    bpSys,
+    setBpSys,
+  ] = useState("");
 
   const [
     heartRate,
@@ -194,7 +254,7 @@ export default function ReceptionInitialAssessment(
 
   /*
    * 외래 접수인 경우
-   * 선택한 환자의 CONFIRMED 예약만 조회
+   * 선택한 환자의 CONFIRMED 예약을 조회한다.
    */
   useEffect(() => {
     if (
@@ -229,14 +289,16 @@ export default function ReceptionInitialAssessment(
           ),
         );
       })
-      .catch((requestError) => {
-        setError(
-          apiError(
-            requestError,
-            "확정 예약을 불러오지 못했습니다.",
-          ),
-        );
-      })
+      .catch(
+        (requestError) => {
+          setError(
+            apiError(
+              requestError,
+              "확정 예약을 불러오지 못했습니다.",
+            ),
+          );
+        },
+      )
       .finally(() => {
         setLoading(false);
       });
@@ -258,7 +320,10 @@ export default function ReceptionInitialAssessment(
     const normalizedQuery =
       query.trim();
 
-    if (!normalizedQuery) {
+    if (
+      !normalizedQuery ||
+      loading
+    ) {
       return;
     }
 
@@ -293,20 +358,21 @@ export default function ReceptionInitialAssessment(
 
 
   /*
-   * 신규 환자 등록 화면 열기
+   * 검색 결과가 없을 때
+   * 신규 환자 등록 화면을 연다.
    *
-   * 검색했던 이름을 신규등록 이름에 자동 입력.
-   * 단, input은 readOnly가 아니므로
-   * 사용자가 수정할 수 있다.
+   * 검색창에 입력한 이름을
+   * 신규 환자 이름의 초기값으로 사용한다.
+   *
+   * 자동입력 후에도 수정 가능하다.
    */
   function openCreatePatient() {
-    setNewPatient(
-      (current) => ({
-        ...current,
-        name: query.trim(),
-      }),
-    );
+    setNewPatient({
+      ...EMPTY_NEW_PATIENT,
+      name: query.trim(),
+    });
 
+    setSelectedPatient(null);
     setShowCreate(true);
     setError(null);
   }
@@ -318,38 +384,63 @@ export default function ReceptionInitialAssessment(
   function closeCreatePatient() {
     setShowCreate(false);
 
-    setNewPatient({
-      name: "",
-      birth_date: "",
-      sex: "U",
-      phone: "",
-    });
+    setNewPatient(
+      EMPTY_NEW_PATIENT,
+    );
+
+    setError(null);
   }
 
 
   /*
    * 신규 환자 등록
-   *
-   * birth_date는 type="date"에서 받은
-   * YYYY-MM-DD 값을 그대로 API로 전달한다.
    */
   async function registerPatient(
     event: FormEvent,
   ) {
     event.preventDefault();
 
+    if (
+      !newPatient.name.trim() ||
+      !newPatient.birth_date ||
+      !newPatient.sex
+    ) {
+      setError(
+        "이름, 생년월일, 성별을 확인해 주세요.",
+      );
+      return;
+    }
+
+    if (
+      newPatient.birth_date >
+      getTodayDate()
+    ) {
+      setError(
+        "생년월일은 오늘 이후의 날짜를 입력할 수 없습니다.",
+      );
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
+      /*
+       * birth_date는
+       * type="date"에서 반환되는
+       * YYYY-MM-DD 값을 그대로 보낸다.
+       */
       const patient =
         await createPatient({
           name:
             newPatient.name.trim(),
+
           birth_date:
             newPatient.birth_date,
+
           sex:
             newPatient.sex,
+
           phone:
             newPatient.phone.trim(),
         });
@@ -361,12 +452,9 @@ export default function ReceptionInitialAssessment(
       setStep(2);
       setShowCreate(false);
 
-      setNewPatient({
-        name: "",
-        birth_date: "",
-        sex: "U",
-        phone: "",
-      });
+      setNewPatient(
+        EMPTY_NEW_PATIENT,
+      );
     } catch (requestError) {
       setError(
         apiError(
@@ -384,12 +472,14 @@ export default function ReceptionInitialAssessment(
    * Encounter 생성
    */
   async function registerEncounter() {
+    if (!selectedPatient) {
+      return;
+    }
+
     if (
-      !selectedPatient ||
-      (
-        visitType === "OUTPATIENT" &&
-        !appointmentId
-      )
+      visitType ===
+        "OUTPATIENT" &&
+      !appointmentId
     ) {
       return;
     }
@@ -425,9 +515,10 @@ export default function ReceptionInitialAssessment(
 
       setEncounter(created);
 
+
       /*
-       * 같은 Encounter에 기존 초기평가가
-       * 있는지 확인
+       * 현재 Encounter에
+       * 기존 초기평가가 존재하는지 확인한다.
        */
       const worklist =
         await getAssessmentWorklist();
@@ -437,11 +528,15 @@ export default function ReceptionInitialAssessment(
           (item) =>
             item.encounter_id ===
               created.encounter_id &&
-            item.assessment_id,
+            Boolean(
+              item.assessment_id,
+            ),
         );
+
 
       let detail:
         AssessmentDetailResponse;
+
 
       if (
         existing?.assessment_id
@@ -457,6 +552,14 @@ export default function ReceptionInitialAssessment(
               created.encounter_id,
           });
 
+        if (
+          !started.assessment_id
+        ) {
+          throw new Error(
+            "ASSESSMENT_ID_MISSING",
+          );
+        }
+
         detail = {
           assessment_id:
             started.assessment_id,
@@ -467,14 +570,24 @@ export default function ReceptionInitialAssessment(
           status:
             started.status,
 
-          total_score: null,
-          triage_priority: null,
-          items: [],
+          total_score:
+            null,
+
+          triage_priority:
+            null,
+
+          items:
+            [],
         };
       }
 
+
       setAssessment(detail);
-      hydrateAssessment(detail);
+
+      hydrateAssessment(
+        detail,
+      );
+
       setStep(4);
     } catch (requestError) {
       setError(
@@ -490,14 +603,16 @@ export default function ReceptionInitialAssessment(
 
 
   /*
-   * 기존 초기평가 값 화면에 복원
+   * 기존 초기평가 내용을
+   * 입력폼으로 복원한다.
    */
   function hydrateAssessment(
     detail:
       AssessmentDetailResponse,
   ) {
     setSymptomNote(
-      detail.symptom_note ?? "",
+      detail.symptom_note ??
+        "",
     );
 
     setOnsetAt(
@@ -512,35 +627,42 @@ export default function ReceptionInitialAssessment(
       ),
     );
 
+
     const value = (
       code: string,
-    ) =>
-      detail.items.find(
+    ) => {
+      return detail.items.find(
         (item) =>
           item.item_code === code,
       );
+    };
+
 
     setFastFace(
       value("FAST_FACE")
-        ?.value_text ?? "",
+        ?.value_text ??
+        "",
     );
 
     setFastArm(
       value("FAST_ARM")
-        ?.value_text ?? "",
+        ?.value_text ??
+        "",
     );
 
     setBpSys(
       String(
         value("BP_SYS")
-          ?.value_numeric ?? "",
+          ?.value_numeric ??
+          "",
       ),
     );
 
     setHeartRate(
       String(
         value("HEART_RATE")
-          ?.value_numeric ?? "",
+          ?.value_numeric ??
+          "",
       ),
     );
   }
@@ -558,51 +680,66 @@ export default function ReceptionInitialAssessment(
       return;
     }
 
+
     const items:
       AssessmentItem[] = [];
+
 
     if (fastFace) {
       items.push({
         item_code:
           "FAST_FACE",
+
         value_text:
           fastFace,
       });
     }
 
+
     if (fastArm) {
       items.push({
         item_code:
           "FAST_ARM",
+
         value_text:
           fastArm,
       });
     }
 
+
     if (bpSys) {
       items.push({
         item_code:
           "BP_SYS",
+
         value_numeric:
           Number(bpSys),
+
         unit:
           "mmHg",
       });
     }
 
+
     if (heartRate) {
       items.push({
         item_code:
           "HEART_RATE",
+
         value_numeric:
-          Number(heartRate),
+          Number(
+            heartRate,
+          ),
+
         unit:
           "bpm",
       });
     }
 
+
     setLoading(true);
     setError(null);
+
 
     try {
       const saved =
@@ -610,10 +747,12 @@ export default function ReceptionInitialAssessment(
           assessment.assessment_id,
           {
             onset_at:
-              onsetAt || null,
+              onsetAt ||
+              null,
 
             lkw_at:
-              lkwAt || null,
+              lkwAt ||
+              null,
 
             symptom_note:
               symptomNote,
@@ -621,6 +760,7 @@ export default function ReceptionInitialAssessment(
             items,
           },
         );
+
 
       setAssessment(
         (current) =>
@@ -648,7 +788,7 @@ export default function ReceptionInitialAssessment(
 
 
   /*
-   * 새 접수 시작
+   * 전체 접수 흐름 초기화
    */
   function reset() {
     setStep(1);
@@ -656,10 +796,11 @@ export default function ReceptionInitialAssessment(
     setQuery("");
     setResults([]);
     setSelectedPatient(null);
-    setSearched(false);
 
+    setSearched(false);
     setShowCreate(false);
 
+    setLoading(false);
     setError(null);
 
     setEncounter(null);
@@ -672,12 +813,9 @@ export default function ReceptionInitialAssessment(
       "EMERGENCY",
     );
 
-    setNewPatient({
-      name: "",
-      birth_date: "",
-      sex: "U",
-      phone: "",
-    });
+    setNewPatient(
+      EMPTY_NEW_PATIENT,
+    );
 
     setSymptomNote("");
     setOnsetAt("");
@@ -704,9 +842,8 @@ export default function ReceptionInitialAssessment(
         </h1>
 
         <p>
-          환자 확인부터 접수와
-          초기평가까지 한 화면에서
-          진행합니다.
+          환자 확인부터 접수와 초기평가까지
+          한 화면에서 진행합니다.
         </p>
       </header>
 
@@ -716,25 +853,31 @@ export default function ReceptionInitialAssessment(
         aria-label="접수 및 초기평가 진행 단계"
       >
         {STEPS.map(
-          (label, index) => (
-            <li
-              key={label}
-              className={
-                step === index + 1
-                  ? "current"
-                  : step >
-                      index + 1
-                    ? "done"
-                    : ""
-              }
-            >
-              <span>
-                {index + 1}
-              </span>
+          (label, index) => {
+            const currentStep =
+              index + 1;
 
-              {label}
-            </li>
-          ),
+            return (
+              <li
+                key={label}
+                className={
+                  step ===
+                  currentStep
+                    ? "current"
+                    : step >
+                        currentStep
+                      ? "done"
+                      : ""
+                }
+              >
+                <span>
+                  {currentStep}
+                </span>
+
+                {label}
+              </li>
+            );
+          },
         )}
       </ol>
 
@@ -750,198 +893,202 @@ export default function ReceptionInitialAssessment(
 
 
       {/* =========================
-          STEP 1 환자 검색
-      ========================== */}
-      {step === 1 && (
-        <article className="reception-card">
-
-          <div className="reception-card__header">
-            <div>
-              <h2>
-                환자 검색
-              </h2>
-
-              <p>
-                환자명 또는 환자번호로
-                검색합니다.
-              </p>
-            </div>
-          </div>
-
-
-          <div className="reception-step-body">
-
-            <form
-              className="reception-search-row"
-              onSubmit={
-                searchPatients
-              }
-            >
-              <label>
-                <span>
-                  환자명 / 환자번호
-                </span>
-
-                <input
-                  type="search"
-                  value={query}
-                  onChange={(
-                    event,
-                  ) =>
-                    setQuery(
-                      event.target
-                        .value,
-                    )
-                  }
-                  placeholder="환자명 또는 환자번호"
-                />
-              </label>
-
-              <button
-                type="submit"
-                disabled={
-                  !query.trim() ||
-                  loading
-                }
-              >
-                {loading
-                  ? "검색 중..."
-                  : "검색"}
-              </button>
-            </form>
-
-
-            {!searched ? (
-              <div className="reception-patient-empty">
-                검색어를 입력해 주세요.
-              </div>
-            ) : loading ? (
-              <div className="reception-patient-empty">
-                환자를 검색하고 있습니다.
-              </div>
-            ) : results.length ? (
-              <div className="reception-search-layout">
-
-                <div className="reception-patient-list">
-
-                  {results.map(
-                    (patient) => (
-                      <button
-                        key={
-                          patient.id
-                        }
-                        type="button"
-                        className={
-                          selectedPatient
-                            ?.id ===
-                          patient.id
-                            ? "reception-patient-item is-selected"
-                            : "reception-patient-item"
-                        }
-                        onClick={() =>
-                          setSelectedPatient(
-                            patient,
-                          )
-                        }
-                      >
-                        <span>
-                          <strong>
-                            {
-                              patient.name
-                            }
-                          </strong>
-
-                          <small>
-                            {
-                              patient.patient_no
-                            }
-                          </small>
-                        </span>
-
-                        <span>
-                          <small>
-                            {patient.birth_date ??
-                              "-"}{" "}
-                            ·{" "}
-                            {sexLabel(
-                              patient.sex,
-                            )}
-                          </small>
-
-                          <small>
-                            {phoneLabel(
-                              patient.phone,
-                            )}{" "}
-                            ·{" "}
-                            {
-                              patient.status
-                            }
-                          </small>
-                        </span>
-                      </button>
-                    ),
-                  )}
-                </div>
-
-                <PatientContext
-                  patient={
-                    selectedPatient
-                  }
-                />
-              </div>
-            ) : (
-              <div className="reception-patient-empty">
-
-                <strong>
-                  등록된 환자가 없습니다.
-                </strong>
-
-                <button
-                  type="button"
-                  onClick={
-                    openCreatePatient
-                  }
-                >
-                  + 신규 환자 등록
-                </button>
-              </div>
-            )}
-
-
-            {selectedPatient && (
-              <footer className="reception-card__actions">
-                <span />
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setStep(2)
-                  }
-                >
-                  이 환자로 진행
-                </button>
-              </footer>
-            )}
-          </div>
-        </article>
-      )}
-
-
-      {/* =========================
-          신규 환자 등록
+          STEP 1
+          환자 검색
       ========================== */}
       {step === 1 &&
-        showCreate && (
-          <article className="reception-card reception-create-card">
+        !showCreate && (
+          <article className="reception-card">
 
             <div className="reception-card__header">
               <div>
                 <h2>
-                  신규 환자 등록
+                  환자 검색
                 </h2>
 
                 <p>
-                  환자번호는 Backend에서
+                  환자명 또는 환자번호로
+                  검색합니다.
+                </p>
+              </div>
+            </div>
+
+
+            <div className="reception-step-body">
+
+              <form
+                className="reception-search-row"
+                onSubmit={
+                  searchPatients
+                }
+              >
+                <label>
+                  <span>
+                    환자명 / 환자번호
+                  </span>
+
+                  <input
+                    type="search"
+                    value={query}
+                    onChange={(
+                      event,
+                    ) => {
+                      setQuery(
+                        event.target.value,
+                      );
+                    }}
+                    placeholder="환자명 또는 환자번호"
+                  />
+                </label>
+
+
+                <button
+                  type="submit"
+                  disabled={
+                    !query.trim() ||
+                    loading
+                  }
+                >
+                  {loading
+                    ? "검색 중..."
+                    : "검색"}
+                </button>
+              </form>
+
+
+              {!searched ? (
+                <div className="reception-patient-empty">
+                  검색어를 입력해 주세요.
+                </div>
+              ) : loading ? (
+                <div className="reception-patient-empty">
+                  환자를 검색하고 있습니다.
+                </div>
+              ) : results.length > 0 ? (
+                <div className="reception-search-layout">
+
+                  <div className="reception-patient-list">
+                    {results.map(
+                      (patient) => (
+                        <button
+                          key={patient.id}
+                          type="button"
+                          className={
+                            selectedPatient?.id ===
+                            patient.id
+                              ? "reception-patient-item is-selected"
+                              : "reception-patient-item"
+                          }
+                          onClick={() => {
+                            setSelectedPatient(
+                              patient,
+                            );
+                          }}
+                        >
+                          <span>
+                            <strong>
+                              {patient.name}
+                            </strong>
+
+                            <small>
+                              {patient.patient_no}
+                            </small>
+                          </span>
+
+
+                          <span>
+                            <small>
+                              {patient.birth_date ??
+                                "-"}
+                              {" · "}
+                              {sexLabel(
+                                patient.sex,
+                              )}
+                            </small>
+
+                            <small>
+                              {phoneLabel(
+                                patient.phone,
+                              )}
+                            </small>
+                          </span>
+                        </button>
+                      ),
+                    )}
+                  </div>
+
+
+                  <PatientContext
+                    patient={
+                      selectedPatient
+                    }
+                  />
+                </div>
+              ) : (
+                <div className="reception-patient-empty reception-patient-empty--new">
+                  <div>
+                    <strong>
+                      등록된 환자가 없습니다.
+                    </strong>
+
+                    <p>
+                      처음 방문한 환자라면
+                      신규 환자로 등록해 주세요.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={
+                      openCreatePatient
+                    }
+                  >
+                    + 신규 환자 등록
+                  </button>
+                </div>
+              )}
+
+
+              {selectedPatient && (
+                <footer className="reception-card__actions">
+                  <span />
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStep(2);
+                    }}
+                  >
+                    이 환자로 진행
+                  </button>
+                </footer>
+              )}
+            </div>
+          </article>
+        )}
+
+
+      {/* =========================
+          STEP 1
+          신규 환자 등록
+      ========================== */}
+      {step === 1 &&
+        showCreate && (
+          <article className="reception-card reception-create-page">
+
+            <div className="reception-create-page__header">
+              <div>
+                <span>
+                  신규 환자 등록
+                </span>
+
+                <h2>
+                  환자 기본정보를 입력해 주세요.
+                </h2>
+
+                <p>
+                  처음 방문한 환자의 기본정보를
+                  등록합니다. 환자번호는 등록 완료 후
                   자동 생성됩니다.
                 </p>
               </div>
@@ -949,147 +1096,191 @@ export default function ReceptionInitialAssessment(
 
 
             <form
-              className="reception-create-form"
+              className="reception-create-page__form"
               onSubmit={
                 registerPatient
               }
             >
+              <section className="reception-create-section">
 
-              <label>
-                이름
+                <div className="reception-create-section__heading">
+                  <strong>
+                    기본 정보
+                  </strong>
 
-                <input
-                  required
-                  value={
-                    newPatient.name
-                  }
-                  onChange={(
-                    event,
-                  ) =>
-                    setNewPatient(
-                      (current) => ({
-                        ...current,
-                        name:
-                          event.target
-                            .value,
-                      }),
-                    )
-                  }
-                />
-              </label>
+                  <span>
+                    필수 정보를 정확하게 입력해 주세요.
+                  </span>
+                </div>
 
 
-              <label>
-                생년월일
+                <div className="reception-create-grid">
+                  <label>
+                    <span>
+                      이름
+                      <em>*</em>
+                    </span>
 
-                <input
-                  required
-                  type="date"
-                  value={
-                    newPatient.birth_date
-                  }
-                  onChange={(
-                    event,
-                  ) =>
-                    setNewPatient(
-                      (current) => ({
-                        ...current,
-                        birth_date:
-                          event.target
-                            .value,
-                      }),
-                    )
-                  }
-                />
-              </label>
-
-
-              <label>
-                성별
-
-                <select
-                  value={
-                    newPatient.sex
-                  }
-                  onChange={(
-                    event,
-                  ) =>
-                    setNewPatient(
-                      (current) => ({
-                        ...current,
-                        sex:
-                          event.target
-                            .value as Sex,
-                      }),
-                    )
-                  }
-                >
-                  <option value="M">
-                    남
-                  </option>
-
-                  <option value="F">
-                    여
-                  </option>
-
-                  <option value="U">
-                    미상
-                  </option>
-                </select>
-              </label>
+                    <input
+                      required
+                      autoFocus
+                      value={
+                        newPatient.name
+                      }
+                      onChange={(
+                        event,
+                      ) => {
+                        setNewPatient(
+                          (current) => ({
+                            ...current,
+                            name:
+                              event.target.value,
+                          }),
+                        );
+                      }}
+                      placeholder="환자 이름"
+                    />
+                  </label>
 
 
-              <label>
-                전화번호
+                  <label>
+                    <span>
+                      생년월일
+                      <em>*</em>
+                    </span>
 
-                <input
-                  inputMode="tel"
-                  value={
-                    newPatient.phone
-                  }
-                  onChange={(
-                    event,
-                  ) =>
-                    setNewPatient(
-                      (current) => ({
-                        ...current,
-                        phone:
-                          event.target
-                            .value,
-                      }),
-                    )
-                  }
-                  placeholder="010-0000-0000"
-                />
-              </label>
+                    <input
+                      required
+                      type="date"
+                      max={getTodayDate()}
+                      value={
+                        newPatient.birth_date
+                      }
+                      onChange={(
+                        event,
+                      ) => {
+                        setNewPatient(
+                          (current) => ({
+                            ...current,
+                            birth_date:
+                              event.target.value,
+                          }),
+                        );
+                      }}
+                    />
+
+                    <small>
+                      YYYY-MM-DD
+                    </small>
+                  </label>
 
 
-              <div>
+                  <label>
+                    <span>
+                      성별
+                      <em>*</em>
+                    </span>
+
+                    <select
+                      required
+                      value={
+                        newPatient.sex
+                      }
+                      onChange={(
+                        event,
+                      ) => {
+                        setNewPatient(
+                          (current) => ({
+                            ...current,
+                            sex:
+                              event.target.value as Sex,
+                          }),
+                        );
+                      }}
+                    >
+                      <option value="">
+                        성별 선택
+                      </option>
+
+                      <option value="M">
+                        남
+                      </option>
+
+                      <option value="F">
+                        여
+                      </option>
+                    </select>
+                  </label>
+
+
+                  <label>
+                    <span>
+                      전화번호
+                    </span>
+
+                    <input
+                      type="tel"
+                      inputMode="tel"
+                      value={
+                        newPatient.phone
+                      }
+                      onChange={(
+                        event,
+                      ) => {
+                        setNewPatient(
+                          (current) => ({
+                            ...current,
+                            phone:
+                              event.target.value,
+                          }),
+                        );
+                      }}
+                      placeholder="010-0000-0000"
+                    />
+
+                    <small>
+                      연락 가능한 번호를 입력해 주세요.
+                    </small>
+                  </label>
+                </div>
+              </section>
+
+
+              <footer className="reception-create-page__actions">
                 <button
+                  className="secondary"
                   type="button"
+                  disabled={loading}
                   onClick={
                     closeCreatePatient
                   }
                 >
-                  취소
+                  이전
                 </button>
+
 
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={
+                    loading ||
+                    !newPatient.name.trim() ||
+                    !newPatient.birth_date ||
+                    !newPatient.sex
+                  }
                 >
                   {loading
                     ? "등록 중..."
-                    : "등록"}
+                    : "환자 등록"}
                 </button>
-              </div>
+              </footer>
             </form>
           </article>
         )}
 
 
       {/* =========================
-          STEP 2 환자 확인
+          STEP 2
+          환자 확인
       ========================== */}
       {step === 2 &&
         selectedPatient && (
@@ -1117,23 +1308,24 @@ export default function ReceptionInitialAssessment(
                 }
               />
 
+
               <footer className="reception-card__actions">
 
                 <button
                   className="secondary"
                   type="button"
-                  onClick={() =>
-                    setStep(1)
-                  }
+                  onClick={() => {
+                    setStep(1);
+                  }}
                 >
                   다시 검색
                 </button>
 
                 <button
                   type="button"
-                  onClick={() =>
-                    setStep(3)
-                  }
+                  onClick={() => {
+                    setStep(3);
+                  }}
                 >
                   접수 진행
                 </button>
@@ -1144,7 +1336,8 @@ export default function ReceptionInitialAssessment(
 
 
       {/* =========================
-          STEP 3 접수
+          STEP 3
+          접수
       ========================== */}
       {step === 3 &&
         selectedPatient && (
@@ -1157,8 +1350,8 @@ export default function ReceptionInitialAssessment(
                 </h2>
 
                 <p>
-                  {selectedPatient.name}{" "}
-                  환자의 이번 방문을
+                  {selectedPatient.name}
+                  {" "}환자의 이번 방문을
                   등록합니다.
                 </p>
               </div>
@@ -1177,14 +1370,15 @@ export default function ReceptionInitialAssessment(
                       ? "is-active"
                       : ""
                   }
-                  onClick={() =>
+                  onClick={() => {
                     setVisitType(
                       "OUTPATIENT",
-                    )
-                  }
+                    );
+                  }}
                 >
                   외래
                 </button>
+
 
                 <button
                   type="button"
@@ -1194,11 +1388,11 @@ export default function ReceptionInitialAssessment(
                       ? "is-active"
                       : ""
                   }
-                  onClick={() =>
+                  onClick={() => {
                     setVisitType(
                       "EMERGENCY",
-                    )
-                  }
+                    );
+                  }}
                 >
                   응급
                 </button>
@@ -1233,12 +1427,12 @@ export default function ReceptionInitialAssessment(
                     }
                     onChange={(
                       event,
-                    ) =>
+                    ) => {
                       setAppointmentId(
                         event.target
                           .value,
-                      )
-                    }
+                      );
+                    }}
                   >
                     <option value="">
                       예약 선택
@@ -1263,13 +1457,13 @@ export default function ReceptionInitialAssessment(
                     )}
                   </select>
 
+
                   {!loading &&
                     appointments.length ===
                       0 && (
                       <small>
-                        연결 가능한
-                        CONFIRMED 예약이
-                        없습니다.
+                        연결 가능한 CONFIRMED
+                        예약이 없습니다.
                       </small>
                     )}
                 </label>
@@ -1281,12 +1475,13 @@ export default function ReceptionInitialAssessment(
                 <button
                   className="secondary"
                   type="button"
-                  onClick={() =>
-                    setStep(2)
-                  }
+                  onClick={() => {
+                    setStep(2);
+                  }}
                 >
                   이전
                 </button>
+
 
                 <button
                   type="button"
@@ -1298,9 +1493,9 @@ export default function ReceptionInitialAssessment(
                       !appointmentId
                     )
                   }
-                  onClick={() =>
-                    void registerEncounter()
-                  }
+                  onClick={() => {
+                    void registerEncounter();
+                  }}
                 >
                   {loading
                     ? "처리 중..."
@@ -1313,7 +1508,8 @@ export default function ReceptionInitialAssessment(
 
 
       {/* =========================
-          STEP 4 초기평가
+          STEP 4
+          초기평가
       ========================== */}
       {step === 4 &&
         selectedPatient &&
@@ -1328,8 +1524,8 @@ export default function ReceptionInitialAssessment(
                 </h2>
 
                 <p>
-                  {encounter.encounter_no}{" "}
-                  ·{" "}
+                  {encounter.encounter_no}
+                  {" · "}
                   {assessment.status}
                 </p>
               </div>
@@ -1348,15 +1544,17 @@ export default function ReceptionInitialAssessment(
                 1. 주호소
 
                 <textarea
-                  value={symptomNote}
+                  value={
+                    symptomNote
+                  }
                   onChange={(
                     event,
-                  ) =>
+                  ) => {
                     setSymptomNote(
                       event.target
                         .value,
-                    )
-                  }
+                    );
+                  }}
                 />
               </label>
 
@@ -1372,32 +1570,37 @@ export default function ReceptionInitialAssessment(
 
                     <input
                       type="datetime-local"
-                      value={onsetAt}
+                      value={
+                        onsetAt
+                      }
                       onChange={(
                         event,
-                      ) =>
+                      ) => {
                         setOnsetAt(
                           event.target
                             .value,
-                        )
-                      }
+                        );
+                      }}
                     />
                   </label>
+
 
                   <label>
                     LKW
 
                     <input
                       type="datetime-local"
-                      value={lkwAt}
+                      value={
+                        lkwAt
+                      }
                       onChange={(
                         event,
-                      ) =>
+                      ) => {
                         setLkwAt(
                           event.target
                             .value,
-                        )
-                      }
+                        );
+                      }}
                     />
                   </label>
                 </div>
@@ -1429,15 +1632,17 @@ export default function ReceptionInitialAssessment(
 
                     <input
                       type="number"
-                      value={bpSys}
+                      value={
+                        bpSys
+                      }
                       onChange={(
                         event,
-                      ) =>
+                      ) => {
                         setBpSys(
                           event.target
                             .value,
-                        )
-                      }
+                        );
+                      }}
                     />
 
                     <small>
@@ -1462,12 +1667,12 @@ export default function ReceptionInitialAssessment(
                       }
                       onChange={(
                         event,
-                      ) =>
+                      ) => {
                         setHeartRate(
                           event.target
                             .value,
-                        )
-                      }
+                        );
+                      }}
                     />
 
                     <small>
@@ -1495,15 +1700,17 @@ export default function ReceptionInitialAssessment(
                     안면 비대칭
 
                     <select
-                      value={fastFace}
+                      value={
+                        fastFace
+                      }
                       onChange={(
                         event,
-                      ) =>
+                      ) => {
                         setFastFace(
                           event.target
                             .value,
-                        )
-                      }
+                        );
+                      }}
                     >
                       <option value="">
                         미입력
@@ -1524,15 +1731,17 @@ export default function ReceptionInitialAssessment(
                     팔 근력 저하
 
                     <select
-                      value={fastArm}
+                      value={
+                        fastArm
+                      }
                       onChange={(
                         event,
-                      ) =>
+                      ) => {
                         setFastArm(
                           event.target
                             .value,
-                        )
-                      }
+                        );
+                      }}
                     >
                       <option value="">
                         미입력
@@ -1579,10 +1788,10 @@ export default function ReceptionInitialAssessment(
             <footer className="reception-card__actions">
 
               <span>
-                신경과 의료진 목록 API가
-                없어 완료 처리는
-                비활성화됩니다.
+                신경과 의료진 목록 API가 없어
+                완료 처리는 비활성화됩니다.
               </span>
+
 
               <div>
                 <button
@@ -1593,12 +1802,13 @@ export default function ReceptionInitialAssessment(
                     assessment.status ===
                       "COMPLETED"
                   }
-                  onClick={() =>
-                    void saveAssessment()
-                  }
+                  onClick={() => {
+                    void saveAssessment();
+                  }}
                 >
                   임시저장
                 </button>
+
 
                 <button
                   type="button"
@@ -1613,7 +1823,8 @@ export default function ReceptionInitialAssessment(
 
 
       {/* =========================
-          STEP 5 완료
+          STEP 5
+          완료
       ========================== */}
       {step === 5 &&
         selectedPatient &&
@@ -1625,11 +1836,13 @@ export default function ReceptionInitialAssessment(
               ✓ 접수 · 초기평가 완료
             </strong>
 
+
             <PatientContext
               patient={
                 selectedPatient
               }
             />
+
 
             <dl>
               <div>
@@ -1644,15 +1857,19 @@ export default function ReceptionInitialAssessment(
                 </dd>
               </div>
 
+
               <div>
                 <dt>
                   접수 상태
                 </dt>
 
                 <dd>
-                  {encounter.status}
+                  {
+                    encounter.status
+                  }
                 </dd>
               </div>
+
 
               <div>
                 <dt>
@@ -1666,6 +1883,7 @@ export default function ReceptionInitialAssessment(
                 </dd>
               </div>
 
+
               <div>
                 <dt>
                   초기평가 상태
@@ -1677,6 +1895,7 @@ export default function ReceptionInitialAssessment(
                   }
                 </dd>
               </div>
+
 
               {assessment.triage_priority && (
                 <div>
@@ -1693,9 +1912,12 @@ export default function ReceptionInitialAssessment(
               )}
             </dl>
 
+
             <button
               type="button"
-              onClick={reset}
+              onClick={
+                reset
+              }
             >
               새 접수 시작
             </button>
@@ -1720,6 +1942,7 @@ function PatientContext({
     );
   }
 
+
   return (
     <dl className="reception-selected-patient">
 
@@ -1733,6 +1956,7 @@ function PatientContext({
         </dd>
       </div>
 
+
       <div>
         <dt>
           환자번호
@@ -1742,6 +1966,7 @@ function PatientContext({
           {patient.patient_no}
         </dd>
       </div>
+
 
       <div>
         <dt>
@@ -1753,15 +1978,19 @@ function PatientContext({
         </dd>
       </div>
 
+
       <div>
         <dt>
           성별
         </dt>
 
         <dd>
-          {sexLabel(patient.sex)}
+          {sexLabel(
+            patient.sex,
+          )}
         </dd>
       </div>
+
 
       <div>
         <dt>
@@ -1769,19 +1998,12 @@ function PatientContext({
         </dt>
 
         <dd>
-          {phoneLabel(patient.phone)}
+          {phoneLabel(
+            patient.phone,
+          )}
         </dd>
       </div>
 
-      <div>
-        <dt>
-          상태
-        </dt>
-
-        <dd>
-          {patient.status}
-        </dd>
-      </div>
     </dl>
   );
 }

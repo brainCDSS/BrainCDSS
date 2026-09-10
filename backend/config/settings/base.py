@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
+from corsheaders.defaults import default_headers
 
 from config.celery_queues import DEFAULT_QUEUE, TASK_QUEUES, TASK_ROUTES
 
@@ -175,6 +176,8 @@ CORS_ALLOWED_ORIGINS = [
     ).split(",")
     if origin.strip()
 ]
+
+CORS_ALLOW_HEADERS = (*default_headers, "idempotency-key")
 
 
 # ---------------------------------------------------------------------

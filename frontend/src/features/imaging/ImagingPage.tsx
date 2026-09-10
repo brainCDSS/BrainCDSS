@@ -396,17 +396,21 @@ export default function ImagingPage() {
     Promise.all([
       getImagingStudy(selectedStudyId),
       getImagingStudySeries(selectedStudyId),
-      getStudyAIAnalyses(selectedStudyId),
-      getViewerContext(selectedStudyId),
-      getKeyImages(selectedStudyId),
       getStudyAIInputs(selectedStudyId),
-    ]).then(([detail, series, analyses, viewerContext, keyImages, aiInputs]) => {
+    ]).then(([detail, series, aiInputs]) => {
       if (!active) return;
       setSelectedSeriesCount(series.series.length || detail.series.length);
-      setSelectedAIAnalysisCount(analyses.results.length);
-      setSelectedKeyImageCount(keyImages.results.length);
-      setViewerContextAvailable(Boolean(viewerContext.study));
       setAIInputBundles(aiInputs.bundles);
+      void Promise.allSettled([
+        getStudyAIAnalyses(selectedStudyId),
+        getViewerContext(selectedStudyId),
+        getKeyImages(selectedStudyId),
+      ]).then(([analyses, viewerContext, keyImages]) => {
+        if (!active) return;
+        if (analyses.status === "fulfilled") setSelectedAIAnalysisCount(analyses.value.results.length);
+        if (viewerContext.status === "fulfilled") setViewerContextAvailable(Boolean(viewerContext.value.study));
+        if (keyImages.status === "fulfilled") setSelectedKeyImageCount(keyImages.value.results.length);
+      });
     }).catch(() => {
       if (active) setDetailError("선택한 Study의 상세 데이터를 불러오지 못했습니다.");
     });

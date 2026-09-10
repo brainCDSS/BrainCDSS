@@ -9,7 +9,7 @@ from drf_spectacular.views import (
 from apps.common.views import health
 from apps.ai_analysis.api.development import DevelopmentAnalysisView
 from apps.ai_analysis.api.inference import AnalysisCollectionView, AnalysisDetailView, AnalysisNiftiViewerView, ResultArtifactContentView
-from apps.imaging.api.nifti import NiftiArtifactContentView, StudyAIInputsView
+from apps.imaging.api.nifti import ImagingStudyCollectionView, ImagingStudyDetailView, ImagingStudySeriesView, NiftiArtifactContentView, StudyAIInputsView
 
 
 urlpatterns = [
@@ -17,6 +17,9 @@ urlpatterns = [
     path("api/v1/ai-analyses/<uuid:analysis_id>", AnalysisDetailView.as_view()),
     path("api/v1/ai-analyses/<uuid:analysis_id>/nifti-viewer", AnalysisNiftiViewerView.as_view()),
     path("api/v1/ai-result-artifacts/<uuid:artifact_id>/content", ResultArtifactContentView.as_view()),
+    path("api/v1/imaging-studies", ImagingStudyCollectionView.as_view()),
+    path("api/v1/imaging-studies/<uuid:study_id>", ImagingStudyDetailView.as_view()),
+    path("api/v1/imaging-studies/<uuid:study_id>/series", ImagingStudySeriesView.as_view()),
     path("api/v1/imaging-studies/<uuid:study_id>/ai-inputs", StudyAIInputsView.as_view()),
     path("api/v1/nifti-artifacts/<uuid:artifact_id>/content", NiftiArtifactContentView.as_view()),
     path(

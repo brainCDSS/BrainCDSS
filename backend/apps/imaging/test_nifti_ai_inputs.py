@@ -1,6 +1,9 @@
 from django.test import TestCase
 from django.utils import timezone
+from rest_framework.test import APIRequestFactory, force_authenticate
 
+from apps.accounts.models import Role, User
+from apps.imaging.api.nifti import ImagingStudyCollectionView
 from apps.imaging.models import ImagingStudy, NiftiArtifact, SeriesReference
 from apps.imaging.services.nifti import study_input_bundles
 
@@ -8,6 +11,11 @@ from apps.imaging.services.nifti import study_input_bundles
 class NiftiAIInputTests(TestCase):
     def setUp(self):
         now = timezone.now()
+        role = Role.objects.create(code="RADIOLOGY", name="Synthetic Radiology")
+        self.user = User.objects.create_user(
+            login_id="synthetic-imaging-user", password="test-only-password",
+            name="Synthetic Imaging User", role=role,
+        )
         self.study = ImagingStudy.objects.create(
             study_instance_uid="1.2.826.0.1.3680043.10.999.200",
             accession_number="SYNTHETIC-NIFTI",
@@ -66,3 +74,17 @@ class NiftiAIInputTests(TestCase):
         )
         self.assertTrue(ischemia["ready"])
         self.assertEqual([item["role"] for item in ischemia["inputs"]], ["DWI", "ADC"])
+
+    def test_study_collection_returns_one_study_instead_of_series_rows(self):
+        self.add_artifact("DWI", 1)
+        self.add_artifact("ADC", 2)
+        request = APIRequestFactory().get("/api/v1/imaging-studies")
+        force_authenticate(request, user=self.user)
+
+        response = ImagingStudyCollectionView.as_view()(request)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["study_id"], str(self.study.id))
+        self.assertEqual(response.data["results"][0]["series_count"], 2)
+        self.assertEqual(response.data["results"][0]["status"], "AVAILABLE")

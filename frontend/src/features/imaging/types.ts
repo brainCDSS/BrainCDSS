@@ -51,9 +51,9 @@ export interface ImagingStudyApiItem {
   modalities?: string[];
   modality?: string;
 
-  status: ImagingStatus;
-  series_count: number;
-  instance_count: number;
+  status?: ImagingStatus;
+  series_count?: number;
+  instance_count?: number;
 
   latest_analysis: ImagingAnalysisSummary | null;
   current_report: ImagingReportSummary | null;

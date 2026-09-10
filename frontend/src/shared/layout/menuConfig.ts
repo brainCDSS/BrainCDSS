@@ -15,6 +15,12 @@ export const MENU_LABELS: Record<SidebarMenuKey, string> = {
   "surgical-planning": "수술 · 시술 플래닝",
   prescriptions: "처방 / DUR",
   notifications: "알림 센터",
+  // [추가] 관리자 메뉴
+  "admin-users": "사용자 · 권한",
+  "admin-monitoring": "시스템 모니터링",
+  "admin-audit": "감사 로그",
+  "admin-settings": "설정",
+  // [추가 끝] 관리자 메뉴
 };
 
 
@@ -35,6 +41,9 @@ export const MENU_ALLOWED_ROLES: Record<
     "NEUROLOGIST",
     "NEUROSURGEON",
     "RADIOLOGY",
+    // [추가] 관리자 메뉴
+    "SYSTEM_ADMIN",
+    // [추가 끝] 관리자 메뉴
   ],
 
   patients: [
@@ -119,7 +128,9 @@ export const MENU_ALLOWED_ROLES: Record<
    * 수술 · 시술 플래닝
    */
   "surgical-planning": [
+    "NEUROLOGIST",
     "NEUROSURGEON",
+    "RADIOLOGY",
   ],
 
   /*
@@ -139,6 +150,12 @@ export const MENU_ALLOWED_ROLES: Record<
     "NEUROSURGEON",
     "RADIOLOGY",
   ],
+  // [추가] 관리자 메뉴
+  "admin-users": ["SYSTEM_ADMIN"],
+  "admin-monitoring": ["SYSTEM_ADMIN"],
+  "admin-audit": ["SYSTEM_ADMIN"],
+  "admin-settings": ["SYSTEM_ADMIN"],
+  // [추가 끝] 관리자 메뉴
 };
 
 

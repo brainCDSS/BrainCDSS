@@ -16,6 +16,13 @@ import MedicationSafetyPage from "../../features/medication-safety/MedicationSaf
 import NotificationsPage from "../../features/notifications/NotificationsPage";
 import SurgicalPlanningPage from "../../features/surgical-planning/SurgicalPlanningPage";
 import AppointmentsPage from "../../features/appointments/AppointmentsPage";
+// [추가] 관리자 화면 연결
+import AdminDashboard from "../../features/admin/AdminDashboard";
+import AdminUsersPage from "../../features/admin/AdminUsersPage";
+import SystemMonitoringPage from "../../features/admin/SystemMonitoringPage";
+import AuditLogPage from "../../features/admin/AuditLogPage";
+import AdminSettingsPage from "../../features/admin/AdminSettingsPage";
+// [추가 끝] 관리자 화면 연결
 
 import type { Patient } from "../../features/patients/types";
 import type { ConsultationListItem } from "../../features/consultations/types";
@@ -235,7 +242,13 @@ export default function AppShell({
       menu !== "cdss" &&
       menu !== "surgical-planning" &&
       menu !== "prescriptions" &&
-      menu !== "notifications"
+      menu !== "notifications" &&
+      // [추가] 관리자 화면 연결
+      menu !== "admin-users" &&
+      menu !== "admin-monitoring" &&
+      menu !== "admin-audit" &&
+      menu !== "admin-settings"
+      // [추가 끝] 관리자 화면 연결
     ) {
       return;
     }
@@ -839,6 +852,16 @@ export default function AppShell({
         </section>
       );
     }
+
+    // [추가] 관리자 화면 연결
+    if (currentUser.role.code === "SYSTEM_ADMIN") {
+      if (activeMenu === "admin-users") return <AdminUsersPage />;
+      if (activeMenu === "admin-monitoring") return <SystemMonitoringPage />;
+      if (activeMenu === "admin-audit") return <AuditLogPage />;
+      if (activeMenu === "admin-settings") return <AdminSettingsPage />;
+      return <AdminDashboard />;
+    }
+    // [추가 끝] 관리자 화면 연결
 
 
     /* -------------------------------------------------------

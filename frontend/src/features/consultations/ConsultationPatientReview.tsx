@@ -4,7 +4,13 @@ import {
 } from "react";
 
 import {
+  acceptConsultation,
+  cancelConsultation,
   getConsultationDetail,
+  markConsultationResponseViewed,
+  rejectConsultation,
+  respondConsultation,
+  startConsultation,
 } from "./api";
 
 import type {
@@ -267,6 +273,32 @@ export default function ConsultationPatientReview({
   ] = useState<PatientReviewTab>(
     "clinical",
   );
+
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  async function runAction(action: string) {
+    if (!consultation || actionBusy) return;
+    setActionBusy(true); setActionError(null);
+    try {
+      if (action === "ACCEPT") await acceptConsultation(consultation.consultation_id);
+      else if (action === "START") await startConsultation(consultation.consultation_id);
+      else if (action === "VIEW_RESPONSE") await markConsultationResponseViewed(consultation.consultation_id);
+      else if (action === "REJECT" || action === "CANCEL") {
+        const reason = globalThis.prompt("사유를 입력해 주세요.")?.trim();
+        if (!reason) return;
+        if (action === "REJECT") await rejectConsultation(consultation.consultation_id, reason);
+        else await cancelConsultation(consultation.consultation_id, reason);
+      } else if (action === "RESPOND") {
+        const finalOpinion = globalThis.prompt("최종 소견을 입력해 주세요.")?.trim();
+        if (!finalOpinion) return;
+        const treatmentPlan = globalThis.prompt("치료 계획을 입력해 주세요. (선택)")?.trim();
+        await respondConsultation(consultation.consultation_id, { final_opinion: finalOpinion, ...(treatmentPlan ? { treatment_plan: treatmentPlan } : {}) });
+      }
+      setConsultation(await getConsultationDetail(consultation.consultation_id));
+    } catch { setActionError("협진 상태 변경에 실패했습니다."); }
+    finally { setActionBusy(false); }
+  }
 
 
   /* ========================================================
@@ -1319,6 +1351,11 @@ export default function ConsultationPatientReview({
       {/* =====================================================
           CONSULTATION DETAIL
           ===================================================== */}
+
+      {consultation.allowed_actions.length > 0 && <div className="clinical-action-bar">
+        {consultation.allowed_actions.map((action) => <button className="clinical-action" disabled={actionBusy} key={action} onClick={() => void runAction(action)} type="button">{action}</button>)}
+      </div>}
+      {actionError && <div className="clinical-state clinical-state--error" role="alert">{actionError}</div>}
 
       <button
         type="button"

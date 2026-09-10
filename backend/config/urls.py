@@ -159,6 +159,13 @@ urlpatterns += [
     ),
 ]
 # END BRAINON REMAINING 149 REAL ROUTES
+
+# [추가] 수술·시술 플래닝 API 연결
+urlpatterns += [
+    path("", include("apps.surgical_planning.api.urls")),
+]
+# [추가 끝] 수술·시술 플래닝 API 연결
+
 # BEGIN BRAINON GENERATED FINAL API CONTRACT ROUTES
 # Temporary scaffold for the final 176 API contract.
 # Real API implementations replace these generated handlers.
@@ -174,4 +181,3 @@ urlpatterns += [
     ),
 ]
 # END BRAINON GENERATED FINAL API CONTRACT ROUTES
-

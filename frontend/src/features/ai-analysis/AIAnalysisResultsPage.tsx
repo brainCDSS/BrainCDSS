@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getAIAnalyses, getAIAnalysisResult } from "./api";
+import { cancelAIAnalysis, createAIResultReview, getAIAnalyses, getAIAnalysis, getAIAnalysisResult } from "./api";
+import { createViewerSession, getViewerContext } from "../imaging/api";
 import type { AIAnalysisItem, AIAnalysisResult } from "./types";
 import "./ai-analysis.css";
 
@@ -19,6 +20,9 @@ export default function AIAnalysisResultsPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [viewerUrl, setViewerUrl] = useState<string | null>(null);
+  const [reviewDecision, setReviewDecision] = useState<"ACCEPT" | "REJECT">("ACCEPT");
+  const [actionBusy, setActionBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -41,6 +45,35 @@ export default function AIAnalysisResultsPage() {
     return () => { active = false; };
   }, [selected]);
 
+  useEffect(() => {
+    if (!selected) return;
+    let active = true;
+    Promise.all([getAIAnalysis(selected.analysis_id), getViewerContext(selected.study_id)])
+      .then(([detail, context]) => { if (active) { setSelected((current) => current?.analysis_id === detail.analysis_id ? { ...current, ...detail } : current); const session = context.viewer_session as { viewer_url?: string }; setViewerUrl(session.viewer_url ?? null); } })
+      .catch(() => { if (active) setViewerUrl(null); });
+    return () => { active = false; };
+  }, [selected?.analysis_id, selected?.study_id]);
+
+  async function openViewer() {
+    if (!selected) return;
+    setActionBusy(true); setDetailError(null);
+    try { const session = await createViewerSession(selected.study_id, { purpose: "DIAGNOSIS", include_ai_overlay: true }); const url = session.viewer_url; if (!url) throw new Error("viewer URL missing"); setViewerUrl(url); globalThis.open(url, "_blank", "noopener,noreferrer"); }
+    catch { setDetailError("Viewer Session을 발급받지 못했습니다."); }
+    finally { setActionBusy(false); }
+  }
+  async function cancelSelected() {
+    if (!selected || selected.status !== "QUEUED") return;
+    const reason = globalThis.prompt("분석 취소 사유를 입력해 주세요.")?.trim(); if (!reason) return;
+    setActionBusy(true); setDetailError(null);
+    try { await cancelAIAnalysis(selected.analysis_id, reason); await load(); } catch { setDetailError("AI 분석 취소에 실패했습니다."); } finally { setActionBusy(false); }
+  }
+  async function saveReview() {
+    if (!result || !opinion.trim()) return;
+    setActionBusy(true); setDetailError(null);
+    try { await createAIResultReview(result.result_id, { decision: reviewDecision, comment: opinion.trim() }); setOpinion(""); setResult(await getAIAnalysisResult(result.analysis_id)); }
+    catch { setDetailError("AI 결과 검토 저장에 실패했습니다."); } finally { setActionBusy(false); }
+  }
+
   const findings = useMemo(() => result ? Object.entries(result.structured_findings) : [], [result]);
   const contextFields = [
     ["환자 ID", "연동 필요"], ["환자명", "연동 필요"], ["성별/나이", "연동 필요"], ["생년월일", "연동 필요"],
@@ -55,7 +88,7 @@ export default function AIAnalysisResultsPage() {
 
     <div className="ai-workspace-body">
       <div className="ai-workspace-primary">
-        <section className="ai-viewer-card"><header><div><span>MEDICAL IMAGING</span><h3>Brain MRI Viewer</h3></div></header><div className="ai-viewer-toolbar" aria-label="Viewer 도구">{VIEWER_TOOLS.map((tool) => <button key={tool} type="button" disabled className={tool === "AI 오버레이" ? "is-highlighted" : ""}>{tool}</button>)}</div><div className="ai-viewer-empty"><div className="ai-viewer-empty__icon" aria-hidden="true">◇</div><strong>영상 연동 필요</strong><p>검증된 Viewer URL, DICOMWeb token 및 영상 artifact가 없어 실제 의료영상을 표시하지 않습니다.</p></div></section>
+        <section className="ai-viewer-card"><header><div><span>MEDICAL IMAGING</span><h3>Brain MRI Viewer</h3></div><button type="button" disabled={!selected || actionBusy} onClick={() => void openViewer()}>{viewerUrl ? "Viewer 열기" : "Viewer Session 발급"}</button></header><div className="ai-viewer-toolbar" aria-label="Viewer 도구">{VIEWER_TOOLS.map((tool) => <button key={tool} type="button" disabled className={tool === "AI 오버레이" ? "is-highlighted" : ""}>{tool}</button>)}</div><div className="ai-viewer-empty"><div className="ai-viewer-empty__icon" aria-hidden="true">◇</div><strong>{viewerUrl ? "Viewer 준비 완료" : "Viewer Session이 필요합니다."}</strong><p>{viewerUrl ? "발급된 보안 Viewer를 새 창에서 열 수 있습니다." : "선택한 Study의 Viewer Context와 Session을 사용합니다."}</p></div></section>
         <section className="ai-slices-card"><header><div><h3>주요 슬라이스</h3></div></header><div className="ai-slice-empty">Series / Instance thumbnail 연동 필요</div></section>
       </div>
 
@@ -66,7 +99,7 @@ export default function AIAnalysisResultsPage() {
 
         <section className="ai-xai-card"><header><h3>XAI (설명 가능한 AI)</h3></header><div className="ai-xai-shell"><div><span>Segmentation</span><button type="button" disabled aria-label="Segmentation 연동 필요" /></div><div><span>Attention Map</span><button type="button" disabled aria-label="Attention Map 연동 필요" /></div><div><span>Uncertainty</span><button type="button" disabled aria-label="Uncertainty 연동 필요" /></div><label>오버레이 투명도<input type="range" disabled /></label><div className="ai-spectrum" aria-hidden="true" /><p>XAI response field 및 artifact API 연동 필요</p></div></section>
 
-        <section className="ai-opinion-card"><header><h3>소견</h3></header><textarea value={opinion} onChange={(event) => setOpinion(event.target.value)} placeholder="간단한 소견이나 의견을 작성하세요." aria-label="소견" /><div className="ai-action-row"><button type="button" disabled>분석 영상 저장</button><button type="button" disabled>소견 저장</button><button type="button" disabled>협진 요청</button></div><small>저장 및 협진 API 연동 필요</small></section>
+        <section className="ai-opinion-card"><header><h3>AI 결과 검토</h3></header><select value={reviewDecision} onChange={(event) => setReviewDecision(event.target.value as "ACCEPT" | "REJECT")}><option value="ACCEPT">수용</option><option value="REJECT">거절</option></select><textarea value={opinion} onChange={(event) => setOpinion(event.target.value)} placeholder="검토 의견을 작성하세요." aria-label="검토 의견" /><div className="ai-action-row"><button type="button" disabled>분석 영상 저장</button><button type="button" disabled={actionBusy || !result || !opinion.trim()} onClick={() => void saveReview()}>검토 저장</button><button type="button" disabled>협진 요청</button>{selected?.status === "QUEUED" && <button type="button" disabled={actionBusy} onClick={() => void cancelSelected()}>분석 취소</button>}</div><small>AI Review API 연결 · 영상 저장/협진은 필요한 Context ID가 없어 비활성</small></section>
       </aside>
     </div>
   </section>;

@@ -149,6 +149,11 @@ export interface KeyImagesResponse {
   results: KeyImage[];
 }
 
+export interface ViewerSessionResponse { viewer_url?: string; token?: string; expires_at?: string; [key: string]: unknown }
+export interface ImagingOrderResponse { order_id: string; encounter_id: string; patient_id?: string; status: string; [key: string]: unknown }
+export interface ImagingOrderListResponse { count: number; results: ImagingOrderResponse[] }
+export interface ImagingOrderTimelineResponse { order: Record<string, unknown>; current_status: string; timeline: Array<Record<string, unknown>>; study?: Record<string, unknown> | null; analysis?: Record<string, unknown> | null; report?: Record<string, unknown> | null }
+
 /**
  * Existing UI model.
  * API에 없는 값은 생성하지 않고 undefined로 둔다.

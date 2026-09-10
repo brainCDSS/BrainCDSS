@@ -40,7 +40,13 @@ export type SidebarMenuKey =
   | "surgical-planning"
 
   | "prescriptions"
-  | "notifications";
+  | "notifications"
+  // [추가] 관리자 화면 연결
+  | "admin-users"
+  | "admin-monitoring"
+  | "admin-audit"
+  | "admin-settings";
+  // [추가 끝] 관리자 화면 연결
 
 
 /* =========================================================
@@ -295,12 +301,6 @@ const menuItems: SidebarMenuItem[] = [
       },
 
       {
-        key: "radiology-reports",
-
-        label: MENU_LABELS["radiology-reports"],
-      },
-
-      {
         key: "cdss",
 
         label: MENU_LABELS.cdss,
@@ -374,6 +374,16 @@ const menuItems: SidebarMenuItem[] = [
   },
 
 ];
+
+// [추가] 관리자 화면 연결
+const adminMenuItems: SidebarMenuItem[] = [
+  { type: "single", key: "dashboard", label: MENU_LABELS.dashboard, icon: "home", collapsedLabel: "홈" },
+  { type: "single", key: "admin-users", label: MENU_LABELS["admin-users"], icon: "users", collapsedLabel: "사용자" },
+  { type: "single", key: "admin-monitoring", label: MENU_LABELS["admin-monitoring"], icon: "scan-line", collapsedLabel: "모니터링" },
+  { type: "single", key: "admin-audit", label: MENU_LABELS["admin-audit"], icon: "bell", collapsedLabel: "감사" },
+  { type: "single", key: "admin-settings", label: MENU_LABELS["admin-settings"], icon: "stethoscope", collapsedLabel: "설정" },
+];
+// [추가 끝] 관리자 화면 연결
 
 
 /* =========================================================
@@ -459,7 +469,9 @@ export default function Sidebar({
      ======================================================== */
 
   const visibleMenuItems =
-    menuItems.reduce<
+    // [추가] 관리자 화면 연결
+    (currentRole === "SYSTEM_ADMIN" ? adminMenuItems : menuItems).reduce<
+    // [추가 끝] 관리자 화면 연결
       SidebarMenuItem[]
     >(
       (

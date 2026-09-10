@@ -178,3 +178,7 @@ export function getClinicians(
     }/clinicians`,
   );
 }
+
+export function acknowledgeEmergencyEvent(eventId: string): Promise<{ event_id: string; status: string; acknowledged_at: string }> {
+  return apiRequest(`/api/v1/emergency-events/${encodeURIComponent(eventId)}/acknowledge`, { method: "POST" });
+}

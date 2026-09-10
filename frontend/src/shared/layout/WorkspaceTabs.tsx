@@ -25,6 +25,17 @@ const NEW_WORK_GROUPS: Array<{
     icon: string;
   }>;
 }> = [
+  // [추가] 관리자 화면 연결
+  {
+    label: "관리자",
+    items: [
+      { key: "admin-users", icon: "관리" },
+      { key: "admin-monitoring", icon: "상태" },
+      { key: "admin-audit", icon: "감사" },
+      { key: "admin-settings", icon: "설정" },
+    ],
+  },
+  // [추가 끝] 관리자 화면 연결
   {
     label: "진료",
     items: [

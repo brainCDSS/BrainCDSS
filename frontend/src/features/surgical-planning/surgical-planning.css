@@ -11,3 +11,71 @@
 .planning-viewer__heading,.planning-viewer__heading h3,.planning-viewport__empty{color:#eef4ff}
 .planning-context__row dd,.virtual-clip-library button,.clip-number-field input,.collaboration-composer textarea{color:var(--color-text-primary)}
 .virtual-clip-library button{background:var(--color-surface-soft)}
+
+/* AppShell이 할당한 content 높이 안에서만 Workspace를 구성한다. */
+.surgical-planning-page{
+  display:flex;
+  flex-direction:column;
+  max-height:100%;
+}
+.surgical-planning-page__heading{
+  flex:0 0 auto;
+}
+.surgical-planning-layout{
+  flex:1 1 auto;
+  grid-template-rows:minmax(0,1fr);
+  height:auto;
+  overflow:hidden;
+}
+.planning-context,.planning-viewer,.planning-side-panel{
+  height:100%;
+  max-height:100%;
+}
+.planning-context{
+  overflow-y:auto;
+}
+.planning-viewer__heading,.planning-view-tabs,.planning-viewer__footer,.planning-panel-tabs{
+  flex:0 0 auto;
+}
+.planning-viewport{
+  flex:1 1 auto;
+  min-height:0;
+}
+.planning-controls{
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  padding:0;
+}
+.planning-controls__scroll{
+  flex:1 1 auto;
+  min-height:0;
+  overflow-y:auto;
+  padding:12px;
+}
+.planning-actions{
+  flex:0 0 auto;
+  padding:0 12px 12px;
+}
+.collaboration-panel{
+  overflow:hidden;
+}
+.collaboration-messages{
+  flex:1 1 auto;
+  min-height:0;
+}
+.collaboration-composer{
+  flex:0 0 auto;
+}
+@media(max-width:1040px){
+  .surgical-planning-page{overflow:hidden}
+  .surgical-planning-layout{
+    grid-template-columns:210px minmax(400px,1fr) 300px;
+    overflow-x:auto;
+    overflow-y:hidden;
+  }
+  .planning-side-panel{
+    grid-column:auto;
+    min-height:0;
+  }
+}

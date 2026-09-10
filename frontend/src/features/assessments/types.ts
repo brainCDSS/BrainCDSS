@@ -71,6 +71,8 @@ export interface AssessmentItem {
    * Red Flag 여부
    */
   is_red_flag?: boolean;
+
+  note?: string;
 }
 
 
@@ -82,11 +84,19 @@ export interface AssessmentItem {
 export interface AssessmentDetailResponse {
   assessment_id: string;
 
+  encounter_id: string;
+
   status: string;
 
   total_score: number | null;
 
   triage_priority: string | null;
+
+  onset_at?: string | null;
+
+  lkw_at?: string | null;
+
+  symptom_note?: string | null;
 
   assigned_neurologist?: {
     id: string;
@@ -94,6 +104,22 @@ export interface AssessmentDetailResponse {
   } | null;
 
   items: AssessmentItem[];
+}
+
+export interface CreateEncounterRequest {
+  patient_id: string;
+  encounter_type: "OUTPATIENT" | "EMERGENCY";
+  appointment_id?: string;
+}
+
+export interface EncounterResponse {
+  encounter_id: string;
+  encounter_no: string;
+  patient_id: string;
+  appointment_id?: string | null;
+  encounter_type: "OUTPATIENT" | "EMERGENCY";
+  status: string;
+  arrived_at: string;
 }
 
 

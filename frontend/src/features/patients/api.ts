@@ -1,5 +1,5 @@
 import { apiRequest } from "../../api/client";
-import type { PatientListResponse } from "./types";
+import type { Patient, PatientListResponse } from "./types";
 
 /**
  * 환자 목록 조회 API
@@ -24,4 +24,12 @@ export function getPatients(search?: string): Promise<PatientListResponse> {
   return apiRequest<PatientListResponse>(
     `/api/v1/patients${queryString ? `?${queryString}` : ""}`,
   );
+}
+
+export function createPatient(payload: { name: string; birth_date: string; sex: "M" | "F" | "U"; phone: string }): Promise<Patient> {
+  return apiRequest<Patient>("/api/v1/patients", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
 }

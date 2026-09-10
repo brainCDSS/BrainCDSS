@@ -26,6 +26,7 @@ import Header from "./Header";
 import Sidebar from "./Sidebar";
 import WorkspaceTabs from "./WorkspaceTabs";
 import type { MenuWorkspaceTabKey } from "./WorkspaceTabs";
+import { canAccessMenu } from "./menuConfig";
 
 import "./layout.css";
 
@@ -214,6 +215,10 @@ export default function AppShell({
     menu: SidebarMenuKey,
   ) => {
 
+    if (!canAccessMenu(currentUser.role.code, menu)) {
+      return;
+    }
+
     /**
      * 현재 AppShell에서 실제 연결된 메뉴
      */
@@ -308,6 +313,10 @@ export default function AppShell({
   const handleSelectMenuTab = (
     menu: MenuWorkspaceTabKey,
   ) => {
+
+    if (!canAccessMenu(currentUser.role.code, menu)) {
+      return;
+    }
 
     setActivePatientId(null);
     setActiveConsultationId(null);
@@ -818,6 +827,19 @@ export default function AppShell({
 
   function renderMainContent() {
 
+    const requestedMenu = activePatient ? "patients" : activeMenu;
+    if (!canAccessMenu(currentUser.role.code, requestedMenu)) {
+      return (
+        <section className="clinical-page">
+          <div className="clinical-card">
+            <div className="clinical-state">
+              현재 로그인 역할로 접근할 수 없는 업무입니다.
+            </div>
+          </div>
+        </section>
+      );
+    }
+
 
     /* -------------------------------------------------------
        일반 환자 Chart
@@ -1077,6 +1099,7 @@ export default function AppShell({
           ===================================================== */}
 
       <WorkspaceTabs
+        currentUser={currentUser}
 
         sidebarCollapsed={
           sidebarCollapsed
@@ -1183,6 +1206,7 @@ export default function AppShell({
         {/* Sidebar */}
 
         <Sidebar
+          currentUser={currentUser}
           activeMenu={
             activeMenu
           }

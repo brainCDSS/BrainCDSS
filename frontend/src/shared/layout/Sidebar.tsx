@@ -3,9 +3,16 @@ import {
   useState,
 } from "react";
 
-import "./layout.css";
-import { MENU_LABELS } from "./menuConfig";
+import type {
+  LoginUser,
+} from "../../features/auth/types";
 
+import "./layout.css";
+
+import {
+  MENU_LABELS,
+  canAccessMenu,
+} from "./menuConfig";
 
 /* =========================================================
    Sidebar Menu Key
@@ -102,6 +109,9 @@ function SidebarIcon({
    ========================================================= */
 
 interface SidebarProps {
+
+  currentUser: LoginUser;
+
   activeMenu?: SidebarMenuKey;
 
   onMenuSelect?: (
@@ -410,6 +420,7 @@ function getMenuGroup(
    ========================================================= */
 
 export default function Sidebar({
+  currentUser,
   activeMenu,
   onMenuSelect,
 }: SidebarProps) {
@@ -434,6 +445,89 @@ export default function Sidebar({
     activeMenu ??
     internalActiveMenu;
 
+
+  /* ========================================================
+     로그인 Role
+     ======================================================== */
+
+  const currentRole =
+    currentUser.role.code;
+
+
+  /* ========================================================
+     로그인 Role 기준 메뉴 필터링
+     ======================================================== */
+
+  const visibleMenuItems =
+    menuItems.reduce<
+      SidebarMenuItem[]
+    >(
+      (
+        result,
+        item,
+      ) => {
+
+        /*
+         * 단일 메뉴
+         */
+        if (
+          item.type ===
+          "single"
+        ) {
+
+          if (
+            canAccessMenu(
+              currentRole,
+              item.key,
+            )
+          ) {
+
+            result.push(
+              item,
+            );
+
+          }
+
+          return result;
+        }
+
+
+        /*
+         * 2Depth 메뉴
+         */
+        const visibleChildren =
+          item.children.filter(
+            (child) =>
+              canAccessMenu(
+                currentRole,
+                child.key,
+              ),
+          );
+
+
+        /*
+         * 보이는 자식 메뉴가 없으면
+         * 부모 Group도 숨긴다.
+         */
+        if (
+          visibleChildren.length >
+          0
+        ) {
+
+          result.push({
+            ...item,
+
+            children:
+              visibleChildren,
+          });
+
+        }
+
+
+        return result;
+      },
+      [],
+    );
 
   /* ========================================================
      현재 열려 있는 1Depth Group
@@ -479,21 +573,34 @@ export default function Sidebar({
      단일 / 2Depth 메뉴 선택
      ======================================================== */
 
-  function handleMenuSelect(
-    menu: SidebarMenuKey,
+function handleMenuSelect(
+  menu: SidebarMenuKey,
+) {
+
+  /*
+   * 권한 없는 메뉴는
+   * Sidebar에서 선택 불가
+   */
+  if (
+    !canAccessMenu(
+      currentRole,
+      menu,
+    )
   ) {
-
-    setInternalActiveMenu(
-      menu,
-    );
-
-
-    onMenuSelect?.(
-      menu,
-    );
-
+    return;
   }
 
+
+  setInternalActiveMenu(
+    menu,
+  );
+
+
+  onMenuSelect?.(
+    menu,
+  );
+
+}
 
   /* ========================================================
      1Depth Group 펼치기 / 닫기
@@ -530,7 +637,7 @@ export default function Sidebar({
         </span>
 
 
-        {menuItems.map((item) => {
+        {visibleMenuItems.map((item) => {
 
 
           /* =================================================

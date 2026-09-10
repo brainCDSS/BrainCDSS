@@ -30,6 +30,7 @@ const NEW_WORK_GROUPS: Array<{
       { key: "patients", icon: "○" },
       { key: "worklist", icon: "✓" },
       { key: "triage", icon: "✓" },
+      { key: "appointments", icon: "□" },
     ],
   },
   {
@@ -485,7 +486,7 @@ export default function WorkspaceTabs({
 
               <button
                 key={
-                  patient.id
+                  `patient-chart:${patient.id}`
                 }
 
                 type="button"
@@ -507,7 +508,7 @@ export default function WorkspaceTabs({
 
                 <span className="workspace-tab-label">
 
-                  환자 관리 · {patient.name}
+                  {patient.name} 차트
 
                 </span>
 

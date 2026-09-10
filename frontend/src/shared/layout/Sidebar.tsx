@@ -22,6 +22,7 @@ export type SidebarMenuKey =
 
   | "worklist"
   | "triage"
+  | "appointments"
 
   | "imaging"
   | "ai-results"
@@ -246,6 +247,11 @@ const menuItems: SidebarMenuItem[] = [
 
         label: MENU_LABELS.worklist,
       },
+      {
+        key: "appointments",
+
+        label: MENU_LABELS.appointments,
+      },
     ],
   },
 
@@ -370,7 +376,8 @@ function getMenuGroup(
 
   if (
     menu === "worklist" ||
-    menu === "triage"
+    menu === "triage" ||
+    menu === "appointments"
   ) {
     return "clinical";
   }

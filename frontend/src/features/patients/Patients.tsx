@@ -76,7 +76,6 @@ export default function Patients({ onOpenPatient }: PatientsProps) {
         patient={selectedPatient}
         patients={filteredPatients.length > 0 ? filteredPatients : patients}
         onSelectPatient={setSelectedPatient}
-        onBackToList={() => setSelectedPatient(null)}
       />
     );
   }

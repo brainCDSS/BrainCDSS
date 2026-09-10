@@ -229,3 +229,37 @@ export interface AssessmentWorklistResponse {
   previous: string | null;
   results: AssessmentWorklistItem[];
 }
+
+// [추가] 신경과 응급 Worklist 연결
+export interface EmergencyPatientSummary {
+  patient_id?: string;
+  id?: string;
+  patient_no?: string;
+  name?: string;
+  sex?: string | null;
+  age?: number | null;
+  estimated_age?: number | null;
+}
+
+export interface EmergencyWorklistItem {
+  assessment_id: string;
+  encounter_id: string;
+  patient_summary: EmergencyPatientSummary;
+  total_score: number | null;
+  triage_priority: string;
+  lkw_at: string | null;
+  event: {
+    id: string;
+    status: string;
+    notified_at: string | null;
+    acknowledged_at: string | null;
+  };
+}
+
+export interface EmergencyWorklistResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: EmergencyWorklistItem[];
+}
+// [추가 끝] 신경과 응급 Worklist 연결

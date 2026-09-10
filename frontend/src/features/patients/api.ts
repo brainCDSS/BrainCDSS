@@ -61,3 +61,10 @@ export function createPatient(
     },
   );
 }
+
+/** GET /api/v1/patients/{patient_id} */
+export function getPatient(patientId: string): Promise<Patient> {
+  return apiRequest<Patient>(
+    `/api/v1/patients/${encodeURIComponent(patientId)}`,
+  );
+}

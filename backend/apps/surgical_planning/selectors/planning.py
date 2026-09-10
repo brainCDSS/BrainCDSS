@@ -1,0 +1,24 @@
+"""Read queries for surgical planning."""
+
+from apps.surgical_planning.models import SurgicalPlan
+
+
+def surgical_plan_queryset():
+    return SurgicalPlan.objects.select_related(
+        "patient", "encounter", "study", "ai_analysis", "created_by", "finalized_by"
+    ).prefetch_related("clips")
+
+
+def list_surgical_plans(*, patient_id=None, study_id=None, status=None):
+    queryset = surgical_plan_queryset()
+    if patient_id:
+        queryset = queryset.filter(patient_id=patient_id)
+    if study_id:
+        queryset = queryset.filter(study_id=study_id)
+    if status:
+        queryset = queryset.filter(status=status)
+    return queryset
+
+
+def get_surgical_plan(*, planning_id):
+    return surgical_plan_queryset().get(pk=planning_id)

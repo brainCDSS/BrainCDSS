@@ -30,7 +30,15 @@ export async function apiRequest<T>(
   });
 
   if (!response.ok) {
-    throw new Error(`BACKEND_REQUEST_FAILED:${response.status}`);
+    const body = await response.text();
+    let detail = body;
+    try {
+      const payload = JSON.parse(body) as { detail?: unknown } | Record<string, unknown>;
+      detail = typeof payload.detail === "string"
+        ? payload.detail
+        : JSON.stringify(payload);
+    } catch { /* Keep the plain response body. */ }
+    throw new Error(`BACKEND_REQUEST_FAILED:${response.status}${detail ? `:${detail}` : ""}`);
   }
 
   if (response.status === 204) {

@@ -44,10 +44,21 @@ export default function ImagingPage() {
   const patient = detail?.patient;
 
   async function startAnalysis() {
-    if (!selectedId || !selectedBundle?.ready) return;
+    if (!selectedId) {
+      setMessage("분석할 검사를 먼저 선택하세요.");
+      return;
+    }
+    if (!selectedBundle?.ready) {
+      const missing = selectedBundle?.missing_roles.join(" + ");
+      setMessage(missing ? `필수 입력 ${missing} 영상이 필요합니다.` : "분석 유형과 입력 영상을 확인하세요.");
+      return;
+    }
     setSubmitting(true); setMessage(null);
     try { await requestAIAnalysis({ study_id: selectedId, series_ids: selectedBundle.inputs.map((input) => input.series_id), analysis_type: analysisType, priority: "NORMAL" }, crypto.randomUUID()); setMessage("AI 분석 요청이 접수되었습니다. AI 분석 결과 메뉴에서 진행 상태를 확인하세요."); }
-    catch { setMessage("분석 요청에 실패했습니다. 활성 모델 라우팅과 Celery worker를 확인하세요."); }
+    catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      setMessage(`분석 요청에 실패했습니다. ${reason}`);
+    }
     finally { setSubmitting(false); }
   }
 
@@ -69,7 +80,7 @@ export default function ImagingPage() {
         <div className="ai-dicom-disabled"><span>DICOM SEG / SR 저장</span><button disabled>사용 불가</button><small>원본 DICOM UID가 없어 현재 demo에서는 GCS NIfTI 결과만 저장합니다.</small></div>
       </section>
       <section className="ai-start-card ai-request-summary"><header><h3>분석 요청 요약</h3></header><dl><div><dt>선택 영상</dt><dd>{selectedBundle?.inputs.map((input) => input.role).join(" + ") || "—"}</dd></div><div><dt>입력 검증</dt><dd>{selectedBundle?.ready ? "완료" : "확인 필요"}</dd></div><div><dt>모델</dt><dd>{MODELS[analysisType] ?? "—"}</dd></div><div><dt>저장 위치</dt><dd>GCS AI 결과 저장소</dd></div></dl></section>
-      <button className="ai-start-submit" disabled={!selectedBundle?.ready || submitting} onClick={() => void startAnalysis()}>{submitting ? "요청 중…" : "AI 분석 시작"}</button>
+      <button className="ai-start-submit" disabled={submitting} onClick={() => void startAnalysis()}>{submitting ? "요청 중…" : "AI 분석 시작"}</button>
     </aside></div>
   </section>;
 }

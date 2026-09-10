@@ -79,3 +79,195 @@
     min-height:0;
   }
 }
+
+/* 플래닝 workspace를 viewport 안에서 완결하는 compact layout */
+.surgical-planning-page{gap:8px;padding-bottom:8px}
+.surgical-planning-page__heading{margin-bottom:0}
+.surgical-planning-layout{grid-template-columns:230px minmax(0,1fr) 380px;gap:10px}
+.planning-context{padding:14px}
+.planning-context__divider{margin:11px 0}
+.planning-status-chip{display:inline-flex;flex-shrink:0;align-items:center;gap:4px;white-space:nowrap}
+.planning-context__section{gap:7px}
+.planning-viewer__heading{padding:10px 14px}
+.planning-view-tabs button,.planning-panel-tabs button{min-height:38px}
+.planning-viewer__footer{padding:6px 12px}
+.planning-controls__body{flex:1 1 auto;min-height:0;overflow:hidden;padding:8px 12px}
+.planning-control-section{margin-bottom:7px;padding-bottom:7px}
+.planning-control-section h4{margin-bottom:6px}
+.planning-ai-summary{gap:4px}
+.planning-ai-summary div{grid-template-columns:58px 1fr;gap:4px}
+.planning-control-label{display:block;margin:0 0 5px;color:var(--color-text-muted);font-size:11px;font-weight:700}
+.virtual-clip-library{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+.virtual-clip-library button{min-height:67px;padding:5px 2px}
+.virtual-clip-library strong{font-size:11px}
+.virtual-clip-library small{font-size:9px;text-align:center}
+.clip-properties{margin-top:6px;padding:6px;border-radius:7px;background:var(--color-surface-soft)}
+.clip-property-grid{gap:4px;margin-bottom:4px}
+.clip-number-field input{padding:4px}
+.planning-section-heading{display:flex;align-items:center;justify-content:space-between}
+.planning-delete-confirm{margin-bottom:5px;padding:7px;border:1px solid var(--color-border);border-radius:7px;background:var(--color-surface-soft)}
+.planning-delete-confirm p{margin:0 0 6px;font-size:11px}
+.planning-delete-confirm>div{display:flex;justify-content:flex-end;gap:8px}
+.planning-delete-confirm>div button{border:0;background:transparent;color:var(--color-text-muted);font-size:10px;cursor:pointer}
+.placed-clip-list{display:grid;gap:3px;max-height:67px;overflow:auto}
+.placed-clip-list>div{display:flex;align-items:center;gap:5px;padding:3px 6px;border:1px solid var(--color-border);border-radius:6px}
+.placed-clip-list>div.is-selected{border-color:var(--color-primary);background:var(--color-primary-soft)}
+.placed-clip-list>div>button:first-child{flex:1;border:0;background:transparent;color:var(--color-text);font-size:10px;text-align:left;cursor:pointer}
+.placed-clip-list .planning-delete-button{padding:2px;font-size:10px}
+.planning-memo{position:relative;border-bottom:0;margin-bottom:0}
+.planning-memo textarea{min-height:42px;max-height:42px;resize:none}
+.planning-memo>small{position:absolute;right:4px;bottom:9px;color:var(--color-text-muted);font-size:9px}
+.planning-actions{padding:6px 12px 10px}
+@media(max-width:1260px){.surgical-planning-layout{grid-template-columns:210px minmax(0,1fr) 350px}}
+
+.planning-context__title{
+  display:block;
+  margin-bottom:15px;
+}
+.planning-context__label-row{
+  display:flex;
+  width:100%;
+  min-width:0;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+}
+.planning-context__label-row .planning-eyebrow{
+  min-width:0;
+  flex:1;
+  font-size:9px;
+  letter-spacing:.05em;
+  white-space:nowrap;
+}
+.planning-context__label-row .planning-status-chip{
+  flex:0 0 auto;
+  white-space:nowrap;
+}
+.planning-context__patient-name{
+  margin:7px 0 0;
+  color:var(--color-text);
+  font-size:16px;
+  font-weight:700;
+  line-height:1.3;
+}
+
+
+/* =========================================================
+   Surgical Planning - 환자 / 영상 선택바
+   기존 clinical-toolbar 규칙과 분리하여 레이아웃 충돌을 방지한다.
+   ========================================================= */
+.planning-case-toolbar{
+  flex:0 0 auto;
+  width:100%;
+  box-sizing:border-box;
+  margin:0 0 10px;
+  padding:9px 14px 10px;
+  background:var(--color-surface);
+  border:1px solid var(--color-border);
+  border-radius:10px;
+}
+
+.planning-case-toolbar__grid{
+  display:grid;
+  grid-template-columns:330px 360px 300px;
+  gap:10px;
+  align-items:end;
+  justify-content:start;
+  width:max-content;
+  max-width:100%;
+  min-width:0;
+}
+
+.planning-case-toolbar__field{
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+  min-width:0;
+}
+
+.planning-case-toolbar__field>label{
+  margin:0;
+  color:var(--color-text-muted);
+  font-size:11px;
+  font-weight:700;
+  line-height:1.2;
+}
+
+.planning-case-toolbar__field input,
+.planning-case-toolbar__field select{
+  width:100%;
+  min-width:0;
+  height:34px;
+  box-sizing:border-box;
+  padding:0 10px;
+  background:var(--color-surface);
+  border:1px solid var(--color-border);
+  border-radius:7px;
+  color:var(--color-text);
+  font:inherit;
+  font-size:12px;
+}
+
+.planning-case-toolbar__field input:focus,
+.planning-case-toolbar__field select:focus{
+  outline:none;
+  border-color:var(--color-primary);
+  box-shadow:0 0 0 2px var(--color-primary-soft);
+}
+
+.planning-case-toolbar__field select:disabled{
+  cursor:not-allowed;
+  background:var(--color-surface-muted);
+  color:var(--color-text-muted);
+  opacity:1;
+}
+
+.planning-case-toolbar__search{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 56px;
+  gap:6px;
+  min-width:0;
+}
+
+.planning-case-toolbar__search .planning-search-button{
+  width:56px;
+  min-width:56px;
+  height:34px;
+  min-height:34px;
+  padding:0;
+  border-radius:7px;
+  font-size:11px;
+  font-weight:700;
+}
+
+.planning-case-toolbar__error{
+  margin-top:6px;
+  font-size:11px;
+  line-height:1.3;
+}
+
+/* 환자 미선택 Empty 카드에는 내부 스크롤을 만들지 않는다. */
+.planning-context:has(.patient-context-empty){
+  overflow:hidden;
+}
+.patient-context-empty{
+  height:100%;
+  min-height:0;
+  overflow:hidden;
+}
+
+@media(max-width:1260px){
+  .planning-case-toolbar__grid{
+    grid-template-columns:300px 330px 270px;
+    gap:8px;
+  }
+}
+
+@media(max-width:1040px){
+  .planning-case-toolbar{
+    overflow-x:auto;
+  }
+  .planning-case-toolbar__grid{
+    min-width:908px;
+  }
+}

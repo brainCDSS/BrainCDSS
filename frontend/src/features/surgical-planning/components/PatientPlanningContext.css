@@ -1,0 +1,229 @@
+/*
+ * PatientPlanningContext 전용 스타일
+ * 기존 surgical-planning.css의 전체 레이아웃은 건드리지 않는다.
+ */
+
+.patient-context-header {
+  display: block;
+  min-width: 0;
+  margin-bottom: 15px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.patient-context-header__top {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.patient-context-header__top .planning-eyebrow {
+  display: block;
+  min-width: 0;
+  margin: 0;
+  color: var(--color-primary);
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: 0.045em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.patient-context-header__status {
+  display: inline-flex;
+  max-width: 104px;
+  min-width: 0;
+  height: 28px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  padding: 0 9px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.patient-context-header__name {
+  display: block;
+  min-width: 0;
+  margin: 7px 0 0;
+  color: var(--color-text);
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.patient-context-empty {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 12px;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.patient-context-empty__icon {
+  display: inline-flex;
+  width: 42px;
+  height: 42px;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+  border-radius: 50%;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.patient-context-empty strong {
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.patient-context-empty p {
+  margin: 7px 0 0;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+@media (max-width: 1260px) {
+  .patient-context-header__status {
+    max-width: 92px;
+    padding-inline: 7px;
+    font-size: 9px;
+  }
+
+  .patient-context-header__top .planning-eyebrow {
+    font-size: 8.5px;
+    letter-spacing: 0.035em;
+  }
+
+  .patient-context-header__name {
+    font-size: 16px;
+  }
+}
+
+/* =========================================
+   Surgical Planning - Case Selector
+   ========================================= */
+
+.planning-case-selector {
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 14px 12px;
+
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+}
+
+.planning-case-selector__title {
+  margin-bottom: 8px;
+
+  color: var(--color-text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.planning-case-selector__fields {
+  display: grid;
+
+  /* 검색 / 환자 / 영상 */
+  grid-template-columns:
+    minmax(280px, 340px)
+    minmax(300px, 390px)
+    minmax(250px, 320px);
+
+  align-items: end;
+  justify-content: start;
+
+  gap: 14px;
+}
+
+.planning-case-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.planning-case-field label {
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.planning-case-field input,
+.planning-case-field select {
+  width: 100%;
+  height: 34px;
+  box-sizing: border-box;
+
+  padding: 0 10px;
+
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 7px;
+
+  color: var(--color-text);
+  font: inherit;
+  font-size: 12px;
+}
+
+.planning-search-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 54px;
+  gap: 6px;
+  min-width: 0;
+}
+
+.planning-search-row .clinical-action {
+  width: 54px;
+  height: 34px;
+  min-height: 34px;
+  padding: 0;
+
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* 화면이 조금 좁아져도 오른쪽 끝으로 따로 밀리지 않게 */
+@media (max-width: 1400px) {
+  .planning-case-selector__fields {
+    grid-template-columns:
+      minmax(260px, 310px)
+      minmax(280px, 350px)
+      minmax(220px, 280px);
+
+    gap: 10px;
+  }
+}
+
+
+.planning-context:has(.patient-context-empty) {
+  overflow: hidden;
+}
+
+.patient-context-empty {
+  height: 100%;
+  overflow: hidden;
+}

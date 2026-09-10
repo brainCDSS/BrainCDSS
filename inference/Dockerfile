@@ -10,4 +10,6 @@ RUN pip install --no-cache-dir -r requirements/base.txt -r requirements/gpu.txt 
     && rm -rf /tmp/runtime-wheels
 COPY . .
 EXPOSE 8100
-CMD ["python", "-m", "src.api.run"]
+ENV MODEL_SERVING_BACKEND=mosec \
+    MOSEC_URL=http://127.0.0.1:8101
+CMD ["python", "-m", "src.serve"]

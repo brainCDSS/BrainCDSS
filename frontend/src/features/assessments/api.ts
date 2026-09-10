@@ -10,7 +10,18 @@ import type {
   UpdateAssessmentRequest,
   UpdateAssessmentResponse,
   ClinicianListResponse,
+  CreateEncounterRequest,
+  EncounterResponse,
 } from "./types";
+
+export async function createEncounter(payload: CreateEncounterRequest): Promise<EncounterResponse> {
+  const response = await apiRequest<EncounterResponse & { id?: string }>("/api/v1/encounters", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return { ...response, encounter_id: response.encounter_id ?? response.id ?? "" };
+}
 
 
 /* =========================================================
@@ -36,11 +47,10 @@ Promise<AssessmentWorklistResponse> {
    POST /api/v1/assessments
    ========================================================= */
 
-export function startAssessment(
+export async function startAssessment(
   payload: StartAssessmentRequest,
 ): Promise<StartAssessmentResponse> {
-
-  return apiRequest<StartAssessmentResponse>(
+  const response = await apiRequest<StartAssessmentResponse & { id?: string }>(
     "/api/v1/assessments",
     {
       method: "POST",
@@ -52,6 +62,7 @@ export function startAssessment(
       body: JSON.stringify(payload),
     },
   );
+  return { ...response, assessment_id: response.assessment_id ?? response.id ?? "" };
 }
 
 
@@ -64,15 +75,15 @@ export function startAssessment(
    GET /api/v1/assessments/{assessment_id}
    ========================================================= */
 
-export function getAssessmentDetail(
+export async function getAssessmentDetail(
   assessmentId: string,
 ): Promise<AssessmentDetailResponse> {
-
-  return apiRequest<AssessmentDetailResponse>(
+  const response = await apiRequest<AssessmentDetailResponse & { id?: string }>(
     `/api/v1/assessments/${
       encodeURIComponent(assessmentId)
     }`,
   );
+  return { ...response, assessment_id: response.assessment_id ?? response.id ?? "", items: response.items ?? [] };
 }
 
 
@@ -88,12 +99,12 @@ export function getAssessmentDetail(
    - item_code는 Backend 계약에 맞춰 전달한다.
    ========================================================= */
 
-export function updateAssessment(
+export async function updateAssessment(
   assessmentId: string,
   payload: UpdateAssessmentRequest,
 ): Promise<UpdateAssessmentResponse> {
 
-  return apiRequest<UpdateAssessmentResponse>(
+  const response = await apiRequest<UpdateAssessmentResponse & { id?: string }>(
     `/api/v1/assessments/${
       encodeURIComponent(assessmentId)
     }`,
@@ -107,6 +118,7 @@ export function updateAssessment(
       body: JSON.stringify(payload),
     },
   );
+  return { ...response, assessment_id: response.assessment_id ?? response.id ?? "", items: response.items ?? [] };
 }
 
 

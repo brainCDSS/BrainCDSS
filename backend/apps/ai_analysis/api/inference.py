@@ -3,15 +3,22 @@
 from django.http import Http404
 from kombu.exceptions import OperationalError
 from rest_framework import serializers, status
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.accounts.models import RolePermission
 from apps.ai_analysis.models import AIAnalysis, AIAnalysisResult, AIModelConfigVersion, ModelVersion
-from apps.ai_analysis.api.generated_real_149 import ContractView000
+from apps.ai_analysis.api.generated_real_149 import ContractView000, SPECS
 from apps.ai_analysis.services.inference import create_queued_analysis, transition_analysis
 from apps.ai_analysis.tasks.inference import ROLE_ORDER, run_analysis_inference
+from apps.common.remaining149_runtime import execute_contract
 from apps.imaging.models import ImagingStudy
+
+
+CLINICAL_AI_ROLES = {"NEUROLOGIST", "NEUROSURGEON", "RADIOLOGY"}
+AI_ANALYSIS_LIST_SPEC = next(spec for spec in SPECS if spec["api_id"] == "API-AI-002")
 
 
 class InputArtifactSerializer(serializers.Serializer):
@@ -69,6 +76,27 @@ class AnalysisCollectionView(ContractView000):
     """Keep the generated GET worklist while replacing POST with real inference."""
 
     permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        role = getattr(request.user, "role", None)
+        role_code = getattr(role, "code", None)
+
+        if role_code in CLINICAL_AI_ROLES:
+            clinical_spec = {**AI_ANALYSIS_LIST_SPEC, "permission": None}
+            return execute_contract(request, clinical_spec)
+
+        if role_code == "SYSTEM_ADMIN":
+            has_job_view = RolePermission.objects.filter(
+                role=role,
+                permission__code="ai.job.view",
+            ).exists()
+            if has_job_view:
+                return execute_contract(request, AI_ANALYSIS_LIST_SPEC)
+
+        raise PermissionDenied({
+            "code": "AI_ANALYSIS_LIST_FORBIDDEN",
+            "detail": "The current role cannot view AI analysis jobs.",
+        })
 
     def post(self, request):
         serializer = AnalysisCreateSerializer(data=request.data)

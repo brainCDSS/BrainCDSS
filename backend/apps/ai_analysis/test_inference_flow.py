@@ -4,8 +4,9 @@ from unittest.mock import patch
 
 from django.test import TestCase, override_settings
 from django.utils import timezone
+from rest_framework.test import APIRequestFactory, force_authenticate
 
-from apps.accounts.models import Role, User
+from apps.accounts.models import Permission, Role, RolePermission, User
 from apps.ai_analysis.models import (
     AIAnalysis,
     AIAnalysisResult,
@@ -23,6 +24,40 @@ from apps.imaging.models import ImagingStudy
 class DevelopmentInferenceFlowTests(TestCase):
     def test_real_collection_keeps_generated_get_worklist(self):
         self.assertTrue(callable(getattr(AnalysisCollectionView, "get", None)))
+
+    def test_clinician_can_view_ai_worklist_without_admin_permission(self):
+        request = APIRequestFactory().get("/api/v1/ai-analyses")
+        force_authenticate(request, user=self.user)
+
+        response = AnalysisCollectionView.as_view()(request)
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_system_admin_requires_ai_job_view_permission(self):
+        admin_role = Role.objects.create(code="SYSTEM_ADMIN", name="Synthetic Admin")
+        admin = User.objects.create_user(
+            login_id="synthetic-ai-admin",
+            password="test-only-password",
+            name="Synthetic AI Admin",
+            role=admin_role,
+        )
+        request = APIRequestFactory().get("/api/v1/ai-analyses")
+        force_authenticate(request, user=admin)
+
+        denied = AnalysisCollectionView.as_view()(request)
+        self.assertEqual(denied.status_code, 403)
+
+        permission = Permission.objects.create(
+            code="ai.job.view",
+            name="View AI jobs",
+            domain="AI",
+        )
+        RolePermission.objects.create(role=admin_role, permission=permission)
+
+        request = APIRequestFactory().get("/api/v1/ai-analyses")
+        force_authenticate(request, user=admin)
+        allowed = AnalysisCollectionView.as_view()(request)
+        self.assertEqual(allowed.status_code, 200)
 
     def setUp(self):
         now = timezone.now()

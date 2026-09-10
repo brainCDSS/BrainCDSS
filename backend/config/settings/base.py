@@ -245,6 +245,14 @@ INFERENCE_AUTH_AUDIENCE = os.getenv(
     INFERENCE_API_URL,
 )
 
+GCS_NIFTI_ALLOWED_BUCKETS = [
+    value.strip()
+    for value in os.getenv(
+        "GCS_NIFTI_ALLOWED_BUCKETS", "brainon-cdss-datasets,brainon-cdss-inference-results"
+    ).split(",")
+    if value.strip()
+]
+
 # Orthanc is accessed only by backend/worker code. Browser clients use backend
 # APIs and never receive these credentials.
 ORTHANC_URL = os.getenv("ORTHANC_URL", "http://orthanc:8042").rstrip("/")

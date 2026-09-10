@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { cancelAIAnalysis, createAIResultReview, getAIAnalyses, getAIAnalysis, getAIAnalysisResult } from "./api";
 import { createViewerSession, getViewerContext } from "../imaging/api";
 import type { AIAnalysisItem, AIAnalysisResult } from "./types";
 import "./ai-analysis.css";
+
+const NiftiViewer = lazy(() => import("./NiftiViewer"));
 
 const STATUSES = ["", "QUEUED", "PROCESSING", "COMPLETED", "FAILED", "RETRYING", "CANCELLED"];
 const STATUS_LABELS: Record<string, string> = { QUEUED: "분석 대기", PROCESSING: "분석 중", COMPLETED: "분석 완료", FAILED: "분석 실패", RETRYING: "재시도 중", CANCELLED: "분석 취소" };
@@ -89,7 +91,7 @@ export default function AIAnalysisResultsPage() {
     <div className="ai-workspace-body">
       <div className="ai-workspace-primary">
         <section className="ai-viewer-card"><header><div><span>MEDICAL IMAGING</span><h3>Brain MRI Viewer</h3></div><button type="button" disabled={!selected || actionBusy} onClick={() => void openViewer()}>{viewerUrl ? "Viewer 열기" : "Viewer Session 발급"}</button></header><div className="ai-viewer-toolbar" aria-label="Viewer 도구">{VIEWER_TOOLS.map((tool) => <button key={tool} type="button" disabled className={tool === "AI 오버레이" ? "is-highlighted" : ""}>{tool}</button>)}</div><div className="ai-viewer-empty"><div className="ai-viewer-empty__icon" aria-hidden="true">◇</div><strong>{viewerUrl ? "Viewer 준비 완료" : "Viewer Session이 필요합니다."}</strong><p>{viewerUrl ? "발급된 보안 Viewer를 새 창에서 열 수 있습니다." : "선택한 Study의 Viewer Context와 Session을 사용합니다."}</p></div></section>
-        <section className="ai-slices-card"><header><div><h3>주요 슬라이스</h3></div></header><div className="ai-slice-empty">Series / Instance thumbnail 연동 필요</div></section>
+        {selected?.status === "COMPLETED" && <Suspense fallback={<div className="nifti-viewer__message">NIfTI 뷰어를 준비하는 중입니다.</div>}><NiftiViewer analysisId={selected.analysis_id} /></Suspense>}<section className="ai-slices-card"><header><div><h3>주요 슬라이스</h3></div></header><div className="ai-slice-empty">Series / Instance thumbnail 연동 필요</div></section>
       </div>
 
       <aside className="ai-workspace-secondary">

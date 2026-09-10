@@ -1,5 +1,5 @@
 import { apiRequest } from "../../api/client";
-import type { AIAnalysisDetail, AIAnalysisItem, AIAnalysisListResponse, AIAnalysisResult, AIResultReview, AIResultReviewList } from "./types";
+import type { AIAnalysisDetail, AIAnalysisItem, AIAnalysisListResponse, AIAnalysisResult, AIResultReview, AIResultReviewList, NiftiViewerManifest } from "./types";
 
 export function getAIAnalyses(status?: string): Promise<AIAnalysisListResponse> {
   const query = status ? `?status=${encodeURIComponent(status)}` : "";
@@ -13,6 +13,7 @@ export function getAIAnalysisResult(analysisId: string): Promise<AIAnalysisResul
 }
 
 export function getAIAnalysis(analysisId: string) { return apiRequest<AIAnalysisDetail>(`/api/v1/ai-analyses/${encodeURIComponent(analysisId)}`); }
+export function getNiftiViewerManifest(analysisId: string) { return apiRequest<NiftiViewerManifest>(`/api/v1/ai-analyses/${encodeURIComponent(analysisId)}/nifti-viewer`); }
 export function requestAIAnalysis(payload: { study_id: string; series_ids: string[]; analysis_type: string; priority: "NORMAL" | "HIGH" | "CRITICAL" }, idempotencyKey: string) {
   return apiRequest<AIAnalysisItem>("/api/v1/ai-analyses", { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey }, body: JSON.stringify(payload) });
 }

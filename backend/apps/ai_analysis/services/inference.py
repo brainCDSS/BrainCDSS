@@ -8,10 +8,12 @@ from django.utils import timezone
 from apps.ai_analysis.models import (
     AIAnalysis,
     AIAnalysisInputArtifact,
+    AIAnalysisInputSeries,
     AIAnalysisResult,
     AIAnalysisStatusHistory,
     AIResultArtifact,
 )
+from apps.imaging.models import NiftiArtifact
 
 
 def transition_analysis(analysis, *, status, stage, reason_code=None):
@@ -38,7 +40,8 @@ def transition_analysis(analysis, *, status, stage, reason_code=None):
 
 
 def create_queued_analysis(*, study, model_version, model_config_version,
-                           requested_by, analysis_type, priority, inputs=None):
+                           requested_by, analysis_type, priority, inputs=None,
+                           series_ids=None, routing_config_version=None):
     """Create a synthetic-input job using the existing clinical schema."""
     now = timezone.now()
     with transaction.atomic():
@@ -46,7 +49,7 @@ def create_queued_analysis(*, study, model_version, model_config_version,
             study=study,
             model_version=model_version,
             model_config_version=model_config_version,
-            routing_config_version=None,
+            routing_config_version=routing_config_version,
             analysis_type=analysis_type,
             status="QUEUED",
             stage="VALIDATING",
@@ -77,6 +80,16 @@ def create_queued_analysis(*, study, model_version, model_config_version,
                 size_bytes=item["size_bytes"],
                 sha256=item["sha256"],
             )
+        artifacts_by_series = {
+            str(item.series_id): item
+            for item in NiftiArtifact.objects.filter(series_id__in=series_ids or [])
+        }
+        for series_id in series_ids or []:
+            artifact = artifacts_by_series.get(str(series_id))
+            if artifact:
+                AIAnalysisInputSeries.objects.create(
+                    analysis=analysis, series=artifact.series, role=artifact.role
+                )
     return analysis
 
 

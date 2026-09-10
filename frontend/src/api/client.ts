@@ -3,6 +3,16 @@ import { getAccessToken } from "../features/auth/session";
 /** Single boundary for backend HTTP calls; never call internal services from the browser. */
 const baseUrl = import.meta.env.VITE_BACKEND_URL ?? "http://localhost:8080";
 
+export function authenticatedAsset(path: string) {
+  const accessToken = getAccessToken();
+  const headers: Record<string, string> = {};
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+  return {
+    url: `${baseUrl}${path}`,
+    headers,
+  };
+}
+
 export async function apiRequest<T>(
   path: string,
   init: RequestInit = {},
@@ -29,4 +39,3 @@ export async function apiRequest<T>(
 
   return response.json() as Promise<T>;
 }
-

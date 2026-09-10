@@ -53,6 +53,7 @@ backend와 Celery 서비스에 같은 값을 넣는다.
 
 ```text
 INFERENCE_API_URL=https://brainon-inference-....run.app
+GCS_NIFTI_ALLOWED_BUCKETS=brainon-cdss-datasets,brainon-cdss-inference-results
 INFERENCE_USE_ID_TOKEN=true
 INFERENCE_AUTH_AUDIENCE=https://brainon-inference-....run.app
 INFERENCE_TIMEOUT_SECONDS=600

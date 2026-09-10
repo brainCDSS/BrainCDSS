@@ -11,12 +11,15 @@ import {
   getImagingStudies,
   getKeyImages,
   getStudyAIAnalyses,
+  getStudyAIInputs,
   getViewerContext,
 } from "./api";
+import { requestAIAnalysis } from "../ai-analysis/api";
 
 import type {
   ImagingFilter,
   ImagingStudy,
+  AIInputBundle,
 } from "./types";
 
 import "./imaging.css";
@@ -114,6 +117,8 @@ export default function ImagingPage() {
   const [selectedKeyImageCount, setSelectedKeyImageCount] = useState<number | null>(null);
   const [viewerContextAvailable, setViewerContextAvailable] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [aiInputBundles, setAIInputBundles] = useState<AIInputBundle[]>([]);
+  const [analysisSubmitting, setAnalysisSubmitting] = useState(false);
 
 
   /* =======================================================
@@ -383,6 +388,7 @@ export default function ImagingPage() {
       setSelectedKeyImageCount(null);
       setViewerContextAvailable(false);
       setDetailError(null);
+      setAIInputBundles([]);
       return;
     }
     let active = true;
@@ -393,12 +399,14 @@ export default function ImagingPage() {
       getStudyAIAnalyses(selectedStudyId),
       getViewerContext(selectedStudyId),
       getKeyImages(selectedStudyId),
-    ]).then(([detail, series, analyses, viewerContext, keyImages]) => {
+      getStudyAIInputs(selectedStudyId),
+    ]).then(([detail, series, analyses, viewerContext, keyImages, aiInputs]) => {
       if (!active) return;
       setSelectedSeriesCount(series.series.length || detail.series.length);
       setSelectedAIAnalysisCount(analyses.results.length);
       setSelectedKeyImageCount(keyImages.results.length);
       setViewerContextAvailable(Boolean(viewerContext.study));
+      setAIInputBundles(aiInputs.bundles);
     }).catch(() => {
       if (active) setDetailError("선택한 Study의 상세 데이터를 불러오지 못했습니다.");
     });
@@ -485,7 +493,8 @@ export default function ImagingPage() {
     selectedStudy.status ===
       "AVAILABLE" &&
     selectedAnalysis !== "" &&
-    false;
+    Boolean(aiInputBundles.find((bundle) => bundle.analysis_type === selectedAnalysis)?.ready) &&
+    !analysisSubmitting;
 
 
   /* =======================================================
@@ -496,7 +505,7 @@ export default function ImagingPage() {
      ======================================================= */
 
   const handleStartAnalysis =
-    () => {
+    async () => {
 
       if (
         !canStartAnalysis
@@ -507,9 +516,22 @@ export default function ImagingPage() {
       }
 
 
-      console.info(
-        "AI analysis API is not connected yet.",
-      );
+      const bundle = aiInputBundles.find((item) => item.analysis_type === selectedAnalysis);
+      if (!selectedStudy || !bundle) return;
+      setAnalysisSubmitting(true);
+      setDetailError(null);
+      try {
+        await requestAIAnalysis(
+          { study_id: selectedStudy.id, series_ids: bundle.inputs.map((item) => item.series_id), analysis_type: bundle.analysis_type, priority: "NORMAL" },
+          crypto.randomUUID(),
+        );
+        setDetailError("AI 분석 요청이 접수되었습니다. AI 분석 결과 화면에서 진행 상태를 확인하세요.");
+        setSelectedAIAnalysisCount((value) => (value ?? 0) + 1);
+      } catch {
+        setDetailError("AI 분석 요청을 접수하지 못했습니다. 모델 라우팅과 Celery 연결을 확인하세요.");
+      } finally {
+        setAnalysisSubmitting(false);
+      }
 
     };
 
@@ -1127,6 +1149,12 @@ export default function ImagingPage() {
               <option value="">
                 분석 종류 선택
               </option>
+
+              {aiInputBundles.map((bundle) => (
+                <option key={bundle.analysis_type} value={bundle.analysis_type} disabled={!bundle.ready}>
+                  {bundle.analysis_type}{bundle.ready ? "" : ` (필수 영상 없음: ${bundle.missing_roles.join("+")})`}
+                </option>
+              ))}
 
             </select>
 

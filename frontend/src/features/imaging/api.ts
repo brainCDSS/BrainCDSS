@@ -1,5 +1,5 @@
 import { apiRequest } from "../../api/client";
-import type { ImagingOrderListResponse, ImagingOrderResponse, ImagingOrderTimelineResponse, ImagingSeriesResponse, ImagingStudy, ImagingStudyApiItem, ImagingStudyDetail, ImagingStudyListResponse, KeyImage, KeyImagesResponse, StudyAIHistoryResponse, ViewerContextResponse, ViewerSessionResponse } from "./types";
+import type { ImagingOrderListResponse, ImagingOrderResponse, ImagingOrderTimelineResponse, ImagingSeriesResponse, ImagingStudy, ImagingStudyApiItem, ImagingStudyDetail, ImagingStudyListResponse, KeyImage, KeyImagesResponse, StudyAIHistoryResponse, StudyAIInputsResponse, ViewerContextResponse, ViewerSessionResponse } from "./types";
 
 function toScreenStudy(item: ImagingStudyApiItem): ImagingStudy {
   const modality = item.scan_type === "MRA" ? "MRA" : item.modalities[0] === "MR" ? "MRI" : item.modalities[0] ?? "";
@@ -35,6 +35,7 @@ export async function getImagingStudies(): Promise<ImagingStudy[]> {
 }
 export function getImagingStudy(studyId: string) { return apiRequest<ImagingStudyDetail>(`/api/v1/imaging-studies/${encodeURIComponent(studyId)}`); }
 export function getImagingStudySeries(studyId: string) { return apiRequest<ImagingSeriesResponse>(`/api/v1/imaging-studies/${encodeURIComponent(studyId)}/series`); }
+export function getStudyAIInputs(studyId: string) { return apiRequest<StudyAIInputsResponse>(`/api/v1/imaging-studies/${encodeURIComponent(studyId)}/ai-inputs`); }
 export function getStudyAIAnalyses(studyId: string) { return apiRequest<StudyAIHistoryResponse>(`/api/v1/imaging-studies/${encodeURIComponent(studyId)}/ai-analyses`); }
 export function getViewerContext(studyId: string, includeAIOverlay = true) { return apiRequest<ViewerContextResponse>(`/api/v1/imaging-studies/${encodeURIComponent(studyId)}/viewer-context?include_ai_overlay=${includeAIOverlay}`); }
 export function getKeyImages(studyId: string) { return apiRequest<KeyImagesResponse>(`/api/v1/imaging-studies/${encodeURIComponent(studyId)}/key-images`); }

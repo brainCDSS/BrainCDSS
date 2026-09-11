@@ -1,6 +1,7 @@
-"""Root HTTP routes for the BrainOn backend."""
+"""BrainOn Backend 최상위 URL 라우팅."""
 
 from django.urls import include, path
+
 from drf_spectacular.views import (
     SpectacularAPIView,
     SpectacularSwaggerView,
@@ -8,42 +9,71 @@ from drf_spectacular.views import (
 
 from apps.common.views import health
 from apps.ai_analysis.api.development import DevelopmentAnalysisView
-from apps.ai_analysis.api.inference import AnalysisCollectionView, AnalysisDetailView, AnalysisNiftiViewerView, ResultArtifactContentView
-from apps.imaging.api.nifti import ImagingStudyCollectionView, ImagingStudyDetailView, ImagingStudySeriesView, NiftiArtifactContentView, StudyAIInputsView
+from apps.ai_analysis.api.inference import (
+    AnalysisCollectionView,
+    AnalysisDetailView,
+    AnalysisNiftiViewerView,
+    ResultArtifactContentView,
+)
+from apps.imaging.api.nifti import NiftiArtifactContentView, StudyAIInputsView
 
+
+# ============================================================
+# 1. 기본 API / 공통 엔드포인트
+# ============================================================
 
 urlpatterns = [
+    # Real AI analysis and NIfTI routes must precede generated fallbacks.
     path("api/v1/ai-analyses", AnalysisCollectionView.as_view()),
     path("api/v1/ai-analyses/<uuid:analysis_id>", AnalysisDetailView.as_view()),
-    path("api/v1/ai-analyses/<uuid:analysis_id>/nifti-viewer", AnalysisNiftiViewerView.as_view()),
-    path("api/v1/ai-result-artifacts/<uuid:artifact_id>/content", ResultArtifactContentView.as_view()),
-    path("api/v1/imaging-studies", ImagingStudyCollectionView.as_view()),
-    path("api/v1/imaging-studies/<uuid:study_id>", ImagingStudyDetailView.as_view()),
-    path("api/v1/imaging-studies/<uuid:study_id>/series", ImagingStudySeriesView.as_view()),
-    path("api/v1/imaging-studies/<uuid:study_id>/ai-inputs", StudyAIInputsView.as_view()),
-    path("api/v1/nifti-artifacts/<uuid:artifact_id>/content", NiftiArtifactContentView.as_view()),
     path(
-        "api/v1/dev/ai-analyses",
-        DevelopmentAnalysisView.as_view(),
+        "api/v1/ai-analyses/<uuid:analysis_id>/nifti-viewer",
+        AnalysisNiftiViewerView.as_view(),
     ),
+    path(
+        "api/v1/ai-result-artifacts/<uuid:artifact_id>/content",
+        ResultArtifactContentView.as_view(),
+    ),
+    path(
+        "api/v1/imaging-studies/<uuid:study_id>/ai-inputs",
+        StudyAIInputsView.as_view(),
+    ),
+    path(
+        "api/v1/nifti-artifacts/<uuid:artifact_id>/content",
+        NiftiArtifactContentView.as_view(),
+    ),
+    path("api/v1/dev/ai-analyses", DevelopmentAnalysisView.as_view()),
     path(
         "api/v1/dev/ai-analyses/<uuid:analysis_id>",
         DevelopmentAnalysisView.as_view(),
     ),
-    path("api/v1/", include("apps.organizations.api.urls")),
-    path("api/v1/", include("apps.patients.api.urls")),
+    # 조직
+    path(
+        "api/v1/",
+        include("apps.organizations.api.urls"),
+    ),
+
+    # 환자
+    path(
+        "api/v1/",
+        include("apps.patients.api.urls"),
+    ),
+
+    # 서버 상태 확인
     path(
         "api/v1/health/",
         health,
         name="health",
     ),
 
+    # OpenAPI Schema
     path(
         "api/schema/",
         SpectacularAPIView.as_view(),
         name="openapi-schema",
     ),
 
+    # Swagger UI
     path(
         "api/docs/",
         SpectacularSwaggerView.as_view(
@@ -54,150 +84,200 @@ urlpatterns = [
 ]
 
 
-# BEGIN BRAINON ACCOUNTS REAL API ROUTES
-# Actual implementation for accounts final contract APIs.
-# This block MUST stay before generated 501 scaffold routes.
-from django.urls import include as _brainon_accounts_include
-from django.urls import path as _brainon_accounts_path
+# ============================================================
+# 2. 실제 구현 완료 API
+#
+# 중요:
+# 실제 구현 API는 generated fallback보다 반드시 먼저 등록한다.
+# 같은 URL이 존재하더라도 Django는 먼저 등록된 URL을 사용한다.
+# ============================================================
 
 urlpatterns += [
-    _brainon_accounts_path(
+    # 인증 / 사용자 / 권한
+    path(
         "",
-        _brainon_accounts_include(
-            "apps.accounts.api.urls"
+        include("apps.accounts.api.urls"),
+    ),
+
+    # Audit / 공통 Backend API
+    path(
+        "",
+        include("apps.audit.api.urls"),
+    ),
+    path(
+        "",
+        include("apps.common.api.urls"),
+    ),
+
+    # DUR / Medication Safety
+    path(
+        "",
+        include(
+            "apps.medication_safety.api.urls"
+        ),
+    ),
+
+    # 처방 / RX Safety
+    path(
+        "",
+        include(
+            "apps.prescriptions.api.urls"
+        ),
+    ),
+
+    # CDS Hooks
+    # API-CDS-001 ~ API-CDS-004
+    path(
+        "",
+        include("apps.cdss.api.urls"),
+    ),
+
+    # Surgical Planning Extension
+    # 기존 DB66/API 기준 외 프로젝트 확장 기능
+    path(
+        "",
+        include(
+            "apps.surgical_planning.api.urls"
+        ),
+    ),
+
+    # Imaging / DICOM / Viewer / Imaging Order
+    # 실제 구현된 Imaging API를 generated API보다 우선 사용
+    path(
+        "",
+        include("apps.imaging.api.urls"),
+    ),
+]
+
+
+# ============================================================
+# 3. Remaining 149 DB-backed API
+#
+# 아직 개별 실제 View로 교체되지 않은 API를 처리한다.
+# 위의 실제 구현 API보다 반드시 뒤에 위치해야 한다.
+# ============================================================
+
+urlpatterns += [
+    path(
+        "",
+        include(
+            "apps.ai_analysis.api."
+            "generated_real_149_urls"
+        ),
+    ),
+
+    path(
+        "",
+        include(
+            "apps.appointments.api."
+            "generated_real_149_urls"
+        ),
+    ),
+
+    path(
+        "",
+        include(
+            "apps.assessments.api."
+            "generated_real_149_urls"
+        ),
+    ),
+
+    path(
+        "",
+        include(
+            "apps.cdss.api."
+            "generated_real_149_urls"
+        ),
+    ),
+
+    path(
+        "",
+        include(
+            "apps.clinical_records.api."
+            "generated_real_149_urls"
+        ),
+    ),
+
+    path(
+        "",
+        include(
+            "apps.consultations.api."
+            "generated_real_149_urls"
+        ),
+    ),
+
+    path(
+        "",
+        include(
+            "apps.imaging.api."
+            "generated_real_149_urls"
+        ),
+    ),
+
+    path(
+        "",
+        include(
+            "apps.integrations.api."
+            "generated_real_149_urls"
+        ),
+    ),
+
+    path(
+        "",
+        include(
+            "apps.medication_safety.api."
+            "generated_real_149_urls"
+        ),
+    ),
+
+    path(
+        "",
+        include(
+            "apps.medications.api."
+            "generated_real_149_urls"
+        ),
+    ),
+
+    path(
+        "",
+        include(
+            "apps.notifications.api."
+            "generated_real_149_urls"
+        ),
+    ),
+
+    path(
+        "",
+        include(
+            "apps.prescriptions.api."
+            "generated_real_149_urls"
+        ),
+    ),
+
+    path(
+        "",
+        include(
+            "apps.radiology.api."
+            "generated_real_149_urls"
         ),
     ),
 ]
-# END BRAINON ACCOUNTS REAL API ROUTES
 
-# BEGIN BRAINON COMMON AUDIT REAL API ROUTES
-# Actual implementation for Phase 1 common/audit contract APIs.
-# This block MUST stay before generated scaffold routes.
-from django.urls import include as _brainon_ca_include
-from django.urls import path as _brainon_ca_path
 
-urlpatterns += [
-    _brainon_ca_path(
-        "",
-        _brainon_ca_include(
-            "apps.audit.api.urls"
-        ),
-    ),
-    _brainon_ca_path(
-        "",
-        _brainon_ca_include(
-            "apps.common.api.urls"
-        ),
-    ),
-]
-# END BRAINON COMMON AUDIT REAL API ROUTES
-
-# BEGIN BRAINON REMAINING 149 REAL ROUTES
-# Generated DB-backed routes for the remaining 149 contract APIs.
-# Keep this block before the legacy generated scaffold routes.
-from django.urls import include as _brainon_r149_include
-from django.urls import path as _brainon_r149_path
+# ============================================================
+# 4. 최종 API Contract Scaffold Fallback
+#
+# 위의 실제 구현 API와 DB-backed API에서 처리되지 않은
+# 최종 API Contract 경로만 마지막 fallback으로 처리한다.
+#
+# 반드시 urlpatterns의 가장 마지막에 위치해야 한다.
+# ============================================================
 
 urlpatterns += [
-    _brainon_r149_path(
+    path(
         "",
-        _brainon_r149_include(
-            "apps.ai_analysis.api.generated_real_149_urls"
-        ),
-    ),
-    _brainon_r149_path(
-        "",
-        _brainon_r149_include(
-            "apps.appointments.api.generated_real_149_urls"
-        ),
-    ),
-    _brainon_r149_path(
-        "",
-        _brainon_r149_include(
-            "apps.assessments.api.generated_real_149_urls"
-        ),
-    ),
-    _brainon_r149_path(
-        "",
-        _brainon_r149_include(
-            "apps.cdss.api.generated_real_149_urls"
-        ),
-    ),
-    _brainon_r149_path(
-        "",
-        _brainon_r149_include(
-            "apps.clinical_records.api.generated_real_149_urls"
-        ),
-    ),
-    _brainon_r149_path(
-        "",
-        _brainon_r149_include(
-            "apps.consultations.api.generated_real_149_urls"
-        ),
-    ),
-    _brainon_r149_path(
-        "",
-        _brainon_r149_include(
-            "apps.imaging.api.generated_real_149_urls"
-        ),
-    ),
-    _brainon_r149_path(
-        "",
-        _brainon_r149_include(
-            "apps.integrations.api.generated_real_149_urls"
-        ),
-    ),
-    _brainon_r149_path(
-        "",
-        _brainon_r149_include(
-            "apps.medication_safety.api.generated_real_149_urls"
-        ),
-    ),
-    _brainon_r149_path(
-        "",
-        _brainon_r149_include(
-            "apps.medications.api.generated_real_149_urls"
-        ),
-    ),
-    _brainon_r149_path(
-        "",
-        _brainon_r149_include(
-            "apps.notifications.api.generated_real_149_urls"
-        ),
-    ),
-    _brainon_r149_path(
-        "",
-        _brainon_r149_include(
-            "apps.prescriptions.api.generated_real_149_urls"
-        ),
-    ),
-    _brainon_r149_path(
-        "",
-        _brainon_r149_include(
-            "apps.radiology.api.generated_real_149_urls"
-        ),
-    ),
-]
-# END BRAINON REMAINING 149 REAL ROUTES
-
-# [추가] 수술·시술 플래닝 API 연결
-urlpatterns += [
-    path("", include("apps.surgical_planning.api.urls")),
-]
-# [추가 끝] 수술·시술 플래닝 API 연결
-
-# BEGIN BRAINON GENERATED FINAL API CONTRACT ROUTES
-# Temporary scaffold for the final 176 API contract.
-# Real API implementations replace these generated handlers.
-from django.urls import include as _brainon_include
-from django.urls import path as _brainon_path
-
-urlpatterns += [
-    _brainon_path(
-        "",
-        _brainon_include(
+        include(
             "config.contract_urls_generated"
         ),
     ),
 ]
-# END BRAINON GENERATED FINAL API CONTRACT ROUTES

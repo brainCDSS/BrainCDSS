@@ -1,6 +1,12 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 
+
+//[추가 - 챗봇 플로팅 화면 연결]
+import AssistantFloatingButton from "../../features/assistant/AssistantFloatingButton";
+import AssistantFloatingPanel from "../../features/assistant/AssistantFloatingPanel";
+import AssistantWorkspace from "../../features/assistant/AssistantWorkspace";
+
 import TriageAssessment from "../../features/assessments/TriageAssessment";
 import ReceptionInitialAssessment from "../../features/assessments/ReceptionInitialAssessment";
 // [추가] 신경과 응급 Worklist 연결
@@ -19,6 +25,7 @@ import MedicationSafetyPage from "../../features/medication-safety/MedicationSaf
 import NotificationsPage from "../../features/notifications/NotificationsPage";
 import SurgicalPlanningPage from "../../features/surgical-planning/SurgicalPlanningPage";
 import AppointmentsPage from "../../features/appointments/AppointmentsPage";
+
 // [추가] 관리자 화면 연결
 import AdminDashboard from "../../features/admin/AdminDashboard";
 import AdminUsersPage from "../../features/admin/AdminUsersPage";
@@ -74,6 +81,28 @@ export default function AppShell({
   currentUser,
   onLogout,
 }: AppShellProps) {
+
+
+
+  /* =======================================================
+     0. 챗봇 플로팅
+     ======================================================== */
+
+
+  const [
+    isAssistantFloatingOpen,
+    setIsAssistantFloatingOpen,
+  ] = useState(false);
+
+  const [
+    isAssistantTabOpen,
+    setIsAssistantTabOpen,
+  ] = useState(false);
+
+  const [
+    isAssistantTabActive,
+    setIsAssistantTabActive,
+  ] = useState(false);
 
 
   /* ========================================================
@@ -205,6 +234,42 @@ export default function AppShell({
 
 
   /* ========================================================
+     BrainOn AI Workspace
+     ======================================================== */
+
+  const handleOpenAssistantWorkspace = () => {
+    setIsAssistantTabOpen(true);
+    setIsAssistantTabActive(true);
+    setIsAssistantFloatingOpen(false);
+
+    setActivePatientId(null);
+    setActiveAssessmentContext(null);
+    setActiveConsultationId(null);
+    setActiveMenu("dashboard");
+  };
+
+  const handleSelectAssistantTab = () => {
+    setIsAssistantTabActive(true);
+    setIsAssistantFloatingOpen(false);
+
+    setActivePatientId(null);
+    setActiveAssessmentContext(null);
+    setActiveConsultationId(null);
+    setActiveMenu("dashboard");
+  };
+
+  const handleCloseAssistantTab = () => {
+    setIsAssistantTabOpen(false);
+    setIsAssistantTabActive(false);
+
+    setActivePatientId(null);
+    setActiveAssessmentContext(null);
+    setActiveConsultationId(null);
+    setActiveMenu("dashboard");
+  };
+
+
+  /* ========================================================
      11. Sidebar 접기 / 펼치기
      ======================================================== */
 
@@ -224,6 +289,8 @@ export default function AppShell({
   const handleMenuSelect = (
     menu: SidebarMenuKey,
   ) => {
+
+    setIsAssistantTabActive(false);
 
     if (!canAccessMenu(currentUser.role.code, menu)) {
       return;
@@ -330,6 +397,8 @@ export default function AppShell({
     menu: MenuWorkspaceTabKey,
   ) => {
 
+    setIsAssistantTabActive(false);
+
     if (!canAccessMenu(currentUser.role.code, menu)) {
       return;
     }
@@ -401,6 +470,8 @@ export default function AppShell({
     encounterId: string,
   ) => {
 
+    setIsAssistantTabActive(false);
+
     setActiveAssessmentContext({
       assessmentId,
       encounterId,
@@ -431,6 +502,8 @@ export default function AppShell({
   const handleOpenConsultationReview = (
     consultation: ConsultationListItem,
   ) => {
+
+    setIsAssistantTabActive(false);
 
     /**
      * 일반 환자 비활성
@@ -509,6 +582,8 @@ export default function AppShell({
 
   const handleBackToConsultationList = () => {
 
+    setIsAssistantTabActive(false);
+
     /**
      * 협진 목록 Tab 생성 / 유지
      */
@@ -545,6 +620,8 @@ export default function AppShell({
      ======================================================== */
 
   const handleSelectConsultationListTab = () => {
+
+    setIsAssistantTabActive(false);
 
     setActivePatientId(
       null,
@@ -618,6 +695,8 @@ export default function AppShell({
   const handleSelectConsultationTab = (
     consultationId: string,
   ) => {
+
+    setIsAssistantTabActive(false);
 
     setActivePatientId(
       null,
@@ -714,6 +793,8 @@ export default function AppShell({
     patient: Patient,
   ) => {
 
+    setIsAssistantTabActive(false);
+
     /* patient.id별 차트 탭을 유지하고, 같은 환자는 기존 탭을 재사용한다. */
     setOpenPatientTabs(
       (previousTabs) => {
@@ -766,6 +847,8 @@ export default function AppShell({
 
   const handleSelectDashboard = () => {
 
+    setIsAssistantTabActive(false);
+
     setActivePatientId(
       null,
     );
@@ -795,6 +878,8 @@ export default function AppShell({
   const handleSelectPatientTab = (
     patientId: string,
   ) => {
+
+    setIsAssistantTabActive(false);
 
     setActiveAssessmentContext(
       null,
@@ -842,6 +927,10 @@ export default function AppShell({
      ======================================================== */
 
   function renderMainContent() {
+
+    if (isAssistantTabActive) {
+      return <AssistantWorkspace />;
+    }
 
     const requestedMenu = activePatient ? "patients" : activeMenu;
     if (!canAccessMenu(currentUser.role.code, requestedMenu)) {
@@ -1204,6 +1293,25 @@ export default function AppShell({
           handleSelectDashboard
         }
 
+
+        /* BrainOn AI */
+
+        isAssistantTabOpen={
+          isAssistantTabOpen
+        }
+
+        isAssistantTabActive={
+          isAssistantTabActive
+        }
+
+        onSelectAssistantTab={
+          handleSelectAssistantTab
+        }
+
+        onCloseAssistantTab={
+          handleCloseAssistantTab
+        }
+
       />
 
 
@@ -1218,13 +1326,8 @@ export default function AppShell({
 
         <Sidebar
           currentUser={currentUser}
-          activeMenu={
-            activeMenu
-          }
-
-          onMenuSelect={
-            handleMenuSelect
-          }
+          activeMenu={activeMenu}
+          onMenuSelect={handleMenuSelect}
         />
 
 
@@ -1235,10 +1338,26 @@ export default function AppShell({
           {renderMainContent()}
 
         </main>
-
-
       </div>
 
+      {isAssistantFloatingOpen && (
+        <AssistantFloatingPanel
+          onExpand={
+            handleOpenAssistantWorkspace
+          }
+          onClose={() => {
+            setIsAssistantFloatingOpen(false);
+          }}
+        />
+      )}
+
+      <AssistantFloatingButton
+        onClick={() => {
+          setIsAssistantFloatingOpen(
+            (previous) => !previous,
+          );
+        }}
+      />
 
     </div>
 

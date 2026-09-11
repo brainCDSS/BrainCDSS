@@ -23,10 +23,15 @@ from apps.accounts.api.permissions import (
 from apps.accounts.api.serializers import (
     LoginRequestSerializer,
     LogoutRequestSerializer,
+    PaginatedUserSummaryResponseSerializer,
     PasswordChangeRequestSerializer,
     RefreshRequestSerializer,
+    RoleListResponseSerializer,
+    RolePermissionResponseSerializer,
     RolePermissionUpdateRequestSerializer,
     UserCreateRequestSerializer,
+    UserDetailSerializer,
+    UserSummarySerializer,
     UserUpdateRequestSerializer,
 )
 from apps.accounts.models import Role
@@ -236,6 +241,9 @@ class AdminUsersView(APIView):
     @extend_schema(
         operation_id="api_user_001_list",
         summary="사용자 목록",
+        responses={
+            200: PaginatedUserSummaryResponseSerializer,
+        },
         tags=["accounts"],
     )
     def get(self, request):
@@ -302,6 +310,9 @@ class AdminUsersView(APIView):
         operation_id="api_user_002_create",
         summary="사용자 생성",
         request=UserCreateRequestSerializer,
+        responses={
+            201: UserSummarySerializer,
+        },
         tags=["accounts"],
     )
     def post(self, request):
@@ -331,6 +342,9 @@ class AdminUserDetailView(APIView):
     @extend_schema(
         operation_id="api_user_003_detail",
         summary="사용자 상세",
+        responses={
+            200: UserDetailSerializer,
+        },
         tags=["accounts"],
     )
     def get(
@@ -356,6 +370,9 @@ class AdminUserDetailView(APIView):
         operation_id="api_user_004_update",
         summary="사용자 수정·활성화",
         request=UserUpdateRequestSerializer,
+        responses={
+            200: UserSummarySerializer,
+        },
         tags=["accounts"],
     )
     def patch(
@@ -391,6 +408,9 @@ class AdminRolesView(APIView):
     @extend_schema(
         operation_id="api_role_001_list",
         summary="Role/Permission 조회",
+        responses={
+            200: RoleListResponseSerializer,
+        },
         tags=["accounts"],
     )
     def get(self, request):
@@ -440,6 +460,9 @@ class AdminRolePermissionsView(APIView):
         request=(
             RolePermissionUpdateRequestSerializer
         ),
+        responses={
+            200: RolePermissionResponseSerializer,
+        },
         tags=["accounts"],
     )
     def put(

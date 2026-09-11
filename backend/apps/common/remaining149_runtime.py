@@ -10,6 +10,7 @@ from django.apps import apps
 from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.utils import timezone
+from django.utils.dateparse import parse_date, parse_datetime
 from rest_framework.exceptions import AuthenticationFailed, NotFound, PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -647,6 +648,252 @@ def _generic_update(request, spec, kwargs):
     _outbox(spec, obj, after)
     return Response(after, status=200)
 
+
+# --- Appointment response handlers ----------------------------------------
+
+def _appointment_user_payload(user):
+    if user is None:
+        return None
+
+    return {
+        "id": str(user.id),
+        "name": user.name,
+    }
+
+
+def _appointment_clinician_payload(clinician):
+    return {
+        "id": str(clinician.id),
+        "name": clinician.user.name,
+    }
+
+
+def _appointment_slot_payload(slot):
+    if slot is None:
+        return None
+
+    return {
+        "id": str(slot.id),
+        "start_at": _safe_value(slot.start_at),
+        "end_at": _safe_value(slot.end_at),
+        "status": slot.status,
+        "held_until": _safe_value(slot.held_until),
+    }
+
+
+def _appointment_payload(appointment):
+    slot = _appointment_slot_payload(appointment.slot)
+
+    return {
+        "appointment_id": str(appointment.id),
+        "patient": {
+            "id": str(appointment.patient_id),
+            "patient_no": appointment.patient.patient_no,
+            "name": appointment.patient.name,
+        },
+        "hospital": {
+            "id": str(appointment.hospital_id),
+            "name": appointment.hospital.name,
+        },
+        "department": {
+            "id": str(appointment.department_id),
+            "name": appointment.department.name,
+        },
+        "clinician": _appointment_clinician_payload(
+            appointment.clinician
+        ),
+        "slot": slot,
+        "current_slot": slot,
+        "requested_slot": _appointment_slot_payload(
+            appointment.requested_slot
+        ),
+        "status": appointment.status,
+        "request_type": appointment.request_type,
+        "scheduled_at": slot["start_at"],
+        "start_at": slot["start_at"],
+        "end_at": slot["end_at"],
+        "rejection_reason": appointment.rejection_reason,
+        "cancel_reason": appointment.cancel_reason,
+        "requested_at": _safe_value(appointment.requested_at),
+        "reschedule_requested_at": _safe_value(
+            appointment.reschedule_requested_at
+        ),
+        "confirmed_at": _safe_value(appointment.confirmed_at),
+        "cancelled_at": _safe_value(appointment.cancelled_at),
+        "completed_at": _safe_value(appointment.completed_at),
+        "handled_by": _appointment_user_payload(
+            appointment.handled_by
+        ),
+    }
+
+
+def _appointment_queryset(spec, request):
+    model = _model(spec)
+    if model is None:
+        raise ContractError({
+            "code": "APPOINTMENT_MODEL_NOT_CONFIGURED",
+        })
+
+    queryset = model.objects.select_related(
+        "patient",
+        "hospital",
+        "department",
+        "clinician__user",
+        "slot",
+        "requested_slot",
+        "handled_by",
+    )
+    return _owner_scope(queryset, model, request)
+
+
+def _appointment_filter_datetime(queryset, request):
+    date_value = request.query_params.get("date")
+    from_value = request.query_params.get("from")
+    to_value = request.query_params.get("to")
+
+    if date_value:
+        parsed = parse_date(date_value)
+        if parsed is None:
+            raise ContractError({"date": "must be an ISO-8601 date"})
+        queryset = queryset.filter(slot__start_at__date=parsed)
+
+    for key, value, date_lookup, datetime_lookup in (
+        ("from", from_value, "gte", "gte"),
+        ("to", to_value, "lte", "lte"),
+    ):
+        if not value:
+            continue
+
+        parsed_datetime = parse_datetime(value)
+        if parsed_datetime is not None:
+            if timezone.is_naive(parsed_datetime):
+                parsed_datetime = timezone.make_aware(parsed_datetime)
+            queryset = queryset.filter(**{
+                f"slot__start_at__{datetime_lookup}": parsed_datetime,
+            })
+            continue
+
+        parsed_date = parse_date(value)
+        if parsed_date is None:
+            raise ContractError({
+                key: "must be an ISO-8601 date or datetime",
+            })
+        queryset = queryset.filter(**{
+            f"slot__start_at__date__{date_lookup}": parsed_date,
+        })
+
+    return queryset
+
+
+def _appointment_filter_fields(queryset, request):
+    clinician_id = request.query_params.get("clinician_id")
+    department_id = request.query_params.get("department_id")
+    status_value = request.query_params.get("status")
+
+    if clinician_id:
+        queryset = queryset.filter(clinician_id=clinician_id)
+    if department_id:
+        queryset = queryset.filter(department_id=department_id)
+    if status_value:
+        queryset = queryset.filter(status=status_value)
+
+    return _appointment_filter_datetime(queryset, request)
+
+
+def _appointment_paginated_payload(queryset, request):
+    try:
+        page = max(int(request.query_params.get("page", 1) or 1), 1)
+    except (TypeError, ValueError):
+        page = 1
+
+    try:
+        page_size = min(
+            max(int(request.query_params.get("page_size", 50) or 50), 1),
+            100,
+        )
+    except (TypeError, ValueError):
+        page_size = 50
+
+    count = queryset.count()
+    start = (page - 1) * page_size
+    end = start + page_size
+    rows = list(queryset[start:end])
+
+    return {
+        "count": count,
+        "next": page + 1 if end < count else None,
+        "previous": page - 1 if page > 1 else None,
+        "results": [_appointment_payload(row) for row in rows],
+    }
+
+
+def _appointment_list(request, spec, kwargs):
+    del kwargs
+    queryset = _appointment_queryset(spec, request)
+    queryset = _appointment_filter_fields(queryset, request)
+    queryset = queryset.order_by("-slot__start_at", "-created_at")
+    return Response(
+        _appointment_paginated_payload(queryset, request),
+        status=200,
+    )
+
+
+def _appointment_detail(request, spec, kwargs):
+    model = _model(spec)
+    queryset = _appointment_queryset(spec, request)
+    filters = _path_filter(model, kwargs)
+
+    if not filters:
+        raise NotFound({
+            "code": "APPOINTMENT_NOT_FOUND",
+            "detail": "No appointment identifier was provided.",
+        })
+
+    try:
+        appointment = queryset.get(**filters)
+    except model.DoesNotExist as exc:
+        raise NotFound({
+            "code": "APPOINTMENT_NOT_FOUND",
+            "detail": "Appointment was not found.",
+        }) from exc
+
+    return Response(_appointment_payload(appointment), status=200)
+
+
+def _appointment_request_list(request, spec, kwargs):
+    del kwargs
+    queryset = _appointment_queryset(spec, request).filter(
+        Q(status="REQUESTED") | Q(requested_slot__isnull=False)
+    )
+    queryset = _appointment_filter_fields(queryset, request)
+    queryset = queryset.order_by("slot__start_at", "requested_at")
+    return Response(
+        _appointment_paginated_payload(queryset, request),
+        status=200,
+    )
+
+
+def _staff_appointment_list(request, spec, kwargs):
+    del kwargs
+    queryset = _appointment_queryset(spec, request)
+    queryset = _appointment_filter_fields(queryset, request)
+    queryset = queryset.order_by("slot__start_at", "created_at")
+    rows = list(queryset)
+
+    clinician = None
+    clinician_ids = {row.clinician_id for row in rows}
+    if len(clinician_ids) == 1:
+        clinician = _appointment_clinician_payload(rows[0].clinician)
+
+    return Response({
+        "from": request.query_params.get("from"),
+        "to": request.query_params.get("to"),
+        "clinician": clinician,
+        "appointments": [
+            _appointment_payload(row)
+            for row in rows
+        ],
+    }, status=200)
 
 def _generic_delete(request, spec, kwargs):
     model = _model(spec)
@@ -2315,6 +2562,10 @@ CUSTOM_HANDLERS = {
     "API-RX-004": _batchb_rx_finalize,
     "API-SCH-002": _schedule_put,
     "API-APP-001": _appointment_create,
+    "API-APP-002": _appointment_list,
+    "API-APP-003": _appointment_detail,
+    "API-APP-006": _appointment_request_list,
+    "API-APP-009": _staff_appointment_list,
     "API-NOTI-003": _notification_preferences_get,
     "API-NOTI-004": _notification_preferences_patch,
     "API-FCM-001": _fcm_create,
@@ -4454,3 +4705,473 @@ CUSTOM_HANDLERS.update({
 
 
 # === BATCH_C_CDS_RAD_FINAL_END ===
+
+# BEGIN BRAINON MEDM DB CONTRACT OVERRIDE
+#
+# Medication Master API source of truth:
+#   Django Medication / MedicationIngredient / DrugIngredient DB models.
+#
+# Frontend contract follows this Backend response shape.
+#
+
+from django.db.models import Q as _medm_Q
+from rest_framework.response import Response as _medm_Response
+
+from apps.medications.models import (
+    Medication as _MEDMMedication,
+)
+
+from apps.medication_safety.models import (
+    MedicationIngredient as _MEDMMedicationIngredient,
+)
+
+
+_execute_contract_before_medm_db_contract = execute_contract
+
+
+def _medm_error(
+    code,
+    detail,
+    status_code=400,
+):
+    return _medm_Response(
+        {
+            "code": code,
+            "detail": detail,
+        },
+        status=status_code,
+    )
+
+
+def _medm_bool(
+    value,
+    *,
+    default=True,
+):
+    if value is None:
+        return default
+
+    value = str(value).strip().lower()
+
+    if value in (
+        "true",
+        "1",
+        "yes",
+    ):
+        return True
+
+    if value in (
+        "false",
+        "0",
+        "no",
+    ):
+        return False
+
+    raise ValueError(
+        "is_active must be true or false."
+    )
+
+
+def _medm_positive_int(
+    value,
+    *,
+    default,
+    maximum=None,
+):
+    if value in (
+        None,
+        "",
+    ):
+        return default
+
+    try:
+        result = int(value)
+    except (
+        TypeError,
+        ValueError,
+    ):
+        raise ValueError(
+            "must be an integer."
+        )
+
+    if result < 1:
+        raise ValueError(
+            "must be >= 1."
+        )
+
+    if (
+        maximum is not None
+        and result > maximum
+    ):
+        raise ValueError(
+            f"must be <= {maximum}."
+        )
+
+    return result
+
+
+def _medm_datetime(
+    value,
+):
+    if value is None:
+        return None
+
+    return value.isoformat()
+
+
+def _medm_medication_payload(
+    medication,
+):
+    return {
+        "id": str(medication.id),
+        "medication_code": (
+            medication.medication_code
+        ),
+        "medication_name": (
+            medication.medication_name
+        ),
+        "dosage_form": (
+            medication.dosage_form
+        ),
+        "strength": (
+            medication.strength
+        ),
+        "manufacturer": (
+            medication.manufacturer
+        ),
+        "is_active": (
+            medication.is_active
+        ),
+        "created_at": _medm_datetime(
+            medication.created_at
+        ),
+        "updated_at": _medm_datetime(
+            medication.updated_at
+        ),
+    }
+
+
+def _medm_page_url(
+    request,
+    page_number,
+):
+    query = request.GET.copy()
+
+    query["page"] = str(
+        page_number
+    )
+
+    query_string = query.urlencode()
+
+    if query_string:
+        relative = (
+            f"{request.path}"
+            f"?{query_string}"
+        )
+    else:
+        relative = request.path
+
+    return request.build_absolute_uri(
+        relative
+    )
+
+
+def _medm_list(
+    request,
+):
+    search = str(
+        request.query_params.get(
+            "search",
+            ""
+        )
+        or ""
+    ).strip()
+
+    dosage_form = str(
+        request.query_params.get(
+            "dosage_form",
+            ""
+        )
+        or ""
+    ).strip()
+
+    if len(search) > 200:
+        return _medm_error(
+            "INVALID_QUERY",
+            "search must be <= 200 characters.",
+        )
+
+    if len(dosage_form) > 50:
+        return _medm_error(
+            "INVALID_QUERY",
+            "dosage_form must be <= 50 characters.",
+        )
+
+    try:
+        is_active = _medm_bool(
+            request.query_params.get(
+                "is_active"
+            ),
+            default=True,
+        )
+
+        page = _medm_positive_int(
+            request.query_params.get(
+                "page"
+            ),
+            default=1,
+        )
+
+        page_size = (
+            _medm_positive_int(
+                request.query_params.get(
+                    "page_size"
+                ),
+                default=20,
+                maximum=100,
+            )
+        )
+
+    except ValueError as exc:
+        return _medm_error(
+            "INVALID_QUERY",
+            str(exc),
+        )
+
+    queryset = (
+        _MEDMMedication.objects
+        .filter(
+            is_active=is_active
+        )
+    )
+
+    if search:
+        queryset = queryset.filter(
+            _medm_Q(
+                medication_code__icontains=
+                    search
+            )
+            |
+            _medm_Q(
+                medication_name__icontains=
+                    search
+            )
+        )
+
+    if dosage_form:
+        queryset = queryset.filter(
+            dosage_form__iexact=
+                dosage_form
+        )
+
+    queryset = queryset.order_by(
+        "medication_name",
+        "medication_code",
+        "id",
+    )
+
+    count = queryset.count()
+
+    start = (
+        (page - 1)
+        * page_size
+    )
+
+    end = (
+        start
+        + page_size
+    )
+
+    rows = list(
+        queryset[
+            start:end
+        ]
+    )
+
+    has_previous = (
+        page > 1
+    )
+
+    has_next = (
+        end < count
+    )
+
+    return _medm_Response(
+        {
+            "count": count,
+            "next": (
+                _medm_page_url(
+                    request,
+                    page + 1,
+                )
+                if has_next
+                else None
+            ),
+            "previous": (
+                _medm_page_url(
+                    request,
+                    page - 1,
+                )
+                if has_previous
+                else None
+            ),
+            "results": [
+                _medm_medication_payload(
+                    medication
+                )
+                for medication
+                in rows
+            ],
+        },
+        status=200,
+    )
+
+
+def _medm_detail(
+    request,
+    **kwargs,
+):
+    medication_id = (
+        kwargs.get(
+            "medication_id"
+        )
+        or kwargs.get(
+            "id"
+        )
+    )
+
+    medication = (
+        _MEDMMedication.objects
+        .filter(
+            id=medication_id
+        )
+        .first()
+    )
+
+    if medication is None:
+        return _medm_error(
+            "MEDICATION_NOT_FOUND",
+            "Medication was not found.",
+            404,
+        )
+
+    payload = (
+        _medm_medication_payload(
+            medication
+        )
+    )
+
+    mappings = (
+        _MEDMMedicationIngredient.objects
+        .filter(
+            medication=medication
+        )
+        .select_related(
+            "ingredient"
+        )
+        .order_by(
+            "created_at",
+            "id",
+        )
+    )
+
+    payload["ingredients"] = [
+        {
+            "id": str(
+                mapping.id
+            ),
+            "ingredient_id": str(
+                mapping.ingredient_id
+            ),
+            "dur_ingredient_code": (
+                mapping.ingredient
+                .dur_ingredient_code
+            ),
+            "name_ko": (
+                mapping.ingredient
+                .name_ko
+            ),
+            "name_en": (
+                mapping.ingredient
+                .name_en
+            ),
+            "amount": (
+                str(mapping.amount)
+                if mapping.amount
+                is not None
+                else None
+            ),
+            "unit": (
+                mapping.unit
+            ),
+            "is_active": (
+                mapping.is_active
+            ),
+            "created_at": (
+                _medm_datetime(
+                    mapping.created_at
+                )
+            ),
+        }
+        for mapping in mappings
+    ]
+
+    return _medm_Response(
+        payload,
+        status=200,
+    )
+
+
+def execute_contract(
+    request,
+    spec,
+    **kwargs,
+):
+    api_id = spec.get(
+        "api_id"
+    )
+
+    if api_id not in {
+        "API-MEDM-001",
+        "API-MEDM-002",
+    }:
+        return (
+            _execute_contract_before_medm_db_contract(
+                request,
+                spec,
+                **kwargs,
+            )
+        )
+
+    # 기존 execute_contract를 먼저 호출하여
+    # 프로젝트 공통 인증/권한 정책을 그대로 통과시킨다.
+    gate_response = (
+        _execute_contract_before_medm_db_contract(
+            request,
+            spec,
+            **kwargs,
+        )
+    )
+
+    if (
+        getattr(
+            gate_response,
+            "status_code",
+            500,
+        )
+        != 200
+    ):
+        return gate_response
+
+    if api_id == "API-MEDM-001":
+        return _medm_list(
+            request
+        )
+
+    return _medm_detail(
+        request,
+        **kwargs,
+    )
+
+
+# END BRAINON MEDM DB CONTRACT OVERRIDE

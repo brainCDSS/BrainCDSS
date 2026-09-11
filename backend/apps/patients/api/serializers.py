@@ -1,5 +1,6 @@
 from django.utils import timezone
 from rest_framework import serializers
+from drf_spectacular.utils import extend_schema_serializer
 
 from apps.patients.models import Patient
 
@@ -210,6 +211,7 @@ class PatientCreateResponseSerializer(serializers.Serializer):
     created_at = serializers.DateTimeField()
 
 
+@extend_schema_serializer(component_name="PatientActorSummary")
 class UserSummarySerializer(serializers.Serializer):
     id = serializers.UUIDField()
     name = serializers.CharField()

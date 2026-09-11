@@ -97,6 +97,8 @@ class DURInteractionRule(models.Model):
 
     description = models.TextField()
 
+    source_payload = models.JSONField(default=dict, blank=True)
+
     source = models.CharField(
         max_length=50,
         default="MFDS_DUR",
@@ -186,6 +188,9 @@ class DURDoseRule(models.Model):
     )
 
     description = models.TextField()
+
+    form_name = models.CharField(max_length=200, blank=True, default="")
+    source_payload = models.JSONField(default=dict, blank=True)
 
     is_active = models.BooleanField(
         default=True,
@@ -456,6 +461,75 @@ class DURPregnancyRule(models.Model):
 
     def __str__(self):
         return self.dur_seq
+
+class DURDurationRule(models.Model):
+    """
+    DUR 투여기간주의 규칙.
+    """
+
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+    )
+
+    dur_seq = models.CharField(
+        max_length=100,
+        unique=True,
+    )
+
+    ingredient = models.ForeignKey(
+        DrugIngredient,
+        on_delete=models.PROTECT,
+        related_name="duration_rules",
+        db_column="ingredient_id",
+    )
+
+    max_duration_days = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        db_index=True,
+    )
+
+    max_duration_raw = models.CharField(
+        max_length=200,
+        blank=True,
+        default="",
+    )
+
+    form_name = models.CharField(
+        max_length=500,
+        blank=True,
+        default="",
+    )
+
+    description = models.TextField()
+
+    is_active = models.BooleanField(
+        default=True,
+        db_default=True,
+        db_index=True,
+    )
+
+    source_updated_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        db_default=Now(),
+    )
+
+    class Meta:
+        db_table = "dur_duration_rules"
+        verbose_name = "DUR 투여기간주의 규칙"
+        verbose_name_plural = "DUR 투여기간주의 규칙"
+
+    def __str__(self):
+        return self.dur_seq
+
 
 # === FINAL_DB_GENERATED_IMPORTS_START ===
 from .models_generated import MedicationIngredient, PatientAllergy, MedicationSafetyOverride

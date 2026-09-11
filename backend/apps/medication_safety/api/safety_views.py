@@ -32,8 +32,9 @@ class MedicationSafetyCheckView(APIView):
         summary="처방 안전성 검사",
         description=(
             "로컬 DUR DB 기반 처방 안전성 검사. "
-            "현재 runtime 구현 범위는 "
-            "INTERACTION(DDI)과 DOSE이다."
+            "활성 로컬 Rule 기준 DDI, DOSE, DUPLICATE, "
+            "AGE, ELDERLY, PREGNANCY, DURATION, ALLERGY "
+            "8종 Medication Safety를 평가한다."
         ),
         request=(
             MedicationSafetyRequestSerializer

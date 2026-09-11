@@ -21,6 +21,10 @@ class MedicationSafetyItemSerializer(
         )
     )
 
+    duration_days = serializers.IntegerField(
+        min_value=1,
+    )
+
     route = serializers.CharField(
         max_length=30,
         required=False,

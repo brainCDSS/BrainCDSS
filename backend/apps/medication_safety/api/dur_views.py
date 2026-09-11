@@ -34,7 +34,9 @@ class DurSyncView(APIView):
         summary="DUR 수동 동기화 Trigger",
         description=(
             "SYSTEM_ADMIN 전용 DUR 비동기 동기화. "
-            "현재 INTERACTION 및 DOSE를 지원한다."
+            "INTERACTION, DOSE, DUPLICATE, AGE, "
+            "ELDERLY, PREGNANCY, DURATION "
+            "7종 DB 동기화를 지원한다."
         ),
         request=DurSyncRequestSerializer,
         responses={

@@ -370,6 +370,9 @@ def finalize_prescription(
                 "frequency_per_day": (
                     item.frequency_per_day
                 ),
+                "duration_days": (
+                    item.duration_days
+                ),
                 "route": item.route,
             }
             for item in items

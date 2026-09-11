@@ -4,10 +4,17 @@ from rest_framework import serializers
 SUPPORTED_DUR_SYNC_TYPES = (
     "INTERACTION",
     "DOSE",
+    "DUPLICATE",
+    "AGE",
+    "ELDERLY",
+    "PREGNANCY",
+    "DURATION",
 )
 
 
-class DurSyncRequestSerializer(serializers.Serializer):
+class DurSyncRequestSerializer(
+    serializers.Serializer
+):
     sync_types = serializers.ListField(
         child=serializers.ChoiceField(
             choices=SUPPORTED_DUR_SYNC_TYPES,
@@ -26,21 +33,25 @@ class DurSyncRequestSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 {
                     "full_sync": (
-                        "Full DUR synchronization is not yet "
-                        "supported. Current supported types are "
-                        "INTERACTION and DOSE."
+                        "Full DUR synchronization is not "
+                        "enabled by project policy. Use "
+                        "sync_types or the default seven "
+                        "supported DB-backed DUR types."
                     )
                 }
             )
 
         sync_types = attrs.get(
             "sync_types",
-            list(SUPPORTED_DUR_SYNC_TYPES),
+            list(
+                SUPPORTED_DUR_SYNC_TYPES
+            ),
         )
 
-        # 중복 제거, 요청 순서 유지
         normalized = list(
-            dict.fromkeys(sync_types)
+            dict.fromkeys(
+                sync_types
+            )
         )
 
         attrs["sync_types"] = normalized
@@ -48,15 +59,21 @@ class DurSyncRequestSerializer(serializers.Serializer):
         return attrs
 
 
-class DurSyncResponseSerializer(serializers.Serializer):
+class DurSyncResponseSerializer(
+    serializers.Serializer
+):
     task_id = serializers.UUIDField()
 
     status = serializers.ChoiceField(
         choices=("ACCEPTED",),
     )
 
-    requested_sync_types = serializers.ListField(
-        child=serializers.CharField(),
+    requested_sync_types = (
+        serializers.ListField(
+            child=serializers.CharField(),
+        )
     )
 
-    requested_at = serializers.DateTimeField()
+    requested_at = (
+        serializers.DateTimeField()
+    )

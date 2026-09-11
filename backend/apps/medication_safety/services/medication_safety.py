@@ -31,6 +31,7 @@ from apps.medication_safety.models import (
     DURAgeRule,
     DURElderlyRule,
     DURPregnancyRule,
+    DURDurationRule,
 )
 
 
@@ -269,12 +270,31 @@ def check_medication_safety(
             or item.get("dose_unit")
         )
 
+        duration_raw = item.get(
+            "duration_days"
+        )
+
+        duration_days = None
+
+        if duration_raw not in (
+            None,
+            "",
+        ):
+            duration_days = _positive_int(
+                duration_raw,
+                (
+                    f"medications[{index}]"
+                    ".duration_days"
+                ),
+            )
+
         normalized.append(
             {
                 "medication_id": medication_id,
                 "dose": dose,
                 "unit": unit,
                 "frequency_per_day": frequency,
+                "duration_days": duration_days,
                 "route": item.get("route"),
             }
         )
@@ -704,7 +724,88 @@ def check_medication_safety(
             )
 
     # =========================================================
-    # 7. ALLERGY
+    # 7. DURATION
+    # =========================================================
+
+    duration_rules = (
+        DURDurationRule.objects
+        .filter(
+            is_active=True,
+            ingredient_id__in=ingredient_ids,
+            max_duration_days__isnull=False,
+        )
+        .select_related(
+            "ingredient"
+        )
+    )
+
+    duration_by_ingredient = defaultdict(
+        list
+    )
+
+    for rule in duration_rules:
+        duration_by_ingredient[
+            rule.ingredient_id
+        ].append(rule)
+
+    for item in normalized:
+        if item["duration_days"] is None:
+            continue
+
+        medication_id = (
+            item["medication_id"]
+        )
+
+        medication = (
+            medication_objects[
+                medication_id
+            ]
+        )
+
+        mapping = (
+            mappings_by_medication[
+                medication_id
+            ][0]
+        )
+
+        for rule in (
+            duration_by_ingredient[
+                mapping.ingredient_id
+            ]
+        ):
+            if not _form_matches(
+                medication.dosage_form,
+                rule.form_name,
+            ):
+                continue
+
+            if (
+                item["duration_days"]
+                <= rule.max_duration_days
+            ):
+                continue
+
+            alerts.append(
+                {
+                    "alert_type": "DURATION",
+                    "severity": "MAJOR",
+                    "message": rule.description,
+                    "rule_id": str(rule.id),
+                    "related_medications": [
+                        str(medication_id)
+                    ],
+                    "override_allowed": True,
+                    "observed_duration_days": (
+                        item["duration_days"]
+                    ),
+                    "max_duration_days": (
+                        rule.max_duration_days
+                    ),
+                }
+            )
+
+    # =========================================================
+    # 8. ALLERGY
     # =========================================================
 
     if patient is not None:
@@ -810,6 +911,7 @@ def check_medication_safety(
                 "AGE",
                 "ELDERLY",
                 "PREGNANCY",
+                "DURATION",
                 "ALLERGY",
             ],
         },

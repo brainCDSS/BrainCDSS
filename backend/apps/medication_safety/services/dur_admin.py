@@ -13,6 +13,9 @@ from apps.audit.services.audit_event import (
 from apps.medication_safety.tasks import (
     sync_mfds_dur_data,
 )
+from apps.medication_safety.services.dur_rules import (
+    SUPPORTED_RULE_KINDS,
+)
 
 
 DUR_SYNC_ACCEPT_LOCK_ID = 2026091101
@@ -76,22 +79,39 @@ def _current_sync():
     return None
 
 
-def _kind_from_sync_types(sync_types):
-    selected = set(sync_types)
+def _normalize_sync_types(sync_types):
+    if not isinstance(
+        sync_types,
+        (list, tuple),
+    ):
+        raise ValueError(
+            "DUR_SYNC_TYPES_INVALID"
+        )
 
-    if selected == {
-        "INTERACTION",
-        "DOSE",
-    }:
-        return "BOTH"
+    normalized = list(
+        dict.fromkeys(
+            sync_types
+        )
+    )
 
-    if selected == {"INTERACTION"}:
-        return "INTERACTION"
+    if not normalized:
+        raise ValueError(
+            "DUR_SYNC_TYPES_INVALID"
+        )
 
-    if selected == {"DOSE"}:
-        return "DOSE"
+    supported = set(
+        SUPPORTED_RULE_KINDS
+    )
 
-    raise ValueError("DUR_SYNC_TYPES_INVALID")
+    if any(
+        value not in supported
+        for value in normalized
+    ):
+        raise ValueError(
+            "DUR_SYNC_TYPES_INVALID"
+        )
+
+    return normalized
 
 
 def enqueue_dur_sync(
@@ -102,7 +122,7 @@ def enqueue_dur_sync(
     task_id = str(uuid.uuid4())
     requested_at = timezone.now()
 
-    kind = _kind_from_sync_types(
+    sync_types = _normalize_sync_types(
         sync_types
     )
 
@@ -127,13 +147,12 @@ def enqueue_dur_sync(
                 after_json={
                     "task_id": task_id,
                     "sync_types": sync_types,
-                    "kind": kind,
                 },
             )
 
             sync_mfds_dur_data.apply_async(
                 kwargs={
-                    "kind": kind,
+                    "sync_types": sync_types,
                     "dry_run": False,
                     "page_size": 100,
                     "request_id": (

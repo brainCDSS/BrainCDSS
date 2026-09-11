@@ -14,6 +14,11 @@ from apps.medication_safety.models import DrugIngredient
 OPERATIONS = {
     "INTERACTION": "getUsjntTabooInfoList02",
     "DOSE": "getCpctyAtentInfoList02",
+    "DUPLICATE": "getEfcyDplctInfoList02",
+    "AGE": "getSpcifyAgrdeTabooInfoList02",
+    "ELDERLY": "getOdsnAtentInfoList02",
+    "PREGNANCY": "getPwnmTabooInfoList02",
+    "DURATION": "getMdctnPdAtentInfoList02",
 }
 
 

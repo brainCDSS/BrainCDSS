@@ -5,6 +5,7 @@ from math import ceil
 from django.core.management.base import BaseCommand, CommandError
 
 from apps.medication_safety.services.dur_rules import (
+    SUPPORTED_RULE_KINDS,
     _prepare_rule,
     upsert_dur_rules,
 )
@@ -25,13 +26,20 @@ EXPECTED_SKIPPABLE_VALIDATION_ERRORS = {
     "DOSE": {
         "DUR_FIELD_REQUIRED:MAX_QTY",
     },
+    "DUPLICATE": set(),
+    "AGE": set(),
+    "ELDERLY": set(),
+    "PREGNANCY": set(),
+    "DURATION": set(),
 }
 
 
 class Command(BaseCommand):
     help = (
-        "Fetch reviewed MFDS DUR interaction/dose data and stage "
-        "supported single-ingredient rules in the local database."
+        "Fetch reviewed MFDS DUR data and stage supported "
+        "single-ingredient rules in the local database. "
+        "Supported DB-backed kinds: INTERACTION, DOSE, "
+        "DUPLICATE, AGE, ELDERLY, PREGNANCY, DURATION."
     )
 
     def add_arguments(self, parser):
@@ -42,9 +50,28 @@ class Command(BaseCommand):
         )
         parser.add_argument(
             "--kind",
-            choices=("BOTH", "INTERACTION", "DOSE"),
-            default="BOTH",
-            help="DUR rule type to synchronize.",
+            choices=(
+                "ALL",
+                "BOTH",
+                *SUPPORTED_RULE_KINDS,
+            ),
+            default="ALL",
+            help=(
+                "DUR rule type to synchronize. "
+                "ALL synchronizes all seven DB-backed kinds; "
+                "BOTH is retained for legacy "
+                "INTERACTION+DOSE behavior."
+            ),
+        )
+        parser.add_argument(
+            "--kinds",
+            nargs="+",
+            choices=SUPPORTED_RULE_KINDS,
+            required=False,
+            help=(
+                "Synchronize an explicit subset of DB-backed "
+                "DUR rule types."
+            ),
         )
         parser.add_argument(
             "--page-size",
@@ -56,16 +83,31 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         dry_run = options["dry_run"]
         selected_kind = options["kind"]
+        selected_kinds = options["kinds"]
         page_size = options["page_size"]
 
         if not 1 <= page_size <= 100:
             raise CommandError("DUR_PAGE_SIZE_INVALID")
 
-        kinds = (
-            ("INTERACTION", "DOSE")
-            if selected_kind == "BOTH"
-            else (selected_kind,)
-        )
+        if selected_kinds:
+            kinds = tuple(
+                dict.fromkeys(
+                    selected_kinds
+                )
+            )
+        elif selected_kind == "ALL":
+            kinds = tuple(
+                SUPPORTED_RULE_KINDS
+            )
+        elif selected_kind == "BOTH":
+            kinds = (
+                "INTERACTION",
+                "DOSE",
+            )
+        else:
+            kinds = (
+                selected_kind,
+            )
 
         eligible_pages = []
         summaries = {}

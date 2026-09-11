@@ -15,7 +15,6 @@ ROLE_ORDER = {
     "CEREBRAL_ANEURYSM_MRA": {"MRA": 0},
 }
 
-
 @shared_task(
     bind=True,
     name="apps.ai_analysis.run_analysis_inference",

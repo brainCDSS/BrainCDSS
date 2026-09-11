@@ -7,6 +7,7 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from drf_spectacular.utils import extend_schema
 
 from apps.accounts.models import RolePermission
 from apps.ai_analysis.models import AIAnalysis, AIAnalysisInputSeries, AIAnalysisResult, AIModelConfigVersion, AIResultArtifact, AIRoutingConfigVersion, ModelVersion
@@ -132,7 +133,10 @@ class AnalysisCollectionView(ContractView000):
             "code": "AI_ANALYSIS_LIST_FORBIDDEN",
             "detail": "The current role cannot view AI analysis jobs.",
         })
-
+    @extend_schema(
+        request=AnalysisCreateSerializer,
+        responses={202: None},
+    )
     def post(self, request):
         serializer = AnalysisCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

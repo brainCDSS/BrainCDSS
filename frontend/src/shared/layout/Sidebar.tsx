@@ -3,9 +3,16 @@ import {
   useState,
 } from "react";
 
-import "./layout.css";
-import { MENU_LABELS } from "./menuConfig";
+import type {
+  LoginUser,
+} from "../../features/auth/types";
 
+import "./layout.css";
+
+import {
+  MENU_LABELS,
+  canAccessMenu,
+} from "./menuConfig";
 
 /* =========================================================
    Sidebar Menu Key
@@ -22,6 +29,7 @@ export type SidebarMenuKey =
 
   | "worklist"
   | "triage"
+  | "appointments"
 
   | "imaging"
   | "ai-results"
@@ -32,7 +40,13 @@ export type SidebarMenuKey =
   | "surgical-planning"
 
   | "prescriptions"
-  | "notifications";
+  | "notifications"
+  // [추가] 관리자 화면 연결
+  | "admin-users"
+  | "admin-monitoring"
+  | "admin-audit"
+  | "admin-settings";
+  // [추가 끝] 관리자 화면 연결
 
 
 /* =========================================================
@@ -101,6 +115,9 @@ function SidebarIcon({
    ========================================================= */
 
 interface SidebarProps {
+
+  currentUser: LoginUser;
+
   activeMenu?: SidebarMenuKey;
 
   onMenuSelect?: (
@@ -246,6 +263,11 @@ const menuItems: SidebarMenuItem[] = [
 
         label: MENU_LABELS.worklist,
       },
+      {
+        key: "appointments",
+
+        label: MENU_LABELS.appointments,
+      },
     ],
   },
 
@@ -276,12 +298,6 @@ const menuItems: SidebarMenuItem[] = [
         key: "ai-results",
 
         label: MENU_LABELS["ai-results"],
-      },
-
-      {
-        key: "radiology-reports",
-
-        label: MENU_LABELS["radiology-reports"],
       },
 
       {
@@ -359,6 +375,16 @@ const menuItems: SidebarMenuItem[] = [
 
 ];
 
+// [추가] 관리자 화면 연결
+const adminMenuItems: SidebarMenuItem[] = [
+  { type: "single", key: "dashboard", label: MENU_LABELS.dashboard, icon: "home", collapsedLabel: "홈" },
+  { type: "single", key: "admin-users", label: MENU_LABELS["admin-users"], icon: "users", collapsedLabel: "사용자" },
+  { type: "single", key: "admin-monitoring", label: MENU_LABELS["admin-monitoring"], icon: "scan-line", collapsedLabel: "모니터링" },
+  { type: "single", key: "admin-audit", label: MENU_LABELS["admin-audit"], icon: "bell", collapsedLabel: "감사" },
+  { type: "single", key: "admin-settings", label: MENU_LABELS["admin-settings"], icon: "stethoscope", collapsedLabel: "설정" },
+];
+// [추가 끝] 관리자 화면 연결
+
 
 /* =========================================================
    현재 메뉴가 어느 Group에 속하는지 확인
@@ -370,7 +396,8 @@ function getMenuGroup(
 
   if (
     menu === "worklist" ||
-    menu === "triage"
+    menu === "triage" ||
+    menu === "appointments"
   ) {
     return "clinical";
   }
@@ -403,6 +430,7 @@ function getMenuGroup(
    ========================================================= */
 
 export default function Sidebar({
+  currentUser,
   activeMenu,
   onMenuSelect,
 }: SidebarProps) {
@@ -427,6 +455,91 @@ export default function Sidebar({
     activeMenu ??
     internalActiveMenu;
 
+
+  /* ========================================================
+     로그인 Role
+     ======================================================== */
+
+  const currentRole =
+    currentUser.role.code;
+
+
+  /* ========================================================
+     로그인 Role 기준 메뉴 필터링
+     ======================================================== */
+
+  const visibleMenuItems =
+    // [추가] 관리자 화면 연결
+    (currentRole === "SYSTEM_ADMIN" ? adminMenuItems : menuItems).reduce<
+    // [추가 끝] 관리자 화면 연결
+      SidebarMenuItem[]
+    >(
+      (
+        result,
+        item,
+      ) => {
+
+        /*
+         * 단일 메뉴
+         */
+        if (
+          item.type ===
+          "single"
+        ) {
+
+          if (
+            canAccessMenu(
+              currentRole,
+              item.key,
+            )
+          ) {
+
+            result.push(
+              item,
+            );
+
+          }
+
+          return result;
+        }
+
+
+        /*
+         * 2Depth 메뉴
+         */
+        const visibleChildren =
+          item.children.filter(
+            (child) =>
+              canAccessMenu(
+                currentRole,
+                child.key,
+              ),
+          );
+
+
+        /*
+         * 보이는 자식 메뉴가 없으면
+         * 부모 Group도 숨긴다.
+         */
+        if (
+          visibleChildren.length >
+          0
+        ) {
+
+          result.push({
+            ...item,
+
+            children:
+              visibleChildren,
+          });
+
+        }
+
+
+        return result;
+      },
+      [],
+    );
 
   /* ========================================================
      현재 열려 있는 1Depth Group
@@ -472,21 +585,34 @@ export default function Sidebar({
      단일 / 2Depth 메뉴 선택
      ======================================================== */
 
-  function handleMenuSelect(
-    menu: SidebarMenuKey,
+function handleMenuSelect(
+  menu: SidebarMenuKey,
+) {
+
+  /*
+   * 권한 없는 메뉴는
+   * Sidebar에서 선택 불가
+   */
+  if (
+    !canAccessMenu(
+      currentRole,
+      menu,
+    )
   ) {
-
-    setInternalActiveMenu(
-      menu,
-    );
-
-
-    onMenuSelect?.(
-      menu,
-    );
-
+    return;
   }
 
+
+  setInternalActiveMenu(
+    menu,
+  );
+
+
+  onMenuSelect?.(
+    menu,
+  );
+
+}
 
   /* ========================================================
      1Depth Group 펼치기 / 닫기
@@ -523,7 +649,7 @@ export default function Sidebar({
         </span>
 
 
-        {menuItems.map((item) => {
+        {visibleMenuItems.map((item) => {
 
 
           /* =================================================

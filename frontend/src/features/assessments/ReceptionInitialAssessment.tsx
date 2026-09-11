@@ -1,11 +1,64 @@
-import { useState } from "react";
-import type { FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import type {
+  FormEvent,
+} from "react";
 
-import AssessmentWorklist from "./AssessmentWorklist";
-import { getPatients } from "../patients/api";
-import type { Patient } from "../patients/types";
+import {
+  getStaffAppointments,
+} from "../appointments/api";
+import type {
+  StaffAppointment,
+} from "../appointments/types";
+
+import {
+  createPatient,
+  getPatients,
+} from "../patients/api";
+import type {
+  Patient,
+} from "../patients/types";
+
+import {
+  createEncounter,
+  getAssessmentWorklist,
+  startAssessment,
+} from "./api";
+import type {
+  AssessmentWorklistItem,
+} from "./types";
 
 import "./css/reception_initial_assessment.css";
+
+
+/* =========================================================
+   Types
+   ========================================================= */
+
+type Sex =
+  | "M"
+  | "F";
+
+type ReceptionVisitMode =
+  | "EMERGENCY"
+  | "APPOINTMENT"
+  | "WALK_IN";
+
+type ReceptionStatus =
+  | "REGISTERED"
+  | "WAITING"
+  | "TRIAGE"
+  | "IMAGING"
+  | "IN_PROGRESS";
+
+type BusyAction =
+  | "SEARCH"
+  | "CREATE_PATIENT"
+  | "REGISTER_ENCOUNTER"
+  | null;
 
 
 interface ReceptionInitialAssessmentProps {
@@ -16,252 +69,3169 @@ interface ReceptionInitialAssessmentProps {
 }
 
 
-/**
- * 접수 · 초기평가 통합 진입 화면
- *
- * Encounter API의 request/response schema가 확정되기 전이므로 이 화면은
- * 접수에 필요한 정보 구조만 보여준다. 환자 검색과 접수 완료는 API 계약이
- * 확정된 뒤 연결하며, 아래 초기평가 대기목록의 기존 Triage 흐름은 유지한다.
- */
+interface NewPatientForm {
+  name: string;
+  birth_date: string;
+  sex: Sex | "";
+  phone: string;
+}
+
+
+interface ReceptionDraft {
+  visitReason: string;
+  department: string;
+  clinician: string;
+  channel: string;
+  priority: string;
+  memo: string;
+}
+
+
+interface TodayVisitRow {
+  key: string;
+  encounterId: string;
+  assessmentId: string | null;
+  patientName: string;
+  patientNo: string;
+  ageSex: string;
+  encounterType: string;
+  status: ReceptionStatus;
+  registeredAt: string | null;
+}
+
+
+const EMPTY_NEW_PATIENT: NewPatientForm = {
+  name: "",
+  birth_date: "",
+  sex: "",
+  phone: "",
+};
+
+
+const EMPTY_RECEPTION_DRAFT: ReceptionDraft = {
+  visitReason: "",
+  department: "",
+  clinician: "",
+  channel: "EMERGENCY_ROOM",
+  priority: "URGENT",
+  memo: "",
+};
+
+
+const PAGE_SIZE = 10;
+
+
+/* =========================================================
+   Helpers
+   ========================================================= */
+
+function sexLabel(
+  sex: string | null | undefined,
+) {
+  if (sex === "M") {
+    return "M";
+  }
+
+  if (sex === "F") {
+    return "F";
+  }
+
+  return "-";
+}
+
+
+function phoneLabel(
+  phone: string | null | undefined,
+) {
+  if (!phone) {
+    return "-";
+  }
+
+  const digits =
+    phone.replace(/\D/g, "");
+
+  if (digits.length === 11) {
+    return digits.replace(
+      /(\d{3})(\d{4})(\d{4})/,
+      "$1-$2-$3",
+    );
+  }
+
+  if (digits.length === 10) {
+    return digits.replace(
+      /(\d{3})(\d{3})(\d{4})/,
+      "$1-$2-$3",
+    );
+  }
+
+  return phone;
+}
+
+
+function getTodayDate() {
+  const now =
+    new Date();
+
+  const localDate =
+    new Date(
+      now.getTime() -
+        now.getTimezoneOffset() *
+          60 *
+          1000,
+    );
+
+  return localDate
+    .toISOString()
+    .slice(0, 10);
+}
+
+
+function isToday(
+  value?: string | null,
+) {
+  if (!value) {
+    return false;
+  }
+
+  const date =
+    new Date(value);
+
+  if (
+    Number.isNaN(
+      date.getTime(),
+    )
+  ) {
+    return false;
+  }
+
+  const localDate =
+    new Date(
+      date.getTime() -
+        date.getTimezoneOffset() *
+          60 *
+          1000,
+    )
+      .toISOString()
+      .slice(0, 10);
+
+  return localDate ===
+    getTodayDate();
+}
+
+
+function formatTime(
+  value?: string | null,
+) {
+  if (!value) {
+    return "-";
+  }
+
+  const date =
+    new Date(value);
+
+  if (
+    Number.isNaN(
+      date.getTime(),
+    )
+  ) {
+    return "-";
+  }
+
+  return new Intl.DateTimeFormat(
+    "ko-KR",
+    {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    },
+  ).format(date);
+}
+
+
+function formatDateTime(
+  value?: string | null,
+) {
+  if (!value) {
+    return "-";
+  }
+
+  const date =
+    new Date(value);
+
+  if (
+    Number.isNaN(
+      date.getTime(),
+    )
+  ) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat(
+    "ko-KR",
+    {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    },
+  ).format(date);
+}
+
+
+function apiError(
+  error: unknown,
+  fallback: string,
+) {
+  if (
+    error instanceof Error &&
+    error.message.includes(":403")
+  ) {
+    return "현재 계정에는 이 작업 권한이 없습니다.";
+  }
+
+  if (
+    error instanceof Error &&
+    error.message.includes(":409")
+  ) {
+    return "현재 방문에 이미 진행 중인 접수 또는 초기평가가 있습니다.";
+  }
+
+  return fallback;
+}
+
+
+function worklistValue(
+  summary: Record<string, unknown>,
+  keys: string[],
+) {
+  for (const key of keys) {
+    const value =
+      summary[key];
+
+    if (
+      typeof value === "string" ||
+      typeof value === "number"
+    ) {
+      return String(value);
+    }
+  }
+
+  return null;
+}
+
+
+function worklistPatientName(
+  item: AssessmentWorklistItem,
+) {
+  return (
+    worklistValue(
+      item.patient_summary,
+      [
+        "name",
+        "patient_name",
+      ],
+    ) ??
+    "환자"
+  );
+}
+
+
+function worklistPatientNo(
+  item: AssessmentWorklistItem,
+) {
+  return (
+    worklistValue(
+      item.patient_summary,
+      [
+        "patient_no",
+        "patient_number",
+        "mrn",
+      ],
+    ) ??
+    item.encounter_id
+  );
+}
+
+
+function worklistPatientInfo(
+  item: AssessmentWorklistItem,
+) {
+  const age =
+    worklistValue(
+      item.patient_summary,
+      [
+        "estimated_age",
+        "age",
+      ],
+    );
+
+  const sex =
+    worklistValue(
+      item.patient_summary,
+      [
+        "sex",
+        "gender",
+      ],
+    );
+
+  return [
+    age ?? "-",
+    sexLabel(sex),
+  ].join(" / ");
+}
+
+
+function worklistEncounterType(
+  item: AssessmentWorklistItem,
+) {
+  const value =
+    worklistValue(
+      item.patient_summary,
+      [
+        "encounter_type",
+        "visit_type",
+      ],
+    );
+
+  if (value === "EMERGENCY") {
+    return "응급";
+  }
+
+  if (value === "OUTPATIENT") {
+    return "예약";
+  }
+
+  return "-";
+}
+
+
+function patientAgeNumber(
+  patient: Patient,
+) {
+  if (
+    patient.estimated_age !== null &&
+    patient.estimated_age !== undefined
+  ) {
+    return patient.estimated_age;
+  }
+
+  if (!patient.birth_date) {
+    return null;
+  }
+
+  const birth =
+    new Date(patient.birth_date);
+
+  const today =
+    new Date();
+
+  if (
+    Number.isNaN(
+      birth.getTime(),
+    )
+  ) {
+    return null;
+  }
+
+  let age =
+    today.getFullYear() -
+    birth.getFullYear();
+
+  const month =
+    today.getMonth() -
+    birth.getMonth();
+
+  if (
+    month < 0 ||
+    (
+      month === 0 &&
+      today.getDate() <
+        birth.getDate()
+    )
+  ) {
+    age -= 1;
+  }
+
+  return age;
+}
+
+
+function patientAgeSex(
+  patient: Patient,
+) {
+  const age =
+    patientAgeNumber(patient);
+
+  return `${age ?? "-"} / ${sexLabel(
+    patient.sex,
+  )}`;
+}
+
+
+function patientAgeSexLong(
+  patient: Patient,
+) {
+  const age =
+    patientAgeNumber(patient);
+
+  return `${age ?? "-"}세 / ${sexLabel(
+    patient.sex,
+  )}`;
+}
+
+
+function receptionStatusLabel(
+  status: ReceptionStatus,
+) {
+  switch (status) {
+    case "REGISTERED":
+      return "접수완료";
+
+    case "WAITING":
+      return "대기";
+
+    case "TRIAGE":
+      return "초기평가";
+
+    case "IMAGING":
+      return "검사대기";
+
+    case "IN_PROGRESS":
+      return "진료중";
+
+    default:
+      return "-";
+  }
+}
+
+
+function receptionStatusClass(
+  status: ReceptionStatus,
+) {
+  return status
+    .toLowerCase()
+    .replaceAll("_", "-");
+}
+
+
+function assessmentStatusToReceptionStatus(
+  status: string,
+): ReceptionStatus {
+  if (status === "COMPLETED") {
+    return "WAITING";
+  }
+
+  return "TRIAGE";
+}
+
+
+function encounterTypeLabel(
+  value: string,
+) {
+  if (value === "EMERGENCY") {
+    return "응급";
+  }
+
+  if (value === "OUTPATIENT") {
+    return "예약";
+  }
+
+  return value || "-";
+}
+
+
+/* =========================================================
+   Component
+   ========================================================= */
+
 export default function ReceptionInitialAssessment({
   onOpenTriage,
 }: ReceptionInitialAssessmentProps) {
-  const [patientQuery, setPatientQuery] = useState("");
-  const [patientResults, setPatientResults] = useState<Patient[]>([]);
-  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
-  const [isSearchingPatients, setIsSearchingPatients] = useState(false);
-  const [patientSearchError, setPatientSearchError] = useState<string | null>(null);
-  const [hasSearchedPatients, setHasSearchedPatients] = useState(false);
-  const [visitType, setVisitType] = useState("");
-  const [department, setDepartment] = useState("");
-  const [arrivedAt, setArrivedAt] = useState("");
+
+  /* =======================================================
+     환자 검색
+     ======================================================= */
+
+  const [
+    query,
+    setQuery,
+  ] = useState("");
+
+  const [
+    results,
+    setResults,
+  ] = useState<Patient[]>([]);
+
+  const [
+    searched,
+    setSearched,
+  ] = useState(false);
+
+  const [
+    selectedPatient,
+    setSelectedPatient,
+  ] = useState<Patient | null>(
+    null,
+  );
 
 
-  /**
-   * Swagger에 명시된 GET /api/v1/patients?search=...만 호출한다.
-   * 검색 결과는 기존 Patient 타입의 확정 필드만 사용한다.
+  /* =======================================================
+     신규 환자
+     ======================================================= */
+
+  const [
+    showCreate,
+    setShowCreate,
+  ] = useState(false);
+
+  const [
+    newPatient,
+    setNewPatient,
+  ] = useState<NewPatientForm>(
+    EMPTY_NEW_PATIENT,
+  );
+
+
+  /* =======================================================
+     접수
+     ======================================================= */
+
+  const [
+    visitMode,
+    setVisitMode,
+  ] = useState<ReceptionVisitMode>(
+    "EMERGENCY",
+  );
+
+  const [
+    appointments,
+    setAppointments,
+  ] = useState<
+    StaffAppointment[]
+  >([]);
+
+  const [
+    appointmentId,
+    setAppointmentId,
+  ] = useState("");
+
+  const [
+    appointmentLoading,
+    setAppointmentLoading,
+  ] = useState(false);
+
+  /*
+   * 아래 항목은 목표 UI를 먼저 맞추기 위한 화면 상태입니다.
+   * 현재 CreateEncounterRequest 계약에는 포함되지 않으므로
+   * registerEncounter()의 payload에는 넣지 않습니다.
+   * Backend 계약 확정 후 API 필드와 연결하세요.
    */
-  async function handlePatientSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  const [
+    receptionDraft,
+    setReceptionDraft,
+  ] = useState<ReceptionDraft>(
+    EMPTY_RECEPTION_DRAFT,
+  );
 
-    const normalizedQuery = patientQuery.trim();
 
-    if (!normalizedQuery || isSearchingPatients) {
-      return;
-    }
+  /* =======================================================
+     초기평가 Worklist
+     -------------------------------------------------------
+     주의:
+     이 Worklist를 "오늘 내원 환자 전체 목록"으로 간주하지 않습니다.
+     현재 API에서 확인 가능한 초기평가 단계 환자만
+     오늘 내원 패널의 일부 데이터로 보조 표시합니다.
+     ======================================================= */
 
-    setIsSearchingPatients(true);
-    setPatientSearchError(null);
-    setHasSearchedPatients(true);
+  const [
+    worklist,
+    setWorklist,
+  ] = useState<
+    AssessmentWorklistItem[]
+  >([]);
+
+  const [
+    worklistLoading,
+    setWorklistLoading,
+  ] = useState(false);
+
+  const [
+    worklistError,
+    setWorklistError,
+  ] = useState<string | null>(
+    null,
+  );
+
+  const [
+    openingEncounterId,
+    setOpeningEncounterId,
+  ] = useState<string | null>(
+    null,
+  );
+
+
+  /*
+   * 현재 세션에서 이 화면을 통해 새로 접수한 환자.
+   * GET /encounters 목록 API가 생기기 전까지
+   * 화면에서 방금 등록한 건을 즉시 보여주기 위한 로컬 상태입니다.
+   */
+  const [
+    localVisitRows,
+    setLocalVisitRows,
+  ] = useState<TodayVisitRow[]>(
+    [],
+  );
+
+
+  /* =======================================================
+     목록 / 페이지
+     ======================================================= */
+
+  const [
+    page,
+    setPage,
+  ] = useState(1);
+
+
+  /* =======================================================
+     공통 상태
+     ======================================================= */
+
+  const [
+    busy,
+    setBusy,
+  ] = useState<BusyAction>(
+    null,
+  );
+
+  const [
+    error,
+    setError,
+  ] = useState<string | null>(
+    null,
+  );
+
+  const [
+    info,
+    setInfo,
+  ] = useState<string | null>(
+    null,
+  );
+
+
+  /* =======================================================
+     예약
+     ======================================================= */
+
+  const selectedAppointment =
+    appointments.find(
+      (item) =>
+        item.appointment_id ===
+        appointmentId,
+    ) ??
+    null;
+
+
+  useEffect(
+    () => {
+      if (
+        visitMode !==
+          "APPOINTMENT" ||
+        !selectedPatient
+      ) {
+        setAppointments(
+          [],
+        );
+
+        setAppointmentId(
+          "",
+        );
+
+        return;
+      }
+
+      let cancelled =
+        false;
+
+      setAppointmentLoading(
+        true,
+      );
+
+      setAppointmentId(
+        "",
+      );
+
+      getStaffAppointments({
+        status: "CONFIRMED",
+        pageSize: 100,
+      })
+        .then(
+          (response) => {
+            if (cancelled) {
+              return;
+            }
+
+            const list =
+              response.results ??
+              response.appointments ??
+              [];
+
+            const patientAppointments =
+              list.filter(
+                (item) =>
+                  (
+                    item.patient
+                      ?.id ??
+                    item.patient_id
+                  ) ===
+                  selectedPatient.id,
+              );
+
+            setAppointments(
+              patientAppointments,
+            );
+          },
+        )
+        .catch(
+          (requestError) => {
+            if (cancelled) {
+              return;
+            }
+
+            setAppointments(
+              [],
+            );
+
+            setError(
+              apiError(
+                requestError,
+                "확정 예약을 불러오지 못했습니다.",
+              ),
+            );
+          },
+        )
+        .finally(
+          () => {
+            if (
+              !cancelled
+            ) {
+              setAppointmentLoading(
+                false,
+              );
+            }
+          },
+        );
+
+      return () => {
+        cancelled =
+          true;
+      };
+    },
+    [
+      selectedPatient,
+      visitMode,
+    ],
+  );
+
+
+  useEffect(
+    () => {
+      if (!selectedAppointment) {
+        if (
+          visitMode ===
+          "APPOINTMENT"
+        ) {
+          setReceptionDraft(
+            (current) => ({
+              ...current,
+              department: "",
+              clinician: "",
+              channel: "OUTPATIENT_DESK",
+            }),
+          );
+        }
+
+        return;
+      }
+
+      setReceptionDraft(
+        (current) => ({
+          ...current,
+          department:
+            selectedAppointment
+              .department
+              ?.name ??
+            current.department,
+          clinician:
+            selectedAppointment
+              .clinician
+              ?.name ??
+            current.clinician,
+          channel: "OUTPATIENT_DESK",
+        }),
+      );
+    },
+    [
+      selectedAppointment,
+      visitMode,
+    ],
+  );
+
+
+  /* =======================================================
+     Worklist 조회
+     ======================================================= */
+
+  async function loadWorklist() {
+    setWorklistLoading(
+      true,
+    );
+
+    setWorklistError(
+      null,
+    );
 
     try {
-      const response = await getPatients(normalizedQuery);
-      setPatientResults(response.results);
-      setSelectedPatient(null);
-    } catch (error) {
-      console.error("접수 환자 검색 실패:", error);
-      setPatientResults([]);
-      setSelectedPatient(null);
-      setPatientSearchError("환자 검색 결과를 불러오지 못했습니다.");
+      const response =
+        await getAssessmentWorklist();
+
+      setWorklist(
+        response.results ??
+          [],
+      );
+    } catch (
+      requestError
+    ) {
+      setWorklist([]);
+
+      setWorklistError(
+        apiError(
+          requestError,
+          "초기평가 단계 환자 정보를 불러오지 못했습니다.",
+        ),
+      );
     } finally {
-      setIsSearchingPatients(false);
+      setWorklistLoading(
+        false,
+      );
     }
   }
 
 
+  useEffect(
+    () => {
+      void loadWorklist();
+    },
+    [],
+  );
+
+
+  /* =======================================================
+     오늘 내원 환자 표시 데이터
+     ======================================================= */
+
+  const worklistVisitRows =
+    useMemo(
+      () =>
+        worklist
+          .filter(
+            (item) =>
+              isToday(
+                item.created_at,
+              ),
+          )
+          .map<TodayVisitRow>(
+            (item) => ({
+              key:
+                `worklist-${item.encounter_id}`,
+              encounterId:
+                item.encounter_id,
+              assessmentId:
+                item.assessment_id,
+              patientName:
+                worklistPatientName(
+                  item,
+                ),
+              patientNo:
+                worklistPatientNo(
+                  item,
+                ),
+              ageSex:
+                worklistPatientInfo(
+                  item,
+                ),
+              encounterType:
+                worklistEncounterType(
+                  item,
+                ),
+              status:
+                assessmentStatusToReceptionStatus(
+                  item.status,
+                ),
+              registeredAt:
+                item.created_at,
+            }),
+          ),
+      [
+        worklist,
+      ],
+    );
+
+
+  const todayVisitRows =
+    useMemo(
+      () => {
+        const byEncounter =
+          new Map<
+            string,
+            TodayVisitRow
+          >();
+
+        for (
+          const item of localVisitRows
+        ) {
+          byEncounter.set(
+            item.encounterId,
+            item,
+          );
+        }
+
+        /*
+         * Worklist에 같은 encounter가 있으면
+         * 초기평가 단계로 진행된 최신 상태를 우선 표시합니다.
+         */
+        for (
+          const item of worklistVisitRows
+        ) {
+          const existing =
+            byEncounter.get(
+              item.encounterId,
+            );
+
+          byEncounter.set(
+            item.encounterId,
+            {
+              ...existing,
+              ...item,
+              patientName:
+                item.patientName ===
+                "환자"
+                  ? existing
+                      ?.patientName ??
+                    item.patientName
+                  : item.patientName,
+              patientNo:
+                item.patientNo ??
+                existing?.patientNo ??
+                "-",
+              ageSex:
+                item.ageSex ===
+                "- / -"
+                  ? existing
+                      ?.ageSex ??
+                    item.ageSex
+                  : item.ageSex,
+              encounterType:
+                item.encounterType ===
+                "-"
+                  ? existing
+                      ?.encounterType ??
+                    "-"
+                  : item.encounterType,
+            },
+          );
+        }
+
+        return Array.from(
+          byEncounter.values(),
+        ).sort(
+          (
+            a,
+            b,
+          ) => {
+            const aTime =
+              a.registeredAt
+                ? new Date(
+                    a.registeredAt,
+                  ).getTime()
+                : 0;
+
+            const bTime =
+              b.registeredAt
+                ? new Date(
+                    b.registeredAt,
+                  ).getTime()
+                : 0;
+
+            return bTime -
+              aTime;
+          },
+        );
+      },
+      [
+        localVisitRows,
+        worklistVisitRows,
+      ],
+    );
+
+
+  const totalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        todayVisitRows.length /
+          PAGE_SIZE,
+      ),
+    );
+
+
+  const pagedVisitRows =
+    todayVisitRows.slice(
+      (page - 1) *
+        PAGE_SIZE,
+      page *
+        PAGE_SIZE,
+    );
+
+
+  useEffect(
+    () => {
+      if (
+        page >
+        totalPages
+      ) {
+        setPage(
+          totalPages,
+        );
+      }
+    },
+    [
+      page,
+      totalPages,
+    ],
+  );
+
+
+  const countByStatus =
+    (
+      status:
+        ReceptionStatus,
+    ) =>
+      todayVisitRows.filter(
+        (item) =>
+          item.status ===
+          status,
+      ).length;
+
+
+  /* =======================================================
+     환자 검색
+     ======================================================= */
+
+  async function searchPatients(
+    event: FormEvent,
+  ) {
+    event.preventDefault();
+
+    const normalizedQuery =
+      query.trim();
+
+    if (
+      !normalizedQuery ||
+      busy !== null
+    ) {
+      return;
+    }
+
+    setBusy(
+      "SEARCH",
+    );
+
+    setError(
+      null,
+    );
+
+    setInfo(
+      null,
+    );
+
+    setSearched(
+      true,
+    );
+
+    setSelectedPatient(
+      null,
+    );
+
+    setShowCreate(
+      false,
+    );
+
+    try {
+      const response =
+        await getPatients(
+          normalizedQuery,
+        );
+
+      setResults(
+        response.results ??
+          [],
+      );
+    } catch (
+      requestError
+    ) {
+      setResults(
+        [],
+      );
+
+      setError(
+        apiError(
+          requestError,
+          "환자 검색에 실패했습니다.",
+        ),
+      );
+    } finally {
+      setBusy(
+        null,
+      );
+    }
+  }
+
+
+  /* =======================================================
+     환자 선택 / 초기화
+     ======================================================= */
+
+  function selectPatient(
+    patient: Patient,
+  ) {
+    setSelectedPatient(
+      patient,
+    );
+
+    setShowCreate(
+      false,
+    );
+
+    setVisitMode(
+      "EMERGENCY",
+    );
+
+    setAppointmentId(
+      "",
+    );
+
+    setReceptionDraft({
+      ...EMPTY_RECEPTION_DRAFT,
+    });
+
+    setError(
+      null,
+    );
+
+    setInfo(
+      null,
+    );
+  }
+
+
+  function resetSelectedPatient() {
+    setSelectedPatient(
+      null,
+    );
+
+    setVisitMode(
+      "EMERGENCY",
+    );
+
+    setAppointmentId(
+      "",
+    );
+
+    setReceptionDraft({
+      ...EMPTY_RECEPTION_DRAFT,
+    });
+
+    setError(
+      null,
+    );
+
+    setInfo(
+      null,
+    );
+  }
+
+
+  /* =======================================================
+     신규 환자
+     ======================================================= */
+
+  function openCreatePatient() {
+    setShowCreate(
+      true,
+    );
+
+    setSelectedPatient(
+      null,
+    );
+
+    setError(
+      null,
+    );
+
+    setInfo(
+      null,
+    );
+
+    setNewPatient({
+      ...EMPTY_NEW_PATIENT,
+      name:
+        query.trim(),
+    });
+  }
+
+
+  function closeCreatePatient() {
+    setShowCreate(
+      false,
+    );
+
+    setNewPatient(
+      EMPTY_NEW_PATIENT,
+    );
+
+    setError(
+      null,
+    );
+  }
+
+
+  async function registerPatient(
+    event: FormEvent,
+  ) {
+    event.preventDefault();
+
+    if (
+      busy !== null
+    ) {
+      return;
+    }
+
+    if (
+      !newPatient.name.trim() ||
+      !newPatient.birth_date ||
+      !newPatient.sex
+    ) {
+      setError(
+        "이름, 생년월일, 성별을 확인해 주세요.",
+      );
+
+      return;
+    }
+
+    if (
+      newPatient.birth_date >
+      getTodayDate()
+    ) {
+      setError(
+        "생년월일은 오늘 이후의 날짜를 입력할 수 없습니다.",
+      );
+
+      return;
+    }
+
+    setBusy(
+      "CREATE_PATIENT",
+    );
+
+    setError(
+      null,
+    );
+
+    setInfo(
+      null,
+    );
+
+    try {
+      const patient =
+        await createPatient({
+          name:
+            newPatient.name.trim(),
+
+          birth_date:
+            newPatient.birth_date,
+
+          sex:
+            newPatient.sex,
+
+          phone:
+            newPatient.phone.trim(),
+        });
+
+      setSelectedPatient(
+        patient,
+      );
+
+      setResults(
+        [
+          patient,
+        ],
+      );
+
+      setSearched(
+        true,
+      );
+
+      setShowCreate(
+        false,
+      );
+
+      setNewPatient(
+        EMPTY_NEW_PATIENT,
+      );
+
+      setVisitMode(
+        "EMERGENCY",
+      );
+
+      setReceptionDraft({
+        ...EMPTY_RECEPTION_DRAFT,
+      });
+
+      setInfo(
+        "신규 환자가 등록되었습니다. 접수 정보를 확인해 주세요.",
+      );
+    } catch (
+      requestError
+    ) {
+      setError(
+        apiError(
+          requestError,
+          "신규 환자를 등록하지 못했습니다.",
+        ),
+      );
+    } finally {
+      setBusy(
+        null,
+      );
+    }
+  }
+
+
+  /* =======================================================
+     오늘 내원 목록에서 초기평가 열기
+     ======================================================= */
+
+  async function openTodayVisit(
+    item: TodayVisitRow,
+  ) {
+    if (
+      openingEncounterId !==
+        null ||
+      !item.assessmentId
+    ) {
+      return;
+    }
+
+    if (
+      !onOpenTriage
+    ) {
+      setError(
+        "초기평가 화면 연결 함수를 찾을 수 없습니다.",
+      );
+
+      return;
+    }
+
+    setOpeningEncounterId(
+      item.encounterId,
+    );
+
+    setError(
+      null,
+    );
+
+    try {
+      onOpenTriage(
+        item.assessmentId,
+        item.encounterId,
+      );
+    } finally {
+      setOpeningEncounterId(
+        null,
+      );
+    }
+  }
+
+
+  /* =======================================================
+     접수 완료
+     -------------------------------------------------------
+     현재 Backend 계약:
+     patient_id
+     encounter_type
+     appointment_id (OUTPATIENT only)
+
+     화면의 방문 사유 / 진료과 / 담당의 / 접수 채널 /
+     우선순위 / 비고는 현재 API payload에 넣지 않습니다.
+     ======================================================= */
+
+  async function registerEncounter() {
+    if (
+      !selectedPatient ||
+      busy !== null
+    ) {
+      return;
+    }
+
+    if (
+      visitMode ===
+      "WALK_IN"
+    ) {
+      setError(
+        "당일 내원은 현재 Encounter API 계약에 정의되어 있지 않습니다. 백엔드 API 확정 후 연결해 주세요.",
+      );
+
+      return;
+    }
+
+    if (
+      visitMode ===
+        "APPOINTMENT" &&
+      !appointmentId
+    ) {
+      setError(
+        "예약 접수는 확정 예약을 선택해 주세요.",
+      );
+
+      return;
+    }
+
+    if (
+      !onOpenTriage
+    ) {
+      setError(
+        "초기평가 화면 연결 함수를 찾을 수 없습니다.",
+      );
+
+      return;
+    }
+
+    setBusy(
+      "REGISTER_ENCOUNTER",
+    );
+
+    setError(
+      null,
+    );
+
+    setInfo(
+      null,
+    );
+
+    try {
+      const encounterType:
+        "EMERGENCY" |
+        "OUTPATIENT" =
+          visitMode ===
+          "EMERGENCY"
+            ? "EMERGENCY"
+            : "OUTPATIENT";
+
+      const created =
+        await createEncounter({
+          patient_id:
+            selectedPatient.id,
+
+          encounter_type:
+            encounterType,
+
+          ...(
+            encounterType ===
+              "OUTPATIENT"
+              ? {
+                  appointment_id:
+                    appointmentId,
+                }
+              : {}
+          ),
+        });
+
+      if (
+        !created.encounter_id
+      ) {
+        throw new Error(
+          "ENCOUNTER_ID_MISSING",
+        );
+      }
+
+      /*
+       * 화면에서 방금 접수된 환자를 즉시 표시한다.
+       * GET /encounters 목록 API가 생기면 이 로컬 보완은 제거 가능.
+       */
+      setLocalVisitRows(
+        (current) => [
+          {
+            key:
+              `local-${created.encounter_id}`,
+            encounterId:
+              created.encounter_id,
+            assessmentId:
+              null,
+            patientName:
+              selectedPatient.name,
+            patientNo:
+              selectedPatient.patient_no,
+            ageSex:
+              patientAgeSex(
+                selectedPatient,
+              ),
+            encounterType:
+              encounterTypeLabel(
+                created.encounter_type ??
+                  encounterType,
+              ),
+            status:
+              "REGISTERED",
+            registeredAt:
+              created.arrived_at ??
+              new Date().toISOString(),
+          },
+          ...current.filter(
+            (item) =>
+              item.encounterId !==
+              created.encounter_id,
+          ),
+        ],
+      );
+
+      /*
+       * Backend에서 Encounter 생성과 동시에 Assessment가
+       * 만들어지는 경우를 고려해 기존 Worklist를 확인합니다.
+       * 이 조회는 왼쪽 전체 내원 목록의 원본 데이터가 아니라,
+       * 접수 후 Assessment 연결 확인 용도입니다.
+       */
+      const latestWorklist =
+        await getAssessmentWorklist();
+
+      setWorklist(
+        latestWorklist.results ??
+          [],
+      );
+
+      const existing =
+        latestWorklist.results?.find(
+          (item) =>
+            item.encounter_id ===
+              created.encounter_id &&
+            Boolean(
+              item.assessment_id,
+            ),
+        );
+
+
+      let assessmentId =
+        existing?.assessment_id ??
+        null;
+
+      let encounterId =
+        created.encounter_id;
+
+
+      if (
+        !assessmentId
+      ) {
+        const started =
+          await startAssessment({
+            encounter_id:
+              created.encounter_id,
+          });
+
+        assessmentId =
+          started.assessment_id;
+
+        encounterId =
+          started.encounter_id ??
+          created.encounter_id;
+      }
+
+
+      if (
+        !assessmentId
+      ) {
+        throw new Error(
+          "ASSESSMENT_ID_MISSING",
+        );
+      }
+
+
+      setLocalVisitRows(
+        (current) =>
+          current.map(
+            (item) =>
+              item.encounterId ===
+              created.encounter_id
+                ? {
+                    ...item,
+                    assessmentId,
+                    status:
+                      "TRIAGE",
+                  }
+                : item,
+          ),
+      );
+
+
+      onOpenTriage(
+        assessmentId,
+        encounterId,
+      );
+    } catch (
+      requestError
+    ) {
+      setError(
+        apiError(
+          requestError,
+          "접수를 완료하지 못했습니다.",
+        ),
+      );
+    } finally {
+      setBusy(
+        null,
+      );
+    }
+  }
+
+
+  /* =======================================================
+     Render
+     ======================================================= */
+
   return (
-    <section className="reception-initial-assessment">
-      <header className="reception-initial-assessment__heading">
-        <span>RECEPTION · INITIAL ASSESSMENT</span>
-        <h1>접수 · 초기평가</h1>
-        <p>
-          환자 접수 정보를 준비하고 초기평가 대기 환자의 Triage 업무를
-          이어서 진행합니다.
-        </p>
+    <section className="reception-page">
+
+      {/* ===================================================
+          Header
+          =================================================== */}
+
+      <header className="reception-heading">
+
+        <div className="reception-heading__title">
+
+          <div className="reception-heading__main-row">
+
+            <h1>
+              접수 · 내원관리
+            </h1>
+
+            <p>
+              내원 환자를 검색하고 접수 후 초기평가로 연결합니다.
+            </p>
+
+          </div>
+
+        </div>
+
       </header>
 
 
-      {/* 전체 업무 순서를 한눈에 확인하는 읽기 전용 단계 표시 */}
-      <ol className="reception-flow" aria-label="접수 및 초기평가 진행 단계">
-        <li className="current"><span>1</span>환자 선택</li>
-        <li><span>2</span>접수 정보</li>
-        <li><span>3</span>Encounter 생성</li>
-        <li><span>4</span>초기평가</li>
-        <li><span>5</span>Triage 완료</li>
-      </ol>
+      {/* ===================================================
+          Compact Summary
+          =================================================== */}
+
+      <div className="reception-summary-line">
+
+        <span>
+          오늘 접수
+          <strong>
+            {todayVisitRows.length}
+          </strong>
+        </span>
+
+        <i />
+
+        <span>
+          대기
+          <strong>
+            {countByStatus(
+              "WAITING",
+            )}
+          </strong>
+        </span>
+
+        <i />
+
+        <span>
+          초기평가
+          <strong>
+            {countByStatus(
+              "TRIAGE",
+            )}
+          </strong>
+        </span>
+
+        <i />
+
+        <span>
+          검사대기
+          <strong>
+            {countByStatus(
+              "IMAGING",
+            )}
+          </strong>
+        </span>
+
+        <i />
+
+        <span>
+          진료중
+          <strong>
+            {countByStatus(
+              "IN_PROGRESS",
+            )}
+          </strong>
+        </span>
+
+      </div>
 
 
-      {/*
-        Encounter 접수 UI
-        POST /api/v1/encounters의 구체 schema가 확정되기 전까지 화면 입력값을
-        API payload로 변환하거나 전송하지 않는다.
-      */}
-      <article className="reception-card">
-        <div className="reception-card__header">
-          <div>
-            <h2>환자 접수</h2>
-            <p>환자를 확인한 뒤 방문 정보를 입력합니다.</p>
-          </div>
+      {/* ===================================================
+          Message
+          =================================================== */}
 
-          <span className="reception-card__status">API 연결 대기</span>
+      {error && (
+        <div
+          className="reception-message reception-message--error"
+          role="alert"
+        >
+          {error}
         </div>
+      )}
 
 
-        <div className="reception-card__body">
-          <section className="reception-patient-search">
-            <div className="reception-section-title">
-              <strong>환자 검색 · 선택</strong>
-              <span>환자번호 또는 환자명으로 대상 환자를 찾습니다.</span>
+      {info && (
+        <div
+          className="reception-message reception-message--info"
+        >
+          {info}
+        </div>
+      )}
+
+
+      {/* ===================================================
+          Main Workspace
+          =================================================== */}
+
+      <div className="reception-workspace">
+
+
+        {/* =================================================
+            LEFT
+            오늘 내원 환자
+            ================================================= */}
+
+        <aside className="reception-panel reception-today-panel">
+
+          <div className="reception-panel__heading">
+
+            <div>
+
+              <strong>
+                오늘 내원 환자 ({todayVisitRows.length})
+              </strong>
+
+              <span>
+                접수부터 진료까지 현재 상태를 확인합니다.
+              </span>
+
             </div>
 
-            <form className="reception-search-row" onSubmit={handlePatientSearch}>
-              <label>
-                <span>환자 검색</span>
-                <input
-                  type="search"
-                  value={patientQuery}
-                  onChange={(event) => setPatientQuery(event.target.value)}
-                  placeholder="환자번호 또는 환자명"
-                />
-              </label>
 
-              <button
-                type="submit"
-                disabled={!patientQuery.trim() || isSearchingPatients}
-              >
-                {isSearchingPatients ? "검색 중..." : "검색"}
-              </button>
-            </form>
+            <button
+              className="reception-icon-button"
+              type="button"
+              disabled={
+                worklistLoading
+              }
+              onClick={() => {
+                void loadWorklist();
+              }}
+              aria-label="오늘 내원 환자 새로고침"
+              title="새로고침"
+            >
+              ↻
+            </button>
 
-            <div className="reception-patient-results" aria-live="polite">
-              {patientSearchError ? (
-                <div className="reception-patient-empty is-error">
-                  <strong>환자 검색에 실패했습니다.</strong>
-                  <p>{patientSearchError}</p>
+          </div>
+
+
+          <div className="reception-today-table">
+
+            <div className="reception-today-table__head">
+
+              <span>
+                상태
+              </span>
+
+              <span>
+                내원유형
+              </span>
+
+              <span>
+                환자명
+              </span>
+
+              <span>
+                나이/성별
+              </span>
+
+              <span>
+                접수시간
+              </span>
+
+            </div>
+
+
+            <div className="reception-today-table__body">
+
+              {worklistLoading &&
+              todayVisitRows.length ===
+                0 ? (
+                <div className="reception-empty">
+                  내원 정보를 불러오고 있습니다.
                 </div>
-              ) : !hasSearchedPatients ? (
-                <div className="reception-patient-empty">
-                  <strong>환자를 검색해 주세요.</strong>
-                  <p>환자번호 또는 환자명으로 검색할 수 있습니다.</p>
+              ) : worklistError &&
+                todayVisitRows.length ===
+                  0 ? (
+                <div className="reception-empty reception-empty--error">
+                  {worklistError}
                 </div>
-              ) : patientResults.length === 0 ? (
-                <div className="reception-patient-empty">
-                  <strong>검색 결과가 없습니다.</strong>
-                  <p>검색어를 확인한 뒤 다시 시도해 주세요.</p>
+              ) : pagedVisitRows.length ===
+                0 ? (
+                <div className="reception-empty reception-empty--with-note">
+
+                  <strong>
+                    표시할 오늘 내원 환자가 없습니다.
+                  </strong>
+
+                  <span>
+                    오늘 접수된 환자가 이곳에 표시됩니다.
+                  </span>
+
                 </div>
               ) : (
-                <div className="reception-patient-list">
-                  {patientResults.map((patient) => (
+                pagedVisitRows.map(
+                  (item) => {
+
+                    const statusClass =
+                      receptionStatusClass(
+                        item.status,
+                      );
+
+                    const canOpen =
+                      Boolean(
+                        item.assessmentId,
+                      );
+
+                    const opening =
+                      openingEncounterId ===
+                      item.encounterId;
+
+                    return (
+                      <button
+                        key={
+                          item.key
+                        }
+                        type="button"
+                        className={
+                          canOpen
+                            ? "reception-today-row is-clickable"
+                            : "reception-today-row"
+                        }
+                        disabled={
+                          openingEncounterId !==
+                          null
+                        }
+                        onClick={() => {
+                          if (
+                            canOpen
+                          ) {
+                            void openTodayVisit(
+                              item,
+                            );
+                          }
+                        }}
+                      >
+
+                        <span className="reception-today-row__status">
+
+                          <i
+                            className={
+                              `reception-status-dot reception-status-dot--${statusClass}`
+                            }
+                          />
+
+                          <b
+                            className={
+                              `reception-status-text reception-status-text--${statusClass}`
+                            }
+                          >
+                            {receptionStatusLabel(
+                              item.status,
+                            )}
+                          </b>
+
+                        </span>
+
+                        <span className="reception-today-row__type">
+                          {item.encounterType}
+                        </span>
+
+                        <span className="reception-today-row__patient">
+
+                          <strong>
+                            {item.patientName}
+                          </strong>
+
+                          <small>
+                            {item.patientNo}
+                          </small>
+
+                        </span>
+
+                        <span>
+                          {item.ageSex}
+                        </span>
+
+                        <span className="reception-today-row__time">
+                          {opening
+                            ? "여는 중..."
+                            : formatTime(
+                                item.registeredAt,
+                              )}
+                        </span>
+
+                      </button>
+                    );
+                  },
+                )
+              )}
+
+            </div>
+
+          </div>
+
+
+          <footer className="reception-pagination">
+
+            <button
+              type="button"
+              disabled={
+                page <= 1
+              }
+              onClick={() => {
+                setPage(
+                  (current) =>
+                    Math.max(
+                      1,
+                      current - 1,
+                    ),
+                );
+              }}
+              aria-label="이전 페이지"
+            >
+              ‹
+            </button>
+
+
+            {Array.from(
+              {
+                length:
+                  totalPages,
+              },
+              (
+                _,
+                index,
+              ) =>
+                index + 1,
+            )
+              .slice(
+                0,
+                5,
+              )
+              .map(
+                (pageNumber) => (
+                  <button
+                    key={
+                      pageNumber
+                    }
+                    type="button"
+                    className={
+                      page ===
+                      pageNumber
+                        ? "is-active"
+                        : ""
+                    }
+                    onClick={() => {
+                      setPage(
+                        pageNumber,
+                      );
+                    }}
+                  >
+                    {pageNumber}
+                  </button>
+                ),
+              )}
+
+
+            <button
+              type="button"
+              disabled={
+                page >=
+                totalPages
+              }
+              onClick={() => {
+                setPage(
+                  (current) =>
+                    Math.min(
+                      totalPages,
+                      current + 1,
+                    ),
+                );
+              }}
+              aria-label="다음 페이지"
+            >
+              ›
+            </button>
+
+
+            <span className="reception-pagination__size">
+              {PAGE_SIZE}개씩 보기
+            </span>
+
+          </footer>
+
+        </aside>
+
+
+        {/* =================================================
+            CENTER
+            환자 검색
+            ================================================= */}
+
+        <main className="reception-panel reception-search-panel">
+
+          <div className="reception-panel__heading">
+
+            <div>
+
+              <strong>
+                환자 검색
+              </strong>
+
+              <span>
+                이름 또는 환자번호로 검색합니다.
+              </span>
+
+            </div>
+
+          </div>
+
+
+          <form
+            className="reception-search-form"
+            onSubmit={
+              searchPatients
+            }
+          >
+
+            <div className="reception-search-input-wrap">
+
+              <span className="reception-search-input-icon">
+                ⌕
+              </span>
+
+              <input
+                type="search"
+                value={query}
+                onChange={(
+                  event,
+                ) => {
+                  setQuery(
+                    event.target.value,
+                  );
+                }}
+                placeholder="환자명 또는 환자번호"
+              />
+
+            </div>
+
+
+            <button
+              type="submit"
+              disabled={
+                !query.trim() ||
+                busy !== null
+              }
+            >
+              {busy ===
+              "SEARCH"
+                ? "검색 중..."
+                : "검색"}
+            </button>
+
+          </form>
+
+
+          {!showCreate && (
+            <div className="reception-search-content">
+
+              {!searched ? (
+                <div className="reception-search-empty">
+
+                  <div className="reception-search-empty__icon">
+                    ⌕
+                  </div>
+
+                  <strong>
+                    환자를 검색해 주세요.
+                  </strong>
+
+                  <span>
+                    기존 환자를 먼저 확인한 뒤 접수를 진행합니다.
+                  </span>
+
+                </div>
+              ) : results.length >
+                0 ? (
+                <>
+
+                  <div className="reception-result-count">
+
+                    <strong>
+                      검색 결과 {results.length}건
+                    </strong>
+
                     <button
-                      key={patient.id}
                       type="button"
-                      className={
-                        selectedPatient?.id === patient.id
-                          ? "reception-patient-item is-selected"
-                          : "reception-patient-item"
-                      }
-                      onClick={() => setSelectedPatient(patient)}
+                      className="reception-result-sort"
                     >
-                      <span>
-                        <strong>{patient.name}</strong>
-                        <small>{patient.patient_no}</small>
-                      </span>
-                      <span>
-                        <small>{patient.birth_date ?? "생년월일 미등록"}</small>
-                        <small>{patient.sex ?? "성별 미등록"}</small>
-                      </span>
+                      정확도순⌄
                     </button>
-                  ))}
+
+                  </div>
+
+
+                  <div className="reception-result-list">
+
+                    {results.map(
+                      (patient) => {
+
+                        const selected =
+                          selectedPatient
+                            ?.id ===
+                          patient.id;
+
+                        return (
+                          <article
+                            key={
+                              patient.id
+                            }
+                            className={
+                              selected
+                                ? "reception-result-card is-selected"
+                                : "reception-result-card"
+                            }
+                          >
+
+                            <div className="reception-result-card__avatar">
+                              {patient.name
+                                .trim()
+                                .charAt(0) ||
+                                "P"}
+                            </div>
+
+
+                            <div className="reception-result-card__body">
+
+                              <div className="reception-result-card__top">
+
+                                <div>
+
+                                  <strong>
+                                    {patient.name}
+                                  </strong>
+
+                                  <span>
+                                    {patient.patient_no}
+                                  </span>
+
+                                </div>
+
+
+                                <div className="reception-result-card__last-visit">
+
+                                  <small>
+                                    최근 내원
+                                  </small>
+
+                                  <span>
+                                    -
+                                  </span>
+
+                                </div>
+
+                              </div>
+
+
+                              <div className="reception-result-card__meta">
+
+                                <span>
+                                  {patientAgeSexLong(
+                                    patient,
+                                  )}
+                                </span>
+
+                                <span>
+                                  {patient.birth_date ??
+                                    "-"}
+                                </span>
+
+                                <span>
+                                  {phoneLabel(
+                                    patient.phone,
+                                  )}
+                                </span>
+
+                              </div>
+
+                            </div>
+
+
+                            <button
+                              type="button"
+                              className="reception-result-card__select"
+                              onClick={() => {
+                                selectPatient(
+                                  patient,
+                                );
+                              }}
+                            >
+                              {selected
+                                ? "선택됨"
+                                : "환자 선택"}
+                            </button>
+
+                          </article>
+                        );
+                      },
+                    )}
+
+                  </div>
+
+
+                  <div className="reception-new-patient-area">
+
+                    <div>
+
+                      <strong>
+                        검색 결과가 없나요?
+                      </strong>
+
+                      <span>
+                        신규 환자를 등록하여 접수를 진행할 수 있습니다.
+                      </span>
+
+                    </div>
+
+
+                    <button
+                      className="reception-new-patient-link"
+                      type="button"
+                      onClick={
+                        openCreatePatient
+                      }
+                    >
+                      + 신규 환자 등록
+                    </button>
+
+                  </div>
+
+                </>
+              ) : (
+                <div className="reception-search-empty">
+
+                  <div className="reception-search-empty__icon">
+                    +
+                  </div>
+
+                  <strong>
+                    등록된 환자를 찾지 못했습니다.
+                  </strong>
+
+                  <span>
+                    처음 방문한 환자라면 신규 환자로 등록해 주세요.
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={
+                      openCreatePatient
+                    }
+                  >
+                    + 신규 환자 등록
+                  </button>
+
                 </div>
               )}
+
             </div>
-
-            {/* 선택한 Patient 객체와 UUID는 selectedPatient 상태에 함께 보관한다. */}
-            <dl className="reception-selected-patient" aria-label="선택 환자 기본정보">
-              <div><dt>환자 UUID</dt><dd>{selectedPatient?.id ?? "-"}</dd></div>
-              <div><dt>환자번호</dt><dd>{selectedPatient?.patient_no ?? "-"}</dd></div>
-              <div><dt>성명</dt><dd>{selectedPatient?.name ?? "-"}</dd></div>
-              <div><dt>생년월일</dt><dd>{selectedPatient?.birth_date ?? "-"}</dd></div>
-              <div><dt>추정 나이</dt><dd>{selectedPatient?.estimated_age ?? "-"}</dd></div>
-              <div><dt>성별</dt><dd>{selectedPatient?.sex ?? "-"}</dd></div>
-              <div><dt>연락처</dt><dd>{selectedPatient?.phone ?? "-"}</dd></div>
-              <div><dt>상태</dt><dd>{selectedPatient?.status ?? "-"}</dd></div>
-            </dl>
-          </section>
+          )}
 
 
-          <section className="reception-information">
-            <div className="reception-section-title">
-              <strong>접수 정보</strong>
-              <span>방문 유형, 진료과와 실제 내원시간을 확인합니다.</span>
-            </div>
+          {/* ===============================================
+              신규 환자 등록
+              =============================================== */}
 
-            <div className="reception-form-grid">
-              <label>
-                <span>방문 유형</span>
-                <select
-                  value={visitType}
-                  onChange={(event) => setVisitType(event.target.value)}
-                  disabled
+          {showCreate && (
+            <form
+              className="reception-create-form"
+              onSubmit={
+                registerPatient
+              }
+            >
+
+              <div className="reception-create-form__heading">
+
+                <div>
+
+                  <strong>
+                    신규 환자 등록
+                  </strong>
+
+                  <span>
+                    접수에 필요한 기본정보를 입력합니다.
+                  </span>
+
+                </div>
+
+
+                <button
+                  className="reception-create-form__back"
+                  type="button"
+                  onClick={
+                    closeCreatePatient
+                  }
                 >
-                  <option value="">Swagger enum 확인 필요</option>
-                </select>
-              </label>
+                  ← {results.length > 0
+                    ? "검색 결과로"
+                    : "환자 검색으로"}
+                </button>
+
+              </div>
+
 
               <label>
-                <span>진료과</span>
-                <select
-                  value={department}
-                  onChange={(event) => setDepartment(event.target.value)}
-                  disabled
-                >
-                  <option value="">진료과 API 연결 필요</option>
-                </select>
-              </label>
 
-              <label>
-                <span>내원시간</span>
+                <span>
+                  이름
+                  <em>
+                    *
+                  </em>
+                </span>
+
                 <input
-                  type="datetime-local"
-                  value={arrivedAt}
-                  onChange={(event) => setArrivedAt(event.target.value)}
+                  required
+                  autoFocus
+                  value={
+                    newPatient.name
+                  }
+                  onChange={(
+                    event,
+                  ) => {
+                    setNewPatient(
+                      (
+                        current,
+                      ) => ({
+                        ...current,
+                        name:
+                          event.target
+                            .value,
+                      }),
+                    );
+                  }}
+                  placeholder="환자 이름"
                 />
+
               </label>
+
+
+              <div className="reception-create-form__row">
+
+                <label>
+
+                  <span>
+                    생년월일
+                    <em>
+                      *
+                    </em>
+                  </span>
+
+                  <input
+                    required
+                    type="date"
+                    max={
+                      getTodayDate()
+                    }
+                    value={
+                      newPatient.birth_date
+                    }
+                    onChange={(
+                      event,
+                    ) => {
+                      setNewPatient(
+                        (
+                          current,
+                        ) => ({
+                          ...current,
+                          birth_date:
+                            event.target
+                              .value,
+                        }),
+                      );
+                    }}
+                  />
+
+                </label>
+
+
+                <label>
+
+                  <span>
+                    성별
+                    <em>
+                      *
+                    </em>
+                  </span>
+
+                  <select
+                    required
+                    value={
+                      newPatient.sex
+                    }
+                    onChange={(
+                      event,
+                    ) => {
+                      setNewPatient(
+                        (
+                          current,
+                        ) => ({
+                          ...current,
+                          sex:
+                            event.target
+                              .value as Sex,
+                        }),
+                      );
+                    }}
+                  >
+
+                    <option value="">
+                      선택
+                    </option>
+
+                    <option value="M">
+                      남
+                    </option>
+
+                    <option value="F">
+                      여
+                    </option>
+
+                  </select>
+
+                </label>
+
+              </div>
+
+
+              <label>
+
+                <span>
+                  전화번호
+                </span>
+
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  value={
+                    newPatient.phone
+                  }
+                  onChange={(
+                    event,
+                  ) => {
+                    setNewPatient(
+                      (
+                        current,
+                      ) => ({
+                        ...current,
+                        phone:
+                          event.target
+                            .value,
+                      }),
+                    );
+                  }}
+                  placeholder="010-0000-0000"
+                />
+
+              </label>
+
+
+              <div className="reception-create-form__actions">
+
+                <button
+                  className="secondary"
+                  type="button"
+                  disabled={
+                    busy !== null
+                  }
+                  onClick={
+                    closeCreatePatient
+                  }
+                >
+                  취소
+                </button>
+
+
+                <button
+                  type="submit"
+                  disabled={
+                    busy !== null ||
+                    !newPatient.name.trim() ||
+                    !newPatient.birth_date ||
+                    !newPatient.sex
+                  }
+                >
+                  {busy ===
+                  "CREATE_PATIENT"
+                    ? "등록 중..."
+                    : "환자 등록"}
+                </button>
+
+              </div>
+
+            </form>
+          )}
+
+        </main>
+
+
+        {/* =================================================
+            RIGHT
+            선택 환자 정보 및 접수
+            ================================================= */}
+
+        <aside className="reception-panel reception-register-panel">
+
+          <div className="reception-panel__heading">
+
+            <div>
+
+              <strong>
+                선택 환자 정보 및 접수
+              </strong>
+
+              <span>
+                환자를 확인하고 이번 내원 정보를 등록합니다.
+              </span>
+
             </div>
-          </section>
-        </div>
 
 
-        <footer className="reception-card__actions">
-          <p>
-            Encounter schema 확정 후 선택 환자와 접수 정보를 전송할 수 있습니다.
-          </p>
-          <button type="button" disabled>
-            접수 완료
-          </button>
-        </footer>
-      </article>
+            {selectedPatient && (
+              <button
+                className="reception-reset-button"
+                type="button"
+                onClick={
+                  resetSelectedPatient
+                }
+              >
+                ↻ 초기화
+              </button>
+            )}
 
-
-      {/* 기존 AssessmentWorklist와 Triage 진입 callback은 그대로 재사용한다. */}
-      <section className="reception-assessment-worklist">
-        <div className="reception-assessment-worklist__heading">
-          <div>
-            <span>AFTER RECEPTION</span>
-            <h2>접수 후 초기평가</h2>
-            <p>
-              접수가 완료되어 Encounter가 생성된 환자는 아래 대기목록에서
-              초기평가를 시작합니다.
-            </p>
           </div>
 
-          <div className="reception-next-step" aria-label="다음 업무 흐름">
-            초기평가 시작 → Triage 입력 → 결과 확인
-          </div>
-        </div>
 
-        <AssessmentWorklist onOpenTriage={onOpenTriage} />
-      </section>
+          {!selectedPatient ? (
+            <div className="reception-selected-empty">
+
+              <div className="reception-selected-empty__icon">
+                +
+              </div>
+
+              <strong>
+                환자를 선택해 주세요.
+              </strong>
+
+              <span>
+                검색 결과에서 접수할 환자를 선택하면
+                이곳에 환자 정보와 접수 양식이 표시됩니다.
+              </span>
+
+            </div>
+          ) : (
+            <div className="reception-register-content">
+
+
+              {/* ===========================================
+                  환자 기본정보
+                  =========================================== */}
+
+              <section className="reception-selected-patient">
+
+                <div className="reception-selected-patient__header">
+
+                  <div className="reception-selected-patient__avatar">
+                    {selectedPatient.name
+                      .trim()
+                      .charAt(0) ||
+                      "P"}
+                  </div>
+
+
+                  <div className="reception-selected-patient__identity">
+
+                    <div>
+
+                      <strong>
+                        {selectedPatient.name}
+                      </strong>
+
+                      <span>
+                        {patientAgeSexLong(
+                          selectedPatient,
+                        )}
+                      </span>
+
+                    </div>
+
+                    <p>
+                      {selectedPatient.patient_no}
+                    </p>
+
+                    <p>
+                      {selectedPatient.birth_date ??
+                        "-"}
+                      {" · "}
+                      {phoneLabel(
+                        selectedPatient.phone,
+                      )}
+                    </p>
+
+                  </div>
+
+                </div>
+
+              </section>
+
+
+              {/* ===========================================
+                  내원 정보
+                  =========================================== */}
+
+              <section className="reception-form-section">
+
+                <div className="reception-form-title">
+                  내원 정보
+                </div>
+
+
+                <label className="reception-field-label">
+                  내원 유형
+                  <em>
+                    *
+                  </em>
+                </label>
+
+
+                <div className="reception-visit-type">
+
+                  <button
+                    type="button"
+                    className={
+                      visitMode ===
+                      "EMERGENCY"
+                        ? "is-active"
+                        : ""
+                    }
+                    onClick={() => {
+                      setVisitMode(
+                        "EMERGENCY",
+                      );
+
+                      setReceptionDraft(
+                        (current) => ({
+                          ...current,
+                          channel:
+                            "EMERGENCY_ROOM",
+                        }),
+                      );
+                    }}
+                  >
+                    ● 응급
+                  </button>
+
+
+                  <button
+                    type="button"
+                    className={
+                      visitMode ===
+                      "APPOINTMENT"
+                        ? "is-active"
+                        : ""
+                    }
+                    onClick={() => {
+                      setVisitMode(
+                        "APPOINTMENT",
+                      );
+                    }}
+                  >
+                    ○ 예약
+                  </button>
+
+
+                  <button
+                    type="button"
+                    className={
+                      visitMode ===
+                      "WALK_IN"
+                        ? "is-active"
+                        : ""
+                    }
+                    onClick={() => {
+                      setVisitMode(
+                        "WALK_IN",
+                      );
+
+                      setAppointmentId(
+                        "",
+                      );
+                    }}
+                    title="현재 Encounter API 계약에는 당일 내원이 정의되어 있지 않습니다."
+                  >
+                    ○ 당일
+                  </button>
+
+                </div>
+
+
+                {visitMode ===
+                  "APPOINTMENT" && (
+                  <label className="reception-field">
+
+                    <span>
+                      확정 예약
+                      <em>
+                        *
+                      </em>
+                    </span>
+
+                    <select
+                      value={
+                        appointmentId
+                      }
+                      disabled={
+                        appointmentLoading
+                      }
+                      onChange={(
+                        event,
+                      ) => {
+                        setAppointmentId(
+                          event.target
+                            .value,
+                        );
+                      }}
+                    >
+
+                      <option value="">
+                        {appointmentLoading
+                          ? "예약 조회 중..."
+                          : "예약을 선택해 주세요"}
+                      </option>
+
+                      {appointments.map(
+                        (
+                          item,
+                        ) => {
+
+                          const startAt =
+                            item.start_at ??
+                            item.slot
+                              ?.start_at ??
+                            "-";
+
+                          const department =
+                            item.department
+                              ?.name ??
+                            "";
+
+                          const clinician =
+                            item.clinician
+                              ?.name ??
+                            "";
+
+                          return (
+                            <option
+                              key={
+                                item.appointment_id
+                              }
+                              value={
+                                item.appointment_id
+                              }
+                            >
+                              {formatDateTime(
+                                startAt,
+                              )}
+                              {department
+                                ? ` · ${department}`
+                                : ""}
+                              {clinician
+                                ? ` · ${clinician}`
+                                : ""}
+                            </option>
+                          );
+                        },
+                      )}
+
+                    </select>
+
+
+                    {!appointmentLoading &&
+                      appointments.length ===
+                        0 && (
+                        <small>
+                          연결 가능한 CONFIRMED 예약이 없습니다.
+                        </small>
+                      )}
+
+                  </label>
+                )}
+
+
+                <label className="reception-field">
+
+                  <span>
+                    방문 사유
+                    <em>
+                      *
+                    </em>
+                  </span>
+
+                  <textarea
+                    value={
+                      receptionDraft.visitReason
+                    }
+                    onChange={(
+                      event,
+                    ) => {
+                      setReceptionDraft(
+                        (
+                          current,
+                        ) => ({
+                          ...current,
+                          visitReason:
+                            event.target
+                              .value,
+                        }),
+                      );
+                    }}
+                    placeholder="주요 증상 또는 방문 사유를 입력하세요."
+                    maxLength={200}
+                  />
+
+                  <small className="reception-field__counter">
+                    {receptionDraft.visitReason.length}/200
+                  </small>
+
+                </label>
+
+
+                <label className="reception-field">
+
+                  <span>
+                    진료과
+                    <em>
+                      *
+                    </em>
+                  </span>
+
+                  <select
+                    value={
+                      receptionDraft.department
+                    }
+                    onChange={(
+                      event,
+                    ) => {
+                      setReceptionDraft(
+                        (
+                          current,
+                        ) => ({
+                          ...current,
+                          department:
+                            event.target
+                              .value,
+                          clinician: "",
+                        }),
+                      );
+                    }}
+                  >
+
+                    <option value="">
+                      진료과 선택
+                    </option>
+
+                    <option value="신경과">
+                      신경과
+                    </option>
+
+                    <option value="신경외과">
+                      신경외과
+                    </option>
+
+                    <option value="영상의학과">
+                      영상의학과
+                    </option>
+
+                  </select>
+
+                </label>
+
+
+                <label className="reception-field">
+
+                  <span>
+                    담당의
+                    <em>
+                      *
+                    </em>
+                  </span>
+
+                  <select
+                    value={
+                      receptionDraft.clinician
+                    }
+                    onChange={(
+                      event,
+                    ) => {
+                      setReceptionDraft(
+                        (
+                          current,
+                        ) => ({
+                          ...current,
+                          clinician:
+                            event.target
+                              .value,
+                        }),
+                      );
+                    }}
+                  >
+
+                    <option value="">
+                      담당 의료진 선택
+                    </option>
+
+                    {receptionDraft.clinician && (
+                      <option
+                        value={
+                          receptionDraft.clinician
+                        }
+                      >
+                        {receptionDraft.clinician}
+                      </option>
+                    )}
+
+                  </select>
+
+                  {!selectedAppointment && (
+                    <small>
+                      진료과별 담당의 목록 API 연결 후 선택 항목을 채울 수 있습니다.
+                    </small>
+                  )}
+
+                </label>
+
+
+                <label className="reception-field">
+
+                  <span>
+                    접수 채널
+                    <em>
+                      *
+                    </em>
+                  </span>
+
+                  <select
+                    value={
+                      receptionDraft.channel
+                    }
+                    onChange={(
+                      event,
+                    ) => {
+                      setReceptionDraft(
+                        (
+                          current,
+                        ) => ({
+                          ...current,
+                          channel:
+                            event.target
+                              .value,
+                        }),
+                      );
+                    }}
+                  >
+
+                    <option value="EMERGENCY_ROOM">
+                      응급실
+                    </option>
+
+                    <option value="OUTPATIENT_DESK">
+                      외래 접수
+                    </option>
+
+                    <option value="APPOINTMENT">
+                      예약
+                    </option>
+
+                  </select>
+
+                </label>
+
+
+                <label className="reception-field">
+
+                  <span>
+                    우선순위
+                    <em>
+                      *
+                    </em>
+                  </span>
+
+                  <select
+                    value={
+                      receptionDraft.priority
+                    }
+                    onChange={(
+                      event,
+                    ) => {
+                      setReceptionDraft(
+                        (
+                          current,
+                        ) => ({
+                          ...current,
+                          priority:
+                            event.target
+                              .value,
+                        }),
+                      );
+                    }}
+                  >
+
+                    <option value="URGENT">
+                      높음 (URGENT)
+                    </option>
+
+                    <option value="NORMAL">
+                      보통 (NORMAL)
+                    </option>
+
+                    <option value="EMERGENCY">
+                      응급 (EMERGENCY)
+                    </option>
+
+                  </select>
+
+                </label>
+
+
+                <label className="reception-field">
+
+                  <span>
+                    비고
+                  </span>
+
+                  <textarea
+                    value={
+                      receptionDraft.memo
+                    }
+                    onChange={(
+                      event,
+                    ) => {
+                      setReceptionDraft(
+                        (
+                          current,
+                        ) => ({
+                          ...current,
+                          memo:
+                            event.target
+                              .value,
+                        }),
+                      );
+                    }}
+                    placeholder="추가 메모를 입력하세요. (선택)"
+                    maxLength={200}
+                  />
+
+                  <small className="reception-field__counter">
+                    {receptionDraft.memo.length}/200
+                  </small>
+
+                </label>
+
+              </section>
+
+
+              <footer className="reception-register-actions">
+
+                <span>
+                  현재 API에는 환자 · 내원유형 · 예약 ID만 저장됩니다.
+                  나머지 접수 항목은 Backend 계약 확정 후 payload에 연결해야 합니다.
+                </span>
+
+
+                <button
+                  type="button"
+                  disabled={
+                    busy !== null ||
+                    appointmentLoading ||
+                    (
+                      visitMode ===
+                        "APPOINTMENT" &&
+                      !appointmentId
+                    ) ||
+                    visitMode ===
+                      "WALK_IN"
+                  }
+                  onClick={() => {
+                    void registerEncounter();
+                  }}
+                >
+                  {busy ===
+                  "REGISTER_ENCOUNTER"
+                    ? "접수 처리 중..."
+                    : "접수 완료 · 초기평가로 이동 →"}
+                </button>
+
+              </footer>
+
+            </div>
+          )}
+
+        </aside>
+
+      </div>
+
     </section>
   );
 }

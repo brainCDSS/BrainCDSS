@@ -1,27 +1,70 @@
 import { apiRequest } from "../../api/client";
-import type { PatientListResponse } from "./types";
+
+import type {
+  Patient,
+  PatientListResponse,
+} from "./types";
+
 
 /**
- * 환자 목록 조회 API
+ * 환자 목록 조회
  *
  * GET /api/v1/patients
- *
- * 현재는 VITE_BACKEND_URL이 Postman Mock Server를 가리키므로
- * Mock 데이터를 받아온다.
- *
- * 나중에 Django Backend가 완성되면
- * VITE_BACKEND_URL만 Django 주소로 변경하면 된다.
  */
-export function getPatients(search?: string): Promise<PatientListResponse> {
-  const query = new URLSearchParams();
+export function getPatients(
+  search?: string,
+  page = 1,
+): Promise<PatientListResponse> {
+  const query =
+    new URLSearchParams();
 
   if (search?.trim()) {
-    query.set("search", search.trim());
+    query.set(
+      "search",
+      search.trim(),
+    );
   }
 
-  const queryString = query.toString();
+  query.set(
+    "page",
+    String(page),
+  );
 
   return apiRequest<PatientListResponse>(
-    `/api/v1/patients${queryString ? `?${queryString}` : ""}`,
+    `/api/v1/patients?${query.toString()}`,
+  );
+}
+
+
+/**
+ * 환자 신규 등록
+ */
+export function createPatient(
+  payload: {
+    name: string;
+    birth_date: string;
+    sex: "M" | "F" | "U";
+    phone: string;
+  },
+): Promise<Patient> {
+  return apiRequest<Patient>(
+    "/api/v1/patients",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type":
+          "application/json",
+      },
+      body: JSON.stringify(
+        payload,
+      ),
+    },
+  );
+}
+
+/** GET /api/v1/patients/{patient_id} */
+export function getPatient(patientId: string): Promise<Patient> {
+  return apiRequest<Patient>(
+    `/api/v1/patients/${encodeURIComponent(patientId)}`,
   );
 }

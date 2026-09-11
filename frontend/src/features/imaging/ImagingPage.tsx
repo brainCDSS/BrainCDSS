@@ -6,13 +6,16 @@ import {
 } from "react";
 
 import {
+  getImagingStudy,
+  getImagingStudySeries,
   getImagingStudies,
+  getKeyImages,
+  getStudyAIAnalyses,
+  getViewerContext,
 } from "./api";
 
 import type {
-  AnalysisType,
   ImagingFilter,
-  ImagingStatus,
   ImagingStudy,
 } from "./types";
 
@@ -23,17 +26,12 @@ import "./imaging.css";
    화면 표시용 Label
    ========================================================= */
 
-const analysisLabels: Record<AnalysisType, string> = {
-  HEMORRHAGE: "뇌출혈",
-  ISCHEMIA: "뇌경색",
-  ANEURYSM: "뇌동맥류",
-};
-
-
-const statusLabels: Record<ImagingStatus, string> = {
-  READY: "준비완료",
-  REVIEW_REQUIRED: "확인필요",
-  QUEUED: "분석대기",
+const statusLabels: Record<string, string> = {
+  RECEIVING: "수신 중",
+  AVAILABLE: "사용 가능",
+  INCOMPLETE: "불완전",
+  UNMATCHED: "환자 미연결",
+  ERROR: "오류",
 };
 
 
@@ -110,12 +108,12 @@ export default function ImagingPage() {
   );
 
 
-  const [
-    selectedAnalysis,
-    setSelectedAnalysis,
-  ] = useState<AnalysisType | "">(
-    "",
-  );
+  const [selectedAnalysis, setSelectedAnalysis] = useState("");
+  const [selectedSeriesCount, setSelectedSeriesCount] = useState<number | null>(null);
+  const [selectedAIAnalysisCount, setSelectedAIAnalysisCount] = useState<number | null>(null);
+  const [selectedKeyImageCount, setSelectedKeyImageCount] = useState<number | null>(null);
+  const [viewerContextAvailable, setViewerContextAvailable] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
 
 
   /* =======================================================
@@ -378,6 +376,35 @@ export default function ImagingPage() {
         selectedStudyId,
     ) ?? null;
 
+  useEffect(() => {
+    if (!selectedStudyId) {
+      setSelectedSeriesCount(null);
+      setSelectedAIAnalysisCount(null);
+      setSelectedKeyImageCount(null);
+      setViewerContextAvailable(false);
+      setDetailError(null);
+      return;
+    }
+    let active = true;
+    setDetailError(null);
+    Promise.all([
+      getImagingStudy(selectedStudyId),
+      getImagingStudySeries(selectedStudyId),
+      getStudyAIAnalyses(selectedStudyId),
+      getViewerContext(selectedStudyId),
+      getKeyImages(selectedStudyId),
+    ]).then(([detail, series, analyses, viewerContext, keyImages]) => {
+      if (!active) return;
+      setSelectedSeriesCount(series.series.length || detail.series.length);
+      setSelectedAIAnalysisCount(analyses.results.length);
+      setSelectedKeyImageCount(keyImages.results.length);
+      setViewerContextAvailable(Boolean(viewerContext.study));
+    }).catch(() => {
+      if (active) setDetailError("선택한 Study의 상세 데이터를 불러오지 못했습니다.");
+    });
+    return () => { active = false; };
+  }, [selectedStudyId]);
+
 
   /* =======================================================
      모달리티 변경
@@ -443,7 +470,7 @@ export default function ImagingPage() {
 
 
     setSelectedAnalysis(
-      study.recommended_analysis,
+      "",
     );
 
   };
@@ -456,11 +483,9 @@ export default function ImagingPage() {
   const canStartAnalysis =
     selectedStudy !== null &&
     selectedStudy.status ===
-      "READY" &&
+      "AVAILABLE" &&
     selectedAnalysis !== "" &&
-    selectedAnalysis ===
-      selectedStudy
-        .recommended_analysis;
+    false;
 
 
   /* =======================================================
@@ -915,12 +940,7 @@ export default function ImagingPage() {
 
                           <td>
 
-                            {
-                              analysisLabels[
-                                study
-                                  .recommended_analysis
-                              ]
-                            }
+                            Backend 제공 없음
 
                           </td>
 
@@ -934,7 +954,7 @@ export default function ImagingPage() {
                               {
                                 statusLabels[
                                   study.status
-                                ]
+                                ] ?? study.status
                               }
 
                             </span>
@@ -1066,12 +1086,11 @@ export default function ImagingPage() {
 
               추천 분석:{" "}
 
-              {selectedStudy
-                ? analysisLabels[
-                    selectedStudy
-                      .recommended_analysis
-                  ]
-                : "—"}
+              Backend 분석 유형 계약 필요
+              {selectedStudy && (
+                ` · Series ${selectedSeriesCount ?? "—"} · AI ${selectedAIAnalysisCount ?? "—"} · 대표영상 ${selectedKeyImageCount ?? "—"} · Viewer ${viewerContextAvailable ? "연결됨" : "확인 중"}`
+              )}
+              {detailError ? ` · ${detailError}` : ""}
 
             </p>
 
@@ -1100,26 +1119,13 @@ export default function ImagingPage() {
                 event,
               ) =>
                 setSelectedAnalysis(
-                  event.target
-                    .value as AnalysisType,
+                  event.target.value,
                 )
               }
             >
 
               <option value="">
                 분석 종류 선택
-              </option>
-
-              <option value="HEMORRHAGE">
-                뇌출혈
-              </option>
-
-              <option value="ISCHEMIA">
-                뇌경색
-              </option>
-
-              <option value="ANEURYSM">
-                뇌동맥류
               </option>
 
             </select>

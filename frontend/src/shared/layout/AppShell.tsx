@@ -1,9 +1,11 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 
-import Patients from "../../features/patients/Patients";
 import TriageAssessment from "../../features/assessments/TriageAssessment";
 import ReceptionInitialAssessment from "../../features/assessments/ReceptionInitialAssessment";
+// [추가] 신경과 응급 Worklist 연결
+import EmergencyWorklist from "../../features/assessments/EmergencyWorklist";
+// [추가 끝] 신경과 응급 Worklist 연결
 
 import PatientChart from "../../features/patients/PatientChart";
 
@@ -16,6 +18,14 @@ import CDSSResultsPage from "../../features/cdss/CDSSResultsPage";
 import MedicationSafetyPage from "../../features/medication-safety/MedicationSafetyPage";
 import NotificationsPage from "../../features/notifications/NotificationsPage";
 import SurgicalPlanningPage from "../../features/surgical-planning/SurgicalPlanningPage";
+import AppointmentsPage from "../../features/appointments/AppointmentsPage";
+// [추가] 관리자 화면 연결
+import AdminDashboard from "../../features/admin/AdminDashboard";
+import AdminUsersPage from "../../features/admin/AdminUsersPage";
+import SystemMonitoringPage from "../../features/admin/SystemMonitoringPage";
+import AuditLogPage from "../../features/admin/AuditLogPage";
+import AdminSettingsPage from "../../features/admin/AdminSettingsPage";
+// [추가 끝] 관리자 화면 연결
 
 import type { Patient } from "../../features/patients/types";
 import type { ConsultationListItem } from "../../features/consultations/types";
@@ -26,6 +36,7 @@ import Header from "./Header";
 import Sidebar from "./Sidebar";
 import WorkspaceTabs from "./WorkspaceTabs";
 import type { MenuWorkspaceTabKey } from "./WorkspaceTabs";
+import { canAccessMenu } from "./menuConfig";
 
 import "./layout.css";
 
@@ -35,7 +46,10 @@ import "./layout.css";
    ========================================================= */
 
 interface AppShellProps {
-  children: ReactNode;
+  children: ReactNode | ((
+    onOpenPatient: (patient: Patient) => void,
+    onOpenMenu: (menu: SidebarMenuKey) => void,
+  ) => ReactNode);
   currentUser: LoginUser;
   onLogout: () => void;
 }
@@ -211,6 +225,10 @@ export default function AppShell({
     menu: SidebarMenuKey,
   ) => {
 
+    if (!canAccessMenu(currentUser.role.code, menu)) {
+      return;
+    }
+
     /**
      * 현재 AppShell에서 실제 연결된 메뉴
      */
@@ -219,6 +237,7 @@ export default function AppShell({
       menu !== "patients" &&
       menu !== "worklist" &&
       menu !== "triage" &&
+      menu !== "appointments" &&
       menu !== "consultations" &&
       menu !== "imaging" &&
       menu !== "ai-results" &&
@@ -226,7 +245,13 @@ export default function AppShell({
       menu !== "cdss" &&
       menu !== "surgical-planning" &&
       menu !== "prescriptions" &&
-      menu !== "notifications"
+      menu !== "notifications" &&
+      // [추가] 관리자 화면 연결
+      menu !== "admin-users" &&
+      menu !== "admin-monitoring" &&
+      menu !== "admin-audit" &&
+      menu !== "admin-settings"
+      // [추가 끝] 관리자 화면 연결
     ) {
       return;
     }
@@ -304,6 +329,10 @@ export default function AppShell({
   const handleSelectMenuTab = (
     menu: MenuWorkspaceTabKey,
   ) => {
+
+    if (!canAccessMenu(currentUser.role.code, menu)) {
+      return;
+    }
 
     setActivePatientId(null);
     setActiveConsultationId(null);
@@ -685,30 +714,21 @@ export default function AppShell({
     patient: Patient,
   ) => {
 
-    /**
-     * 동일 환자 중복 Tab 방지
-     */
+    /* patient.id별 차트 탭을 유지하고, 같은 환자는 기존 탭을 재사용한다. */
     setOpenPatientTabs(
       (previousTabs) => {
+        const existingIndex = previousTabs.findIndex(
+          (openedPatient) => openedPatient.id === patient.id,
+        );
 
-        const alreadyOpen =
-          previousTabs.some(
-            (openedPatient) =>
-              openedPatient.id ===
-              patient.id,
-          );
-
-
-        if (alreadyOpen) {
-          return previousTabs;
+        if (existingIndex === -1) {
+          return [...previousTabs, patient];
         }
 
-
-        return [
-          ...previousTabs,
-          patient,
-        ];
-
+        return previousTabs.map(
+          (openedPatient, index) =>
+            index === existingIndex ? patient : openedPatient,
+        );
       },
     );
 
@@ -797,7 +817,6 @@ export default function AppShell({
 
   };
 
-
   /* ========================================================
      23. 일반 환자 Workspace Tab 닫기
      ======================================================== */
@@ -809,37 +828,11 @@ export default function AppShell({
     setOpenPatientTabs(
       (previousTabs) =>
         previousTabs.filter(
-          (patient) =>
-            patient.id !==
-            patientId,
+          (patient) => patient.id !== patientId,
         ),
     );
 
-
-    if (
-      activePatientId ===
-      patientId
-    ) {
-
-      setActivePatientId(
-        null,
-      );
-
-
-      const adjacentMenu =
-        openMenuTabs[openMenuTabs.length - 1];
-
-      if (adjacentMenu) {
-        handleSelectMenuTab(adjacentMenu);
-      } else if (isConsultationListTabOpen) {
-        handleSelectConsultationListTab();
-      } else {
-        setActiveMenu(
-          "dashboard",
-        );
-      }
-
-    }
+    handleSelectDashboard();
 
   };
 
@@ -850,6 +843,29 @@ export default function AppShell({
 
   function renderMainContent() {
 
+    const requestedMenu = activePatient ? "patients" : activeMenu;
+    if (!canAccessMenu(currentUser.role.code, requestedMenu)) {
+      return (
+        <section className="clinical-page">
+          <div className="clinical-card">
+            <div className="clinical-state">
+              현재 로그인 역할로 접근할 수 없는 업무입니다.
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    // [추가] 관리자 화면 연결
+    if (currentUser.role.code === "SYSTEM_ADMIN") {
+      if (activeMenu === "admin-users") return <AdminUsersPage />;
+      if (activeMenu === "admin-monitoring") return <SystemMonitoringPage />;
+      if (activeMenu === "admin-audit") return <AuditLogPage />;
+      if (activeMenu === "admin-settings") return <AdminSettingsPage />;
+      return <AdminDashboard />;
+    }
+    // [추가 끝] 관리자 화면 연결
+
 
     /* -------------------------------------------------------
        일반 환자 Chart
@@ -859,6 +875,7 @@ export default function AppShell({
 
       return (
         <PatientChart
+          key={`patient-chart:${activePatient.id}`}
           patient={
             activePatient
           }
@@ -885,7 +902,14 @@ export default function AppShell({
       activeMenu === "patients"
     ) {
 
-      return <Patients />;
+      return (
+        <PatientChart
+          key="patient-management"
+          patient={null}
+          onSelectPatient={handlePatientSelect}
+          onNavigate={handleMenuSelect}
+        />
+      );
 
     }
 
@@ -901,24 +925,9 @@ export default function AppShell({
       activeMenu ===
       "worklist"
     ) {
-
-      return (
-        <section className="clinical-page">
-          <header className="clinical-page__heading">
-            <h2>응급 Worklist</h2>
-            <p>
-              Triage 완료 후 긴급·응급으로 분류된 환자를
-              신경과 의료진이 확인하는 업무 화면입니다.
-            </p>
-          </header>
-
-          <div className="clinical-card">
-            <div className="clinical-state">
-              신경과 응급 Worklist API 화면은 아직 구현되지 않았습니다.
-            </div>
-          </div>
-        </section>
-      );
+      // [추가] 신경과 응급 Worklist 연결
+      return <EmergencyWorklist onOpenPatient={handlePatientSelect} />;
+      // [추가 끝] 신경과 응급 Worklist 연결
 
     }
 
@@ -968,6 +977,10 @@ export default function AppShell({
         />
       );
 
+    }
+
+    if (activeMenu === "appointments") {
+      return <AppointmentsPage currentUser={currentUser} />;
     }
 
 
@@ -1057,7 +1070,9 @@ export default function AppShell({
        Dashboard
        ------------------------------------------------------- */
 
-    return children;
+    return typeof children === "function"
+      ? children(handlePatientSelect, handleMenuSelect)
+      : children;
 
   }
 
@@ -1095,6 +1110,7 @@ export default function AppShell({
           ===================================================== */}
 
       <WorkspaceTabs
+        currentUser={currentUser}
 
         sidebarCollapsed={
           sidebarCollapsed
@@ -1201,6 +1217,7 @@ export default function AppShell({
         {/* Sidebar */}
 
         <Sidebar
+          currentUser={currentUser}
           activeMenu={
             activeMenu
           }

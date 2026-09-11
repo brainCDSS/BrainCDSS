@@ -39,3 +39,13 @@ export interface AIAnalysisResult {
   artifacts: Array<{ type: string; sop_instance_uid: string }>;
   latest_review?: { decision: string } | null;
 }
+
+export interface AIAnalysisDetail extends AIAnalysisItem {
+  completed_at?: string | null;
+  failure_code?: string | null;
+}
+export interface AIResultReview {
+  review_id: string; result_id: string; decision: "ACCEPT" | "MODIFY" | "REJECT";
+  comment: string; corrected_findings?: Record<string, unknown>; reviewer_id?: string; reviewed_at: string;
+}
+export interface AIResultReviewList { result_id: string; reviews: AIResultReview[] }

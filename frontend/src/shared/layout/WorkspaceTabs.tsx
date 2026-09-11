@@ -5,12 +5,13 @@ import {
 } from "react";
 
 import type { Patient } from "../../features/patients/types";
+import type { LoginUser } from "../../features/auth/types";
 
 import type {
   ConsultationListItem,
 } from "../../features/consultations/types";
 import type { SidebarMenuKey } from "./Sidebar";
-import { MENU_LABELS } from "./menuConfig";
+import { MENU_LABELS, canAccessMenu } from "./menuConfig";
 
 export type MenuWorkspaceTabKey = Exclude<
   SidebarMenuKey,
@@ -24,12 +25,24 @@ const NEW_WORK_GROUPS: Array<{
     icon: string;
   }>;
 }> = [
+  // [추가] 관리자 화면 연결
+  {
+    label: "관리자",
+    items: [
+      { key: "admin-users", icon: "관리" },
+      { key: "admin-monitoring", icon: "상태" },
+      { key: "admin-audit", icon: "감사" },
+      { key: "admin-settings", icon: "설정" },
+    ],
+  },
+  // [추가 끝] 관리자 화면 연결
   {
     label: "진료",
     items: [
       { key: "patients", icon: "○" },
       { key: "worklist", icon: "✓" },
       { key: "triage", icon: "✓" },
+      { key: "appointments", icon: "□" },
     ],
   },
   {
@@ -63,6 +76,7 @@ const NEW_WORK_GROUPS: Array<{
    ========================================================= */
 
 interface WorkspaceTabsProps {
+  currentUser: LoginUser;
 
   /* Sidebar */
 
@@ -142,6 +156,7 @@ interface WorkspaceTabsProps {
    ========================================================= */
 
 export default function WorkspaceTabs({
+  currentUser,
 
   sidebarCollapsed = false,
 
@@ -196,6 +211,16 @@ export default function WorkspaceTabs({
   onSelectDashboard = () => {},
 
 }: WorkspaceTabsProps) {
+
+  const canOpenMenu = (menu: SidebarMenuKey) =>
+    canAccessMenu(currentUser.role.code, menu);
+
+  const visibleNewWorkGroups = NEW_WORK_GROUPS
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => canOpenMenu(item.key)),
+    }))
+    .filter((group) => group.items.length > 0);
 
 
   /* ========================================================
@@ -381,9 +406,6 @@ export default function WorkspaceTabs({
 
       <div className="workspace-tabs-list">
 
-        <div className="workspace-tabs-scroll">
-
-
         {/* ===================================================
             Dashboard
             =================================================== */}
@@ -393,8 +415,8 @@ export default function WorkspaceTabs({
 
           className={
             isDashboardActive
-              ? "workspace-tab active"
-              : "workspace-tab"
+              ? "workspace-tab workspace-tab--dashboard active"
+              : "workspace-tab workspace-tab--dashboard"
           }
 
           onClick={
@@ -409,11 +431,14 @@ export default function WorkspaceTabs({
         </button>
 
 
+        <div className="workspace-tabs-scroll">
+
+
         {/* ===================================================
             Sidebar menu page Tabs
             =================================================== */}
 
-        {openMenuTabs.map((menu) => {
+        {openMenuTabs.filter(canOpenMenu).map((menu) => {
 
           const label = MENU_LABELS[menu];
 
@@ -485,7 +510,7 @@ export default function WorkspaceTabs({
 
               <button
                 key={
-                  patient.id
+                  `patient-chart:${patient.id}`
                 }
 
                 type="button"
@@ -507,11 +532,7 @@ export default function WorkspaceTabs({
 
                 <span className="workspace-tab-label">
 
-                  {patient.name}
-
-                  {" | "}
-
-                  Chart
+                  {patient.name} 차트
 
                 </span>
 
@@ -577,7 +598,7 @@ export default function WorkspaceTabs({
             협진 목록 Tab
             =================================================== */}
 
-        {isConsultationListTabOpen && (
+        {isConsultationListTabOpen && canOpenMenu("consultations") && (
 
           <button
             type="button"
@@ -652,7 +673,7 @@ export default function WorkspaceTabs({
             협진 Patient Review Tabs
             =================================================== */}
 
-        {openConsultationTabs.map(
+        {canOpenMenu("consultations") && openConsultationTabs.map(
           (consultation) => {
 
             const consultationId =
@@ -809,7 +830,7 @@ export default function WorkspaceTabs({
               </div>
 
 
-              {NEW_WORK_GROUPS.map((group) => (
+              {visibleNewWorkGroups.map((group) => (
                 <div
                   className="workspace-new-work-group"
                   key={group.label}
@@ -824,6 +845,7 @@ export default function WorkspaceTabs({
                       type="button"
                       className="workspace-new-work-item"
                       onClick={() => {
+                        if (!canOpenMenu(item.key)) return;
                         onOpenMenu(item.key);
                         setIsNewWorkMenuOpen(false);
                       }}

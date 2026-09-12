@@ -817,22 +817,9 @@ export default function AppShell({
 
     setPrescriptionContext(null);
 
-    /* patient.id별 차트 탭을 유지하고, 같은 환자는 기존 탭을 재사용한다. */
+    /* 현재 PatientChart 탭을 재사용하고 선택한 환자로 내용을 교체한다. */
     setOpenPatientTabs(
-      (previousTabs) => {
-        const existingIndex = previousTabs.findIndex(
-          (openedPatient) => openedPatient.id === patient.id,
-        );
-
-        if (existingIndex === -1) {
-          return [...previousTabs, patient];
-        }
-
-        return previousTabs.map(
-          (openedPatient, index) =>
-            index === existingIndex ? patient : openedPatient,
-        );
-      },
+      [patient],
     );
 
 
@@ -1003,7 +990,7 @@ export default function AppShell({
 
       return (
         <PatientChart
-          key={`patient-chart:${activePatient.id}`}
+          key="patient-chart"
           patient={
             activePatient
           }
@@ -1038,7 +1025,7 @@ export default function AppShell({
 
       return (
         <PatientChart
-          key="patient-management"
+          key="patient-chart"
           patient={null}
           onSelectPatient={handlePatientSelect}
           onNavigate={handleMenuSelect}

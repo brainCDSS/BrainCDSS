@@ -1,14 +1,21 @@
+from django.db import transaction
 from django.db.models import OuterRef, Q, Subquery
+from django.utils import timezone
 from django.utils.dateparse import parse_date
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import APIException, NotFound, PermissionDenied, ValidationError
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.assessments.api.generated_real_149 import ContractView002
-from apps.assessments.api.serializers import AssessmentWorklistResponseSerializer
-from apps.assessments.models import InitialAssessment
+from apps.assessments.api.serializers import (
+    AssessmentWorklistResponseSerializer,
+    EmergencyEventAcknowledgeResponseSerializer,
+    EmergencyWorklistResponseSerializer,
+)
+from apps.assessments.models import EmergencyEvent, InitialAssessment
+from apps.audit.services.audit_event import record_audit_event
 from apps.clinical_records.models import Encounter
 from apps.organizations.models import Department
 
@@ -118,3 +125,172 @@ class AssessmentWorklistView(APIView):
             "triage_priority": encounter.worklist_triage_priority,
             "created_at": encounter.worklist_assessment_created_at or encounter.arrived_at,
         }
+
+
+class EmergencyEventAlreadyAcknowledged(APIException):
+    status_code = 409
+    default_code = "EMERGENCY_EVENT_ALREADY_ACKNOWLEDGED"
+    default_detail = "The emergency event has already been acknowledged."
+
+
+def _require_neurologist(request):
+    role_code = getattr(getattr(request.user, "role", None), "code", None)
+    if role_code != "NEUROLOGIST":
+        raise PermissionDenied({
+            "code": "FORBIDDEN_ROLE",
+            "detail": "Only neurologists may access the emergency worklist.",
+        })
+
+
+class EmergencyWorklistView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        _require_neurologist(request)
+
+        queryset = (
+            EmergencyEvent.objects.select_related(
+                "assessment",
+                "encounter__patient",
+            )
+            .filter(
+                assigned_neurologist=request.user,
+                assessment__assigned_neurologist=request.user,
+                assessment__status="COMPLETED",
+                assessment__triage_priority__in=("URGENT", "EMERGENCY"),
+            )
+            .order_by("-notified_at", "-occurred_at", "-created_at")
+        )
+
+        priority = request.query_params.get("priority", "").strip().upper()
+        if priority:
+            if priority not in {"URGENT", "EMERGENCY"}:
+                raise ValidationError({
+                    "priority": "priority must be URGENT or EMERGENCY.",
+                })
+            queryset = queryset.filter(assessment__triage_priority=priority)
+
+        date_filter = parse_date(request.query_params.get("date", ""))
+        if date_filter:
+            queryset = queryset.filter(occurred_at__date=date_filter)
+
+        ack_status = request.query_params.get("ack_status", "").strip().upper()
+        if ack_status:
+            if ack_status == "ACKNOWLEDGED":
+                queryset = queryset.filter(acknowledged_at__isnull=False)
+            elif ack_status in {"NOTIFIED", "UNACKNOWLEDGED"}:
+                queryset = queryset.filter(acknowledged_at__isnull=True)
+            else:
+                raise ValidationError({
+                    "ack_status": (
+                        "ack_status must be NOTIFIED, UNACKNOWLEDGED, "
+                        "or ACKNOWLEDGED."
+                    ),
+                })
+
+        paginator = AssessmentWorklistPagination()
+        page = paginator.paginate_queryset(queryset, request, view=self)
+        payload = {
+            "count": paginator.page.paginator.count,
+            "next": paginator.get_next_link(),
+            "previous": paginator.get_previous_link(),
+            "results": [self._serialize_row(event) for event in page],
+        }
+        return Response(EmergencyWorklistResponseSerializer(payload).data)
+
+    @staticmethod
+    def _serialize_row(event):
+        assessment = event.assessment
+        patient = event.encounter.patient
+        return {
+            "assessment_id": assessment.id,
+            "encounter_id": event.encounter_id,
+            "patient_summary": {
+                "patient_id": patient.id,
+                "patient_no": patient.patient_no,
+                "name": patient.name,
+                "sex": patient.sex,
+                "estimated_age": patient.estimated_age,
+            },
+            "total_score": assessment.total_score,
+            "triage_priority": assessment.triage_priority,
+            "lkw_at": assessment.lkw_at,
+            "event": {
+                "id": event.id,
+                "status": event.status,
+                "notified_at": event.notified_at,
+                "acknowledged_at": event.acknowledged_at,
+            },
+        }
+
+
+class EmergencyEventAcknowledgeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request, event_id):
+        _require_neurologist(request)
+
+        try:
+            event = (
+                EmergencyEvent.objects.select_for_update()
+                .select_related("encounter")
+                .get(pk=event_id)
+            )
+        except EmergencyEvent.DoesNotExist as exc:
+            raise NotFound({
+                "code": "EMERGENCY_EVENT_NOT_FOUND",
+                "detail": "Emergency event not found.",
+            }) from exc
+
+        if event.assigned_neurologist_id != request.user.id:
+            raise PermissionDenied({
+                "code": "EMERGENCY_EVENT_FORBIDDEN",
+                "detail": "This emergency event is assigned to another user.",
+            })
+
+        if event.status != "NOTIFIED" or event.acknowledged_at is not None:
+            raise EmergencyEventAlreadyAcknowledged()
+
+        acknowledged_at = timezone.now()
+        before = {
+            "status": event.status,
+            "acknowledged_by_id": (
+                str(event.acknowledged_by_id)
+                if event.acknowledged_by_id
+                else None
+            ),
+            "acknowledged_at": (
+                event.acknowledged_at.isoformat()
+                if event.acknowledged_at
+                else None
+            ),
+        }
+        event.status = "ACKNOWLEDGED"
+        event.acknowledged_by = request.user
+        event.acknowledged_at = acknowledged_at
+        event.save(update_fields=("status", "acknowledged_by", "acknowledged_at"))
+
+        record_audit_event(
+            source_service="assessments",
+            action="ACKNOWLEDGE_EMERGENCY_EVENT",
+            resource_type="EmergencyEvent",
+            resource_id=event.id,
+            patient_id=event.encounter.patient_id,
+            outcome="SUCCESS",
+            request=request,
+            before_json=before,
+            after_json={
+                "status": event.status,
+                "acknowledged_by_id": str(event.acknowledged_by_id),
+                "acknowledged_at": event.acknowledged_at.isoformat(),
+            },
+        )
+
+        payload = {
+            "event_id": event.id,
+            "status": event.status,
+            "acknowledged_by": request.user.id,
+            "acknowledged_at": acknowledged_at,
+        }
+        return Response(EmergencyEventAcknowledgeResponseSerializer(payload).data)

@@ -125,3 +125,28 @@
 .order-soap-card{display:flex;flex-direction:column}.order-soap-card ul{min-height:0;margin:0;padding:7px 12px;overflow:auto;list-style:none}.order-soap-card li{display:grid;grid-template-columns:68px minmax(0,1fr) auto;gap:7px;padding:8px 0;border-bottom:1px solid #edf1f6;font-size:9px}.order-soap-card li time{color:#8490a3}.order-soap-card li strong{overflow:hidden;color:#36465f;text-overflow:ellipsis;white-space:nowrap}.order-soap-card li span{color:#26795f;font-weight:800}.soap-placeholder{display:flex;justify-content:space-between;gap:8px;margin:auto 12px 12px;padding:10px;border:1px dashed #dbe4ef;border-radius:9px;background:#f8fbff;font-size:9px}.soap-placeholder strong{color:#355c8d}.soap-placeholder span{color:#8490a3}
 .patient-context-item__meta:after{display:inline-flex;padding:2px 5px;border-radius:5px;background:#f2f5f9;color:#78869a;content:"상태 정보";font-size:9px}
 @media(max-width:1450px){.patient-context-dashboard{width:1400px}.patient-context-facts{min-width:480px}.patient-workspace{grid-template-columns:238px minmax(822px,1fr)}}
+
+/* Final patient chart layout */
+.patient-context-dashboard{width:max(100%,1280px);height:100%;min-height:0;grid-template-columns:minmax(960px,1fr) 310px;align-items:stretch;overflow:hidden}
+.patient-workspace{height:100%;min-height:0;grid-template-columns:238px minmax(722px,1fr);overflow:hidden}
+.patient-workspace .patient-context-main{height:100%;min-height:0;overflow:hidden}
+.patient-workspace .patient-context-header{min-height:108px;padding:13px 16px}
+.patient-context-facts{min-width:480px}
+.patient-safety-bar{flex:0 0 auto;margin:8px 10px 0;padding:8px 11px}
+.patient-workspace .patient-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:8px 10px}
+.patient-workspace .patient-summary-card{min-height:126px;padding:10px}
+.patient-summary-card header{position:relative}.patient-summary-card header small{margin-left:auto;color:#78869a;font-size:9px}.patient-summary-card header button{margin-left:auto;padding:3px 6px;border:1px solid #dce5ef;border-radius:7px;background:#fff;color:#216fce;font:inherit;font-size:9px;font-weight:800;cursor:pointer}
+.patient-recent-study-list{padding:5px 0 20px}.patient-recent-study-list>div{display:grid;grid-template-columns:1fr auto 64px;gap:6px;padding:3px 0;color:#708096;font-size:8px}.patient-recent-study-list strong{overflow:hidden;color:#34465f;text-overflow:ellipsis;white-space:nowrap}.patient-recent-study-list span{color:#26795f;font-weight:800}.patient-recent-study-list time{text-align:right}
+.patient-workspace .patient-clinical-focus{min-height:0;flex:1 1 auto;grid-template-columns:minmax(410px,1.15fr) minmax(310px,.85fr);gap:8px;padding:0 10px 10px}
+.patient-workspace .brain-viewer-card,.patient-workspace .ai-result-card{height:100%;min-height:0}
+.patient-workspace .brain-viewer-stage{height:calc(100% - 58px);min-height:300px}
+.patient-workspace .ai-result-card{overflow:auto}
+.patient-chart-loading{display:grid;grid-column:1/-1;place-items:center;border:1px dashed #dce5ef;border-radius:12px;background:#fbfdff;color:#738198;font-size:12px}
+.patient-panel-link{display:block;margin:auto 12px 12px;padding:7px 10px;border:1px solid #a9c9f2;border-radius:8px;background:#fff;color:#146ed5;font:inherit;font-size:10px;font-weight:800;cursor:pointer}
+.patient-context-aside{position:relative;top:auto;height:100%;min-height:0;grid-template-rows:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.patient-context-aside .timeline-card,.patient-context-aside .recent-prescriptions-card{display:flex;height:100%;min-height:0;flex-direction:column;overflow:hidden}
+.patient-context-aside .clinical-timeline{min-height:0;flex:1;overflow-y:auto}
+.recent-prescriptions-card .panel-empty-state{min-height:0;flex:1}.recent-prescriptions-card .patient-panel-link{flex:0 0 auto;width:calc(100% - 24px)}
+.patient-context-item__meta{width:100%}.patient-context-item__meta time{margin-left:auto}
+.patient-context-item__meta:after{display:none}
+@media(max-height:760px){.patient-workspace .patient-context-header{min-height:96px}.patient-workspace .patient-summary-card{min-height:112px}.patient-workspace .brain-viewer-stage{min-height:250px}}

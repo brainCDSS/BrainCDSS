@@ -41,7 +41,7 @@ interface AppointmentSummaryCounts {
 }
 
 
-const APPOINTMENTS_PER_PAGE = 8;
+const APPOINTMENTS_PER_PAGE = 5;
 
 
 /* =========================================================
@@ -75,6 +75,23 @@ function statusLabel(status?: string) {
   }
 
   return STATUS_LABELS[status] ?? status;
+}
+
+
+function requestTypeLabel(requestType?: string | null) {
+  if (!requestType) {
+    return "-";
+  }
+
+  if (requestType === "NEW") {
+    return "초진";
+  }
+
+  if (requestType === "RESCHEDULE") {
+    return "예약 변경";
+  }
+
+  return requestType;
 }
 
 
@@ -120,9 +137,18 @@ function appointmentId(
 function appointmentStart(
   item: StaffAppointment,
 ) {
+  const requestItem =
+    item as StaffAppointment & {
+      current_slot?: {
+        start_at?: string | null;
+      } | null;
+    };
+
   return (
     item.start_at ??
     item.slot?.start_at ??
+    item.requested_slot?.start_at ??
+    requestItem.current_slot?.start_at ??
     null
   );
 }
@@ -211,6 +237,139 @@ function appointmentCount(
     response.appointments ??
     []
   ).length;
+}
+
+
+function patientSupplement(
+  item: StaffAppointment,
+) {
+  const patient =
+    item.patient as
+      | (
+          NonNullable<
+            StaffAppointment["patient"]
+          > & {
+            sex?: string | null;
+            gender?: string | null;
+            birth_date?: string | null;
+            age?: number | null;
+          }
+        )
+      | undefined;
+
+  if (!patient) {
+    return "";
+  }
+
+  const values: string[] = [];
+
+  const sex =
+    patient.sex ??
+    patient.gender;
+
+  if (sex) {
+    const normalized =
+      String(sex).toUpperCase();
+
+    values.push(
+      normalized === "M"
+        ? "남"
+        : normalized === "F"
+          ? "여"
+          : String(sex),
+    );
+  }
+
+  let age =
+    patient.age ?? null;
+
+  if (
+    age === null &&
+    patient.birth_date
+  ) {
+    const birth =
+      new Date(
+        patient.birth_date,
+      );
+
+    if (
+      !Number.isNaN(
+        birth.getTime(),
+      )
+    ) {
+      const now =
+        new Date();
+
+      age =
+        now.getFullYear() -
+        birth.getFullYear();
+
+      const beforeBirthday =
+        now.getMonth() <
+          birth.getMonth() ||
+        (
+          now.getMonth() ===
+            birth.getMonth() &&
+          now.getDate() <
+            birth.getDate()
+        );
+
+      if (beforeBirthday) {
+        age -= 1;
+      }
+    }
+  }
+
+  if (age !== null) {
+    values.push(
+      `${age}세`,
+    );
+  }
+
+  if (patient.birth_date) {
+    values.push(
+      patient.birth_date.replaceAll(
+        "-",
+        ".",
+      ),
+    );
+  }
+
+  return values.join("  |  ");
+}
+
+
+function appointmentRequestReason(
+  item: StaffAppointment,
+) {
+  const extended =
+    item as StaffAppointment & {
+      request_reason?: string | null;
+      reason?: string | null;
+      memo?: string | null;
+      note?: string | null;
+    };
+
+  return (
+    extended.request_reason ??
+    extended.reason ??
+    extended.memo ??
+    extended.note ??
+    null
+  );
+}
+
+
+function hasPendingAppointmentRequest(
+  item: StaffAppointment,
+) {
+  return (
+    item.status === "REQUESTED" ||
+    Boolean(
+      item.requested_slot_id ||
+        item.requested_slot,
+    )
+  );
 }
 
 
@@ -363,6 +522,28 @@ export default function AppointmentsPage({
     setSummaryLoading,
   ] = useState(false);
 
+  const [
+    rejectTarget,
+    setRejectTarget,
+  ] = useState<StaffAppointment | null>(
+    null,
+  );
+
+  const [
+    rejectReason,
+    setRejectReason,
+  ] = useState("");
+
+  const [
+    rejectSubmitting,
+    setRejectSubmitting,
+  ] = useState(false);
+
+  const [
+    rejectError,
+    setRejectError,
+  ] = useState<string | null>(null);
+
 
   /* =========================================================
    * 권한
@@ -409,6 +590,48 @@ export default function AppointmentsPage({
         setError(null);
 
         try {
+          if (status === "REQUESTED") {
+            const response =
+              await getAppointmentRequests({
+                date,
+                clinicianId:
+                  clinicianId ||
+                  undefined,
+                page,
+                pageSize:
+                  APPOINTMENTS_PER_PAGE,
+              });
+
+            const items =
+              normalize(
+                response.results ??
+                  [],
+              );
+
+            setAppointments(
+              items,
+            );
+
+            setUsesApiPagination(
+              true,
+            );
+
+            setTotalCount(
+              response.count ??
+                items.length,
+            );
+
+            setHasNextPage(
+              response.next != null,
+            );
+
+            setHasPreviousPage(
+              response.previous != null,
+            );
+
+            return;
+          }
+
           const response =
             await getStaffAppointments(
               {
@@ -465,7 +688,9 @@ export default function AppointmentsPage({
           );
         } catch {
           setError(
-            "예약 일정을 불러오지 못했습니다. 현재 계정의 역할과 권한을 확인해 주세요.",
+            status === "REQUESTED"
+              ? "승인 대기 예약 목록을 불러오지 못했습니다."
+              : "예약 일정을 불러오지 못했습니다. 현재 계정의 역할과 권한을 확인해 주세요.",
           );
         } finally {
           setLoading(false);
@@ -643,15 +868,15 @@ export default function AppointmentsPage({
             inProgressResponse,
             completedResponse,
           ] = await Promise.all([
-            getStaffAppointments({
+            getAppointmentRequests({
               date,
               clinicianId:
                 clinicianId ||
                 undefined,
-              status: "REQUESTED",
               page: 1,
               pageSize: 1,
             }),
+
             getStaffAppointments({
               date,
               clinicianId:
@@ -661,6 +886,7 @@ export default function AppointmentsPage({
               page: 1,
               pageSize: 1,
             }),
+
             getStaffAppointments({
               date,
               clinicianId:
@@ -670,6 +896,7 @@ export default function AppointmentsPage({
               page: 1,
               pageSize: 1,
             }),
+
             getStaffAppointments({
               date,
               clinicianId:
@@ -683,17 +910,19 @@ export default function AppointmentsPage({
 
           setSummaryCounts({
             requested:
-              appointmentCount(
-                requestedResponse,
-              ),
+              requestedResponse.count ??
+              requestedResponse.results.length,
+
             confirmed:
               appointmentCount(
                 confirmedResponse,
               ),
+
             inProgress:
               appointmentCount(
                 inProgressResponse,
               ),
+
             completed:
               appointmentCount(
                 completedResponse,
@@ -760,7 +989,14 @@ export default function AppointmentsPage({
    * ======================================================= */
 
   async function handleComplete() {
-    if (!selected) {
+    if (
+      !selected ||
+      !isDoctor ||
+      !can(
+        currentUser,
+        "appointment.complete",
+      )
+    ) {
       return;
     }
 
@@ -789,89 +1025,171 @@ export default function AppointmentsPage({
    * 예약 요청
    * ======================================================= */
 
-  async function loadRequests() {
-    if (
-      !isNurse ||
-      !mayReadStaff
-    ) {
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response =
-        await getAppointmentRequests(
-          {
-            date,
-            clinicianId:
-              clinicianId ||
-              undefined,
-          },
-        );
-
-      setRequests(
-        normalize(
-          response.results,
-        ),
-      );
-    } catch {
-      setError(
-        "예약 요청을 불러오지 못했습니다.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
-
-
-  async function processRequest(
-    id: string,
-    action:
-      | "accept"
-      | "reject",
-  ) {
-    setActionError(null);
-
-    try {
-      if (
-        action === "accept"
-      ) {
-        await acceptAppointment(
-          id,
-        );
-      } else {
-        const reason =
-          window.prompt(
-            "거절 사유를 입력해 주세요.",
-          );
-
+  const loadRequests =
+    useCallback(
+      async () => {
         if (
-          !reason?.trim()
+          !isNurse ||
+          !mayReadStaff
         ) {
           return;
         }
 
-        await rejectAppointment(
-          id,
-          reason.trim(),
-        );
-      }
+        setLoading(true);
+        setError(null);
+
+        try {
+          const response =
+            await getAppointmentRequests(
+              {
+                date,
+                clinicianId:
+                  clinicianId ||
+                  undefined,
+              },
+            );
+
+          setRequests(
+            normalize(
+              response.results,
+            ),
+          );
+        } catch {
+          setError(
+            "예약 요청을 불러오지 못했습니다.",
+          );
+        } finally {
+          setLoading(false);
+        }
+      },
+      [
+        clinicianId,
+        date,
+        isNurse,
+        mayReadStaff,
+      ],
+    );
+
+
+  useEffect(() => {
+    if (activeTab !== "requests") {
+      return;
+    }
+
+    void loadRequests();
+  }, [
+    activeTab,
+    loadRequests,
+  ]);
+
+
+  function openRejectModal(
+    item: StaffAppointment,
+  ) {
+    setActionError(null);
+    setRejectError(null);
+    setRejectReason("");
+    setRejectTarget(item);
+  }
+
+
+  function closeRejectModal() {
+    if (rejectSubmitting) {
+      return;
+    }
+
+    setRejectTarget(null);
+    setRejectReason("");
+    setRejectError(null);
+  }
+
+
+  async function processRequest(
+    item: StaffAppointment,
+    action:
+      | "accept"
+      | "reject",
+  ) {
+    if (!isNurse) {
+      return;
+    }
+
+    setActionError(null);
+
+    if (action === "reject") {
+      openRejectModal(item);
+      return;
+    }
+
+    try {
+      await acceptAppointment(
+        item.appointment_id,
+      );
 
       await Promise.all([
         loadRequests(),
         loadAppointments(),
         loadSummaryCounts(),
       ]);
+
+      setSelected(null);
     } catch {
       setActionError(
-        action === "accept"
-          ? "예약 승인에 실패했습니다."
-          : "예약 거절에 실패했습니다.",
+        "예약 승인에 실패했습니다.",
       );
     }
   }
+
+
+  async function submitReject() {
+    if (!rejectTarget || !isNurse) {
+      return;
+    }
+
+    const reason =
+      rejectReason.trim();
+
+    if (!reason) {
+      setRejectError(
+        "거절 사유를 입력해 주세요.",
+      );
+      return;
+    }
+
+    setRejectSubmitting(true);
+    setRejectError(null);
+    setActionError(null);
+
+    try {
+      await rejectAppointment(
+        rejectTarget.appointment_id,
+        reason,
+      );
+
+      await Promise.all([
+        loadRequests(),
+        loadAppointments(),
+        loadSummaryCounts(),
+      ]);
+
+      if (
+        selected?.appointment_id ===
+        rejectTarget.appointment_id
+      ) {
+        setSelected(null);
+      }
+
+      setRejectTarget(null);
+      setRejectReason("");
+    } catch {
+      setRejectError(
+        "예약 거절 처리에 실패했습니다.",
+      );
+    } finally {
+      setRejectSubmitting(false);
+    }
+  }
+
 
 
   /* =========================================================
@@ -957,10 +1275,15 @@ export default function AppointmentsPage({
     setError(null);
     setActionError(null);
 
-    if (
-      tab === "requests"
-    ) {
-      void loadRequests();
+    /*
+     * 진료 일정은 예약 상태별 업무 목록이 아니라
+     * 선택한 날짜의 전체 일정을 보는 탭이므로,
+     * 예약 목록에서 사용하던 숨은 status 필터를 제거한다.
+     */
+    if (tab === "schedule") {
+      setStatus("");
+      setPage(1);
+      setSelected(null);
     }
 
     if (
@@ -992,32 +1315,18 @@ export default function AppointmentsPage({
             예약 및 진료 일정
           </span>
 
-          <h2>
-            예약 · 일정
-          </h2>
+          <div className="appointment-heading__title-row">
+            <h2>
+              예약 · 일정
+            </h2>
 
-          <p>
-            예약 및 의료진 일정을
-            조회하고 관리합니다.
-          </p>
+            <p>
+              예약 및 의료진 일정을
+              조회하고 관리합니다.
+            </p>
+          </div>
         </div>
 
-        <label>
-          조회 날짜
-
-          <input
-            type="date"
-            value={date}
-            onChange={(
-              event,
-            ) =>
-              setDate(
-                event.target
-                  .value,
-              )
-            }
-          />
-        </label>
       </header>
 
 
@@ -1343,14 +1652,17 @@ export default function AppointmentsPage({
             </div>
 
 
-            {/* 총 건수 */}
+            {/* 목록 메타 */}
 
             <div className="appointment-list-meta">
               <strong>
-                총{" "}
-                {visibleTotal}
-                건
+                총 {visibleTotal}건
+                {" "}
+                <span>
+                  ({page}/{pageCount} 페이지)
+                </span>
               </strong>
+
             </div>
 
 
@@ -1406,10 +1718,6 @@ export default function AppointmentsPage({
                       <th>
                         예약 유형
                       </th>
-
-                      <th>
-                        작업
-                      </th>
                     </tr>
                   </thead>
 
@@ -1421,6 +1729,12 @@ export default function AppointmentsPage({
                         <tr
                           key={
                             item.appointment_id
+                          }
+                          className={
+                            selected?.appointment_id ===
+                            item.appointment_id
+                              ? "is-selected"
+                              : ""
                           }
                           onClick={() =>
                             void selectAppointment(
@@ -1454,19 +1768,23 @@ export default function AppointmentsPage({
                           </td>
 
                           <td>
-                            {item
-                              .department
-                              ?.name ??
-                              item.department_id ??
-                              "-"}
+                            <span className="appointment-department-label">
+                              {item
+                                .department
+                                ?.name ??
+                                item.department_id ??
+                                "-"}
+                            </span>
                           </td>
 
                           <td>
-                            {item
-                              .clinician
-                              ?.name ??
-                              item.clinician_id ??
-                              "-"}
+                            <span className="appointment-clinician-name">
+                              {item
+                                .clinician
+                                ?.name ??
+                                item.clinician_id ??
+                                "-"}
+                            </span>
                           </td>
 
                           <td>
@@ -1480,17 +1798,13 @@ export default function AppointmentsPage({
                           </td>
 
                           <td>
-                            {item.request_type ??
-                              "-"}
+                            <span className="appointment-type-label">
+                              {requestTypeLabel(
+                                item.request_type,
+                              )}
+                            </span>
                           </td>
 
-                          <td>
-                            <button
-                              type="button"
-                            >
-                              상세
-                            </button>
-                          </td>
                         </tr>
                       ),
                     )}
@@ -1583,163 +1897,295 @@ export default function AppointmentsPage({
            * =============================================== */}
 
           <aside className="appointment-detail-card">
-            <header>
-              <span>
-                예약 상세 정보
-              </span>
+            <header className="appointment-detail-heading">
+              <div>
+                <span>
+                  예약 상세 정보
+                </span>
 
-              <h3>
-                예약 상세
-              </h3>
+                <h3>
+                  환자 예약 상세
+                </h3>
+              </div>
             </header>
 
             {selected ? (
-              <>
-                <dl>
-                  <div>
-                    <dt>
-                      예약 ID
-                    </dt>
-
-                    <dd>
-                      {
-                        selected.appointment_id
-                      }
-                    </dd>
+              <div className="appointment-detail-content">
+                <section className="appointment-patient-summary">
+                  <div className="appointment-patient-avatar">
+                    {(
+                      selected.patient?.name ??
+                      "?"
+                    ).slice(0, 1)}
                   </div>
 
-
-                  <div>
-                    <dt>
-                      환자
-                    </dt>
-
-                    <dd>
-                      {selected
-                        .patient
-                        ?.name ??
+                  <div className="appointment-patient-main">
+                    <h4>
+                      {selected.patient?.name ??
                         selected.patient_id ??
-                        "-"}
-                    </dd>
-                  </div>
+                        "환자 정보 없음"}
+                    </h4>
 
-
-                  <div>
-                    <dt>
-                      일정
-                    </dt>
-
-                    <dd>
-                      {formatDateTime(
-                        appointmentStart(
+                    {patientSupplement(
+                      selected,
+                    ) && (
+                      <p className="appointment-patient-demographic">
+                        {patientSupplement(
                           selected,
-                        ),
-                      )}
-                    </dd>
+                        )}
+                      </p>
+                    )}
+
+                    <p className="appointment-patient-number">
+                      환자번호
+                      <span aria-hidden="true">
+                        |
+                      </span>
+                      {selected.patient?.patient_no ??
+                        "정보 없음"}
+                    </p>
                   </div>
 
-
-                  <div>
-                    <dt>
-                      진료과
-                    </dt>
-
-                    <dd>
-                      {selected
-                        .department
-                        ?.name ??
-                        selected.department_id ??
-                        "-"}
-                    </dd>
-                  </div>
-
-
-                  <div>
-                    <dt>
-                      담당의
-                    </dt>
-
-                    <dd>
-                      {selected
-                        .clinician
-                        ?.name ??
-                        selected.clinician_id ??
-                        "-"}
-                    </dd>
-                  </div>
-
-
-                  <div>
-                    <dt>
-                      상태
-                    </dt>
-
-                    <dd>
+                  <div className="appointment-patient-state">
+                    <span
+                      className={`appointment-status is-${selected.status.toLowerCase()}`}
+                    >
                       {statusLabel(
                         selected.status,
                       )}
-                    </dd>
+                    </span>
+
+                    {selected.status ===
+                      "REQUESTED" && (
+                      <small>
+                        신규 예약 요청
+                      </small>
+                    )}
                   </div>
+                </section>
 
-
-                  <div>
-                    <dt>
-                      예약 유형
-                    </dt>
-
-                    <dd>
-                      {selected.request_type ??
-                        "-"}
-                    </dd>
+                {selected.requested_slot && (
+                  <div className="appointment-request-notice">
+                    일정 변경 승인 대기 요청이 있습니다.
                   </div>
+                )}
 
+                <section className="appointment-detail-section">
+                  <h4>
+                    예약 정보
+                  </h4>
 
-                  <div>
-                    <dt>
-                      요청 시각
-                    </dt>
+                  <dl>
+                    <div>
+                      <dt>예약 일시</dt>
+                      <dd>
+                        {formatDateTime(
+                          appointmentStart(
+                            selected,
+                          ),
+                        )}
+                      </dd>
+                    </div>
 
-                    <dd>
-                      {formatDateTime(
-                        selected.requested_at,
+                    <div>
+                      <dt>진료과</dt>
+                      <dd>
+                        {selected.department?.name ??
+                          selected.department_id ??
+                          "-"}
+                      </dd>
+                    </div>
+
+                    <div>
+                      <dt>담당의</dt>
+                      <dd>
+                        {selected.clinician?.name ??
+                          selected.clinician_id ??
+                          "-"}
+                      </dd>
+                    </div>
+
+                    <div>
+                      <dt>예약 유형</dt>
+                      <dd>
+                        {requestTypeLabel(
+                          selected.request_type,
+                        )}
+                      </dd>
+                    </div>
+                  </dl>
+                </section>
+
+                <section className="appointment-detail-section">
+                  <h4>
+                    요청 정보
+                  </h4>
+
+                  <dl>
+                    <div>
+                      <dt>요청 시각</dt>
+                      <dd>
+                        {formatDateTime(
+                          selected.requested_at,
+                        )}
+                      </dd>
+                    </div>
+
+                    <div
+                      className={`is-request-reason ${
+                        appointmentRequestReason(selected)
+                          ? ""
+                          : "is-empty"
+                      }`}
+                    >
+                      <dt>
+                        요청 사유
+                      </dt>
+                      <dd>
+                        {appointmentRequestReason(
+                          selected,
+                        ) ?? "등록된 요청 사유 없음"}
+                      </dd>
+                    </div>
+
+                    {selected.reschedule_requested_at && (
+                      <div>
+                        <dt>변경 요청 시각</dt>
+                        <dd>
+                          {formatDateTime(
+                            selected.reschedule_requested_at,
+                          )}
+                        </dd>
+                      </div>
+                    )}
+
+                    {selected.requested_slot && (
+                      <div>
+                        <dt>변경 희망 일정</dt>
+                        <dd>
+                          {formatDateTime(
+                            selected.requested_slot.start_at,
+                          )}
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
+                </section>
+
+                {(
+                  selected.confirmed_at ||
+                  selected.completed_at ||
+                  selected.rejection_reason ||
+                  selected.cancel_reason ||
+                  selected.handled_by
+                ) && (
+                  <section className="appointment-detail-section">
+                    <h4>
+                      처리 정보
+                    </h4>
+
+                    <dl>
+                      {selected.confirmed_at && (
+                        <div>
+                          <dt>확정 시각</dt>
+                          <dd>
+                            {formatDateTime(
+                              selected.confirmed_at,
+                            )}
+                          </dd>
+                        </div>
                       )}
-                    </dd>
-                  </div>
 
+                      {selected.completed_at && (
+                        <div>
+                          <dt>완료 시각</dt>
+                          <dd>
+                            {formatDateTime(
+                              selected.completed_at,
+                            )}
+                          </dd>
+                        </div>
+                      )}
 
-                  {selected.rejection_reason && (
-                    <div>
-                      <dt>
-                        거절 사유
-                      </dt>
+                      {selected.handled_by && (
+                        <div>
+                          <dt>처리 담당자</dt>
+                          <dd>
+                            {selected.handled_by.name ??
+                              selected.handled_by.id}
+                          </dd>
+                        </div>
+                      )}
 
-                      <dd>
-                        {
-                          selected.rejection_reason
+                      {selected.rejection_reason && (
+                        <div className="is-reason">
+                          <dt>거절 사유</dt>
+                          <dd>
+                            {selected.rejection_reason}
+                          </dd>
+                        </div>
+                      )}
+
+                      {selected.cancel_reason && (
+                        <div className="is-reason">
+                          <dt>취소 사유</dt>
+                          <dd>
+                            {selected.cancel_reason}
+                          </dd>
+                        </div>
+                      )}
+                    </dl>
+                  </section>
+                )}
+
+                {hasPendingAppointmentRequest(
+                  selected,
+                ) &&
+                  isNurse && (
+                    <div className="appointment-actions appointment-request-actions">
+                      <button
+                        type="button"
+                        className="is-primary"
+                        disabled={
+                          !can(
+                            currentUser,
+                            "appointment.accept",
+                          )
                         }
-                      </dd>
+                        onClick={() =>
+                          void processRequest(
+                            selected,
+                            "accept",
+                          )
+                        }
+                      >
+                        예약 승인
+                      </button>
+
+                      <button
+                        type="button"
+                        className="is-danger"
+                        disabled={
+                          !can(
+                            currentUser,
+                            "appointment.reject",
+                          )
+                        }
+                        onClick={() =>
+                          void processRequest(
+                            selected,
+                            "reject",
+                          )
+                        }
+                      >
+                        예약 거절
+                      </button>
                     </div>
                   )}
-
-
-                  {selected.cancel_reason && (
-                    <div>
-                      <dt>
-                        취소 사유
-                      </dt>
-
-                      <dd>
-                        {
-                          selected.cancel_reason
-                        }
-                      </dd>
-                    </div>
-                  )}
-                </dl>
-
 
                 {selected.status ===
                   "CONFIRMED" &&
+                  isDoctor &&
                   can(
                     currentUser,
                     "appointment.complete",
@@ -1747,6 +2193,7 @@ export default function AppointmentsPage({
                     <div className="appointment-actions">
                       <button
                         type="button"
+                        className="is-primary"
                         onClick={() =>
                           void handleComplete()
                         }
@@ -1755,19 +2202,22 @@ export default function AppointmentsPage({
                       </button>
                     </div>
                   )}
-              </>
+
+                {actionError && (
+                  <p className="appointment-action-error">
+                    {actionError}
+                  </p>
+                )}
+              </div>
             ) : (
               <div className="appointment-empty is-detail-empty">
-                예약을 선택하면
-                상세 정보가
-                표시됩니다.
+                <strong>
+                  예약을 선택해 주세요.
+                </strong>
+                <span>
+                  환자를 선택하면 예약 정보와 처리 기능이 표시됩니다.
+                </span>
               </div>
-            )}
-
-            {actionError && (
-              <p className="appointment-action-error">
-                {actionError}
-              </p>
             )}
           </aside>
         </div>
@@ -1825,8 +2275,9 @@ export default function AppointmentsPage({
                           item.requested_at,
                         )}
                         {" · "}
-                        {item.request_type ??
-                          "-"}
+                        {requestTypeLabel(
+                          item.request_type,
+                        )}
                       </span>
                     </div>
 
@@ -1847,7 +2298,7 @@ export default function AppointmentsPage({
                         }
                         onClick={() =>
                           void processRequest(
-                            item.appointment_id,
+                            item,
                             "accept",
                           )
                         }
@@ -1865,7 +2316,7 @@ export default function AppointmentsPage({
                         }
                         onClick={() =>
                           void processRequest(
-                            item.appointment_id,
+                            item,
                             "reject",
                           )
                         }
@@ -2269,6 +2720,174 @@ export default function AppointmentsPage({
           )}
         </section>
       )}
+      {rejectTarget && (
+        <div
+          className="appointment-modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (
+              event.target ===
+              event.currentTarget
+            ) {
+              closeRejectModal();
+            }
+          }}
+        >
+          <section
+            className="appointment-reject-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="appointment-reject-modal-title"
+          >
+            <header>
+              <div>
+                <span>
+                  예약 요청 처리
+                </span>
+
+                <h3
+                  id="appointment-reject-modal-title"
+                >
+                  예약 거절
+                </h3>
+              </div>
+
+              <button
+                type="button"
+                className="appointment-modal-close"
+                aria-label="닫기"
+                disabled={rejectSubmitting}
+                onClick={closeRejectModal}
+              >
+                ×
+              </button>
+            </header>
+
+            <div className="appointment-reject-modal-body">
+              <div className="appointment-reject-patient">
+                <div className="appointment-reject-avatar">
+                  {(
+                    rejectTarget.patient?.name ??
+                    "환"
+                  ).slice(0, 1)}
+                </div>
+
+                <div>
+                  <strong>
+                    {rejectTarget.patient?.name ??
+                      rejectTarget.patient_id ??
+                      "환자 정보 없음"}
+                  </strong>
+
+                  <span>
+                    {rejectTarget.patient?.patient_no ??
+                      ""}
+                  </span>
+                </div>
+
+                <span className="appointment-status is-requested">
+                  {statusLabel(
+                    rejectTarget.status,
+                  )}
+                </span>
+              </div>
+
+              <div className="appointment-reject-context">
+                <div>
+                  <span>예약 일정</span>
+                  <strong>
+                    {formatDateTime(
+                      appointmentStart(
+                        rejectTarget,
+                      ),
+                    )}
+                  </strong>
+                </div>
+
+                <div>
+                  <span>진료과</span>
+                  <strong>
+                    {rejectTarget.department?.name ??
+                      rejectTarget.department_id ??
+                      "-"}
+                  </strong>
+                </div>
+
+                <div>
+                  <span>담당의</span>
+                  <strong>
+                    {rejectTarget.clinician?.name ??
+                      rejectTarget.clinician_id ??
+                      "-"}
+                  </strong>
+                </div>
+              </div>
+
+              <label className="appointment-reject-reason">
+                <span>
+                  거절 사유
+                  <strong>*</strong>
+                </span>
+
+                <textarea
+                  autoFocus
+                  maxLength={255}
+                  rows={5}
+                  value={rejectReason}
+                  placeholder="환자에게 안내할 예약 거절 사유를 입력해 주세요."
+                  onChange={(event) => {
+                    setRejectReason(
+                      event.target.value,
+                    );
+
+                    if (rejectError) {
+                      setRejectError(null);
+                    }
+                  }}
+                />
+
+                <small>
+                  {rejectReason.length}/255
+                </small>
+              </label>
+
+              {rejectError && (
+                <p className="appointment-reject-error">
+                  {rejectError}
+                </p>
+              )}
+            </div>
+
+            <footer>
+              <button
+                type="button"
+                className="is-secondary"
+                disabled={rejectSubmitting}
+                onClick={closeRejectModal}
+              >
+                취소
+              </button>
+
+              <button
+                type="button"
+                className="is-danger"
+                disabled={
+                  rejectSubmitting ||
+                  !rejectReason.trim()
+                }
+                onClick={() =>
+                  void submitReject()
+                }
+              >
+                {rejectSubmitting
+                  ? "처리 중..."
+                  : "예약 거절"}
+              </button>
+            </footer>
+          </section>
+        </div>
+      )}
+
     </section>
   );
 }

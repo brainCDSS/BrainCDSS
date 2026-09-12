@@ -1160,14 +1160,10 @@ export default function Dashboard({
     );
   }
 
-  function selectAndOpen(
+  function selectPatient(
     patient: Patient,
   ) {
     setSelectedPatient(
-      patient,
-    );
-
-    onOpenPatient(
       patient,
     );
   }
@@ -1192,7 +1188,7 @@ export default function Dashboard({
           setSearch
         }
         onSelect={
-          selectAndOpen
+          selectPatient
         }
       />
 

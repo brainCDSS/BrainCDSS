@@ -7,20 +7,15 @@ import type {
 
 export function sendAssistantMessage(
   payload: AssistantMessageRequest,
-) {
+): Promise<AssistantMessageResponse> {
   return apiRequest<AssistantMessageResponse>(
     "/api/v1/assistant/messages",
     {
       method: "POST",
-
       headers: {
-        "Content-Type":
-          "application/json",
+        "Content-Type": "application/json",
       },
-
-      body: JSON.stringify(
-        payload,
-      ),
+      body: JSON.stringify(payload),
     },
   );
 }

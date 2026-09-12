@@ -1,2 +1,302 @@
-import{useState}from"react";import{searchMedications}from"./api";import type{MedicationItem}from"./types";import"./medication-safety.css";
-export default function MedicationSafetyPage(){const[query,setQuery]=useState(""),[results,setResults]=useState<MedicationItem[]>([]),[loading,setLoading]=useState(false),[error,setError]=useState<string|null>(null);async function search(){if(!query.trim())return;setLoading(true);setError(null);try{setResults((await searchMedications(query.trim())).results)}catch{setError("약물 검색 결과를 불러오지 못했습니다.")}finally{setLoading(false)}}return <section className="clinical-page"><header className="clinical-page__heading"><h2>처방 / DUR</h2><p>처방 약물을 검색하고 안전성 검토 준비 상태를 확인합니다.</p></header><div className="clinical-toolbar"><label>약물 검색<input value={query} onChange={e=>setQuery(e.target.value)} placeholder="약물 코드 또는 이름" onKeyDown={e=>{if(e.key==="Enter")void search()}}/></label><button type="button" disabled={loading||!query.trim()} onClick={()=>void search()}>검색</button></div><div className="clinical-split"><article className="clinical-card"><div className="clinical-card__title"><h3>약물 검색 결과</h3><span>{results.length}건</span></div>{loading?<div className="clinical-state">검색 중...</div>:error?<div className="clinical-state clinical-state--error">{error}</div>:!results.length?<div className="clinical-state">검색어를 입력하면 Backend 약물 목록을 조회합니다.</div>:<div className="clinical-table-wrap"><table className="clinical-table"><thead><tr><th>코드</th><th>약물명</th><th>제형</th><th>함량</th><th>제조사</th></tr></thead><tbody>{results.map(x=><tr key={x.medication_id}><td>{x.medication_code}</td><td>{x.medication_name}</td><td>{x.dosage_form}</td><td>{x.strength}</td><td>{x.manufacturer}</td></tr>)}</tbody></table></div>}</article><aside className="clinical-card"><div className="clinical-card__title"><h3>현재 처방 및 DUR 검증</h3></div><div className="clinical-state">환자 및 Encounter Context가 선택되지 않았습니다.<br/>처방 저장과 DUR 검증은 사용할 수 없습니다.</div><div className="clinical-action-bar"><button className="clinical-action" type="button" disabled>DUR 검증</button><button className="clinical-action" type="button" disabled>처방 저장</button></div></aside></div></section>}
+import { useMemo, useState } from "react";
+import {
+  checkPrescriptionSafety,
+  createPrescription,
+  finalizePrescription,
+  searchMedications,
+  updatePrescription,
+} from "./api";
+import type {
+  DurAlert,
+  MedicationItem,
+  PrescriptionItemInput,
+  PrescriptionItemResponse,
+  PrescriptionResponse,
+  SafetyCheckResponse,
+} from "./types";
+import "./medication-safety.css";
+
+interface EditableItem extends PrescriptionItemInput {
+  key: string;
+  medication_code: string;
+  medication_name: string;
+  strength?: string;
+}
+
+const today = new Date().toISOString().slice(0, 10);
+
+interface MedicationSafetyPageProps {
+  context: {
+    patientId: string;
+    patientName: string;
+    patientNo: string;
+    encounterId: string;
+  } | null;
+}
+
+function toEditable(item: PrescriptionItemResponse): EditableItem {
+  return { ...item, key: item.item_id };
+}
+
+function requestError(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+  const status = message.match(/BACKEND_REQUEST_FAILED:(\d+)/)?.[1];
+  if (status === "400") return "입력값을 확인해주세요.";
+  if (status === "403") return "이 작업을 수행할 권한이 없거나 담당 진료 범위가 아닙니다.";
+  if (status === "404") return "요청한 환자·진료·처방 정보를 찾지 못했습니다.";
+  if (status === "409") return "처방 상태 또는 DUR 경고로 인해 요청을 완료하지 못했습니다.";
+  if (status === "422") return "차단 경고를 재정의하려면 경고별 사유가 필요합니다.";
+  if (status === "503") return "DUR 검증 서비스를 사용할 수 없습니다.";
+  return "백엔드 요청에 실패했습니다.";
+}
+
+function severityLabel(severity: DurAlert["severity"]) {
+  return { BLOCK: "금지", MAJOR: "경고", WARNING: "주의", INFO: "정보" }[severity];
+}
+
+export default function MedicationSafetyPage({ context }: MedicationSafetyPageProps) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<MedicationItem[]>([]);
+  const [resultCount, setResultCount] = useState(0);
+  const [prescription, setPrescription] = useState<PrescriptionResponse | null>(null);
+  const [items, setItems] = useState<EditableItem[]>([]);
+  const [safety, setSafety] = useState<SafetyCheckResponse | null>(null);
+  const [overrideReasons, setOverrideReasons] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const locked = prescription?.status === "FINAL";
+  const blockingAlerts = useMemo(
+    () => safety?.alerts.filter((alert) => alert.severity === "BLOCK" || alert.severity === "MAJOR") ?? [],
+    [safety],
+  );
+
+  function begin(action: string) {
+    setLoading(action);
+    setError(null);
+    setNotice(null);
+  }
+
+  function finish() {
+    setLoading(null);
+  }
+
+  function invalidateSafety() {
+    setSafety(null);
+    setOverrideReasons({});
+  }
+
+  async function handleSearch() {
+    if (!query.trim()) return;
+    begin("search");
+    try {
+      const response = await searchMedications(query.trim());
+      setResults(response.results);
+      setResultCount(response.count);
+    } catch (requestFailure) {
+      setError(requestError(requestFailure));
+    } finally {
+      finish();
+    }
+  }
+
+  function addMedication(medication: MedicationItem) {
+    if (locked || items.some((item) => item.medication_id === medication.id)) return;
+    setItems((current) => [
+      ...current,
+      {
+        key: `new-${crypto.randomUUID()}`,
+        medication_id: medication.id,
+        medication_code: medication.medication_code,
+        medication_name: medication.medication_name,
+        strength: medication.strength,
+        dose: 0,
+        dose_unit: "mg",
+        route: "PO",
+        frequency_per_day: 1,
+        timing: "식후",
+        start_date: today,
+        duration_days: 1,
+        instructions: "",
+      },
+    ]);
+    invalidateSafety();
+  }
+
+  function changeItem<K extends keyof EditableItem>(key: string, field: K, value: EditableItem[K]) {
+    setItems((current) => current.map((item) => (item.key === key ? { ...item, [field]: value } : item)));
+    invalidateSafety();
+  }
+
+  function prescriptionItems(): PrescriptionItemInput[] {
+    return items.map((item) => ({
+      ...(item.item_id ? { item_id: item.item_id } : {}),
+      medication_id: item.medication_id,
+      dose: item.dose,
+      dose_unit: item.dose_unit,
+      route: item.route,
+      frequency_per_day: item.frequency_per_day,
+      timing: item.timing,
+      start_date: item.start_date,
+      duration_days: item.duration_days,
+      instructions: item.instructions,
+    }));
+  }
+
+  function validateItems() {
+    if (!items.length) return "처방 약물을 한 개 이상 추가해주세요.";
+    if (items.some((item) => item.dose <= 0 || item.frequency_per_day < 1 || item.duration_days < 1)) {
+      return "용량, 1일 횟수, 처방 기간은 1 이상이어야 합니다.";
+    }
+    if (items.some((item) => !item.dose_unit.trim() || !item.route.trim() || !item.timing.trim() || !item.start_date)) {
+      return "처방 항목의 필수값을 모두 입력해주세요.";
+    }
+    return null;
+  }
+
+  async function saveDraft() {
+    const validation = validateItems();
+    if (validation) return setError(validation);
+    if (!prescription && !context) return setError("Worklist에서 진료 환자를 먼저 선택해주세요.");
+    begin("save");
+    try {
+      const response = prescription
+        ? await updatePrescription(prescription.prescription_id, { items: prescriptionItems() })
+        : await createPrescription({ encounter_id: context!.encounterId, items: prescriptionItems() });
+      setPrescription(response);
+      setItems(response.items.map(toEditable));
+      invalidateSafety();
+      setNotice(`처방이 ${prescription ? "수정" : "임시저장"}되었습니다.`);
+    } catch (requestFailure) {
+      setError(requestError(requestFailure));
+    } finally {
+      finish();
+    }
+  }
+
+  async function runSafetyCheck() {
+    const validation = validateItems();
+    if (validation) return setError(validation);
+    if (!context) return setError("Worklist에서 진료 환자를 먼저 선택해주세요.");
+    begin("safety");
+    try {
+      const response = await checkPrescriptionSafety({
+        patient_id: context.patientId,
+        medications: items.map((item) => ({
+          medication_id: item.medication_id,
+          dose: item.dose,
+          unit: item.dose_unit,
+          frequency_per_day: item.frequency_per_day,
+          duration_days: item.duration_days,
+          route: item.route,
+        })),
+        ...(prescription?.status === "DRAFT" ? { draft_prescription_id: prescription.prescription_id } : {}),
+      });
+      setSafety(response);
+      setNotice(response.safe ? "DUR 검증 결과 안전 경고가 없습니다." : `DUR 경고 ${response.alerts.length}건을 확인해주세요.`);
+    } catch (requestFailure) {
+      setError(requestError(requestFailure));
+    } finally {
+      finish();
+    }
+  }
+
+  async function finalize() {
+    if (!prescription || prescription.status !== "DRAFT") return setError("먼저 처방을 임시저장해주세요.");
+    if (!safety) return setError("최종 확정 전에 DUR 검증을 실행해주세요.");
+    const impossible = blockingAlerts.some((alert) => !alert.override_allowed);
+    if (impossible) return setError("재정의가 허용되지 않은 차단 경고가 있어 확정할 수 없습니다.");
+    if (blockingAlerts.some((alert) => !overrideReasons[alert.rule_id]?.trim())) {
+      return setError("모든 금지·경고 항목에 재정의 사유를 입력해주세요.");
+    }
+    begin("finalize");
+    try {
+      const response = await finalizePrescription(
+        prescription.prescription_id,
+        blockingAlerts.map((alert) => ({
+          alert_type: alert.alert_type,
+          rule_type: alert.alert_type,
+          rule_id: alert.rule_id,
+          reason: overrideReasons[alert.rule_id].trim(),
+        })),
+      );
+      setPrescription((current) => current ? { ...current, status: response.status, finalized_at: response.finalized_at } : current);
+      setSafety({ ...safety, safe: response.safety.safe, alerts: response.safety.alerts });
+      setNotice(`처방이 최종 확정되었습니다. 복약 일정 ${response.schedules_created}건이 생성되었습니다.`);
+    } catch (requestFailure) {
+      setError(requestError(requestFailure));
+    } finally {
+      finish();
+    }
+  }
+
+  return (
+    <section className="clinical-page medication-safety">
+      <header className="clinical-page__heading">
+        <h2>처방 / DUR</h2>
+        <p>실제 처방 API와 DUR 안전성 검증 결과를 사용합니다.</p>
+      </header>
+
+      <div className="medication-context clinical-card">
+        {context ? <>
+          <div><small>환자</small><strong>{context.patientName}</strong></div>
+          <div><small>환자번호</small><strong>{context.patientNo}</strong></div>
+          <div><small>진료 선택</small><strong>Worklist에서 선택된 진료</strong></div>
+        </> : <div className="medication-context__empty">Worklist에서 환자를 선택한 뒤 처방 / DUR 화면을 열어주세요.</div>}
+        {prescription && <span className={`medication-status medication-status--${prescription.status.toLowerCase()}`}>{prescription.status}</span>}
+      </div>
+
+      <div className="clinical-toolbar medication-search">
+        <label>약물 검색<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="약물 코드 또는 이름" onKeyDown={(event) => { if (event.key === "Enter") void handleSearch(); }} /></label>
+        <button type="button" disabled={loading !== null || !query.trim()} onClick={() => void handleSearch()}>검색</button>
+      </div>
+
+      {(error || notice) && <div className={`medication-feedback ${error ? "medication-feedback--error" : ""}`}>{error ?? notice}</div>}
+
+      <div className="medication-grid">
+        <main className="medication-column">
+          <article className="clinical-card">
+            <div className="clinical-card__title"><h3>약물 검색 결과</h3><span>{resultCount}건</span></div>
+            {loading === "search" ? <div className="clinical-state">검색 중...</div> : !results.length ? <div className="clinical-state">검색어를 입력하면 활성 약물 목록을 조회합니다.</div> : (
+              <div className="clinical-table-wrap"><table className="clinical-table"><thead><tr><th>코드</th><th>약물명</th><th>제형</th><th>함량</th><th>제조사</th><th>선택</th></tr></thead><tbody>{results.map((medication) => <tr key={medication.id}><td>{medication.medication_code}</td><td>{medication.medication_name}</td><td>{medication.dosage_form}</td><td>{medication.strength}</td><td>{medication.manufacturer}</td><td><button type="button" className="medication-add" disabled={locked || items.some((item) => item.medication_id === medication.id)} onClick={() => addMedication(medication)}>+ 추가</button></td></tr>)}</tbody></table></div>
+            )}
+          </article>
+
+          <article className="clinical-card">
+            <div className="clinical-card__title"><h3>현재 처방 목록</h3><span>{items.length}건</span></div>
+            {!items.length ? <div className="clinical-state">검색 결과에서 처방 약물을 추가하거나 처방 ID로 기존 처방을 불러오세요.</div> : (
+              <div className="medication-items">{items.map((item, index) => <div className="medication-item" key={item.key}>
+                <div className="medication-item__heading"><strong>{index + 1}. {item.medication_name}</strong><span>{item.medication_code} {item.strength}</span><button type="button" disabled={locked || Boolean(item.item_id)} title={item.item_id ? "저장된 항목 삭제 API가 제공되지 않습니다." : undefined} onClick={() => { setItems((current) => current.filter((currentItem) => currentItem.key !== item.key)); invalidateSafety(); }}>삭제</button></div>
+                <div className="medication-form-grid">
+                  <label>1회 용량<input type="number" min="0.01" step="0.01" disabled={locked} value={item.dose || ""} onChange={(event) => changeItem(item.key, "dose", Number(event.target.value))} /></label>
+                  <label>단위<input disabled={locked} value={item.dose_unit} onChange={(event) => changeItem(item.key, "dose_unit", event.target.value)} /></label>
+                  <label>투여 경로<input disabled={locked} value={item.route} onChange={(event) => changeItem(item.key, "route", event.target.value)} /></label>
+                  <label>1일 횟수<input type="number" min="1" disabled={locked} value={item.frequency_per_day} onChange={(event) => changeItem(item.key, "frequency_per_day", Number(event.target.value))} /></label>
+                  <label>복용 시점<input disabled={locked} value={item.timing} onChange={(event) => changeItem(item.key, "timing", event.target.value)} /></label>
+                  <label>시작일<input type="date" disabled={locked} value={item.start_date} onChange={(event) => changeItem(item.key, "start_date", event.target.value)} /></label>
+                  <label>처방 기간(일)<input type="number" min="1" disabled={locked} value={item.duration_days} onChange={(event) => changeItem(item.key, "duration_days", Number(event.target.value))} /></label>
+                  <label className="medication-form-grid__wide">복약 지시<input disabled={locked} value={item.instructions} onChange={(event) => changeItem(item.key, "instructions", event.target.value)} /></label>
+                </div>
+              </div>)}</div>
+            )}
+            <div className="clinical-action-bar"><button type="button" className="clinical-action" disabled={loading !== null || locked || !items.length || !context} onClick={() => void saveDraft()}>{prescription ? "처방 수정·임시저장" : "처방 임시저장"}</button></div>
+          </article>
+        </main>
+
+        <aside className="clinical-card medication-dur">
+          <div className="clinical-card__title"><h3>DUR 검토 결과</h3><span>{safety ? `${safety.alerts.length}건` : "미검사"}</span></div>
+          {!safety ? <div className="clinical-state">환자 ID와 처방 항목을 입력한 뒤 실제 DUR 검증을 실행하세요.</div> : safety.alerts.length === 0 ? <div className="medication-safe">안전성 경고가 없습니다.</div> : <div className="dur-alerts">{safety.alerts.map((alert) => <div className={`dur-alert dur-alert--${alert.severity.toLowerCase()}`} key={`${alert.alert_type}-${alert.rule_id}`}>
+            <div className="dur-alert__heading"><strong>{severityLabel(alert.severity)}</strong><span>{alert.alert_type}</span></div>
+            <p>{alert.message || "상세 메시지가 제공되지 않았습니다."}</p>
+            {!!alert.related_medications?.length && <small>관련 약물: {alert.related_medications.join(", ")}</small>}
+            <small>규칙 ID: {alert.rule_id}</small>
+            {(alert.severity === "BLOCK" || alert.severity === "MAJOR") && (alert.override_allowed ? <label className="dur-override">Override 사유<textarea value={overrideReasons[alert.rule_id] ?? ""} onChange={(event) => setOverrideReasons((current) => ({ ...current, [alert.rule_id]: event.target.value }))} placeholder="임상적 판단 근거를 입력하세요." /></label> : <strong className="dur-alert__blocked">이 경고는 Override할 수 없습니다.</strong>)}
+          </div>)}</div>}
+          {safety?.context && <div className="dur-context"><span>환자 나이: {safety.context.patient_age ?? "-"}</span><span>임신 상태: {safety.context.pregnancy_status ?? "-"}</span><span>검사 시각: {new Date(safety.context.checked_at).toLocaleString()}</span></div>}
+          <div className="clinical-action-bar medication-dur__actions"><button type="button" className="clinical-action" disabled={loading !== null || locked || !items.length || !context} onClick={() => void runSafetyCheck()}>DUR 검증</button><button type="button" className="clinical-action medication-finalize" disabled={loading !== null || locked || !prescription} onClick={() => void finalize()}>처방 최종 확정</button></div>
+        </aside>
+      </div>
+    </section>
+  );
+}

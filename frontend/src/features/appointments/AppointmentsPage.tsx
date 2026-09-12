@@ -33,6 +33,14 @@ type PageTab =
   | "manage";
 
 
+interface AppointmentSummaryCounts {
+  requested: number | null;
+  confirmed: number | null;
+  inProgress: number | null;
+  completed: number | null;
+}
+
+
 const APPOINTMENTS_PER_PAGE = 8;
 
 
@@ -183,6 +191,29 @@ function normalize(
 }
 
 
+type StaffAppointmentsApiResponse =
+  Awaited<
+    ReturnType<
+      typeof getStaffAppointments
+    >
+  >;
+
+
+function appointmentCount(
+  response: StaffAppointmentsApiResponse,
+) {
+  if (typeof response.count === "number") {
+    return response.count;
+  }
+
+  return (
+    response.results ??
+    response.appointments ??
+    []
+  ).length;
+}
+
+
 function can(
   user: LoginUser,
   permission: string,
@@ -315,6 +346,21 @@ export default function AppointmentsPage({
   const [
     hasPreviousPage,
     setHasPreviousPage,
+  ] = useState(false);
+
+  const [
+    summaryCounts,
+    setSummaryCounts,
+  ] = useState<AppointmentSummaryCounts>({
+    requested: null,
+    confirmed: null,
+    inProgress: null,
+    completed: null,
+  });
+
+  const [
+    summaryLoading,
+    setSummaryLoading,
   ] = useState(false);
 
 
@@ -570,59 +616,111 @@ export default function AppointmentsPage({
 
 
   /* =========================================================
-   * 오늘 일정 요약
+   * 오늘 예약 상태 요약
+   * ---------------------------------------------------------
+   * 목록의 현재 status / page와 분리해서 조회한다.
    * ======================================================= */
 
-  const todayAppointments =
-    useMemo(
-      () =>
-        appointments.filter(
-          (item) =>
-            appointmentStart(
-              item,
-            )?.slice(
-              0,
-              10,
-            ) === date,
-        ),
+  const loadSummaryCounts =
+    useCallback(
+      async () => {
+        if (!mayReadStaff) {
+          setSummaryCounts({
+            requested: null,
+            confirmed: null,
+            inProgress: null,
+            completed: null,
+          });
+          return;
+        }
+
+        setSummaryLoading(true);
+
+        try {
+          const [
+            requestedResponse,
+            confirmedResponse,
+            inProgressResponse,
+            completedResponse,
+          ] = await Promise.all([
+            getStaffAppointments({
+              date,
+              clinicianId:
+                clinicianId ||
+                undefined,
+              status: "REQUESTED",
+              page: 1,
+              pageSize: 1,
+            }),
+            getStaffAppointments({
+              date,
+              clinicianId:
+                clinicianId ||
+                undefined,
+              status: "CONFIRMED",
+              page: 1,
+              pageSize: 1,
+            }),
+            getStaffAppointments({
+              date,
+              clinicianId:
+                clinicianId ||
+                undefined,
+              status: "IN_PROGRESS",
+              page: 1,
+              pageSize: 1,
+            }),
+            getStaffAppointments({
+              date,
+              clinicianId:
+                clinicianId ||
+                undefined,
+              status: "COMPLETED",
+              page: 1,
+              pageSize: 1,
+            }),
+          ]);
+
+          setSummaryCounts({
+            requested:
+              appointmentCount(
+                requestedResponse,
+              ),
+            confirmed:
+              appointmentCount(
+                confirmedResponse,
+              ),
+            inProgress:
+              appointmentCount(
+                inProgressResponse,
+              ),
+            completed:
+              appointmentCount(
+                completedResponse,
+              ),
+          });
+        } catch {
+          setSummaryCounts({
+            requested: null,
+            confirmed: null,
+            inProgress: null,
+            completed: null,
+          });
+        } finally {
+          setSummaryLoading(false);
+        }
+      },
       [
-        appointments,
+        clinicianId,
         date,
+        mayReadStaff,
       ],
     );
 
 
-  const hasTimelineData =
-    todayAppointments.some(
-      (item) =>
-        appointmentStart(
-          item,
-        ),
-    );
-
-
-  const summary = {
-    scheduled:
-      todayAppointments.filter(
-        (item) =>
-          item.status ===
-          "CONFIRMED",
-      ).length,
-
-    waiting:
-      todayAppointments.filter(
-        (item) =>
-          item.status ===
-          "REQUESTED",
-      ).length,
-
-    completed:
-      todayAppointments.filter(
-        (item) =>
-          item.status ===
-          "COMPLETED",
-      ).length,
-  };
+  useEffect(() => {
+    void loadSummaryCounts();
+  }, [loadSummaryCounts]);
 
 
   /* =========================================================
@@ -673,7 +771,10 @@ export default function AppointmentsPage({
         selected.appointment_id,
       );
 
-      await loadAppointments();
+      await Promise.all([
+        loadAppointments(),
+        loadSummaryCounts(),
+      ]);
 
       setSelected(null);
     } catch {
@@ -758,8 +859,11 @@ export default function AppointmentsPage({
         );
       }
 
-      await loadRequests();
-      await loadAppointments();
+      await Promise.all([
+        loadRequests(),
+        loadAppointments(),
+        loadSummaryCounts(),
+      ]);
     } catch {
       setActionError(
         action === "accept"
@@ -942,12 +1046,10 @@ export default function AppointmentsPage({
             </h3>
           </div>
 
-          {!hasTimelineData && (
+          {summaryLoading && (
             <small>
-              API 응답에 예약
-              시간이 없어 오늘
-              집계를 계산할 수
-              없습니다.
+              상태별 예약 건수를
+              확인하는 중입니다.
             </small>
           )}
         </header>
@@ -955,26 +1057,36 @@ export default function AppointmentsPage({
         <div className="appointment-summary-grid">
           {[
             [
-              "진료 예정",
-              hasTimelineData
-                ? summary.scheduled
-                : "-",
+              "승인 대기",
+              summaryLoading ||
+              summaryCounts.requested ===
+                null
+                ? "-"
+                : summaryCounts.requested,
+            ],
+            [
+              "예약 확정",
+              summaryLoading ||
+              summaryCounts.confirmed ===
+                null
+                ? "-"
+                : summaryCounts.confirmed,
             ],
             [
               "진료 중",
-              "-",
-            ],
-            [
-              "대기",
-              hasTimelineData
-                ? summary.waiting
-                : "-",
+              summaryLoading ||
+              summaryCounts.inProgress ===
+                null
+                ? "-"
+                : summaryCounts.inProgress,
             ],
             [
               "진료 완료",
-              hasTimelineData
-                ? summary.completed
-                : "-",
+              summaryLoading ||
+              summaryCounts.completed ===
+                null
+                ? "-"
+                : summaryCounts.completed,
             ],
           ].map(
             ([

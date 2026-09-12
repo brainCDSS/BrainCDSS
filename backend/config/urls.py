@@ -93,6 +93,18 @@ urlpatterns += [
         ),
     ),
 
+    # Encounter 등록 (예약 외래 / Walk-in / 응급)
+    path(
+        "",
+        include("apps.clinical_records.api.urls"),
+    ),
+
+    # 초기평가 Worklist
+    path(
+        "",
+        include("apps.assessments.api.urls"),
+    ),
+
     # CDS Hooks
     # API-CDS-001 ~ API-CDS-004
     path(

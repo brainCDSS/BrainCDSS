@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import AssistantFloatingButton from "../../features/assistant/AssistantFloatingButton";
 import AssistantFloatingPanel from "../../features/assistant/AssistantFloatingPanel";
 import AssistantWorkspace from "../../features/assistant/AssistantWorkspace";
+import type { AssistantChatMessage } from "../../features/assistant/types";
 
 import TriageAssessment from "../../features/assessments/TriageAssessment";
 import ReceptionInitialAssessment from "../../features/assessments/ReceptionInitialAssessment";
@@ -71,6 +72,11 @@ interface ActiveAssessmentContext {
   encounterId: string;
 }
 
+interface PrescriptionContext {
+  patient: Patient;
+  encounterId: string;
+}
+
 
 /* =========================================================
    Brain CDSS AppShell
@@ -103,6 +109,11 @@ export default function AppShell({
     isAssistantTabActive,
     setIsAssistantTabActive,
   ] = useState(false);
+
+  const [assistantMessages, setAssistantMessages] =
+    useState<AssistantChatMessage[]>([]);
+  const [assistantConversationId, setAssistantConversationId] =
+    useState<string | null>(null);
 
 
   /* ========================================================
@@ -159,6 +170,9 @@ export default function AppShell({
   ] = useState<ActiveAssessmentContext | null>(
     null,
   );
+
+  const [prescriptionContext, setPrescriptionContext] =
+    useState<PrescriptionContext | null>(null);
 
 
   /* ========================================================
@@ -265,6 +279,12 @@ export default function AppShell({
     setActivePatientId(null);
     setActiveAssessmentContext(null);
     setActiveConsultationId(null);
+    setActiveMenu("dashboard");
+  };
+
+  const handleMinimizeAssistantWorkspace = () => {
+    setIsAssistantTabActive(false);
+    setIsAssistantFloatingOpen(true);
     setActiveMenu("dashboard");
   };
 
@@ -795,6 +815,8 @@ export default function AppShell({
 
     setIsAssistantTabActive(false);
 
+    setPrescriptionContext(null);
+
     /* patient.id별 차트 탭을 유지하고, 같은 환자는 기존 탭을 재사용한다. */
     setOpenPatientTabs(
       (previousTabs) => {
@@ -838,6 +860,14 @@ export default function AppShell({
       "patients",
     );
 
+  };
+
+  const handleWorklistPatientSelect = (
+    patient: Patient,
+    encounterId: string,
+  ) => {
+    handlePatientSelect(patient);
+    setPrescriptionContext({ patient, encounterId });
   };
 
 
@@ -929,7 +959,16 @@ export default function AppShell({
   function renderMainContent() {
 
     if (isAssistantTabActive) {
-      return <AssistantWorkspace />;
+      return (
+        <AssistantWorkspace
+          messages={assistantMessages}
+          setMessages={setAssistantMessages}
+          conversationId={assistantConversationId}
+          setConversationId={setAssistantConversationId}
+          onMinimize={handleMinimizeAssistantWorkspace}
+          onClose={handleCloseAssistantTab}
+        />
+      );
     }
 
     const requestedMenu = activePatient ? "patients" : activeMenu;
@@ -971,6 +1010,12 @@ export default function AppShell({
           patients={
             openPatientTabs
           }
+          canViewAIAnalyses={
+            canAccessMenu(currentUser.role.code, "ai-results")
+          }
+          canViewConsultations={
+            canAccessMenu(currentUser.role.code, "consultations")
+          }
           onSelectPatient={
             handlePatientSelect
           }
@@ -997,6 +1042,12 @@ export default function AppShell({
           patient={null}
           onSelectPatient={handlePatientSelect}
           onNavigate={handleMenuSelect}
+          canViewAIAnalyses={
+            canAccessMenu(currentUser.role.code, "ai-results")
+          }
+          canViewConsultations={
+            canAccessMenu(currentUser.role.code, "consultations")
+          }
         />
       );
 
@@ -1015,7 +1066,7 @@ export default function AppShell({
       "worklist"
     ) {
       // [추가] 신경과 응급 Worklist 연결
-      return <EmergencyWorklist onOpenPatient={handlePatientSelect} />;
+      return <EmergencyWorklist onOpenPatient={handleWorklistPatientSelect} />;
       // [추가 끝] 신경과 응급 Worklist 연결
 
     }
@@ -1044,7 +1095,27 @@ export default function AppShell({
         );
 
       }
+      /* ========================================================
+        Triage 완료 → 접수 화면
+        ======================================================== */
 
+      const handleTriageComplete = () => {
+        setActiveAssessmentContext(
+          null,
+        );
+
+        setActivePatientId(
+          null,
+        );
+
+        setActiveConsultationId(
+          null,
+        );
+
+        setActiveMenu(
+          "triage",
+        );
+      };
 
       const triageKey =
         `${activeAssessmentContext.assessmentId}:${activeAssessmentContext.encounterId}`;
@@ -1062,6 +1133,10 @@ export default function AppShell({
 
           encounterId={
             activeAssessmentContext.encounterId
+          }
+
+          onComplete={
+            handleTriageComplete
           }
         />
       );
@@ -1147,7 +1222,17 @@ export default function AppShell({
     }
 
     if (activeMenu === "prescriptions") {
-      return <MedicationSafetyPage />;
+      return (
+        <MedicationSafetyPage
+          key={prescriptionContext?.encounterId ?? "no-prescription-context"}
+          context={prescriptionContext === null ? null : {
+            patientId: prescriptionContext.patient.id,
+            patientName: prescriptionContext.patient.name,
+            patientNo: prescriptionContext.patient.patient_no,
+            encounterId: prescriptionContext.encounterId,
+          }}
+        />
+      );
     }
 
     if (activeMenu === "notifications") {
@@ -1342,6 +1427,10 @@ export default function AppShell({
 
       {isAssistantFloatingOpen && (
         <AssistantFloatingPanel
+          messages={assistantMessages}
+          setMessages={setAssistantMessages}
+          conversationId={assistantConversationId}
+          setConversationId={setAssistantConversationId}
           onExpand={
             handleOpenAssistantWorkspace
           }

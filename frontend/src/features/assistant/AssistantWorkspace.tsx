@@ -1,425 +1,192 @@
-import {
-  type FormEvent,
-  useState,
-} from "react";
+import { type Dispatch, type FormEvent, type SetStateAction, useState } from "react";
 
+import { sendAssistantMessage } from "./api";
+import type { AssistantAction, AssistantChatMessage } from "./types";
 import "./assistant.css";
 
-type ChatRole = "assistant" | "user";
-
-interface ChatMessage {
-  id: number;
-  role: ChatRole;
-  content: string;
-  time: string;
-  actions?: string[];
-}
-
-const QUICK_PROMPTS = [
+export const ASSISTANT_QUICK_PROMPTS = [
   "오늘 예약 환자 현황 알려줘",
   "현재 대기 환자 알려줘",
   "오늘 영상검사 예정 환자 알려줘",
-  "새 협진 요청 요약해줘",
+  "신규 협진 요청 요약해줘",
 ];
 
-function getCurrentTime() {
-  return new Intl.DateTimeFormat("ko-KR", {
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date());
+export interface AssistantConversationProps {
+  messages: AssistantChatMessage[];
+  setMessages: Dispatch<SetStateAction<AssistantChatMessage[]>>;
+  conversationId: string | null;
+  setConversationId: Dispatch<SetStateAction<string | null>>;
 }
 
-function getMockResponse(prompt: string): ChatMessage {
-  const time = getCurrentTime();
-
-  if (prompt.includes("예약")) {
-    return {
-      id: Date.now() + 1,
-      role: "assistant",
-      content:
-        "네, 오늘 예약된 환자 현황을 확인했습니다.\n\n총 8명의 환자가 예약되어 있으며, 오전 5명 · 오후 3명입니다.\n이 중 1명은 긴급 환자로 표시되어 있습니다.\n\n더 자세한 목록이 필요하시면 확인해 드릴까요?",
-      time,
-      actions: [
-        "예약 환자 목록 보기",
-        "시간대별 현황 보기",
-      ],
-    };
-  }
-
-  if (prompt.includes("대기")) {
-    return {
-      id: Date.now() + 1,
-      role: "assistant",
-      content:
-        "현재 대기 중인 환자는 총 4명입니다.\n\n초기평가 대기 2명, 영상검사 대기 1명, 진료 대기 1명입니다.",
-      time,
-      actions: [
-        "대기 환자 목록 보기",
-      ],
-    };
-  }
-
-  if (
-    prompt.includes("영상") ||
-    prompt.includes("검사")
-  ) {
-    return {
-      id: Date.now() + 1,
-      role: "assistant",
-      content:
-        "오늘 예정된 영상검사는 총 6건입니다.\n\nCT 3건, MRI 2건, MRA 1건이 예정되어 있습니다.",
-      time,
-      actions: [
-        "영상검사 일정 보기",
-      ],
-    };
-  }
-
-  if (prompt.includes("협진")) {
-    return {
-      id: Date.now() + 1,
-      role: "assistant",
-      content:
-        "현재 확인이 필요한 신규 협진 요청은 2건입니다.\n\n우선순위와 요청 내용을 기준으로 정리해서 확인할 수 있습니다.",
-      time,
-      actions: [
-        "협진 요청 목록 보기",
-      ],
-    };
-  }
-
-  return {
-    id: Date.now() + 1,
-    role: "assistant",
-    content:
-      "요청을 확인했습니다.\n실제 임상 데이터 조회는 Backend Assistant API 연결 후 제공될 예정입니다.",
-    time,
-  };
+interface AssistantWorkspaceProps extends AssistantConversationProps {
+  onMinimize: () => void;
+  onClose: () => void;
 }
 
-export default function AssistantWorkspace() {
+function formatTime(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? ""
+    : new Intl.DateTimeFormat("ko-KR", { hour: "numeric", minute: "2-digit" }).format(date);
+}
+
+export default function AssistantWorkspace({
+  messages,
+  setMessages,
+  conversationId,
+  setConversationId,
+  onMinimize,
+  onClose,
+}: AssistantWorkspaceProps) {
   const [input, setInput] = useState("");
+  const [isPending, setIsPending] = useState(false);
+  const [requestError, setRequestError] = useState<string | null>(null);
+  const [showNewConversationConfirm, setShowNewConversationConfirm] = useState(false);
 
-  const [
-    messages,
-    setMessages,
-  ] = useState<ChatMessage[]>([]);
+  function resetConversation() {
+    setMessages([]);
+    setConversationId(null);
+    setInput("");
+    setRequestError(null);
+    setShowNewConversationConfirm(false);
+  }
 
-  const [
-    isResponding,
-    setIsResponding,
-  ] = useState(false);
-
-  const handleSend = (
-    value: string,
-  ) => {
-    const prompt = value.trim();
-
-    if (!prompt || isResponding) {
+  function handleNewConversation() {
+    if (messages.length > 0) {
+      setShowNewConversationConfirm(true);
       return;
     }
+    resetConversation();
+  }
 
-    const userMessage: ChatMessage = {
-      id: Date.now(),
+  async function handleSend(value: string) {
+    const prompt = value.trim();
+    if (!prompt || isPending) return;
+
+    setMessages((previous) => [...previous, {
+      id: `user-${Date.now()}`,
       role: "user",
       content: prompt,
-      time: getCurrentTime(),
-    };
-
-    setMessages((previous) => [
-      ...previous,
-      userMessage,
-    ]);
-
+      createdAt: new Date().toISOString(),
+    }]);
     setInput("");
-    setIsResponding(true);
+    setRequestError(null);
+    setIsPending(true);
 
-    window.setTimeout(() => {
-      setMessages((previous) => [
-        ...previous,
-        getMockResponse(prompt),
-      ]);
+    try {
+      const response = await sendAssistantMessage({
+        message: prompt,
+        conversation_id: conversationId,
+        context: { scope: "TODAY" },
+      });
+      setConversationId(response.conversation_id);
+      setMessages((previous) => [...previous, {
+        id: response.message_id,
+        role: "assistant",
+        content: response.answer,
+        createdAt: response.created_at,
+        actions: response.actions,
+      }]);
+    } catch {
+      setRequestError("BrainOn AI 응답을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      setIsPending(false);
+    }
+  }
 
-      setIsResponding(false);
-    }, 500);
-  };
-
-  const handleSubmit = (
-    event: FormEvent<HTMLFormElement>,
-  ) => {
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    handleSend(input);
-  };
+    void handleSend(input);
+  }
+
+  function renderActions(actions: AssistantAction[]) {
+    return <div className="assistant-message-actions">{actions.map((action) => (
+      <button key={`${action.type}-${action.target_id ?? ""}-${action.label}`} type="button">
+        {action.label}
+      </button>
+    ))}</div>;
+  }
 
   return (
     <section className="assistant-workspace">
-      {/* ================================
-          Header
-          ================================ */}
-
       <header className="assistant-workspace-header">
         <div className="assistant-workspace-brand">
-          <div className="assistant-workspace-logo">
-            AI
-          </div>
-
+          <div className="assistant-workspace-logo">AI</div>
           <div>
             <h2>BrainOn AI</h2>
-
-            <p>
-              임상 업무 조회 · 요약 · 의사결정을
-              지원하는 AI 어시스턴트입니다.
-            </p>
+            <p>임상 업무 조회와 요약을 지원하는 AI 어시스턴트입니다.</p>
           </div>
         </div>
-
-        <div className="assistant-workspace-status">
-          <span className="assistant-status-dot" />
-          사용 가능
+        <div className="assistant-workspace-actions">
+          <button type="button" disabled={isPending} onClick={handleNewConversation} aria-label="새 대화 시작" title="새 대화">＋</button>
+          <button type="button" onClick={onMinimize} aria-label="플로팅 Assistant로 축소" title="축소">↘</button>
+          <button type="button" onClick={onClose} aria-label="BrainOn AI Workspace 닫기" title="닫기">×</button>
         </div>
       </header>
 
-      {/* ================================
-          Chat Card
-          ================================ */}
-
       <div className="assistant-workspace-content">
         <div className="assistant-chat-card">
-          {/* Context */}
-
-          <div className="assistant-context-bar">
-            <div className="assistant-context-info">
-              <span className="assistant-context-icon">
-                ▣
-              </span>
-
-              <strong>현재 컨텍스트</strong>
-
-              <span className="assistant-context-divider">
-                |
-              </span>
-
-              <span>
-                전체 업무 · 오늘
-              </span>
-            </div>
-
-            <button
-              type="button"
-              className="assistant-context-button"
-            >
-              ⚙
-              <span>컨텍스트 변경</span>
-              <span>⌄</span>
-            </button>
-          </div>
-
-          {/* Messages */}
-
           <div className="assistant-chat-scroll">
-            {/* 첫 AI 안내 메시지 */}
-
-            <div className="assistant-message-row assistant-message-row--assistant">
-              <div className="assistant-message-avatar">
-                AI
-              </div>
-
+            {messages.length === 0 && <div className="assistant-message-row assistant-message-row--assistant assistant-intro-message">
+              <div className="assistant-message-avatar">AI</div>
               <div className="assistant-message-group">
                 <div className="assistant-message assistant-message--assistant">
-                  안녕하세요. 오늘 어떤 업무를
-                  도와드릴까요?
-                  <br />
-                  예약, 환자, 검사, 협진 현황을
-                  조회하고 요약할 수 있습니다.
+                  <strong>필요한 임상 업무를 질문해 주세요.</strong>
+                  <span>진료, 영상, 리포트 등 다양한 업무를 도와드립니다.</span>
                 </div>
               </div>
-            </div>
+            </div>}
 
-            {/* 빠른 질문 */}
-
-            <div className="assistant-quick-area">
-              <div className="assistant-quick-title">
-                <span>ϟ</span>
-                빠른 질문
+            {messages.map((message) => <div key={message.id} className={`assistant-message-row assistant-message-row--${message.role}`}>
+              {message.role === "assistant" && <div className="assistant-message-avatar">AI</div>}
+              <div className="assistant-message-group">
+                <div className={`assistant-message assistant-message--${message.role}`}>{message.content}</div>
+                <span className="assistant-message-time">{formatTime(message.createdAt)}</span>
+                {message.actions?.length ? renderActions(message.actions) : null}
               </div>
+            </div>)}
 
-              <div className="assistant-quick-grid">
-                {QUICK_PROMPTS.map(
-                  (prompt, index) => (
-                    <button
-                      key={prompt}
-                      type="button"
-                      className="assistant-quick-prompt"
-                      onClick={() => {
-                        handleSend(prompt);
-                      }}
-                    >
-                      <span className="assistant-quick-icon">
-                        {index === 0
-                          ? "□"
-                          : index === 1
-                            ? "♙"
-                            : index === 2
-                              ? "▤"
-                              : "▣"}
-                      </span>
-
-                      <span>
-                        {prompt}
-                      </span>
-
-                      <span className="assistant-quick-arrow">
-                        ›
-                      </span>
-                    </button>
-                  ),
-                )}
-              </div>
-            </div>
-
-            {/* 실제 대화 */}
-
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={
-                  message.role === "user"
-                    ? "assistant-message-row assistant-message-row--user"
-                    : "assistant-message-row assistant-message-row--assistant"
-                }
-              >
-                {message.role === "assistant" && (
-                  <div className="assistant-message-avatar">
-                    AI
-                  </div>
-                )}
-
-                <div className="assistant-message-group">
-                  <div
-                    className={
-                      message.role === "user"
-                        ? "assistant-message assistant-message--user"
-                        : "assistant-message assistant-message--assistant"
-                    }
-                  >
-                    {message.content
-                      .split("\n")
-                      .map((line, index) => (
-                        <span
-                          key={`${message.id}-${index}`}
-                        >
-                          {line}
-
-                          {index <
-                            message.content
-                              .split("\n")
-                              .length -
-                              1 && <br />}
-                        </span>
-                      ))}
-                  </div>
-
-                  <span className="assistant-message-time">
-                    {message.time}
-                  </span>
-
-                  {message.actions &&
-                    message.actions.length > 0 && (
-                      <div className="assistant-message-actions">
-                        {message.actions.map(
-                          (action) => (
-                            <button
-                              key={action}
-                              type="button"
-                            >
-                              {action}
-                            </button>
-                          ),
-                        )}
-                      </div>
-                    )}
-                </div>
-
-                {message.role === "user" && (
-                  <div className="assistant-user-avatar">
-                    ♙
-                  </div>
-                )}
-              </div>
-            ))}
-
-            {isResponding && (
-              <div className="assistant-message-row assistant-message-row--assistant">
-                <div className="assistant-message-avatar">
-                  AI
-                </div>
-
-                <div className="assistant-typing">
-                  <span />
-                  <span />
-                  <span />
-                </div>
-              </div>
-            )}
+            {isPending && <div className="assistant-message-row assistant-message-row--assistant">
+              <div className="assistant-message-avatar">AI</div>
+              <div className="assistant-typing" aria-label="응답 대기 중"><span /><span /><span /></div>
+            </div>}
+            {requestError && <div className="assistant-request-error" role="alert">{requestError}</div>}
           </div>
 
-          {/* ================================
-              Input
-              ================================ */}
+          <div className="assistant-workspace-bottom">
+            <div className="assistant-quick-area">
+              <div className="assistant-quick-title">빠른 질문</div>
+              <div className="assistant-quick-grid">{ASSISTANT_QUICK_PROMPTS.map((prompt) => (
+                <button key={prompt} type="button" className="assistant-quick-prompt" disabled={isPending} onClick={() => void handleSend(prompt)}>
+                  <span>{prompt}</span><span className="assistant-quick-arrow">›</span>
+                </button>
+              ))}</div>
+            </div>
 
-          <div className="assistant-composer-area">
-            <form
-              className="assistant-composer"
-              onSubmit={handleSubmit}
-            >
-              <button
-                type="button"
-                className="assistant-attach-button"
-                aria-label="파일 첨부"
-                title="파일 첨부"
-              >
-                ⌕
-              </button>
-
-              <textarea
-                value={input}
-                rows={1}
-                placeholder="BrainOn AI에게 질문하세요..."
-                aria-label="BrainOn AI 질문 입력"
-                onChange={(event) => {
-                  setInput(event.target.value);
-                }}
-                onKeyDown={(event) => {
-                  if (
-                    event.key === "Enter" &&
-                    !event.shiftKey
-                  ) {
+            <div className="assistant-composer-area">
+              <form className="assistant-composer" onSubmit={handleSubmit}>
+                <button type="button" className="assistant-attach-button" aria-label="파일 첨부" title="파일 첨부">＋</button>
+                <textarea value={input} rows={1} placeholder="BrainOn AI에게 질문하세요..." aria-label="BrainOn AI 질문 입력" disabled={isPending} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
                     event.preventDefault();
-
                     event.currentTarget.form?.requestSubmit();
                   }
-                }}
-              />
-
-              <button
-                type="submit"
-                className="assistant-send-button"
-                disabled={
-                  !input.trim() ||
-                  isResponding
-                }
-                aria-label="메시지 전송"
-              >
-                ↑
-              </button>
-            </form>
-
-            <div className="assistant-composer-help">
-              Enter 전송 · Shift+Enter 줄바꿈
+                }} />
+                <button type="submit" className="assistant-send-button" disabled={!input.trim() || isPending} aria-label="메시지 전송">↑</button>
+              </form>
+              <div className="assistant-composer-help">Enter 전송 · Shift+Enter 줄바꿈</div>
             </div>
           </div>
         </div>
       </div>
+
+      {showNewConversationConfirm && <div className="assistant-confirm-layer" role="presentation" onMouseDown={() => setShowNewConversationConfirm(false)}>
+        <section className="assistant-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="assistant-new-conversation-title" onMouseDown={(event) => event.stopPropagation()}>
+          <h3 id="assistant-new-conversation-title">새 대화를 시작할까요?</h3>
+          <p>현재 대화가 초기화됩니다.</p>
+          <div><button type="button" onClick={() => setShowNewConversationConfirm(false)}>취소</button><button type="button" className="is-primary" onClick={resetConversation}>새 대화</button></div>
+        </section>
+      </div>}
     </section>
   );
 }

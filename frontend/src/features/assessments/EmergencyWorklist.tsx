@@ -6,7 +6,7 @@ import { acknowledgeEmergencyEvent, getEmergencyWorklist } from "./api";
 import type { EmergencyWorklistItem, EmergencyWorklistResponse } from "./types";
 
 interface EmergencyWorklistProps {
-  onOpenPatient?: (patient: Patient) => void;
+  onOpenPatient?: (patient: Patient, encounterId: string) => void;
 }
 
 function formatDateTime(value: string | null): string {
@@ -65,7 +65,7 @@ export default function EmergencyWorklist({ onOpenPatient }: EmergencyWorklistPr
     setPatientOpeningId(patientId);
     setError(null);
     try {
-      onOpenPatient(await getPatient(patientId));
+      onOpenPatient(await getPatient(patientId), item.encounter_id);
     } catch {
       setError("환자 정보를 불러오지 못했습니다.");
     } finally {

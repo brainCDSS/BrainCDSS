@@ -1053,3 +1053,148 @@
   grid-template-columns:
     repeat(2, minmax(260px, 1fr));
 }
+
+/* Four-step Triage workflow */
+.triage-wizard{display:flex;height:100%;min-height:0;flex-direction:column;overflow:hidden;padding:22px 28px;background:#f5f8fc}
+.triage-wizard .triage-assessment__header{flex:0 0 auto;margin:0 0 14px;padding:0;background:transparent;box-shadow:none}
+.triage-context-id{min-width:190px;padding:10px 14px;border:1px solid #dfe7f1;border-radius:10px;background:#fff;text-align:right}.triage-context-id span,.triage-context-id strong{display:block}.triage-context-id span{color:#8591a2;font-size:11px}.triage-context-id strong{margin-top:4px;overflow:hidden;color:#32445e;font-size:12px;text-overflow:ellipsis;white-space:nowrap}
+.triage-stepper{display:grid;flex:0 0 auto;grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:14px;padding:10px 16px;border:1px solid #dfe7f1;border-radius:12px;background:#fff;box-shadow:0 5px 18px rgba(49,82,121,.05)}
+.triage-stepper button{position:relative;display:flex;min-height:42px;align-items:center;justify-content:center;gap:9px;border:0;background:transparent;color:#93a0b2;font:inherit;font-size:12px;font-weight:750}.triage-stepper button:before{position:absolute;top:50%;right:calc(50% + 58px);left:calc(-50% + 58px);height:1px;background:#dce4ee;content:""}.triage-stepper button:first-child:before{display:none}.triage-stepper i{position:relative;z-index:1;display:grid;width:25px;height:25px;place-items:center;border:1px solid #ced8e5;border-radius:50%;background:#fff;font-size:11px;font-style:normal}.triage-stepper .is-current{color:#176fcf}.triage-stepper .is-current i{border-color:#2f80dd;background:#2f80dd;color:#fff;box-shadow:0 0 0 4px #eaf3ff}.triage-stepper .is-complete{color:#258263;cursor:pointer}.triage-stepper .is-complete i{border-color:#34a77e;background:#e8f8f2;color:#20815f}.triage-stepper .is-complete:before,.triage-stepper .is-current:before{background:#8bb8e9}
+.triage-api-message{flex:0 0 auto;margin-bottom:10px;padding:9px 12px;border:1px solid #dbe6f2;border-radius:8px;background:#fff;color:#66758b;font-size:11px}.triage-api-message.is-error{border-color:#f0cdd1;background:#fff4f5;color:#b6404e}.triage-api-message.is-success{border-color:#bfe5d6;background:#effaf6;color:#23795d}
+.triage-step-content{display:flex;min-height:0;flex:1;overflow:visible}.triage-step-panel{width:100%;min-height:0;padding:20px;border:1px solid #dfe7f1;border-radius:13px;background:#fff;box-shadow:0 8px 24px rgba(49,82,121,.055)}
+.triage-step-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid #e7edf4}.triage-step-heading span{color:#2d7ed8;font-size:10px;font-weight:850;letter-spacing:.1em}.triage-step-heading h2{margin:3px 0 4px;color:#26384f;font-size:19px}.triage-step-heading p{margin:0;color:#7b889b;font-size:12px}.triage-step-heading>strong{padding:6px 10px;border-radius:999px;background:#eef5ff;color:#2c73c4;font-size:11px}
+.triage-step-panel .triage-assessment__grid{margin-bottom:16px}.triage-fast-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.triage-fast-grid .triage-question-card{min-height:130px;flex-direction:column;align-items:stretch}.triage-fast-grid .triage-choice-group{margin-top:auto}.triage-consciousness{margin-bottom:18px}.triage-vital-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.triage-rule-empty{min-height:105px}.triage-note-field{display:block;margin-top:18px}.triage-note-field>span{display:block;margin-bottom:8px;color:#43536a;font-size:12px;font-weight:750}.triage-note-field textarea{width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid #dce4ee;border-radius:10px;outline:none;background:#fff;color:#2e3e55;font:inherit;resize:vertical}.triage-note-field textarea:focus{border-color:#69a1e3;box-shadow:0 0 0 3px rgba(61,133,220,.1)}
+.triage-wizard-actions{display:flex;flex:0 0 auto;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding:12px 16px;border:1px solid #dfe7f1;border-radius:11px;background:#fff;box-shadow:0 -5px 18px rgba(50,78,112,.04)}.triage-wizard-actions>div{display:flex;gap:8px}.triage-wizard-actions button{min-width:100px;height:38px;padding:0 16px;border-radius:8px;font:inherit;font-size:12px;font-weight:800}.triage-wizard-actions .triage-complete-button{min-width:120px}
+.triage-result-step{display:flex;height:100%;min-height:0;flex-direction:column;padding:14px;overflow:visible}.triage-result-step>.triage-step-heading{margin-bottom:10px;padding-bottom:9px}.triage-result-overview{display:grid;grid-template-columns:1.2fr .8fr;gap:8px}.triage-result-step .triage-result-card{margin:0;padding:14px 16px;gap:16px}.triage-result-step .triage-result-values>div{min-height:58px;padding:7px 12px}.triage-input-summary,.triage-result-subcard{height:auto;min-height:0;padding:12px 14px;border:1px solid #e0e7f0;border-radius:11px;background:#fbfdff}.triage-input-summary h3,.triage-result-subcard h3{margin:0 0 8px;color:#30425c;font-size:14px}.triage-input-summary dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:0}.triage-input-summary dl div{padding:7px 8px;border-radius:8px;background:#fff}.triage-input-summary dt{color:#8290a3;font-size:10px}.triage-input-summary dd{margin:3px 0 0;color:#293b54;font-size:12px;font-weight:800}.triage-input-summary dd small{color:#8390a2;font-weight:500}.triage-result-columns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.triage-result-subcard p,.triage-result-empty{margin:0;color:#78869a;font-size:11px}.triage-result-subcard ul{margin:0;padding:0;list-style:none}.triage-result-subcard li{display:flex;justify-content:space-between;padding:6px 8px;border-bottom:1px solid #e7edf4;font-size:11px}.triage-result-subcard label{display:block;margin-top:9px}.triage-result-subcard label>span{display:block;margin-bottom:5px;color:#44556d;font-size:11px;font-weight:750}.triage-result-subcard select{width:100%;height:38px;padding:0 10px;border:1px solid #dbe4ee;border-radius:8px;background:#f3f6fa;color:#8390a2}.triage-result-actions{min-height:52px;margin-top:auto;padding:7px 2px 0;border:0;border-top:1px solid #e6ecf3;border-radius:0;box-shadow:none}.triage-result-actions .triage-complete-button:disabled{cursor:not-allowed;opacity:.5}
+@media(max-width:1050px){.triage-wizard{min-width:900px}.triage-stepper button span{font-size:11px}.triage-vital-grid{grid-template-columns:repeat(2,1fr)}}
+
+
+/* =========================================================
+   Triage 완료 Modal
+   ========================================================= */
+
+.triage-complete-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 24px;
+
+  background: rgba(24, 39, 58, 0.35);
+  backdrop-filter: blur(2px);
+}
+
+
+.triage-complete-modal {
+  width: min(420px, 100%);
+  padding: 32px;
+
+  border: 1px solid #dce6f0;
+  border-radius: 16px;
+
+  background: #ffffff;
+
+  box-shadow:
+    0 24px 70px
+    rgba(28, 49, 76, 0.2);
+
+  text-align: center;
+}
+
+
+.triage-complete-modal-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 56px;
+  height: 56px;
+
+  margin: 0 auto 18px;
+
+  border-radius: 50%;
+
+  background: #eaf7f2;
+  color: #218c6b;
+
+  font-size: 26px;
+  font-weight: 700;
+}
+
+
+.triage-complete-modal h3 {
+  margin: 0 0 10px;
+
+  color: #263247;
+
+  font-size: 20px;
+  font-weight: 700;
+}
+
+
+.triage-complete-modal > p {
+  margin: 0;
+
+  color: #7a8798;
+
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+
+.triage-complete-modal-doctor {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  margin-top: 22px;
+  padding: 14px 16px;
+
+  border: 1px solid #e4ebf3;
+  border-radius: 10px;
+
+  background: #f7f9fc;
+}
+
+
+.triage-complete-modal-doctor span {
+  color: #8a97a8;
+
+  font-size: 13px;
+}
+
+
+.triage-complete-modal-doctor strong {
+  color: #263247;
+
+  font-size: 14px;
+  font-weight: 700;
+}
+
+
+.triage-complete-modal-confirm {
+  width: 100%;
+
+  margin-top: 24px;
+  padding: 12px 20px;
+
+  border: 0;
+  border-radius: 9px;
+
+  background: #4f8fe8;
+  color: #ffffff;
+
+  font-size: 14px;
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+
+.triage-complete-modal-confirm:hover {
+  filter: brightness(0.96);
+}

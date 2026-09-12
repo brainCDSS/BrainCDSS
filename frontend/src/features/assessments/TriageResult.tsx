@@ -1,356 +1,866 @@
+import {
+  useEffect,
+  useState,
+} from "react";
+
+import {
+  completeAssessment,
+  getClinicians,
+} from "./api";
+
 import type {
   AssessmentDetailResponse,
+  Clinician,
+  CompleteAssessmentResponse,
 } from "./types";
 
 import "./css/triage_assessment.css";
 
 
-interface TriageResultProps {
-
-  result:
-    AssessmentDetailResponse | null;
-
-  onBack: () => void;
-
+interface TriageSummary {
+  fastCompleted: number;
+  fastAbnormal: number;
+  bpSys: string;
+  bpDia: string;
+  lkwAt: string;
+  riskAbnormal: number;
 }
 
 
-/* =========================================================
-   Priority 화면 표시명
-   ---------------------------------------------------------
-   Backend 상태값을 화면용 한글로만 변환한다.
+interface Props {
+  result: AssessmentDetailResponse | null;
+  summary: TriageSummary;
+  onBack: () => void;
+  onComplete: () => void;
+}
 
-   임상 판단 로직이 아니다.
-   ========================================================= */
 
-function getPriorityLabel(
+function priorityLabel(
   priority: string | null,
 ) {
-
-  switch (priority) {
-
-    case "URGENT":
-      return "긴급";
-
-    case "EMERGENCY":
-      return "응급";
-
-    case "NON_EMERGENCY":
-      return "비응급";
-
-    default:
-      return "—";
-
+  if (priority === "URGENT") {
+    return "긴급";
   }
 
+  if (priority === "EMERGENCY") {
+    return "응급";
+  }
+
+  if (priority === "NON_EMERGENCY") {
+    return "비응급";
+  }
+
+  return "-";
 }
 
 
 export default function TriageResult({
   result,
+  summary,
   onBack,
-}: TriageResultProps) {
+  onComplete,
+}: Props) {
+
+  const [
+    clinicians,
+    setClinicians,
+  ] = useState<Clinician[]>([]);
+
+
+  const [
+    selectedUserId,
+    setSelectedUserId,
+  ] = useState("");
+
+
+  const [
+    loadingClinicians,
+    setLoadingClinicians,
+  ] = useState(false);
+
+
+  const [
+    completing,
+    setCompleting,
+  ] = useState(false);
+
+
+  const [
+    error,
+    setError,
+  ] = useState<string | null>(
+    null,
+  );
+
+
+  const [
+    completed,
+    setCompleted,
+  ] = useState<CompleteAssessmentResponse | null>(
+    null,
+  );
+
+
+  const [
+    showCompleteModal,
+    setShowCompleteModal,
+  ] = useState(false);
 
 
   /* ========================================================
-     Red Flag 항목
-
-     Backend에서 is_red_flag=true로 반환한
-     항목만 표시한다.
+     평가 결과
      ======================================================== */
 
-  const redFlagItems =
+  const redFlags =
     result?.items.filter(
       (item) =>
-        item.is_red_flag === true,
+        item.is_red_flag,
     ) ?? [];
 
 
+  const departmentId =
+    result?.neurology_department_id ??
+    null;
+
+
+  const selectedClinician =
+    clinicians.find(
+      (clinician) =>
+        clinician.user_id ===
+        selectedUserId,
+    ) ?? null;
+
+
+  const finalScore =
+    completed?.total_score ??
+    result?.total_score ??
+    null;
+
+
+  const finalPriority =
+    completed?.triage_priority ??
+    result?.triage_priority ??
+    null;
+
+
+  /* ========================================================
+     담당 신경과 의료진 조회
+     ======================================================== */
+
+  useEffect(
+    () => {
+      let active =
+        true;
+
+
+      setClinicians(
+        [],
+      );
+
+      setSelectedUserId(
+        "",
+      );
+
+      setError(
+        null,
+      );
+
+
+      if (!departmentId) {
+        return () => {
+          active =
+            false;
+        };
+      }
+
+
+      setLoadingClinicians(
+        true,
+      );
+
+
+      getClinicians(
+        departmentId,
+      )
+        .then(
+          (response) => {
+            if (!active) {
+              return;
+            }
+
+            setClinicians(
+              response.clinicians.filter(
+                (item) =>
+                  item.is_active,
+              ),
+            );
+          },
+        )
+        .catch(
+          () => {
+            if (!active) {
+              return;
+            }
+
+            setError(
+              "담당 신경과 의료진 목록을 불러오지 못했습니다.",
+            );
+          },
+        )
+        .finally(
+          () => {
+            if (active) {
+              setLoadingClinicians(
+                false,
+              );
+            }
+          },
+        );
+
+
+      return () => {
+        active =
+          false;
+      };
+    },
+    [
+      departmentId,
+    ],
+  );
+
+
+  /* ========================================================
+     평가 완료 + 담당 신경과 배정
+     ======================================================== */
+
+  async function handleComplete() {
+    if (
+      !result?.assessment_id ||
+      !selectedUserId ||
+      completing
+    ) {
+      return;
+    }
+
+
+    try {
+      setCompleting(
+        true,
+      );
+
+      setError(
+        null,
+      );
+
+
+      const response =
+        await completeAssessment(
+          result.assessment_id,
+          {
+            assigned_neurologist_id:
+              selectedUserId,
+          },
+        );
+
+
+      setCompleted(
+        response,
+      );
+
+
+      /*
+       * API가 성공했을 때만
+       * 완료 팝업을 표시한다.
+       */
+      setShowCompleteModal(
+        true,
+      );
+
+    } catch {
+      setError(
+        "초기평가 완료 및 담당의 배정에 실패했습니다. 입력 항목과 담당의를 확인해 주세요.",
+      );
+
+    } finally {
+      setCompleting(
+        false,
+      );
+    }
+  }
+
+
   return (
+    <section className="triage-step-panel triage-result-step">
 
-    <div className="triage-assessment">
+      {/* ====================================================
+          Step Header
+          ==================================================== */}
 
-
-      {/* ===================================================
-          Header
-          =================================================== */}
-
-      <header className="triage-assessment__header">
+      <div className="triage-step-heading">
 
         <div>
 
-          <p className="triage-assessment__eyebrow">
-            TRIAGE RESULT
-          </p>
-
-
-          <h1>
-            Triage 결과 · 의사 지정
-          </h1>
-
-
-          <p>
-            초기평가 결과를 확인하고
-            담당 신경과 의사를 지정합니다.
-          </p>
-
-        </div>
-
-      </header>
-
-
-      {/* ===================================================
-          평가 결과
-          =================================================== */}
-
-      <section className="triage-result-card">
-
-        <div>
-
-          <span className="triage-result-label">
-            ASSESSMENT RESULT
+          <span>
+            STEP 4
           </span>
 
 
-          <strong>
-            초기평가 결과
-          </strong>
+          <h2>
+            {
+              completed
+                ? "초기평가 완료"
+                : "결과 · 담당 신경과 지정"
+            }
+          </h2>
 
 
           <p>
-            점수와 처리 우선순위는
-            서버에서 계산된 결과를 표시합니다.
+            {
+              completed
+                ? "초기평가 및 담당 신경과 의료진 배정이 완료되었습니다."
+                : "서버 계산 결과를 확인하고 담당 의료진을 지정합니다."
+            }
           </p>
 
         </div>
 
+      </div>
 
-        <div className="triage-result-values">
+
+      {/* ====================================================
+          평가 결과 + Summary
+          ==================================================== */}
+
+      <div className="triage-result-overview">
+
+        <section className="triage-result-card">
 
           <div>
 
-            <span>
-              Total Score
+            <span className="triage-result-label">
+              {
+                completed
+                  ? "ASSESSMENT COMPLETED"
+                  : "ASSESSMENT RESULT"
+              }
             </span>
 
 
             <strong>
-              {result?.total_score ?? "—"}
+              {
+                completed
+                  ? "최종 초기평가 결과"
+                  : "초기평가 결과"
+              }
             </strong>
-
-          </div>
-
-
-          <div>
-
-            <span>
-              Priority
-            </span>
-
-
-            <strong>
-              {getPriorityLabel(
-                result?.triage_priority ?? null,
-              )}
-            </strong>
-
-          </div>
-
-        </div>
-
-      </section>
-
-
-      {/* ===================================================
-          1. 주요 위험항목
-          =================================================== */}
-
-      <section className="triage-assessment__section">
-
-        <div className="triage-section-heading">
-
-          <div className="triage-section-number">
-            1
-          </div>
-
-
-          <div>
-
-            <h2>
-              주요 위험항목
-            </h2>
 
 
             <p>
-              초기평가에서 확인된
-              Red Flag 항목을 표시합니다.
+              {
+                completed
+                  ? "서버에서 계산된 최종 평가 결과입니다."
+                  : "점수와 우선순위는 Backend 계산 결과입니다."
+              }
             </p>
 
           </div>
 
-        </div>
 
+          <div className="triage-result-values">
 
-        <div className="triage-question-list">
+            <div>
 
-          {redFlagItems.length === 0 ? (
+              <span>
+                Total Score
+              </span>
 
-            <div className="triage-question-card">
-
-              <div className="triage-question-content">
-
-                <strong>
-                  확인된 위험항목
-                </strong>
-
-
-                <span>
-                  {result
-                    ? "확인된 Red Flag 항목이 없습니다."
-                    : "평가 결과 연동 정보가 없습니다."}
-                </span>
-
-              </div>
+              <strong>
+                {
+                  finalScore ??
+                  "-"
+                }
+              </strong>
 
             </div>
 
-          ) : (
 
-            redFlagItems.map(
-              (item) => (
+            <div>
 
-                <div
-                  key={
-                    item.item_code
+              <span>
+                Priority
+              </span>
+
+              <strong>
+                {
+                  priorityLabel(
+                    finalPriority,
+                  )
+                }
+              </strong>
+
+
+              {
+                !completed && (
+                  <small>
+                    {
+                      finalPriority ??
+                      "결과 없음"
+                    }
+                  </small>
+                )
+              }
+
+            </div>
+
+          </div>
+
+        </section>
+
+
+        {/* ==================================================
+            주요 입력 Summary
+            ================================================== */}
+
+        <section className="triage-input-summary">
+
+          <h3>
+            주요 입력 Summary
+          </h3>
+
+
+          <dl>
+
+            <div>
+
+              <dt>
+                FAST
+              </dt>
+
+              <dd>
+                {
+                  summary.fastAbnormal
+                }
+                {" / 3 이상 "}
+
+                <small>
+                  (
+                  {
+                    summary.fastCompleted
+                  }
+                  /3 응답)
+                </small>
+              </dd>
+
+            </div>
+
+
+            <div>
+
+              <dt>
+                BP
+              </dt>
+
+              <dd>
+                {
+                  summary.bpSys ||
+                  "-"
+                }
+                {" / "}
+                {
+                  summary.bpDia ||
+                  "-"
+                }
+              </dd>
+
+            </div>
+
+
+            <div>
+
+              <dt>
+                LKW
+              </dt>
+
+              <dd>
+                {
+                  summary.lkwAt
+                    ? summary.lkwAt.replace(
+                        "T",
+                        " ",
+                      )
+                    : "-"
+                }
+              </dd>
+
+            </div>
+
+
+            <div>
+
+              <dt>
+                위험 문진
+              </dt>
+
+              <dd>
+                {
+                  summary.riskAbnormal
+                }
+                개 해당
+              </dd>
+
+            </div>
+
+          </dl>
+
+        </section>
+
+      </div>
+
+
+      {/* ====================================================
+          Red Flag + 담당 신경과
+          ==================================================== */}
+
+      <div className="triage-result-columns">
+
+        {/* ==================================================
+            Red Flag
+            ================================================== */}
+
+        <section className="triage-result-subcard">
+
+          <h3>
+            Red Flag
+          </h3>
+
+
+          {
+            redFlags.length === 0
+              ? (
+                <div className="triage-result-empty">
+                  {
+                    result
+                      ? "확인된 Red Flag 항목이 없습니다."
+                      : "평가 결과 연동 정보가 없습니다."
+                  }
+                </div>
+              )
+              : (
+                <ul>
+
+                  {
+                    redFlags.map(
+                      (item) => (
+                        <li
+                          key={
+                            item.item_code
+                          }
+                        >
+
+                          <strong>
+                            {
+                              item.item_code
+                            }
+                          </strong>
+
+
+                          <span>
+                            Red Flag
+                          </span>
+
+                        </li>
+                      ),
+                    )
                   }
 
-                  className="triage-question-card"
-                >
+                </ul>
+              )
+          }
 
-                  <div className="triage-question-content">
+        </section>
+
+
+        {/* ==================================================
+            담당 신경과
+            ================================================== */}
+
+        <section className="triage-result-subcard">
+
+          <h3>
+            {
+              completed
+                ? "담당 신경과"
+                : "담당 신경과 선택"
+            }
+          </h3>
+
+
+          {
+            completed
+              ? (
+                <>
+
+                  <p>
+                    초기평가 완료 후 배정된 담당 의료진입니다.
+                  </p>
+
+
+                  <div className="triage-assignment-success">
 
                     <strong>
-                      {item.item_code}
+                      {
+                        selectedClinician?.name ??
+                        "담당 의료진"
+                      }
                     </strong>
 
 
                     <span>
-                      Red Flag
+                      담당 의료진 배정 완료
                     </span>
 
                   </div>
 
-                </div>
+                </>
+              )
+              : (
+                <>
 
-              ),
-            )
-
-          )}
-
-        </div>
-
-      </section>
-
-
-      {/* ===================================================
-          2. 담당 신경과 지정
-          ---------------------------------------------------
-          현재 NURSE가 사용할 수 있는
-          담당 신경과 목록 API 계약이 확인되지 않았다.
-
-          따라서 임의 의사 목록을 만들지 않는다.
-          =================================================== */}
-
-      <section className="triage-assessment__section">
-
-        <div className="triage-section-heading">
-
-          <div className="triage-section-number">
-            2
-          </div>
+                  <p>
+                    {
+                      departmentId
+                        ? "활성 상태인 신경과 의료진을 선택해 주세요."
+                        : "응답에 신경과 department_id가 없습니다."
+                    }
+                  </p>
 
 
-          <div>
+                  <label>
 
-            <h2>
-              담당 신경과 지정
-            </h2>
-
-
-            <p>
-              Triage 제출 전
-              담당 신경과 의사를 선택합니다.
-            </p>
-
-          </div>
-
-        </div>
+                    <span>
+                      담당 신경과
+                    </span>
 
 
-        <label>
+                    <select
+                      value={
+                        selectedUserId
+                      }
+                      disabled={
+                        !departmentId ||
+                        loadingClinicians
+                      }
+                      onChange={
+                        (event) =>
+                          setSelectedUserId(
+                            event.target.value,
+                          )
+                      }
+                    >
 
-          <span>
-            담당 신경과
-          </span>
+                      <option value="">
+                        {
+                          loadingClinicians
+                            ? "의료진 조회 중..."
+                            : clinicians.length
+                              ? "담당 의료진을 선택하세요"
+                              : "선택 가능한 의료진이 없습니다"
+                        }
+                      </option>
 
 
-          <select
-            defaultValue=""
-            disabled
-          >
+                      {
+                        clinicians.map(
+                          (clinician) => (
+                            <option
+                              key={
+                                clinician.id
+                              }
+                              value={
+                                clinician.user_id
+                              }
+                            >
+                              {
+                                clinician.name
+                              }
+                            </option>
+                          ),
+                        )
+                      }
 
-            <option value="">
-              담당 신경과 목록 API 확인 필요
-            </option>
+                    </select>
 
-          </select>
+                  </label>
 
-        </label>
-
-      </section>
-
-
-      {/* ===================================================
-          하단 Action
-          =================================================== */}
-
-      <div className="triage-assessment__actions">
-
-        <button
-          type="button"
-
-          className="triage-draft-button"
-
-          onClick={
-            onBack
+                </>
+              )
           }
-        >
-          이전
-        </button>
 
 
-        {/*
-          completeAssessment API 함수 자체는 api.ts에 있음.
+          {
+            error && (
+              <div
+                className="triage-assignment-error"
+                role="alert"
+              >
+                {
+                  error
+                }
+              </div>
+            )
+          }
 
-          하지만 담당 신경과 ID를 얻는
-          NURSE용 목록 API가 확인되기 전에는
-          임의 ID를 POST하지 않는다.
-        */}
-
-        <button
-          type="button"
-
-          className="triage-complete-button"
-
-          disabled
-        >
-          Triage 제출
-        </button>
+        </section>
 
       </div>
 
-    </div>
 
+      {/* ====================================================
+          Bottom Action
+          ==================================================== */}
+
+      <footer className="triage-wizard-actions triage-result-actions">
+
+        {
+          completed
+            ? (
+              <>
+                <div />
+
+                <div>
+
+                  <button
+                    type="button"
+                    className="triage-complete-button"
+                    disabled
+                  >
+                    평가 완료
+                  </button>
+
+                </div>
+              </>
+            )
+            : (
+              <>
+
+                <div>
+
+                  <button
+                    type="button"
+                    className="triage-draft-button"
+                    onClick={
+                      onBack
+                    }
+                    disabled={
+                      completing
+                    }
+                  >
+                    이전
+                  </button>
+
+                </div>
+
+
+                <div>
+
+                  <button
+                    type="button"
+                    className="triage-complete-button"
+                    disabled={
+                      !selectedUserId ||
+                      completing
+                    }
+                    onClick={
+                      () =>
+                        void handleComplete()
+                    }
+                  >
+                    {
+                      completing
+                        ? "배정 중..."
+                        : "평가 완료 및 담당의 배정"
+                    }
+                  </button>
+
+                </div>
+
+              </>
+            )
+        }
+
+      </footer>
+
+
+      {/* ====================================================
+          평가 완료 팝업
+          ==================================================== */}
+
+      {
+        showCompleteModal && (
+          <div
+            className="triage-complete-modal-backdrop"
+            role="presentation"
+          >
+
+            <div
+              className="triage-complete-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="triage-complete-title"
+            >
+
+              <div className="triage-complete-modal-icon">
+                ✓
+              </div>
+
+
+              <h3 id="triage-complete-title">
+                초기평가가 완료되었습니다
+              </h3>
+
+
+              <p>
+                초기평가와 담당 신경과 의료진
+                배정이 완료되었습니다.
+              </p>
+
+
+              {
+                selectedClinician && (
+                  <div className="triage-complete-modal-doctor">
+
+                    <span>
+                      담당 신경과
+                    </span>
+
+
+                    <strong>
+                      {
+                        selectedClinician.name
+                      }
+                    </strong>
+
+                  </div>
+                )
+              }
+
+
+              <button
+                type="button"
+                className="triage-complete-modal-confirm"
+                onClick={
+                  onComplete
+                }
+              >
+                확인
+              </button>
+
+            </div>
+
+          </div>
+        )
+      }
+
+    </section>
   );
-
 }

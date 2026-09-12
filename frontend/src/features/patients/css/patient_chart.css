@@ -98,3 +98,30 @@
   .patient-context-list{display:block;overflow-y:auto}.patient-workspace .patient-context-item{height:auto;min-height:78px;margin-bottom:4px}
   .patient-clinical-info{min-height:48px;flex-basis:48px}.patient-workspace .patient-context-header{min-height:100px;flex-basis:100px}
 }
+
+/* Single-view patient chart: overview, imaging and clinical progress stay visible together. */
+.app-content:has(> .patient-context-dashboard){overflow:auto}
+.patient-context-dashboard{height:auto;min-height:100%;grid-template-columns:minmax(1080px,1fr) 310px;align-items:start;overflow:visible}
+.patient-workspace{height:auto;min-height:calc(100vh - 148px);grid-template-columns:250px minmax(830px,1fr);overflow:visible}
+.patient-workspace .patient-context-rail{position:sticky;top:0;height:calc(100vh - 148px)}
+.patient-workspace .patient-context-main{height:auto;overflow:visible}
+.patient-workspace .patient-context-header{min-height:118px;flex:0 0 auto;padding:14px 18px}
+.patient-context-header__identity{flex:0 0 auto}
+.patient-context-facts{display:grid;min-width:520px;grid-template-columns:repeat(4,minmax(105px,1fr));gap:0;margin:0}
+.patient-context-facts div{min-width:0;padding:5px 14px;border-left:1px solid #e5ebf3}
+.patient-context-facts dt{color:#7d899d;font-size:10px}.patient-context-facts dd{margin:5px 0 0;overflow:hidden;color:#34445e;font-size:11px;font-weight:800;text-overflow:ellipsis;white-space:nowrap}
+.patient-safety-bar{display:flex;align-items:center;gap:12px;margin:10px 12px 0;padding:9px 12px;border:1px solid #f4d9dc;border-radius:9px;background:#fff4f5;color:#a34550;font-size:10px}.patient-safety-bar strong{flex:0 0 auto;color:#d33b4e}.patient-safety-bar span{color:#9a5861}
+.patient-workspace .patient-summary-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:10px 12px;background:transparent}
+.patient-workspace .patient-summary-card{min-height:142px;padding:11px;border:1px solid var(--pc-border);border-radius:11px;box-shadow:none}
+.patient-summary-card h3{font-size:12px}.patient-summary-card header span{background:#eaf3ff;color:#2475da}.patient-summary-card>button{right:10px;bottom:9px;color:#216fce}.summary-empty{min-height:58px}
+.patient-workspace .patient-clinical-focus{display:grid;min-height:620px;grid-template-columns:minmax(470px,1.25fr) minmax(350px,.85fr);gap:10px;padding:0 12px 12px;border:0;background:#fff}
+.patient-workspace .patient-dashboard-card{height:auto;border:1px solid var(--pc-border);border-radius:12px;box-shadow:0 5px 16px rgba(46,74,110,.04)}
+.patient-workspace .brain-viewer-card{height:100%;border-color:#273247}.patient-workspace .brain-viewer-stage{height:calc(100% - 58px);min-height:560px}
+.patient-clinical-stack{display:grid;min-width:0;grid-template-rows:minmax(340px,1fr) minmax(210px,.65fr);gap:10px}
+.patient-workspace .ai-result-card{min-height:340px;overflow:auto}.patient-workspace .recent-tests-card{min-height:210px}
+.recent-test-list{padding:4px 12px 10px}.recent-test-list>div{display:grid;grid-template-columns:55px minmax(0,1fr) 88px 88px;align-items:center;gap:8px;padding:9px 2px;border-bottom:1px solid #edf1f6;font-size:10px}.recent-test-list>div:last-child{border-bottom:0}.recent-test-list strong{color:#255f9d}.recent-test-list span{overflow:hidden;color:#4e5e75;text-overflow:ellipsis;white-space:nowrap}.recent-test-list time{color:#77859a}.recent-test-list em{overflow:hidden;color:#2d7a62;font-style:normal;font-weight:800;text-align:right;text-overflow:ellipsis;white-space:nowrap}
+.patient-context-aside{position:sticky;top:0;height:calc(100vh - 148px);grid-template-rows:minmax(390px,1.35fr) minmax(260px,.9fr);overflow:hidden}
+.patient-context-aside .timeline-card,.patient-context-aside .order-soap-card{overflow:hidden}.patient-context-aside .clinical-timeline{flex:1}
+.order-soap-card{display:flex;flex-direction:column}.order-soap-card ul{min-height:0;margin:0;padding:7px 12px;overflow:auto;list-style:none}.order-soap-card li{display:grid;grid-template-columns:68px minmax(0,1fr) auto;gap:7px;padding:8px 0;border-bottom:1px solid #edf1f6;font-size:9px}.order-soap-card li time{color:#8490a3}.order-soap-card li strong{overflow:hidden;color:#36465f;text-overflow:ellipsis;white-space:nowrap}.order-soap-card li span{color:#26795f;font-weight:800}.soap-placeholder{display:flex;justify-content:space-between;gap:8px;margin:auto 12px 12px;padding:10px;border:1px dashed #dbe4ef;border-radius:9px;background:#f8fbff;font-size:9px}.soap-placeholder strong{color:#355c8d}.soap-placeholder span{color:#8490a3}
+.patient-context-item__meta:after{display:inline-flex;padding:2px 5px;border-radius:5px;background:#f2f5f9;color:#78869a;content:"상태 정보";font-size:9px}
+@media(max-width:1450px){.patient-context-dashboard{width:1400px}.patient-context-facts{min-width:480px}.patient-workspace{grid-template-columns:238px minmax(822px,1fr)}}

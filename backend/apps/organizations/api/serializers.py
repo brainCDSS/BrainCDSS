@@ -103,6 +103,7 @@ class DepartmentSummarySerializer(serializers.Serializer):
 
 class ClinicianItemSerializer(serializers.Serializer):
     id = serializers.UUIDField()
+    user_id = serializers.UUIDField()
     name = serializers.CharField()
     specialty = serializers.CharField(allow_null=True)
     license_no = serializers.CharField(allow_null=True)

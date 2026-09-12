@@ -1,20 +1,171 @@
 import 'package:brainon_mobile_core/brainon_mobile_core.dart';
 import 'package:flutter/material.dart';
+
+import '../core/api/api_client.dart';
+import '../features/auth/auth_session.dart';
+import '../features/auth/login_page.dart';
 import 'patient_main_shell.dart';
 
-class PatientApp extends StatelessWidget {
+class PatientApp extends StatefulWidget {
   const PatientApp({super.key});
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
-        title: 'BrainOn Patient',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF356FAF)),
-          scaffoldBackgroundColor: const Color(0xFFF6F8FB),
-          useMaterial3: true,
+  State<PatientApp> createState() => _PatientAppState();
+}
+
+class _PatientAppState extends State<PatientApp> {
+  final ApiClient _apiClient = ApiClient();
+
+  AuthSession? _session;
+
+  void _handleLoginSuccess(AuthSession session) {
+    setState(() {
+      _session = session;
+    });
+  }
+
+  void _logout() {
+    _apiClient.setAccessToken(null);
+
+    setState(() {
+      _session = null;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const primary = Color(0xFF8FAFE8);
+    const primaryDark = Color(0xFF416AAB);
+    const background = Color(0xFFF7F9FC);
+    const surface = Color(0xFFFFFFFF);
+    const textPrimary = Color(0xFF1D3153);
+    const textSecondary = Color(0xFF75849A);
+    const border = Color(0xFFDEE6F2);
+    const emergency = Color(0xFFE94E4E);
+
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: primary,
+      brightness: Brightness.light,
+    ).copyWith(
+      primary: primary,
+      onPrimary: Colors.white,
+      secondary: primaryDark,
+      surface: surface,
+      error: emergency,
+    );
+
+    return MaterialApp(
+      title: 'BrainOn Patient',
+      debugShowCheckedModeBanner: false,
+      color: primary,
+      navigatorObservers: [
+        NoopNavigationObserver(),
+      ],
+      theme: ThemeData(
+        useMaterial3: true,
+        colorScheme: colorScheme,
+        scaffoldBackgroundColor: background,
+        textTheme: const TextTheme(
+          headlineSmall: TextStyle(
+            color: textPrimary,
+            fontWeight: FontWeight.w800,
+          ),
+          titleLarge: TextStyle(
+            color: textPrimary,
+            fontWeight: FontWeight.w800,
+          ),
+          titleMedium: TextStyle(
+            color: textPrimary,
+            fontWeight: FontWeight.w700,
+          ),
+          bodyLarge: TextStyle(
+            color: textPrimary,
+          ),
+          bodyMedium: TextStyle(
+            color: textPrimary,
+          ),
+          bodySmall: TextStyle(
+            color: textSecondary,
+          ),
         ),
-        home: const PatientMainShell(),
-        navigatorObservers: [NoopNavigationObserver()],
-      );
+        appBarTheme: const AppBarTheme(
+          backgroundColor: surface,
+          foregroundColor: textPrimary,
+          elevation: 0,
+          centerTitle: false,
+        ),
+        navigationBarTheme: NavigationBarThemeData(
+          backgroundColor: surface,
+          indicatorColor: primary.withOpacity(0.20),
+          labelTextStyle: WidgetStateProperty.resolveWith(
+            (states) {
+              if (states.contains(
+                WidgetState.selected,
+              )) {
+                return const TextStyle(
+                  color: primaryDark,
+                  fontWeight: FontWeight.w700,
+                );
+              }
+
+              return const TextStyle(
+                color: textSecondary,
+              );
+            },
+          ),
+        ),
+        cardTheme: const CardThemeData(
+          color: surface,
+          elevation: 0,
+          margin: EdgeInsets.zero,
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: surface,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 16,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(
+              color: border,
+            ),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(
+              color: border,
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(
+              color: primaryDark,
+              width: 1.5,
+            ),
+          ),
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            backgroundColor: primaryDark,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+        ),
+      ),
+      home: _session == null
+          ? LoginPage(
+              apiClient: _apiClient,
+              onLoginSuccess: _handleLoginSuccess,
+            )
+          : PatientMainShell(
+              apiClient: _apiClient,
+              session: _session!,
+              onLogout: _logout,
+            ),
+    );
+  }
 }

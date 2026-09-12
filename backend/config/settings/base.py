@@ -30,6 +30,11 @@ ALLOWED_HOSTS = [
     if host.strip()
 ]
 
+# 예약설정시간으로 인해 추가함
+APPOINTMENT_HOLD_TTL_MINUTES = int(
+    os.getenv("APPOINTMENT_HOLD_TTL_MINUTES", "10")
+)
+
 
 # ---------------------------------------------------------------------
 # Applications

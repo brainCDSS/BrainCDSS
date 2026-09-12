@@ -2427,3 +2427,23 @@ body,
 .sidebar-group-button.expanded {
   background: rgba(255, 255, 255, 0.10);
 }
+
+
+/* =========================================================
+   Header 검색 Dropdown Layer Fix
+   WorkspaceTabs보다 환자 검색 결과가 항상 위에 표시되도록 함
+   ========================================================= */
+
+.header {
+  z-index: 1000;
+  overflow: visible;
+}
+
+.header-main-area,
+.header-patient-search-area {
+  overflow: visible;
+}
+
+.header-search-dropdown {
+  z-index: 1100;
+}

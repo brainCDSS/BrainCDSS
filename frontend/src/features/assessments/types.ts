@@ -180,6 +180,44 @@ export interface CompleteAssessmentResponse {
 
 
 /* =========================================================
+   Reference API
+   소속 기관 / 진료과
+   ========================================================= */
+
+export interface HospitalListItem {
+  id: string;
+  name: string;
+  address: string;
+  phone: string | null;
+  latitude: string | null;
+  longitude: string | null;
+  distance_km: number | null;
+  is_favorite: boolean;
+}
+
+export interface HospitalListResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: HospitalListItem[];
+}
+
+export interface DepartmentItem {
+  id: string;
+  code: string;
+  name: string;
+}
+
+export interface HospitalDepartmentResponse {
+  hospital: {
+    id: string;
+    name: string;
+  };
+  departments: DepartmentItem[];
+}
+
+
+/* =========================================================
    진료과별 의료진 목록
    GET /api/v1/departments/{department_id}/clinicians
    ========================================================= */

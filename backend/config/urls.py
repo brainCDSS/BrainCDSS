@@ -105,6 +105,12 @@ urlpatterns += [
         include("apps.assessments.api.urls"),
     ),
 
+    # Appointment extensions registered before generated fallback routes.
+    path(
+        "",
+        include("apps.appointments.api.urls"),
+    ),
+
     # CDS Hooks
     # API-CDS-001 ~ API-CDS-004
     path(

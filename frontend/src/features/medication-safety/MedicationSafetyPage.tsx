@@ -268,7 +268,7 @@ export default function MedicationSafetyPage({ context }: MedicationSafetyPagePr
       <div className="medication-context clinical-card">
         {context ? (
           <>
-            <div className="medication-context__avatar" aria-hidden="true">♟</div>
+            <div className="medication-context__avatar" aria-hidden="true"><span>●</span></div>
             <div><small>환자번호</small><strong>{context.patientNo}</strong></div>
             <div><small>환자명</small><strong>{context.patientName}</strong></div>
             <div><small>성별 / 나이</small><strong>-</strong></div>
@@ -288,7 +288,7 @@ export default function MedicationSafetyPage({ context }: MedicationSafetyPagePr
           <article className="clinical-card medication-search-card">
             <div className="clinical-card__title medication-section-title"><h3><span aria-hidden="true">⌕</span> 약물 검색</h3><small>검색 결과 {resultCount}건</small></div>
             <div className="clinical-toolbar medication-search">
-              <input aria-label="약물 검색" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="약물명, 성분명, 코드를 검색하세요." onKeyDown={(event) => { if (event.key === "Enter") void handleSearch(); }} />
+              <input aria-label="약물 검색" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="약물명, 성분명, 제조사로 검색하세요. (예: 아스피린, 클로피도그렐)" onKeyDown={(event) => { if (event.key === "Enter") void handleSearch(); }} />
               <button type="button" className="is-primary" disabled={loading !== null || !query.trim()} onClick={() => void handleSearch()}>검색</button>
               <button type="button" title="상세 검색 API 미제공" disabled>상세 검색⌄</button>
             </div>

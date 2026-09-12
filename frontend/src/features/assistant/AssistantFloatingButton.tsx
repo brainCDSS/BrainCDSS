@@ -1,4 +1,5 @@
 import "./assistant.css";
+import floatingImage from "./assets/floating.png";
 
 interface AssistantFloatingButtonProps {
   onClick: () => void;
@@ -20,7 +21,11 @@ export default function AssistantFloatingButton({
       aria-label="BrainOn AI 열기 또는 닫기"
       title="BrainOn AI"
     >
-      AI
+      <img
+        src={floatingImage}
+        alt="BrainOn AI"
+        className="assistant-floating-button-image"
+      />
     </button>
   );
 }

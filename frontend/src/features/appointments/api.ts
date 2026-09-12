@@ -2,12 +2,28 @@ import { apiRequest } from "../../api/client";
 
 import type {
   AppointmentActionResponse,
+  AppointmentCorrectionRequest,
+  AppointmentCorrectionResponse,
   AppointmentRequestResponse,
+  HospitalDetailResponse,
+  HospitalListResponse,
   ScheduleResponse,
   ScheduleRule,
   StaffAppointment,
   StaffAppointmentsResponse,
 } from "./types";
+
+export function getActiveHospitals() {
+  return apiRequest<HospitalListResponse>(
+    "/api/v1/hospitals?page=1",
+  );
+}
+
+export function getHospitalDetail(hospitalId: string) {
+  return apiRequest<HospitalDetailResponse>(
+    `/api/v1/hospitals/${encodeURIComponent(hospitalId)}`,
+  );
+}
 
 function queryString(values: Record<string, string | number | undefined>) {
   const query = new URLSearchParams();
@@ -22,6 +38,10 @@ function queryString(values: Record<string, string | number | undefined>) {
 
   return text ? `?${text}` : "";
 }
+
+/* =========================================================
+ * 의료진 예약 목록
+ * ======================================================= */
 
 export function getStaffAppointments(filters: {
   date?: string;
@@ -41,11 +61,19 @@ export function getStaffAppointments(filters: {
   );
 }
 
+/* =========================================================
+ * 예약 상세
+ * ======================================================= */
+
 export function getAppointmentDetail(appointmentId: string) {
   return apiRequest<StaffAppointment & { id?: string }>(
     `/api/v1/appointments/${encodeURIComponent(appointmentId)}`,
   );
 }
+
+/* =========================================================
+ * 진료 완료
+ * ======================================================= */
 
 export function completeAppointment(appointmentId: string) {
   return apiRequest<AppointmentActionResponse>(
@@ -55,6 +83,10 @@ export function completeAppointment(appointmentId: string) {
     },
   );
 }
+
+/* =========================================================
+ * 간호사 예약 요청 목록
+ * ======================================================= */
 
 export function getAppointmentRequests(filters: {
   date?: string;
@@ -72,7 +104,14 @@ export function getAppointmentRequests(filters: {
   );
 }
 
-export function acceptAppointment(appointmentId: string, memo?: string) {
+/* =========================================================
+ * 예약 승인
+ * ======================================================= */
+
+export function acceptAppointment(
+  appointmentId: string,
+  memo?: string,
+) {
   return apiRequest<AppointmentActionResponse>(
     `/api/v1/appointments/${encodeURIComponent(appointmentId)}/accept`,
     {
@@ -84,6 +123,10 @@ export function acceptAppointment(appointmentId: string, memo?: string) {
     },
   );
 }
+
+/* =========================================================
+ * 예약 거절
+ * ======================================================= */
 
 export function rejectAppointment(
   appointmentId: string,
@@ -103,6 +146,44 @@ export function rejectAppointment(
   );
 }
 
+/* =========================================================
+ * 예약 상태 정정
+ * ---------------------------------------------------------
+ * [API 추가 요청 필요]
+ *
+ * 예정 계약:
+ * POST /api/v1/appointments/{appointment_id}/correct
+ *
+ * Request:
+ * {
+ *   target_status: string,
+ *   reason: string
+ * }
+ *
+ * 백엔드 API 계약 확정 시 endpoint / request body를
+ * 최종 명세에 맞춰 확인해야 한다.
+ * ======================================================= */
+
+export function correctAppointment(
+  appointmentId: string,
+  payload: AppointmentCorrectionRequest,
+) {
+  return apiRequest<AppointmentCorrectionResponse>(
+    `/api/v1/appointments/${encodeURIComponent(appointmentId)}/correct`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+/* =========================================================
+ * 의료진 스케줄 조회
+ * ======================================================= */
+
 export function getClinicianSchedule(
   clinicianId: string,
   from?: string,
@@ -115,6 +196,10 @@ export function getClinicianSchedule(
     })}`,
   );
 }
+
+/* =========================================================
+ * 의료진 스케줄 저장
+ * ======================================================= */
 
 export function saveClinicianSchedule(
   clinicianId: string,

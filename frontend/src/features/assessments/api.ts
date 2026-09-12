@@ -12,6 +12,8 @@ import type {
   ClinicianListResponse,
   CreateEncounterRequest,
   EncounterResponse,
+  HospitalDepartmentResponse,
+  HospitalListResponse,
   // [추가] 신경과 응급 Worklist 연결
   EmergencyWorklistResponse,
   // [추가 끝] 신경과 응급 Worklist 연결
@@ -175,6 +177,40 @@ export function completeAssessment(
     },
   );
 }
+
+
+/* =========================================================
+   소속 기관 목록 조회
+   ---------------------------------------------------------
+   GET /api/v1/hospitals
+   ========================================================= */
+
+export function getHospitals():
+Promise<HospitalListResponse> {
+
+  return apiRequest<HospitalListResponse>(
+    "/api/v1/hospitals",
+  );
+}
+
+
+/* =========================================================
+   병원별 진료과 목록 조회
+   ---------------------------------------------------------
+   GET /api/v1/hospitals/{hospital_id}/departments
+   ========================================================= */
+
+export function getHospitalDepartments(
+  hospitalId: string,
+): Promise<HospitalDepartmentResponse> {
+
+  return apiRequest<HospitalDepartmentResponse>(
+    `/api/v1/hospitals/${
+      encodeURIComponent(hospitalId)
+    }/departments`,
+  );
+}
+
 
 /* =========================================================
    의료진 목록 조회

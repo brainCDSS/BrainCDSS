@@ -1711,6 +1711,29 @@
   color: #536176;
 }
 
+.appointment-reject-modal > footer .is-primary {
+  border: 1px solid #1b73d5;
+
+  background: #1b73d5;
+  color: #ffffff;
+
+  box-shadow: 0 2px 6px rgba(27, 115, 213, 0.16);
+}
+
+.appointment-reject-modal > footer .is-primary:hover:not(:disabled) {
+  border-color: #1268c5;
+
+  background: #1268c5;
+}
+
+.appointment-reject-modal > footer .is-secondary:hover:not(:disabled) {
+  border-color: #aac7e9;
+
+  background: #f6f9fd;
+  color: #315574;
+}
+
+
 .appointment-reject-modal > footer .is-danger {
   border: 1px solid #d84d59;
 

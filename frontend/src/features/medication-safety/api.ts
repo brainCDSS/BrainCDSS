@@ -11,7 +11,7 @@ import type {
 } from "./types";
 
 export function searchMedications(search: string) {
-  const params = new URLSearchParams({ search, is_active: "true" });
+  const params = new URLSearchParams({ search, is_active: "True" });
   return apiRequest<MedicationListResponse>(`/api/v1/medications?${params}`);
 }
 
@@ -32,18 +32,29 @@ export function createPrescription(payload: CreatePrescriptionRequest) {
 }
 
 export function getPrescription(id: string) {
-  return apiRequest<PrescriptionResponse>(`/api/v1/prescriptions/${encodeURIComponent(id)}`);
+  return apiRequest<PrescriptionResponse>(
+    `/api/v1/prescriptions/${encodeURIComponent(id)}`,
+  );
 }
 
-export function updatePrescription(id: string, payload: UpdatePrescriptionRequest) {
-  return apiRequest<PrescriptionResponse>(`/api/v1/prescriptions/${encodeURIComponent(id)}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
+export function updatePrescription(
+  id: string,
+  payload: UpdatePrescriptionRequest,
+) {
+  return apiRequest<PrescriptionResponse>(
+    `/api/v1/prescriptions/${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+  );
 }
 
-export function finalizePrescription(id: string, overrides: PrescriptionOverride[]) {
+export function finalizePrescription(
+  id: string,
+  overrides: PrescriptionOverride[],
+) {
   return apiRequest<FinalizePrescriptionResponse>(
     `/api/v1/prescriptions/${encodeURIComponent(id)}/finalize`,
     {

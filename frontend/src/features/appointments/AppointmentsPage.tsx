@@ -6,13 +6,22 @@ import {
 } from "react";
 
 import type { LoginUser } from "../auth/types";
+import {
+  getClinicians,
+} from "../assessments/api";
+import type {
+  Clinician,
+} from "../assessments/types";
 
 import {
   acceptAppointment,
   completeAppointment,
+  correctAppointment,
   getAppointmentDetail,
   getAppointmentRequests,
+  getActiveHospitals,
   getClinicianSchedule,
+  getHospitalDetail,
   getStaffAppointments,
   rejectAppointment,
   saveClinicianSchedule,
@@ -373,6 +382,30 @@ function hasPendingAppointmentRequest(
 }
 
 
+/* =========================================================
+ * 예약 상태 정정
+ * ---------------------------------------------------------
+ * [API 정합성 확인 필요]
+ *
+ * 프론트 1차 범위는 간호사가 잘못 승인/거절한 예약을
+ * 다시 승인 대기(REQUESTED) 상태로 돌리는 경우만 준비한다.
+ * 최종 허용 전이는 백엔드 계약에서 반드시 검증한다.
+ * ======================================================= */
+
+function correctionTargetStatus(
+  item: StaffAppointment,
+) {
+  if (
+    item.status === "CONFIRMED" ||
+    item.status === "REJECTED"
+  ) {
+    return "REQUESTED";
+  }
+
+  return null;
+}
+
+
 function can(
   user: LoginUser,
   permission: string,
@@ -420,6 +453,11 @@ export default function AppointmentsPage({
     clinicianId,
     setClinicianId,
   ] = useState("");
+
+  const [
+    clinicians,
+    setClinicians,
+  ] = useState<Clinician[]>([]);
 
   const [
     appointments,
@@ -542,6 +580,28 @@ export default function AppointmentsPage({
   const [
     rejectError,
     setRejectError,
+  ] = useState<string | null>(null);
+
+  const [
+    correctionTarget,
+    setCorrectionTarget,
+  ] = useState<StaffAppointment | null>(
+    null,
+  );
+
+  const [
+    correctionReason,
+    setCorrectionReason,
+  ] = useState("");
+
+  const [
+    correctionSubmitting,
+    setCorrectionSubmitting,
+  ] = useState(false);
+
+  const [
+    correctionError,
+    setCorrectionError,
   ] = useState<string | null>(null);
 
 
@@ -715,36 +775,61 @@ export default function AppointmentsPage({
    * 의료진 목록
    * ======================================================= */
 
-  const clinicianOptions =
-    useMemo(() => {
-      const values =
-        new Map<
-          string,
-          string
-        >();
+  useEffect(() => {
+    let active = true;
 
-      appointments.forEach(
-        (item) => {
-          const id =
-            item.clinician
-              ?.id ??
-            item.clinician_id;
-
-          if (id) {
-            values.set(
-              id,
-              item.clinician
-                ?.name ??
-                id,
+    const loadClinicians = async () => {
+      try {
+        const hospitalIds = currentUser.hospital?.id
+          ? [currentUser.hospital.id]
+          : (await getActiveHospitals()).results.map(
+              (hospital) => hospital.id,
             );
-          }
-        },
-      );
+        const hospitals = await Promise.all(
+          hospitalIds.map(getHospitalDetail),
+        );
+        const departmentIds = hospitals.flatMap(
+          (hospital) => hospital.departments.map(
+            (department) => department.id,
+          ),
+        );
+        const responses = await Promise.all(
+          departmentIds.map(getClinicians),
+        );
+        const values = new Map<string, Clinician>();
+        responses.forEach((response) => {
+          response.clinicians.forEach((clinician) => {
+            if (clinician.is_active) {
+              values.set(clinician.id, clinician);
+            }
+          });
+        });
+        if (active) {
+          setClinicians(
+            [...values.values()].sort((left, right) =>
+              left.name.localeCompare(right.name, "ko"),
+            ),
+          );
+        }
+      } catch {
+        if (active) {
+          setClinicians([]);
+        }
+      }
+    };
 
-      return [
-        ...values.entries(),
-      ];
-    }, [appointments]);
+    void loadClinicians();
+    return () => {
+      active = false;
+    };
+  }, [currentUser.hospital?.id]);
+
+  const clinicianOptions = useMemo(
+    () => clinicians.map(
+      (clinician) => [clinician.id, clinician.name] as const,
+    ),
+    [clinicians],
+  );
 
 
   /* =========================================================
@@ -1190,6 +1275,105 @@ export default function AppointmentsPage({
     }
   }
 
+
+  /* =========================================================
+   * 예약 상태 정정
+   * ======================================================= */
+
+  function openCorrectionModal(
+    item: StaffAppointment,
+  ) {
+    if (
+      !isNurse ||
+      !correctionTargetStatus(item)
+    ) {
+      return;
+    }
+
+    setActionError(null);
+    setCorrectionError(null);
+    setCorrectionReason("");
+    setCorrectionTarget(item);
+  }
+
+
+  function closeCorrectionModal() {
+    if (correctionSubmitting) {
+      return;
+    }
+
+    setCorrectionTarget(null);
+    setCorrectionReason("");
+    setCorrectionError(null);
+  }
+
+
+  async function submitCorrection() {
+    if (
+      !correctionTarget ||
+      !isNurse
+    ) {
+      return;
+    }
+
+    const targetStatus =
+      correctionTargetStatus(
+        correctionTarget,
+      );
+
+    if (!targetStatus) {
+      setCorrectionError(
+        "현재 상태는 정정 대상으로 처리할 수 없습니다.",
+      );
+      return;
+    }
+
+    const reason =
+      correctionReason.trim();
+
+    if (!reason) {
+      setCorrectionError(
+        "상태 정정 사유를 입력해 주세요.",
+      );
+      return;
+    }
+
+    setCorrectionSubmitting(true);
+    setCorrectionError(null);
+    setActionError(null);
+
+    try {
+      await correctAppointment(
+        correctionTarget.appointment_id,
+        {
+          target_status: targetStatus,
+          reason,
+        },
+      );
+
+      await Promise.all([
+        loadRequests(),
+        loadAppointments(),
+        loadSummaryCounts(),
+      ]);
+
+      if (
+        selected?.appointment_id ===
+        correctionTarget.appointment_id
+      ) {
+        setSelected(null);
+      }
+
+      setCorrectionTarget(null);
+      setCorrectionReason("");
+    } catch {
+      setCorrectionError(
+        "예약 상태 정정에 실패했습니다.",
+      );
+    } finally {
+      setCorrectionSubmitting(false);
+    }
+  }
 
 
   /* =========================================================
@@ -2203,6 +2387,25 @@ export default function AppointmentsPage({
                     </div>
                   )}
 
+                {isNurse &&
+                  correctionTargetStatus(
+                    selected,
+                  ) && (
+                    <div className="appointment-actions">
+                      <button
+                        type="button"
+                        className="is-secondary"
+                        onClick={() =>
+                          openCorrectionModal(
+                            selected,
+                          )
+                        }
+                      >
+                        상태 정정
+                      </button>
+                    </div>
+                  )}
+
                 {actionError && (
                   <p className="appointment-action-error">
                     {actionError}
@@ -2882,6 +3085,178 @@ export default function AppointmentsPage({
                 {rejectSubmitting
                   ? "처리 중..."
                   : "예약 거절"}
+              </button>
+            </footer>
+          </section>
+        </div>
+      )}
+
+      {correctionTarget && (
+        <div
+          className="appointment-modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (
+              event.target ===
+              event.currentTarget
+            ) {
+              closeCorrectionModal();
+            }
+          }}
+        >
+          <section
+            className="appointment-reject-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="appointment-correction-modal-title"
+          >
+            <header>
+              <div>
+                <span>
+                  예약 상태 관리
+                </span>
+
+                <h3
+                  id="appointment-correction-modal-title"
+                >
+                  예약 상태 정정
+                </h3>
+              </div>
+
+              <button
+                type="button"
+                className="appointment-modal-close"
+                aria-label="닫기"
+                disabled={correctionSubmitting}
+                onClick={closeCorrectionModal}
+              >
+                ×
+              </button>
+            </header>
+
+            <div className="appointment-reject-modal-body">
+              <div className="appointment-reject-patient">
+                <div className="appointment-reject-avatar">
+                  {(
+                    correctionTarget.patient?.name ??
+                    "환"
+                  ).slice(0, 1)}
+                </div>
+
+                <div>
+                  <strong>
+                    {correctionTarget.patient?.name ??
+                      correctionTarget.patient_id ??
+                      "환자 정보 없음"}
+                  </strong>
+
+                  <span>
+                    {correctionTarget.patient?.patient_no ??
+                      ""}
+                  </span>
+                </div>
+
+                <span
+                  className={`appointment-status is-${correctionTarget.status.toLowerCase()}`}
+                >
+                  {statusLabel(
+                    correctionTarget.status,
+                  )}
+                </span>
+              </div>
+
+              <div className="appointment-reject-context">
+                <div>
+                  <span>예약 일정</span>
+                  <strong>
+                    {formatDateTime(
+                      appointmentStart(
+                        correctionTarget,
+                      ),
+                    )}
+                  </strong>
+                </div>
+
+                <div>
+                  <span>현재 상태</span>
+                  <strong>
+                    {statusLabel(
+                      correctionTarget.status,
+                    )}
+                  </strong>
+                </div>
+
+                <div>
+                  <span>정정 후 상태</span>
+                  <strong>
+                    {statusLabel(
+                      correctionTargetStatus(
+                        correctionTarget,
+                      ) ?? undefined,
+                    )}
+                  </strong>
+                </div>
+              </div>
+
+              <label className="appointment-reject-reason">
+                <span>
+                  정정 사유
+                  <strong>*</strong>
+                </span>
+
+                <textarea
+                  autoFocus
+                  maxLength={255}
+                  rows={5}
+                  value={correctionReason}
+                  placeholder="잘못 처리된 예약 상태를 정정하는 사유를 입력해 주세요."
+                  onChange={(event) => {
+                    setCorrectionReason(
+                      event.target.value,
+                    );
+
+                    if (correctionError) {
+                      setCorrectionError(null);
+                    }
+                  }}
+                />
+
+                <small>
+                  {correctionReason.length}/255
+                </small>
+              </label>
+
+              {correctionError && (
+                <p className="appointment-reject-error">
+                  {correctionError}
+                </p>
+              )}
+            </div>
+
+            <footer>
+              <button
+                type="button"
+                className="is-secondary"
+                disabled={correctionSubmitting}
+                onClick={closeCorrectionModal}
+              >
+                취소
+              </button>
+
+              <button
+                type="button"
+                className="is-primary"
+                disabled={
+                  correctionSubmitting ||
+                  !correctionReason.trim()
+                }
+                onClick={() =>
+                  void submitCorrection()
+                }
+              >
+                {correctionSubmitting
+                  ? "정정 중..."
+                  : "상태 정정"}
               </button>
             </footer>
           </section>

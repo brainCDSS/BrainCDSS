@@ -30,7 +30,36 @@ function PatientRail({ selectedId, patients, onSelect }: { selectedId: string | 
 }
 
 function PatientHeader({ patient }: { patient: Patient }) {
-  return <><header className="patient-context-header"><div className="patient-context-header__identity"><div className="patient-avatar">{patient.name.slice(0, 1)}</div><div><span className="patient-context-eyebrow">환자 정보</span><div className="patient-context-title"><h1>{patient.name}</h1><span className={`patient-status is-${patient.status.toLowerCase()}`}>{patient.status}</span></div><div className="patient-context-demographics"><span>{sex(patient.sex)} / {age(patient)}</span><span>{patient.birth_date || "생년월일 미등록"}</span><span>{patient.patient_no}</span></div></div></div><dl className="patient-context-facts"><div><dt>내원일시</dt><dd>API 미연결</dd></div><div><dt>주호소</dt><dd>API 미연결</dd></div><div><dt>의심진단</dt><dd>API 미연결</dd></div><div><dt>진료과 / 담당의</dt><dd>API 미연결</dd></div></dl></header><div className="patient-safety-bar"><strong>⚠ 주의 정보</strong><span>알레르기 · 항응고제 · 금기사항 조회 API 미연결</span></div></>;
+  return <header className="patient-context-header patient-context-header--compact">
+    <div className="patient-context-header__identity">
+      <div className="patient-avatar" aria-hidden="true">{patient.name.slice(0, 1)}</div>
+      <div className="patient-context-profile">
+        <div className="patient-context-title">
+          <h1>{patient.name}</h1>
+          <strong>({sex(patient.sex)} / {age(patient)})</strong>
+          <span className={`patient-status is-${patient.status.toLowerCase()}`}>{patient.status}</span>
+        </div>
+        <div className="patient-context-demographics">
+          <span>등록번호 <b>{patient.patient_no}</b></span>
+          <span>생년월일 <b>{patient.birth_date || "-"}</b></span>
+          <span>성별 <b>{sex(patient.sex)}</b></span>
+          <span>키 <b>-</b></span>
+          <span>체중 <b>-</b></span>
+        </div>
+      </div>
+    </div>
+    <div className="patient-context-allergy" aria-label="알레르기 정보">
+      <strong>⚠ 알레르기</strong>
+      <span>-</span>
+    </div>
+    <dl className="patient-context-care">
+      <div><dt>진료과</dt><dd>-</dd></div>
+      <div><dt>담당의</dt><dd>-</dd></div>
+      <div><dt>최근 내원</dt><dd>-</dd></div>
+      <div><dt>주진단</dt><dd>-</dd></div>
+    </dl>
+    <button className="patient-context-detail" type="button">상세 정보 <span aria-hidden="true">⌄</span></button>
+  </header>;
 }
 
 function SummaryCards({ studies, consultations, onNavigate }: { studies: ImagingStudy[]; consultations: ConsultationListItem[]; onNavigate?: (destination: Destination) => void }) {
@@ -53,6 +82,7 @@ function Prescriptions({ onOpen }: { onOpen?: () => void }) { return <section cl
 export default function PatientChart({ patient, patients = [], onSelectPatient, onNavigate, canViewAIAnalyses = false, canViewConsultations = false }: Props) {
   const [patientList, setPatientList] = useState<Patient[]>(patients); const [data, setData] = useState<ChartData>({ studies: [], analyses: [], consultations: [] });
   const [loading, setLoading] = useState(false); const [error, setError] = useState<string | null>(null); const [selectedStudyId, setSelectedStudyId] = useState<string | null>(null); const [analysisResults, setAnalysisResults] = useState<Record<string, AIAnalysisResult>>({}); const [analysisLoading, setAnalysisLoading] = useState(false); const clinicalRequestId = useRef(0); const analysisRequestId = useRef(0);
+  const automaticPatientId = useRef<string | null>(null);
 
   useEffect(() => {
     const id = ++clinicalRequestId.current; setError(null); setLoading(true);
@@ -61,6 +91,19 @@ export default function PatientChart({ patient, patients = [], onSelectPatient, 
     return () => { if (clinicalRequestId.current === id) clinicalRequestId.current += 1; };
   }, [canViewAIAnalyses, canViewConsultations]);
 
+  useEffect(() => {
+    if (patient) {
+      automaticPatientId.current = null;
+      return;
+    }
+
+    const firstPatient = patientList[0];
+    if (!firstPatient || !onSelectPatient || automaticPatientId.current === firstPatient.id) return;
+
+    automaticPatientId.current = firstPatient.id;
+    onSelectPatient(firstPatient);
+  }, [onSelectPatient, patient, patientList]);
+
   const studies = useMemo(() => patient ? data.studies.filter((item) => item.patient_id === patient.id).sort((a, b) => b.study_at.localeCompare(a.study_at)) : [], [data.studies, patient]);
   const studyIds = useMemo(() => new Set(studies.map((item) => item.id)), [studies]); const analyses = useMemo(() => data.analyses.filter((item) => studyIds.has(item.study_id)).sort((a, b) => b.requested_at.localeCompare(a.requested_at)), [data.analyses, studyIds]); const consultations = useMemo(() => patient ? data.consultations.filter((item) => item.patient_summary.id === patient.id).sort((a, b) => b.requested_at.localeCompare(a.requested_at)) : [], [data.consultations, patient]);
   const selectedStudy = studies.find((item) => item.id === selectedStudyId) ?? studies[0] ?? null; const selectedAnalysis = analyses[0] ?? null; const selectedAnalysisResult = selectedAnalysis ? analysisResults[selectedAnalysis.analysis_id] ?? null : null;
@@ -68,5 +111,16 @@ export default function PatientChart({ patient, patients = [], onSelectPatient, 
   const events = useMemo<TimelineEvent[]>(() => [...studies.map((item) => ({ id: `study-${item.id}`, at: item.study_at, title: `${item.modality} 영상검사`, detail: `${item.series} · ${item.status}`, tone: "imaging" as const })), ...analyses.map((item) => ({ id: `ai-${item.analysis_id}`, at: item.requested_at, title: `${analysisName(item.analysis_type)} AI 분석`, detail: `${item.status} · ${item.stage}`, tone: "ai" as const })), ...consultations.map((item) => ({ id: `consult-${item.consultation_id}`, at: item.requested_at, title: `${item.type} 협진 요청`, detail: `${item.ui_status} · ${item.priority}`, tone: "consultation" as const }))].sort((a, b) => b.at.localeCompare(a.at)), [studies, analyses, consultations]);
 
   function selectPatient(nextPatient: Patient) { setSelectedStudyId(null); setError(null); onSelectPatient?.(nextPatient); }
-  return <section className="patient-context-dashboard"><div className="patient-workspace"><PatientRail selectedId={patient?.id ?? null} patients={patientList.length ? patientList : patients} onSelect={selectPatient} />{patient ? <main className="patient-context-main"><PatientHeader patient={patient} />{error && <div className="patient-data-warning">{error}</div>}<SummaryCards studies={studies} consultations={consultations} onNavigate={onNavigate} /><div className="patient-clinical-focus">{loading ? <div className="patient-chart-loading">환자 임상 데이터를 불러오는 중입니다.</div> : <><Viewer studies={studies} selected={selectedStudy} onSelect={setSelectedStudyId} onOpen={() => onNavigate?.("imaging")} /><Analysis item={selectedAnalysis} result={selectedAnalysisResult} loading={analysisLoading} error={null} onOpen={() => onNavigate?.("ai-results")} /></>}</div></main> : <main className="patient-context-main patient-context-main--empty"><div className="patient-selection-empty"><strong>선택된 환자가 없습니다.</strong><span>왼쪽 환자 목록에서 환자를 선택해 주세요.</span></div></main>}</div><aside className="patient-context-aside"><Timeline events={patient ? events : []} /><Prescriptions onOpen={() => onNavigate?.("prescriptions")} /></aside></section>;
+  return <section className="patient-context-dashboard">
+    <div className="patient-workspace">
+      <PatientRail selectedId={patient?.id ?? null} patients={patientList.length ? patientList : patients} onSelect={selectPatient} />
+      {patient && <PatientHeader patient={patient} />}
+      {patient ? <main className="patient-context-main">
+        {error && <div className="patient-data-warning">{error}</div>}
+        <SummaryCards studies={studies} consultations={consultations} onNavigate={onNavigate} />
+        <div className="patient-clinical-focus">{loading ? <div className="patient-chart-loading">환자 임상 데이터를 불러오는 중입니다.</div> : <><Viewer studies={studies} selected={selectedStudy} onSelect={setSelectedStudyId} onOpen={() => onNavigate?.("imaging")} /><Analysis item={selectedAnalysis} result={selectedAnalysisResult} loading={analysisLoading} error={null} onOpen={() => onNavigate?.("ai-results")} /></>}</div>
+      </main> : <main className="patient-context-main patient-context-main--empty"><div className="patient-selection-empty"><strong>선택된 환자가 없습니다.</strong><span>왼쪽 환자 목록에서 환자를 선택해 주세요.</span></div></main>}
+    </div>
+    <aside className="patient-context-aside"><Timeline events={patient ? events : []} /><Prescriptions onOpen={() => onNavigate?.("prescriptions")} /></aside>
+  </section>;
 }

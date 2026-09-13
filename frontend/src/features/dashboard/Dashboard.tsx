@@ -1166,6 +1166,10 @@ export default function Dashboard({
     setSelectedPatient(
       patient,
     );
+
+    onOpenPatient(
+      patient,
+    );
   }
 
   return (

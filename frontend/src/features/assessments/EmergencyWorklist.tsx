@@ -7,6 +7,7 @@ import type { EmergencyWorklistItem, EmergencyWorklistResponse } from "./types";
 
 interface EmergencyWorklistProps {
   onOpenPatient?: (patient: Patient, encounterId: string) => void;
+  onOpenPrescription?: (patient: Patient, encounterId: string) => void;
 }
 
 function formatDateTime(value: string | null): string {
@@ -25,7 +26,7 @@ function patientDetailOf(item: EmergencyWorklistItem): string {
     .join(" · ") || "-";
 }
 
-export default function EmergencyWorklist({ onOpenPatient }: EmergencyWorklistProps) {
+export default function EmergencyWorklist({ onOpenPatient, onOpenPrescription }: EmergencyWorklistProps) {
   const [worklist, setWorklist] = useState<EmergencyWorklistResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +74,20 @@ export default function EmergencyWorklist({ onOpenPatient }: EmergencyWorklistPr
     }
   }
 
+  async function openPrescription(item: EmergencyWorklistItem) {
+    const patientId = patientIdOf(item);
+    if (!patientId || !onOpenPrescription) return;
+    setPatientOpeningId(patientId);
+    setError(null);
+    try {
+      onOpenPrescription(await getPatient(patientId), item.encounter_id);
+    } catch {
+      setError("환자 정보를 불러오지 못했습니다.");
+    } finally {
+      setPatientOpeningId(null);
+    }
+  }
+
   return (
     <section className="clinical-page">
       <header className="clinical-page__heading">
@@ -112,7 +127,14 @@ export default function EmergencyWorklist({ onOpenPatient }: EmergencyWorklistPr
                     <td>{formatDateTime(item.event.notified_at)}</td>
                     <td>{item.event.status}</td>
                     <td>{acknowledged ? formatDateTime(item.event.acknowledged_at) : "미확인"}</td>
-                    <td>{!acknowledged && <button className="clinical-action" type="button" disabled={acknowledgingId === item.event.id} onClick={() => void acknowledge(item)}>{acknowledgingId === item.event.id ? "처리 중" : "확인"}</button>}</td>
+                    <td>
+                      {onOpenPrescription && patientId && (
+                        <button className="clinical-action" type="button" disabled={patientOpeningId === patientId} onClick={() => void openPrescription(item)}>
+                          처방 / DUR
+                        </button>
+                      )}
+                      {!acknowledged && <button className="clinical-action" type="button" disabled={acknowledgingId === item.event.id} onClick={() => void acknowledge(item)}>{acknowledgingId === item.event.id ? "처리 중" : "확인"}</button>}
+                    </td>
                   </tr>;
                 })}</tbody>
               </table>

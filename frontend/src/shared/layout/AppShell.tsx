@@ -857,6 +857,18 @@ export default function AppShell({
     setPrescriptionContext({ patient, encounterId });
   };
 
+  const handleWorklistPrescriptionSelect = (
+    patient: Patient,
+    encounterId: string,
+  ) => {
+    setIsAssistantTabActive(false);
+    setPrescriptionContext({ patient, encounterId });
+    setActivePatientId(patient.id);
+    setActiveAssessmentContext(null);
+    setActiveConsultationId(null);
+    setActiveMenu("prescriptions");
+  };
+
 
   /* ========================================================
      21. Dashboard Workspace Tab 선택
@@ -1053,7 +1065,16 @@ export default function AppShell({
       "worklist"
     ) {
       // [추가] 신경과 응급 Worklist 연결
-      return <EmergencyWorklist onOpenPatient={handleWorklistPatientSelect} />;
+      return (
+        <EmergencyWorklist
+          onOpenPatient={handleWorklistPatientSelect}
+          onOpenPrescription={
+            canAccessMenu(currentUser.role.code, "prescriptions")
+              ? handleWorklistPrescriptionSelect
+              : undefined
+          }
+        />
+      );
       // [추가 끝] 신경과 응급 Worklist 연결
 
     }

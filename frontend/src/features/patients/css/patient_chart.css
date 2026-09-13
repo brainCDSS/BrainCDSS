@@ -127,8 +127,8 @@
 @media(max-width:1450px){.patient-context-dashboard{width:1400px}.patient-context-facts{min-width:480px}.patient-workspace{grid-template-columns:238px minmax(822px,1fr)}}
 
 /* Final patient chart layout */
-.patient-context-dashboard{width:max(100%,1280px);height:100%;min-height:0;grid-template-columns:minmax(960px,1fr) 310px;align-items:stretch;overflow:hidden}
-.patient-workspace{height:100%;min-height:0;grid-template-columns:238px minmax(722px,1fr);overflow:hidden}
+.patient-context-dashboard{width:max(100%,1280px);height:100%;min-height:0;grid-template-columns:minmax(0,1fr) 310px;align-items:stretch;overflow:hidden}
+.patient-workspace{height:100%;min-width:0;min-height:0;grid-template-columns:250px minmax(0,1fr);overflow:hidden}
 .patient-workspace .patient-context-main{height:100%;min-height:0;overflow:hidden}
 .patient-workspace .patient-context-header{min-height:108px;padding:13px 16px}
 .patient-context-facts{min-width:480px}
@@ -137,16 +137,94 @@
 .patient-workspace .patient-summary-card{min-height:126px;padding:10px}
 .patient-summary-card header{position:relative}.patient-summary-card header small{margin-left:auto;color:#78869a;font-size:9px}.patient-summary-card header button{margin-left:auto;padding:3px 6px;border:1px solid #dce5ef;border-radius:7px;background:#fff;color:#216fce;font:inherit;font-size:9px;font-weight:800;cursor:pointer}
 .patient-recent-study-list{padding:5px 0 20px}.patient-recent-study-list>div{display:grid;grid-template-columns:1fr auto 64px;gap:6px;padding:3px 0;color:#708096;font-size:8px}.patient-recent-study-list strong{overflow:hidden;color:#34465f;text-overflow:ellipsis;white-space:nowrap}.patient-recent-study-list span{color:#26795f;font-weight:800}.patient-recent-study-list time{text-align:right}
-.patient-workspace .patient-clinical-focus{min-height:0;flex:1 1 auto;grid-template-columns:minmax(410px,1.15fr) minmax(310px,.85fr);gap:8px;padding:0 10px 10px}
+.patient-workspace .patient-clinical-focus{min-height:0;flex:1 1 auto;grid-template-columns:minmax(0,3fr) minmax(310px,2fr);gap:8px;padding:0 10px 10px}
 .patient-workspace .brain-viewer-card,.patient-workspace .ai-result-card{height:100%;min-height:0}
 .patient-workspace .brain-viewer-stage{height:calc(100% - 58px);min-height:300px}
 .patient-workspace .ai-result-card{overflow:auto}
 .patient-chart-loading{display:grid;grid-column:1/-1;place-items:center;border:1px dashed #dce5ef;border-radius:12px;background:#fbfdff;color:#738198;font-size:12px}
 .patient-panel-link{display:block;margin:auto 12px 12px;padding:7px 10px;border:1px solid #a9c9f2;border-radius:8px;background:#fff;color:#146ed5;font:inherit;font-size:10px;font-weight:800;cursor:pointer}
-.patient-context-aside{position:relative;top:auto;height:100%;min-height:0;grid-template-rows:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.patient-context-aside{position:relative;top:auto;height:100%;min-width:0;min-height:0;grid-template-rows:repeat(2,minmax(0,1fr));gap:10px}
 .patient-context-aside .timeline-card,.patient-context-aside .recent-prescriptions-card{display:flex;height:100%;min-height:0;flex-direction:column;overflow:hidden}
 .patient-context-aside .clinical-timeline{min-height:0;flex:1;overflow-y:auto}
 .recent-prescriptions-card .panel-empty-state{min-height:0;flex:1}.recent-prescriptions-card .patient-panel-link{flex:0 0 auto;width:calc(100% - 24px)}
 .patient-context-item__meta{width:100%}.patient-context-item__meta time{margin-left:auto}
 .patient-context-item__meta:after{display:none}
 @media(max-height:760px){.patient-workspace .patient-context-header{min-height:96px}.patient-workspace .patient-summary-card{min-height:112px}.patient-workspace .brain-viewer-stage{min-height:250px}}
+
+/* Compact patient identity header */
+.patient-workspace .patient-context-header--compact{display:grid;min-height:86px;grid-template-columns:minmax(330px,1.5fr) minmax(120px,.55fr) minmax(250px,1fr) auto;align-items:center;gap:14px;padding:11px 14px;background:#fff}
+.patient-context-header--compact .patient-context-header__identity{min-width:0;gap:12px}
+.patient-context-header--compact .patient-avatar{width:48px;height:48px;flex-basis:48px;border-radius:50%;background:#eaf3ff;color:#2176df;font-size:19px}
+.patient-context-profile{min-width:0}.patient-context-header--compact .patient-context-title{gap:7px;margin:0 0 7px}.patient-context-header--compact .patient-context-title h1{font-size:21px}.patient-context-header--compact .patient-context-title>strong{color:#405372;font-size:11px;white-space:nowrap}.patient-context-header--compact .patient-status{padding:4px 8px}
+.patient-context-header--compact .patient-context-demographics{display:flex;min-width:0;flex-wrap:nowrap;gap:0;color:#738198;font-size:9px;white-space:nowrap}.patient-context-header--compact .patient-context-demographics span{padding:0 7px;border-right:1px solid #dfe7f0}.patient-context-header--compact .patient-context-demographics span:first-child{padding-left:0}.patient-context-header--compact .patient-context-demographics span:last-child{border-right:0}.patient-context-header--compact .patient-context-demographics b{margin-left:3px;color:#41516a;font-weight:800}
+.patient-context-allergy{display:flex;min-height:52px;flex-direction:column;justify-content:center;gap:5px;padding:8px 11px;border-width:0 1px;border-style:solid;border-color:#f0dfe2;background:#fff7f8}.patient-context-allergy strong{color:#d63b4e;font-size:10px}.patient-context-allergy span{color:#9f5660;font-size:10px;font-weight:800}
+.patient-context-care{display:grid;min-width:0;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 12px;margin:0}.patient-context-care div{display:grid;min-width:0;grid-template-columns:48px minmax(0,1fr);gap:5px}.patient-context-care dt{color:#7d899d;font-size:9px}.patient-context-care dd{margin:0;overflow:hidden;color:#34445e;font-size:10px;font-weight:800;text-overflow:ellipsis;white-space:nowrap}
+.patient-context-detail{display:flex;height:36px;align-items:center;gap:8px;padding:0 12px;border:1px solid #83b4f3;border-radius:8px;background:#fff;color:#1671df;font:inherit;font-size:10px;font-weight:800;white-space:nowrap;cursor:pointer}.patient-context-detail:hover{background:#f2f7fe}.patient-context-detail span{font-size:13px}
+@media(max-width:1450px){.patient-workspace .patient-context-header--compact{grid-template-columns:minmax(310px,1.35fr) 112px minmax(220px,1fr) auto;gap:10px}.patient-context-header--compact .patient-context-demographics span{padding:0 5px}}
+
+/* Patient chart grid: list spans all rows and the patient header spans chart + side panels. */
+.patient-context-dashboard{display:grid;height:100%;min-height:0;grid-template-columns:250px minmax(0,1fr) 310px;grid-template-rows:112px minmax(0,1fr);gap:10px;padding:10px;overflow:hidden}
+.patient-workspace{display:contents}
+.patient-workspace .patient-context-rail{position:relative;grid-column:1;grid-row:1 / 3;width:auto;height:100%;min-height:0;border:1px solid var(--pc-border);border-radius:14px;background:#fbfcff;box-shadow:0 5px 16px rgba(46,74,110,.04)}
+.patient-workspace .patient-context-header--compact{grid-column:2 / 4;grid-row:1;width:auto;height:100%;min-height:0;margin:0;padding:16px 20px;gap:18px;border:1px solid var(--pc-border);border-radius:14px;box-shadow:0 5px 16px rgba(46,74,110,.04)}
+.patient-context-header--compact .patient-context-header__identity{gap:15px}
+.patient-context-header--compact .patient-avatar{width:56px;height:56px;flex-basis:56px;font-size:21px}
+.patient-context-header--compact .patient-context-title{margin-bottom:9px;gap:9px}
+.patient-context-header--compact .patient-context-title h1{font-size:23px}
+.patient-context-header--compact .patient-context-demographics span{padding:0 9px}
+.patient-context-allergy{min-height:62px;padding:11px 14px}
+.patient-context-care{gap:8px 16px}.patient-context-care div{grid-template-columns:52px minmax(0,1fr);gap:7px}
+.patient-workspace .patient-context-main{grid-column:2;grid-row:2;width:auto;height:100%;min-height:0;border:1px solid var(--pc-border);border-radius:14px;background:#fff;overflow:hidden;box-shadow:0 5px 16px rgba(46,74,110,.04)}
+.patient-context-aside{grid-column:3;grid-row:2;width:auto;height:100%;min-height:0}
+.patient-context-dashboard:not(:has(.patient-context-header--compact)){grid-template-rows:0 minmax(0,1fr)}
+.patient-context-dashboard:not(:has(.patient-context-header--compact)) .patient-context-main{grid-column:2 / 4}
+.patient-context-dashboard:not(:has(.patient-context-header--compact)) .patient-context-aside{display:none}
+.patient-workspace .patient-summary-grid{flex:0 0 auto}
+.patient-workspace .patient-clinical-focus{min-height:0;flex:1 1 auto}
+@media(max-width:1450px){.patient-context-dashboard{width:1400px;grid-template-columns:240px minmax(0,1fr) 300px}}
+
+/* Readability and density tuning */
+.patient-workspace .patient-context-header--compact{padding:13px 18px;gap:15px}
+.patient-context-header--compact .patient-context-header__identity{gap:14px}
+.patient-context-header--compact .patient-avatar{width:58px;height:58px;flex-basis:58px;font-size:23px}
+.patient-context-header--compact .patient-context-title{gap:10px;margin-bottom:8px}
+.patient-context-header--compact .patient-context-title h1{font-size:26px;line-height:1.1}
+.patient-context-header--compact .patient-context-title>strong{font-size:13px}
+.patient-context-header--compact .patient-status{padding:5px 10px;font-size:11px}
+.patient-context-header--compact .patient-context-demographics{font-size:11px}
+.patient-context-header--compact .patient-context-demographics span{padding:0 8px}
+.patient-context-header--compact .patient-context-demographics b{margin-left:4px;font-size:11px}
+.patient-context-allergy{min-height:58px;gap:6px;padding:10px 13px;border:1px solid #f0d4d8;border-radius:9px;background:#fff4f5}
+.patient-context-allergy strong{font-size:12px}.patient-context-allergy span{font-size:11px}
+.patient-context-care{gap:8px 14px}.patient-context-care div{grid-template-columns:54px minmax(0,1fr);gap:6px}.patient-context-care dt{font-size:11px}.patient-context-care dd{font-size:12px}
+.patient-context-detail{height:40px;padding:0 14px;font-size:12px}
+
+.patient-workspace .patient-summary-grid{gap:8px;margin:8px 10px}
+.patient-workspace .patient-summary-card{min-height:112px;padding:10px 12px}
+.patient-summary-card header{padding-bottom:8px}.patient-summary-card h3{font-size:13px}
+.patient-summary-card header small,.patient-summary-card header button{font-size:10px}
+.patient-workspace .summary-empty{min-height:50px;gap:5px;font-size:10px;line-height:1.45}
+.patient-workspace .summary-empty strong{font-size:12px}
+.patient-summary-card dl div{font-size:10px}.patient-recent-study-list>div{font-size:9px}
+
+.patient-workspace .patient-context-main{height:auto;align-self:start}
+.patient-workspace .patient-clinical-focus{height:clamp(360px,48vh,480px);min-height:360px;flex:0 0 auto}
+.patient-workspace .brain-viewer-card,.patient-workspace .ai-result-card{height:100%;min-height:0}
+.patient-workspace .brain-viewer-stage{height:calc(100% - 58px);min-height:0}
+.patient-workspace .ai-result-card{overflow:auto}
+@media(max-height:760px){.patient-workspace .patient-clinical-focus{height:360px;min-height:320px}.patient-context-header--compact .patient-context-title h1{font-size:23px}}
+
+/* Final compact readability balance */
+.patient-workspace .patient-context-header--compact{padding:12px 18px;gap:17px}
+.patient-context-header--compact .patient-context-title{gap:11px;margin-bottom:9px}
+.patient-context-header--compact .patient-context-title h1{font-size:28px}
+.patient-context-header--compact .patient-context-title>strong{font-size:14px}
+.patient-context-header--compact .patient-status{padding:5px 11px;font-size:12px}
+.patient-context-header--compact .patient-context-demographics,.patient-context-header--compact .patient-context-demographics b{font-size:12px}
+.patient-context-header--compact .patient-context-demographics span{padding:0 9px}
+.patient-context-allergy{padding:9px 14px}.patient-context-allergy strong{font-size:13px}.patient-context-allergy span{font-size:12px}
+.patient-context-care{gap:9px 16px}.patient-context-care dt{font-size:12px}.patient-context-care dd{font-size:13px}
+.patient-workspace .patient-summary-card{min-height:108px;padding:9px 11px}
+.patient-workspace .summary-empty{min-height:44px}
+.patient-workspace .patient-clinical-focus{height:clamp(330px,43vh,430px);min-height:330px}
+@media(max-height:760px){.patient-workspace .patient-clinical-focus{height:320px;min-height:300px}.patient-context-header--compact .patient-context-title h1{font-size:25px}}

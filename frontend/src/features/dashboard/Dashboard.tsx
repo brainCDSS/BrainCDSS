@@ -118,8 +118,16 @@ function includesModel(
   analysis: AIAnalysisItem,
   key: string,
 ) {
-  const type =
-    analysis.analysis_type.toUpperCase();
+  const type = [
+    analysis.analysis_type,
+    analysis.model?.code,
+  ]
+    .filter(
+      (value): value is string =>
+        typeof value === "string",
+    )
+    .join(" ")
+    .toUpperCase();
 
   if (key === "ISCHEMIA") {
     return type.includes("ISCHEM");

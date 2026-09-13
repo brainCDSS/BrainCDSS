@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "brainon/inference-response/v1",
+  "type": "object",
+  "required": ["analysis_id", "analysis_type", "attempt", "status", "outputs", "metrics", "timing_ms", "error", "trace_id"],
+  "properties": {
+    "analysis_id": {"type": "string", "format": "uuid"},
+    "analysis_type": {"type": "string"},
+    "attempt": {"type": "integer", "minimum": 1},
+    "status": {"enum": ["SUCCEEDED", "FAILED"]},
+    "model": {"type": ["object", "null"]},
+    "outputs": {"type": "array"},
+    "metrics": {"type": "object"},
+    "timing_ms": {"type": "object"},
+    "error": {"type": ["object", "null"]},
+    "trace_id": {"type": "string"}
+  },
+  "additionalProperties": false
+}

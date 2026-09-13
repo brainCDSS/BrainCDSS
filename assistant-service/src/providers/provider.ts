@@ -1,2 +1,14 @@
-/** Provider boundary avoids guessing an unverified Genkit/Gemini SDK API. */
-export interface AssistantProvider { generate(input: {role:'patient'|'clinician'; prompt:string}): Promise<{text:string;usageTokens:number}>; }
+export type AssistantRole =
+  | "patient"
+  | "clinician";
+
+
+export interface AssistantProvider {
+  generate(input: {
+    role: AssistantRole;
+    prompt: string;
+  }): Promise<{
+    text: string;
+    usageTokens: number;
+  }>;
+}

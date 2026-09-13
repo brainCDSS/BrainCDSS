@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "brainon/inference-request/v1",
+  "type": "object",
+  "required": ["analysis_id", "analysis_type", "attempt", "model_selector", "inputs"],
+  "properties": {
+    "analysis_id": {"type": "string", "format": "uuid"},
+    "analysis_type": {"enum": ["HEMORRHAGIC_STROKE_CT", "ISCHEMIC_STROKE_DWI_ADC", "CEREBRAL_ANEURYSM_MRA"]},
+    "attempt": {"type": "integer", "minimum": 1},
+    "trace_id": {"type": ["string", "null"], "maxLength": 128},
+    "model_selector": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "version": {"type": ["string", "null"]},
+        "alias": {"type": ["string", "null"]},
+        "manifest_uri": {"type": ["string", "null"], "pattern": "^gs://"}
+      },
+      "oneOf": [{"required": ["version"]}, {"required": ["alias"]}],
+      "additionalProperties": false
+    },
+    "inputs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["role", "uri", "size_bytes", "sha256"],
+        "properties": {
+          "role": {"enum": ["CT", "DWI", "ADC", "MRA"]},
+          "uri": {"type": "string", "pattern": "^gs://"},
+          "size_bytes": {"type": "integer", "minimum": 1},
+          "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

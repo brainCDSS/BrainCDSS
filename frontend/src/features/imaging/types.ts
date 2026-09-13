@@ -42,17 +42,21 @@ export interface ImagingPatientSummary {
   patient_id: string;
   patient_no?: string;
   name?: string;
+  birth_date?: string | null;
+  estimated_age?: number | null;
+  sex?: string | null;
 }
 
 export interface ImagingStudyApiItem {
   study_id: string;
   accession_number: string;
   study_datetime: string;
-  modalities: string[];
+  modalities?: string[];
+  modality?: string;
 
-  status: ImagingStatus;
-  series_count: number;
-  instance_count: number;
+  status?: ImagingStatus;
+  series_count?: number;
+  instance_count?: number;
 
   latest_analysis: ImagingAnalysisSummary | null;
   current_report: ImagingReportSummary | null;
@@ -78,6 +82,7 @@ export interface ImagingSeries {
   series_number?: number;
   modality: string;
   series_description?: string;
+  protocol_name?: string;
 
   instance_count: number;
   slice_thickness?: number | null;
@@ -150,6 +155,9 @@ export interface KeyImagesResponse {
 }
 
 export interface ViewerSessionResponse { viewer_url?: string; token?: string; expires_at?: string; [key: string]: unknown }
+export interface NiftiAIInput { artifact_id: string; series_id: string; role: "CT" | "DWI" | "ADC" | "MRA"; series_description: string; size_bytes: number; sha256: string; content_url: string }
+export interface AIInputBundle { analysis_type: string; ready: boolean; missing_roles: string[]; inputs: NiftiAIInput[] }
+export interface StudyAIInputsResponse { study_id: string; bundles: AIInputBundle[] }
 export interface ImagingOrderResponse { order_id: string; encounter_id: string; patient_id?: string; status: string; [key: string]: unknown }
 export interface ImagingOrderListResponse { count: number; results: ImagingOrderResponse[] }
 export interface ImagingOrderTimelineResponse { order: Record<string, unknown>; current_status: string; timeline: Array<Record<string, unknown>>; study?: Record<string, unknown> | null; analysis?: Record<string, unknown> | null; report?: Record<string, unknown> | null }

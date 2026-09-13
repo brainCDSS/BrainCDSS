@@ -1,1 +1,26 @@
-{"model_id":"synthetic-placeholder","model_version":"0.0.0","artifact_uri":"gs://TODO_BUCKET/models/TODO","checksum":"sha256:0000000000000000000000000000000000000000000000000000000000000000","framework":"TODO","input_modalities":["CT"],"input_shape":[1,1,1],"preprocessing_version":"TODO","postprocessing_version":"TODO","output_type":["DICOM_SEG","DICOM_SR"],"created_at":"2026-01-01T00:00:00Z"}
+{
+  "schema_version": "1.0.0",
+  "bundle_id": "H-N00",
+  "model_name": "hemorrhagic-stroke-ct",
+  "analysis_type": "HEMORRHAGIC_STROKE_CT",
+  "framework": "nnunetv2",
+  "framework_version": null,
+  "source_experiment": "H-N00",
+  "source_repository": "https://github.com/brainCDSS/model",
+  "source_git_commit": "TODO_COMMIT",
+  "source_config": "configs/experiments/hemorrhage/H-N00.yaml",
+  "gcs_prefix": "gs://brainon-cdss-models/hemorrhagic-stroke-ct/H-N00",
+  "checkpoint": "fold_0/checkpoint_best.pth",
+  "trainer": {"class_name": "nnUNetTrainerICHBaseline"},
+  "nnunet": {"configuration": "3d_fullres", "folds": [0]},
+  "inputs": {"roles": ["CT"], "channel_order": ["CT"], "expected_dimensionality": 3},
+  "labels": {"background": 0, "hemorrhage": 1},
+  "preprocessing": {"config": "inference_config.yaml", "plans": "plans.json"},
+  "postprocessing": {"config": "inference_config.yaml"},
+  "output_types": ["NIFTI_MASK", "RESULT_JSON"],
+  "mlflow": {"registered_model_name": "hemorrhagic-stroke-ct", "version": null},
+  "files": [
+    {"path": "fold_0/checkpoint_best.pth", "size_bytes": 1, "sha256": "0000000000000000000000000000000000000000000000000000000000000000"}
+  ],
+  "readiness": {"bundle_files_ready": false, "gpu_validation_completed": false}
+}

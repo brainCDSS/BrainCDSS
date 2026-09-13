@@ -8,6 +8,6 @@ def main():
     event=set(load("contracts/events/event-envelope.schema.json")["required"])
     assert event=={"event_id","event_type","event_version","occurred_at","trace_id","actor_id","aggregate_type","aggregate_id","payload"}
     required=set(load("contracts/model-bundle/model-bundle.schema.json")["required"])
-    assert {"model_id","model_version","artifact_uri","checksum","framework","input_modalities","input_shape","preprocessing_version","postprocessing_version","output_type","created_at"}<=required
+    assert {"schema_version","bundle_id","model_name","analysis_type","framework","gcs_prefix","checkpoint","trainer","nnunet","inputs","labels","preprocessing","postprocessing","output_types","files","readiness"}<=required
     print(f"OK: {len(schemas)} JSON contract files")
 if __name__=="__main__": main()

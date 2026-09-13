@@ -1,4 +1,4 @@
-"""Celery가 자동 탐색하는 common task 진입점"""
+"""Celery autodiscovery entry point for common tasks."""
 
 from .broker import broker_ping
 from apps.common.outbox_tasks import (

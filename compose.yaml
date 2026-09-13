@@ -1,7 +1,8 @@
-# BrainOn local runtime. Secrets below are placeholders and must be overridden via .env.
+# BrainOn 로컬 실행 구성. 실제 비밀값은 .env 환경변수에서 주입한다.
 services:
-  # Primary relational store for Django business state and optional task status.
+  # 선택적 로컬 PostgreSQL. 기본 개발 DB는 .env의 POSTGRES_HOST를 사용한다.
   postgres:
+    profiles: [localdb]
     image: postgres:17-alpine
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-brainon}
@@ -11,7 +12,8 @@ services:
     volumes: [postgres-data:/var/lib/postgresql/data]
     healthcheck: {test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"], interval: 10s, timeout: 5s, retries: 5}
     restart: unless-stopped
-  # Sole Celery broker and future event bridge source.
+
+  # Celery 메시지 브로커 및 이벤트 브리지용 RabbitMQ.
   rabbitmq:
     image: rabbitmq:4-management-alpine
     environment:
@@ -21,109 +23,160 @@ services:
     volumes: [rabbitmq-data:/var/lib/rabbitmq]
     healthcheck: {test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"], interval: 10s, timeout: 5s, retries: 5}
     restart: unless-stopped
-  # Django REST/ASGI modular monolith.
+
+  # Django REST/ASGI Backend 서비스.
   backend:
     build: ./backend
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.base
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-TODO_REPLACE_WITH_LOCAL_ONLY_VALUE}
+      MCP_BACKEND_TOKEN: "${MCP_BACKEND_TOKEN:-}"
+      DJANGO_ALLOWED_HOSTS: "${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend}"
       POSTGRES_DB: ${POSTGRES_DB:-brainon}
       POSTGRES_USER: ${POSTGRES_USER:-brainon}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-TODO_LOCAL_DATABASE_PASSWORD}
-      POSTGRES_HOST: postgres
-      CELERY_BROKER_URL: amqp://${RABBITMQ_DEFAULT_USER:-brainon}:${RABBITMQ_DEFAULT_PASS:-TODO_LOCAL_RABBITMQ_PASSWORD}@rabbitmq:5672//
+      POSTGRES_HOST: "${POSTGRES_HOST:-postgres}"
+      POSTGRES_PORT: "${POSTGRES_PORT:-5432}"
+      CELERY_BROKER_URL: "${CELERY_BROKER_URL}"
+      INFERENCE_API_URL: "${INFERENCE_API_URL:-https://brainon-inference-v2-3gykqo24da-as.a.run.app}"
+      INFERENCE_AUTH_AUDIENCE: "${INFERENCE_AUTH_AUDIENCE:-https://brainon-inference-v2-3gykqo24da-as.a.run.app}"
+      INFERENCE_USE_ID_TOKEN: "${INFERENCE_USE_ID_TOKEN:-true}"
+      INFERENCE_TIMEOUT_SECONDS: "${INFERENCE_TIMEOUT_SECONDS:-900}"
+      GOOGLE_APPLICATION_CREDENTIALS: "/run/secrets/firebase-adminsdk.json"
+      FCM_PROJECT_ID: "${FCM_PROJECT_ID:-}"
+      FCM_CREDENTIALS_PATH: "/run/secrets/firebase-adminsdk.json"
+    volumes:
+      - ./secrets/firebase-adminsdk.json:/run/secrets/firebase-adminsdk.json:ro
     ports: ["8080:8080"]
-    depends_on: {postgres: {condition: service_healthy}, rabbitmq: {condition: service_healthy}}
+    depends_on: {rabbitmq: {condition: service_healthy}}
     healthcheck: {test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8080/api/v1/health/')"], interval: 15s, timeout: 5s, retries: 5}
     restart: unless-stopped
-  # Background notification and business jobs; results are disabled by default.
+
+  # 알림 및 일반 비동기 작업을 처리하는 Celery Worker.
   celery-worker:
     build: ./backend
-    command: celery -A config worker -l INFO
-    environment: {DJANGO_SETTINGS_MODULE: config.settings.base, POSTGRES_HOST: postgres, POSTGRES_DB: "${POSTGRES_DB:-brainon}", POSTGRES_USER: "${POSTGRES_USER:-brainon}", POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-TODO_LOCAL_DATABASE_PASSWORD}", CELERY_BROKER_URL: "amqp://${RABBITMQ_DEFAULT_USER:-brainon}:${RABBITMQ_DEFAULT_PASS:-TODO_LOCAL_RABBITMQ_PASSWORD}@rabbitmq:5672//"}
+    command: celery -A config worker -l INFO -Q brainon.default,brainon.notifications,brainon.integrations -n general@%h
+    environment: {DJANGO_SETTINGS_MODULE: config.settings.base, POSTGRES_HOST: "${POSTGRES_HOST:-postgres}", POSTGRES_PORT: "${POSTGRES_PORT:-5432}", POSTGRES_DB: "${POSTGRES_DB:-brainon}", POSTGRES_USER: "${POSTGRES_USER:-brainon}", POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-TODO_LOCAL_DATABASE_PASSWORD}", CELERY_BROKER_URL: "${CELERY_BROKER_URL}", CELERY_QUEUE_PREFIX: brainon, INFERENCE_API_URL: "${INFERENCE_API_URL:-https://brainon-inference-v2-3gykqo24da-as.a.run.app}", INFERENCE_AUTH_AUDIENCE: "${INFERENCE_AUTH_AUDIENCE:-https://brainon-inference-v2-3gykqo24da-as.a.run.app}", INFERENCE_USE_ID_TOKEN: "${INFERENCE_USE_ID_TOKEN:-true}", INFERENCE_TIMEOUT_SECONDS: "${INFERENCE_TIMEOUT_SECONDS:-900}", GOOGLE_APPLICATION_CREDENTIALS: "/run/secrets/firebase-adminsdk.json", FCM_PROJECT_ID: "${FCM_PROJECT_ID:-}", FCM_CREDENTIALS_PATH: "/run/secrets/firebase-adminsdk.json"}
+    volumes:
+      - ./secrets/firebase-adminsdk.json:/run/secrets/firebase-adminsdk.json:ro
     depends_on: {backend: {condition: service_healthy}}
     restart: unless-stopped
-  # Scheduled jobs via Celery Beat.
+
+  # 장시간 AI 작업을 일반 작업과 분리하는 추론 전용 Celery Worker.
+  celery-inference-worker:
+    build: ./backend
+    command: celery -A config worker -l INFO -Q brainon.inference -n inference@%h --prefetch-multiplier=1
+    environment: {DJANGO_SETTINGS_MODULE: config.settings.base, POSTGRES_HOST: "${POSTGRES_HOST:-postgres}", POSTGRES_PORT: "${POSTGRES_PORT:-5432}", POSTGRES_DB: "${POSTGRES_DB:-brainon}", POSTGRES_USER: "${POSTGRES_USER:-brainon}", POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-TODO_LOCAL_DATABASE_PASSWORD}", CELERY_BROKER_URL: "${CELERY_BROKER_URL}", CELERY_QUEUE_PREFIX: brainon, INFERENCE_API_URL: "${INFERENCE_API_URL:-https://brainon-inference-v2-3gykqo24da-as.a.run.app}", INFERENCE_AUTH_AUDIENCE: "${INFERENCE_AUTH_AUDIENCE:-https://brainon-inference-v2-3gykqo24da-as.a.run.app}", INFERENCE_USE_ID_TOKEN: "${INFERENCE_USE_ID_TOKEN:-true}", INFERENCE_TIMEOUT_SECONDS: "${INFERENCE_TIMEOUT_SECONDS:-900}", GOOGLE_APPLICATION_CREDENTIALS: "/run/secrets/firebase-adminsdk.json"}
+    volumes:
+      - ./secrets/firebase-adminsdk.json:/run/secrets/firebase-adminsdk.json:ro
+    depends_on: {backend: {condition: service_healthy}}
+    restart: unless-stopped
+
+  # 예약 및 주기 작업을 실행하는 Celery Beat.
   celery-beat:
     build: ./backend
     command: celery -A config beat -l INFO
-    environment: {DJANGO_SETTINGS_MODULE: config.settings.base, POSTGRES_HOST: postgres, POSTGRES_DB: "${POSTGRES_DB:-brainon}", POSTGRES_USER: "${POSTGRES_USER:-brainon}", POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-TODO_LOCAL_DATABASE_PASSWORD}", CELERY_BROKER_URL: "amqp://${RABBITMQ_DEFAULT_USER:-brainon}:${RABBITMQ_DEFAULT_PASS:-TODO_LOCAL_RABBITMQ_PASSWORD}@rabbitmq:5672//"}
+    environment: {DJANGO_SETTINGS_MODULE: config.settings.base, POSTGRES_HOST: "${POSTGRES_HOST:-postgres}", POSTGRES_PORT: "${POSTGRES_PORT:-5432}", POSTGRES_DB: "${POSTGRES_DB:-brainon}", POSTGRES_USER: "${POSTGRES_USER:-brainon}", POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-TODO_LOCAL_DATABASE_PASSWORD}", CELERY_BROKER_URL: "${CELERY_BROKER_URL}"}
     depends_on: {rabbitmq: {condition: service_healthy}}
     restart: unless-stopped
-  # Clinician Vite development server.
+
+  # React/Vite 기반 Frontend 개발 서버.
   frontend:
     build: ./frontend
     profiles: [web]
-    environment: {VITE_BACKEND_URL: "${BACKEND_URL:-http://localhost:8080}"}
+    environment:
+      VITE_BACKEND_URL: "${VITE_BACKEND_URL:-http://localhost:8000}"
+      VITE_FIREBASE_API_KEY: "${VITE_FIREBASE_API_KEY:-}"
+      VITE_FIREBASE_AUTH_DOMAIN: "${VITE_FIREBASE_AUTH_DOMAIN:-}"
+      VITE_FIREBASE_PROJECT_ID: "${VITE_FIREBASE_PROJECT_ID:-}"
+      VITE_FIREBASE_STORAGE_BUCKET: "${VITE_FIREBASE_STORAGE_BUCKET:-}"
+      VITE_FIREBASE_MESSAGING_SENDER_ID: "${VITE_FIREBASE_MESSAGING_SENDER_ID:-}"
+      VITE_FIREBASE_APP_ID: "${VITE_FIREBASE_APP_ID:-}"
+      VITE_FIREBASE_VAPID_KEY: "${VITE_FIREBASE_VAPID_KEY:-}"
     ports: ["5173:5173"]
     restart: unless-stopped
-  # Model-independent FastAPI control plane.
+
+  # FastAPI 기반 GPU AI 추론 서비스. 실제 추론 배포 이미지와 동일한 구조를 사용한다.
   inference-api:
-    build: ./inference
+    build:
+      context: ./inference
+      args:
+        BRAINON_MODEL_REPO: ${BRAINON_MODEL_REPO:-https://github.com/brainCDSS/model.git}
+        BRAINON_MODEL_REF: ${BRAINON_MODEL_REF:-dev}
     profiles: [ai]
-    environment: {MODEL_BUNDLE_URI: "${MODEL_BUNDLE_URI:-}"}
+    environment: {GCS_MODEL_BUCKET: "${GCS_MODEL_BUCKET:-brainon-cdss-models}", GCS_RESULT_BUCKET: "${GCS_RESULT_BUCKET:-TODO_RESULT_BUCKET}", GCS_ALLOWED_BUCKETS: "${GCS_ALLOWED_BUCKETS:-brainon-cdss-models,TODO_RESULT_BUCKET}"}
     ports: ["8100:8100"]
     healthcheck: {test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8100/health')"], interval: 15s, timeout: 5s, retries: 5}
     restart: unless-stopped
-  # MOSEC integration placeholder; same safe image reports the boundary only.
-  inference-worker:
-    build: ./inference
-    profiles: [ai]
-    command: ["python", "-c", "print('MODEL_NOT_CONFIGURED: MOSEC worker adapter TODO'); import time; time.sleep(86400)"]
-    ports: ["8000:8000"]
-    restart: unless-stopped
-  # Genkit/Gemini adapter with deterministic mock fallback.
+
+  # Gemini 기반 AI 챗봇 오케스트레이션 서비스. 미연결 시 Mock fallback을 사용한다.
   assistant-service:
     build: ./assistant-service
     profiles: [assistant]
-    environment: {PORT: "8200", GEMINI_API_KEY: "${GEMINI_API_KEY:-}"}
+    environment: {PORT: "8200", GEMINI_API_KEY: "${GEMINI_API_KEY:-}", GEMINI_MODEL: "${GEMINI_MODEL:-}", MCP_SERVER_URL: "http://mcp-server:8300/mcp"}
+    depends_on: [mcp-server]
     ports: ["8200:8200"]
     restart: unless-stopped
-  # Clinical MCP protocol adapter placeholder; backend-only data access.
+
+  # 임상 Read-only MCP 프로토콜 서비스. 데이터는 Django Internal API를 통해서만 조회한다.
   mcp-server:
     build: ./mcp-server
     profiles: [assistant]
-    environment: {BACKEND_URL: "http://backend:8080", MCP_BACKEND_TOKEN: "${MCP_BACKEND_TOKEN:-}"}
+    environment: {BACKEND_URL: "http://backend:8080", MCP_BACKEND_TOKEN: "${MCP_BACKEND_TOKEN:-}", MCP_HOST: "0.0.0.0", PORT: "8300"}
+    depends_on: [backend]
     ports: ["8300:8300"]
-    restart: "no"
-  # DICOM archive for synthetic/local data only.
+    restart: unless-stopped
+
+  # Synthetic/Local 의료영상용 Orthanc DICOM 저장소.
   orthanc:
-    image: orthancteam/orthanc:24.11.2
+    image: orthancteam/orthanc:26.9.0
     profiles: [imaging]
-    ports: ["8042:8042", "4242:4242"]
+    environment:
+      ORTHANC__NAME: BrainOn-CDSS
+      ORTHANC__AUTHENTICATION_ENABLED: "true"
+      ORTHANC__REMOTE_ACCESS_ALLOWED: "true"
+      ORTHANC__REGISTERED_USERS: '{"${ORTHANC_USERNAME:-brainon}": "${ORTHANC_PASSWORD:-TODO_LOCAL_ORTHANC_PASSWORD}"}'
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+    ports: ["127.0.0.1:8042:8042", "127.0.0.1:4242:4242"]
     volumes: [orthanc-data:/var/lib/orthanc/db]
     restart: unless-stopped
-  # DICOMweb viewer; configuration is a future integration template.
+
+  # Orthanc DICOMweb과 연동하는 OHIF 영상 Viewer.
   ohif:
     image: ohif/app:v3.9.2
     profiles: [imaging]
     ports: ["3000:80"]
     depends_on: [orthanc]
     restart: unless-stopped
-  # Metrics scraper.
+
+  # 시스템 메트릭을 수집하는 Prometheus.
   prometheus:
     image: prom/prometheus:v3.1.0
     profiles: [observability]
     volumes: ["./infra/observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro"]
     ports: ["9090:9090"]
-  # Dashboard UI; datasource provisioning is TODO.
+
+  # 시스템 상태 및 관측 정보를 확인하는 Grafana Dashboard.
   grafana:
     image: grafana/grafana:11.4.0
     profiles: [observability]
     ports: ["3001:3000"]
-  # Log store.
+
+  # 애플리케이션 로그를 저장하는 Loki.
   loki:
     image: grafana/loki:3.3.2
     profiles: [observability]
     command: -config.file=/etc/loki/local-config.yaml
     ports: ["3100:3100"]
-  # OTel/log collector bridge.
+
+  # 로그 및 Telemetry를 수집·전달하는 Grafana Alloy.
   alloy:
     image: grafana/alloy:v1.5.1
     profiles: [observability]
     volumes: ["./infra/observability/alloy/config.alloy:/etc/alloy/config.alloy:ro"]
-    command: run /etc/alloy/config.alloy
+    command: run /etc/grafana/alloy/config.alloy
     ports: ["4317:4317"]
+
 volumes:
   postgres-data:
   rabbitmq-data:

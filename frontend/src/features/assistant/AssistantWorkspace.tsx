@@ -24,6 +24,7 @@ export const ASSISTANT_QUICK_PROMPTS = [
 ];
 
 export interface AssistantConversationProps {
+  patientId: string | null;
   messages: AssistantChatMessage[];
   setMessages: Dispatch<
     SetStateAction<AssistantChatMessage[]>
@@ -55,6 +56,7 @@ function formatTime(value: string) {
 }
 
 export default function AssistantWorkspace({
+  patientId,
   messages,
   setMessages,
   conversationId,
@@ -122,31 +124,29 @@ export default function AssistantWorkspace({
     setIsPending(true);
 
     try {
-      const response =
-        await sendAssistantMessage({
-          message: prompt,
-          conversation_id:
-            conversationId,
-          context: {
-            scope: "TODAY",
-          },
-        });
-
-      setConversationId(
-        response.conversation_id,
-      );
-
-      setMessages((previous) => [
-        ...previous,
-        {
-          id: response.message_id,
-          role: "assistant",
-          content: response.answer,
-          createdAt:
-            response.created_at,
-          actions: response.actions,
-        },
-      ]);
+      const response = await sendAssistantMessage({
+        message: prompt,
+        conversation_id: conversationId,
+        context: patientId
+          ? {
+              scope: "PATIENT",
+              patient_id: patientId,
+              encounter_id: null,
+            }
+          : {
+              scope: "TODAY",
+              patient_id: null,
+              encounter_id: null,
+            },
+      });
+      setConversationId(response.conversation_id);
+      setMessages((previous) => [...previous, {
+        id: response.message_id,
+        role: "assistant",
+        content: response.answer,
+        createdAt: response.created_at,
+        actions: response.actions,
+      }]);
     } catch {
       setRequestError(
         "BrainOn AI 응답을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",

@@ -8,6 +8,16 @@ from drf_spectacular.views import (
 )
 
 from apps.common.views import health
+from apps.ai_analysis.api.development import DevelopmentAnalysisView
+from apps.ai_analysis.api.inference import (
+    AnalysisCollectionView,
+    AnalysisDetailView,
+    AnalysisResultView,
+    AIResultReviewCollectionView,
+    AnalysisNiftiViewerView,
+    ResultArtifactContentView,
+)
+from apps.imaging.api.nifti import NiftiArtifactContentView, StudyAIInputsView
 
 
 # ============================================================
@@ -15,6 +25,38 @@ from apps.common.views import health
 # ============================================================
 
 urlpatterns = [
+    # Real AI analysis and NIfTI routes must precede generated fallbacks.
+    path("api/v1/ai-analyses", AnalysisCollectionView.as_view()),
+    path("api/v1/ai-analyses/<uuid:analysis_id>", AnalysisDetailView.as_view()),
+    path(
+        "api/v1/ai-analyses/<uuid:analysis_id>/result",
+        AnalysisResultView.as_view(),
+    ),
+    path(
+        "api/v1/ai-analyses/<uuid:analysis_id>/nifti-viewer",
+        AnalysisNiftiViewerView.as_view(),
+    ),
+    path(
+        "api/v1/ai-result-artifacts/<uuid:artifact_id>/content",
+        ResultArtifactContentView.as_view(),
+    ),
+    path(
+        "api/v1/ai-results/<uuid:result_id>/reviews",
+        AIResultReviewCollectionView.as_view(),
+    ),
+    path(
+        "api/v1/imaging-studies/<uuid:study_id>/ai-inputs",
+        StudyAIInputsView.as_view(),
+    ),
+    path(
+        "api/v1/nifti-artifacts/<uuid:artifact_id>/content",
+        NiftiArtifactContentView.as_view(),
+    ),
+    path("api/v1/dev/ai-analyses", DevelopmentAnalysisView.as_view()),
+    path(
+        "api/v1/dev/ai-analyses/<uuid:analysis_id>",
+        DevelopmentAnalysisView.as_view(),
+    ),
     # 조직
     path(
         "api/v1/",
@@ -77,11 +119,26 @@ urlpatterns += [
         include("apps.common.api.urls"),
     ),
 
+    # Assistant / internal MCP read-only API
+    path(
+        "",
+        include("apps.assistant.api.urls"),
+    ),
+
     # DUR / Medication Safety
     path(
         "",
         include(
             "apps.medication_safety.api.urls"
+        ),
+    ),
+
+    # Notification / FCM
+    # 실제 FCM API를 generated fallback보다 먼저 등록한다.
+    path(
+        "",
+        include(
+            "apps.notifications.api.urls"
         ),
     ),
 

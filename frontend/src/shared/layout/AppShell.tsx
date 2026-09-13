@@ -137,6 +137,8 @@ export default function AppShell({
     "dashboard",
   );
 
+  const [activeAnalysisId, setActiveAnalysisId] = useState<string | null>(null);
+
 
   /* ========================================================
      3. 일반 환자 Workspace Tabs
@@ -155,6 +157,13 @@ export default function AppShell({
   const [
     activePatientId,
     setActivePatientId,
+  ] = useState<string | null>(
+    null,
+  );
+
+  const [
+    assistantPatientId,
+    setAssistantPatientId,
   ] = useState<string | null>(
     null,
   );
@@ -252,6 +261,8 @@ export default function AppShell({
      ======================================================== */
 
   const handleOpenAssistantWorkspace = () => {
+    setAssistantPatientId(activePatientId);
+
     setIsAssistantTabOpen(true);
     setIsAssistantTabActive(true);
     setIsAssistantFloatingOpen(false);
@@ -263,6 +274,8 @@ export default function AppShell({
   };
 
   const handleSelectAssistantTab = () => {
+    setAssistantPatientId(activePatientId);
+
     setIsAssistantTabActive(true);
     setIsAssistantFloatingOpen(false);
 
@@ -960,6 +973,7 @@ export default function AppShell({
     if (isAssistantTabActive) {
       return (
         <AssistantWorkspace
+          patientId={assistantPatientId}
           messages={assistantMessages}
           setMessages={setAssistantMessages}
           conversationId={assistantConversationId}
@@ -1209,12 +1223,15 @@ export default function AppShell({
       "imaging"
     ) {
 
-      return <ImagingPage />;
+      return <ImagingPage onAnalysisStarted={(analysis) => {
+        setActiveAnalysisId(analysis.analysis_id);
+        handleMenuSelect("ai-results");
+      }} />;
 
     }
 
     if (activeMenu === "ai-results") {
-      return <AIAnalysisResultsPage />;
+      return <AIAnalysisResultsPage initialAnalysisId={activeAnalysisId} />;
     }
 
     if (activeMenu === "radiology-reports") {
@@ -1435,6 +1452,7 @@ export default function AppShell({
 
       {isAssistantFloatingOpen && (
         <AssistantFloatingPanel
+          patientId={activePatientId}
           messages={assistantMessages}
           setMessages={setAssistantMessages}
           conversationId={assistantConversationId}

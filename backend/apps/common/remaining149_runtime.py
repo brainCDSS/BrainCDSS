@@ -4,14 +4,16 @@ from __future__ import annotations
 import re
 import uuid
 from contextlib import nullcontext
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from django.apps import apps
+from django.conf import settings
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_datetime
-from rest_framework.exceptions import AuthenticationFailed, NotFound, PermissionDenied, ValidationError
+from rest_framework.exceptions import APIException, AuthenticationFailed, NotFound, PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -49,6 +51,11 @@ ACTION_STATUS = {
 
 class ContractError(ValidationError):
     status_code = 400
+
+
+class ContractConflict(APIException):
+    status_code = 409
+    default_code = "CONFLICT"
 
 
 def _model(spec):
@@ -1053,35 +1060,536 @@ def _schedule_put(request, spec, kwargs):
     return Response(payload, status=200)
 
 
+@transaction.atomic
 def _appointment_create(request, spec, kwargs):
+    del kwargs
     model = _model(spec)
     if model is None:
-        return _generic_create(request, spec, kwargs)
+        raise ContractError({"code": "APPOINTMENT_MODEL_NOT_CONFIGURED"})
+    if not isinstance(request.data, dict) or not request.data.get("slot_id"):
+        raise ContractError({
+            "code": "VALIDATION_ERROR",
+            "slot_id": "This field is required.",
+        })
 
-    fields = _field_map(model)
-    data = _write_data(model, request)
-    data = _apply_server_defaults(model, data)
+    patient = _patient_for_user(request.user)
+    if patient is None:
+        raise ContractError({"code": "PATIENT_PROFILE_REQUIRED"})
 
-    if _role_code(request.user) == "PATIENT" and "patient" in fields:
-        patient = _patient_for_user(request.user)
-        if patient is None:
-            raise ContractError({"code": "PATIENT_PROFILE_REQUIRED"})
-        data[fields["patient"].attname] = patient.id
-
-    if "status" in fields and "status" not in data:
-        data["status"] = "REQUESTED"
-    if "request_type" in fields and "request_type" not in data:
-        data["request_type"] = "NEW"
-
+    slot_model = apps.get_model("appointments", "AppointmentSlot")
     try:
-        obj = model.objects.create(**data)
-    except Exception as exc:
-        raise ContractError({"code": "VALIDATION_ERROR", "detail": str(exc)}) from exc
+        slot = (
+            slot_model.objects.select_for_update()
+            .select_related("clinician__department__hospital")
+            .get(pk=request.data["slot_id"])
+        )
+    except (slot_model.DoesNotExist, DjangoValidationError, ValueError, TypeError) as exc:
+        raise NotFound({"code": "SLOT_NOT_FOUND"}) from exc
 
-    after = serialize_instance(obj)
+    if slot.status != "AVAILABLE":
+        raise ContractConflict({
+            "code": "SLOT_NOT_AVAILABLE",
+            "detail": "The appointment slot is not available.",
+        })
+    if model.objects.filter(
+        patient=patient,
+        status__in=("REQUESTED", "CONFIRMED"),
+        slot__start_at=slot.start_at,
+    ).exists():
+        raise ContractConflict({
+            "code": "SLOT_NOT_AVAILABLE",
+            "detail": "The patient already has an active appointment at this time.",
+        })
+
+    now = timezone.now()
+    slot.status = "HELD"
+    slot.held_until = now + timedelta(
+        minutes=settings.APPOINTMENT_HOLD_TTL_MINUTES
+    )
+    slot.version += 1
+    slot.save(update_fields=["status", "held_until", "version"])
+
+    obj = model.objects.create(
+        patient=patient,
+        hospital=slot.clinician.department.hospital,
+        department=slot.clinician.department,
+        clinician=slot.clinician,
+        slot=slot,
+        status="REQUESTED",
+        request_type="NEW",
+        requested_at=now,
+        created_at=now,
+        updated_at=now,
+    )
+    _appointment_history(obj, None, "REQUESTED", request)
+    obj = _appointment_refresh(obj)
+    after = _appointment_payload(obj)
     _audit(request, spec, obj, None, after)
     _outbox(spec, obj, after)
     return Response(after, status=201)
+
+
+def _appointment_locked(kwargs):
+    appointment_model = apps.get_model("appointments", "Appointment")
+    appointment_id = kwargs.get("appointment_id")
+    if appointment_id is None:
+        raise NotFound({"code": "APPOINTMENT_NOT_FOUND"})
+    try:
+        return (
+            appointment_model.objects.select_for_update(of=("self",))
+            .select_related(
+                "patient", "hospital", "department", "clinician__user",
+                "slot", "requested_slot", "handled_by",
+            )
+            .get(pk=appointment_id)
+        )
+    except appointment_model.DoesNotExist as exc:
+        raise NotFound({"code": "APPOINTMENT_NOT_FOUND"}) from exc
+
+
+def _appointment_slots_locked(appointment, *additional_slot_ids):
+    slot_model = apps.get_model("appointments", "AppointmentSlot")
+    slot_ids = {appointment.slot_id}
+    if appointment.requested_slot_id:
+        slot_ids.add(appointment.requested_slot_id)
+    slot_ids.update(slot_id for slot_id in additional_slot_ids if slot_id)
+    return {
+        slot.pk: slot
+        for slot in slot_model.objects.select_for_update()
+        .filter(pk__in=slot_ids).order_by("pk")
+    }
+
+
+def _appointment_history(appointment, previous, new, request, reason=None):
+    history_model = apps.get_model("appointments", "AppointmentStatusHistory")
+    history_model.objects.create(
+        appointment=appointment,
+        from_status=previous,
+        to_status=new,
+        changed_by=request.user,
+        reason=reason,
+    )
+
+
+def _appointment_action_reason(request, *names):
+    if not isinstance(request.data, dict):
+        return None
+    for name in names:
+        value = request.data.get(name)
+        if value is not None and str(value).strip():
+            return str(value).strip()
+    return None
+
+
+def _appointment_require_patient_owner(appointment, request):
+    patient = _patient_for_user(request.user)
+    if patient is None or appointment.patient_id != patient.id:
+        raise PermissionDenied({
+            "code": "FORBIDDEN_PERMISSION",
+            "detail": "This appointment does not belong to the current patient.",
+        })
+
+
+def _appointment_refresh(appointment):
+    return (
+        appointment.__class__.objects
+        .select_related(
+            "patient", "hospital", "department", "clinician__user",
+            "slot", "requested_slot", "handled_by",
+        )
+        .get(pk=appointment.pk)
+    )
+
+
+@transaction.atomic
+def _appointment_accept(request, spec, kwargs):
+    appointment = _appointment_locked(kwargs)
+    is_new_request = appointment.status == "REQUESTED"
+    is_reschedule = (
+        appointment.status == "CONFIRMED"
+        and appointment.requested_slot_id is not None
+    )
+    if not is_new_request and not is_reschedule:
+        raise ContractConflict({
+            "code": "APPOINTMENT_ALREADY_PROCESSED",
+            "detail": "The appointment has no request that can be accepted.",
+        })
+    slots = _appointment_slots_locked(appointment)
+    current_slot = slots[appointment.slot_id]
+    requested_slot = (
+        slots[appointment.requested_slot_id]
+        if is_reschedule
+        else None
+    )
+    slot_to_book = requested_slot or current_slot
+    now = timezone.now()
+    if (
+        slot_to_book.status != "HELD"
+        or slot_to_book.held_until is None
+        or slot_to_book.held_until <= now
+        or (is_reschedule and current_slot.status != "BOOKED")
+    ):
+        raise ContractConflict({
+            "code": "APPOINTMENT_SLOT_CONFLICT",
+            "detail": "The appointment slot is not actively held.",
+        })
+
+    previous = appointment.status
+    before = serialize_instance(appointment)
+    if requested_slot is not None:
+        current_slot.status = "AVAILABLE"
+        current_slot.held_until = None
+        current_slot.version += 1
+        current_slot.save(update_fields=["status", "held_until", "version"])
+    slot_to_book.status = "BOOKED"
+    slot_to_book.held_until = None
+    slot_to_book.version += 1
+    slot_to_book.save(update_fields=["status", "held_until", "version"])
+    appointment.status = "CONFIRMED"
+    if requested_slot is not None:
+        appointment.slot = requested_slot
+        appointment.requested_slot = None
+    appointment.confirmed_at = now
+    appointment.handled_by = request.user
+    appointment.reschedule_requested_at = None
+    appointment.updated_at = now
+    appointment.save(update_fields=[
+        "status", "slot", "requested_slot", "confirmed_at", "handled_by",
+        "reschedule_requested_at", "updated_at",
+    ])
+    reason = _appointment_action_reason(request, "memo", "reason")
+    _appointment_history(appointment, previous, "CONFIRMED", request, reason)
+    appointment = _appointment_refresh(appointment)
+    after = _appointment_payload(appointment)
+    after["confirmed_by"] = _appointment_user_payload(request.user)
+    _audit(request, spec, appointment, before, after)
+    _outbox(spec, appointment, after)
+    return Response(after, status=200)
+
+
+@transaction.atomic
+def _appointment_reject(request, spec, kwargs):
+    reason = _appointment_action_reason(request, "rejection_reason")
+    if reason is None:
+        raise ContractError({
+            "code": "VALIDATION_ERROR",
+            "rejection_reason": "This field is required.",
+        })
+    appointment = _appointment_locked(kwargs)
+    is_new_request = appointment.status == "REQUESTED"
+    is_reschedule = (
+        appointment.status == "CONFIRMED"
+        and appointment.requested_slot_id is not None
+    )
+    if not is_new_request and not is_reschedule:
+        raise ContractConflict({
+            "code": "APPOINTMENT_INVALID_STATE",
+            "detail": "The appointment has no request that can be rejected.",
+        })
+    slots = _appointment_slots_locked(appointment)
+    current_slot = slots[appointment.slot_id]
+    slot_to_release = (
+        slots[appointment.requested_slot_id]
+        if is_reschedule
+        else current_slot
+    )
+    now = timezone.now()
+    if (
+        slot_to_release.status != "HELD"
+        or slot_to_release.held_until is None
+        or slot_to_release.held_until <= now
+        or (is_reschedule and current_slot.status != "BOOKED")
+    ):
+        raise ContractConflict({
+            "code": "APPOINTMENT_SLOT_CONFLICT",
+            "detail": "The appointment slot is not actively held.",
+        })
+
+    previous = appointment.status
+    before = serialize_instance(appointment)
+    slot_to_release.status = "AVAILABLE"
+    slot_to_release.held_until = None
+    slot_to_release.version += 1
+    slot_to_release.save(update_fields=["status", "held_until", "version"])
+    appointment.status = "CONFIRMED" if is_reschedule else "REJECTED"
+    appointment.rejection_reason = reason
+    appointment.handled_by = request.user
+    appointment.requested_slot = None
+    appointment.reschedule_requested_at = None
+    appointment.updated_at = now
+    appointment.save(update_fields=[
+        "status", "rejection_reason", "handled_by", "requested_slot",
+        "reschedule_requested_at", "updated_at",
+    ])
+    _appointment_history(appointment, previous, appointment.status, request, reason)
+    appointment = _appointment_refresh(appointment)
+    after = _appointment_payload(appointment)
+    after["rejected_by"] = _appointment_user_payload(request.user)
+    after["rejected_at"] = _safe_value(now)
+    after["released_slot"] = _appointment_slot_payload(slot_to_release)
+    _audit(request, spec, appointment, before, after)
+    _outbox(spec, appointment, after)
+    return Response(after, status=200)
+
+
+@transaction.atomic
+def _appointment_cancel(request, spec, kwargs):
+    appointment = _appointment_locked(kwargs)
+    _appointment_require_patient_owner(appointment, request)
+    if appointment.status not in {"REQUESTED", "CONFIRMED"}:
+        raise ContractConflict({
+            "code": "APPOINTMENT_INVALID_STATE",
+            "detail": "Only a requested or confirmed appointment can be cancelled.",
+        })
+    slots = _appointment_slots_locked(appointment)
+    current_slot = slots[appointment.slot_id]
+    expected_status = "HELD" if appointment.status == "REQUESTED" else "BOOKED"
+    if current_slot.status != expected_status:
+        raise ContractConflict({
+            "code": "APPOINTMENT_SLOT_CONFLICT",
+            "detail": "The current appointment slot has an invalid state.",
+        })
+    requested_slot = slots.get(appointment.requested_slot_id) if appointment.requested_slot_id else None
+    if requested_slot is not None and requested_slot.status != "HELD":
+        raise ContractConflict({
+            "code": "APPOINTMENT_SLOT_CONFLICT",
+            "detail": "The requested appointment slot has an invalid state.",
+        })
+
+    previous = appointment.status
+    before = serialize_instance(appointment)
+    released_slots = []
+    for slot in (current_slot, requested_slot):
+        if slot is None:
+            continue
+        slot.status = "AVAILABLE"
+        slot.held_until = None
+        slot.version += 1
+        slot.save(update_fields=["status", "held_until", "version"])
+        released_slots.append(_appointment_slot_payload(slot))
+    now = timezone.now()
+    reason = _appointment_action_reason(request, "reason", "cancel_reason")
+    appointment.status = "CANCELLED"
+    appointment.cancel_reason = reason
+    appointment.cancelled_at = now
+    appointment.requested_slot = None
+    appointment.reschedule_requested_at = None
+    appointment.updated_at = now
+    appointment.save(update_fields=[
+        "status", "cancel_reason", "cancelled_at", "requested_slot",
+        "reschedule_requested_at", "updated_at",
+    ])
+    _appointment_history(appointment, previous, "CANCELLED", request, reason)
+    appointment = _appointment_refresh(appointment)
+    after = _appointment_payload(appointment)
+    after["released_slots"] = released_slots
+    _audit(request, spec, appointment, before, after)
+    _outbox(spec, appointment, after)
+    return Response(after, status=200)
+
+
+@transaction.atomic
+def _appointment_reschedule(request, spec, kwargs):
+    if not isinstance(request.data, dict) or not request.data.get("new_slot_id"):
+        raise ContractError({
+            "code": "VALIDATION_ERROR",
+            "new_slot_id": "This field is required.",
+        })
+    appointment = _appointment_locked(kwargs)
+    _appointment_require_patient_owner(appointment, request)
+    if appointment.status not in {"REQUESTED", "CONFIRMED"}:
+        raise ContractConflict({
+            "code": "APPOINTMENT_INVALID_STATE",
+            "detail": "Only a requested or confirmed appointment can be rescheduled.",
+        })
+    if appointment.status == "REQUESTED" and appointment.request_type != "NEW":
+        raise ContractConflict({
+            "code": "APPOINTMENT_RESCHEDULE_CONFLICT",
+            "detail": "The requested appointment already has a reschedule request.",
+        })
+    if appointment.status == "CONFIRMED" and appointment.requested_slot_id:
+        raise ContractConflict({
+            "code": "APPOINTMENT_RESCHEDULE_CONFLICT",
+            "detail": "The confirmed appointment already has a requested slot.",
+        })
+
+    new_slot_id = request.data["new_slot_id"]
+    if str(new_slot_id) == str(appointment.slot_id):
+        raise ContractConflict({
+            "code": "APPOINTMENT_RESCHEDULE_CONFLICT",
+            "detail": "The new slot must differ from the current slot.",
+        })
+    try:
+        slots = _appointment_slots_locked(appointment, new_slot_id)
+        new_slot = next(
+            slot for slot_id, slot in slots.items()
+            if str(slot_id) == str(new_slot_id)
+        )
+    except (StopIteration, DjangoValidationError, ValueError, TypeError) as exc:
+        raise NotFound({"code": "SLOT_NOT_FOUND"}) from exc
+
+    current_slot = slots[appointment.slot_id]
+    if new_slot.status != "AVAILABLE":
+        raise ContractConflict({
+            "code": "SLOT_NOT_AVAILABLE",
+            "detail": "The requested new slot is not available.",
+        })
+    if new_slot.clinician_id != appointment.clinician_id:
+        raise ContractConflict({
+            "code": "APPOINTMENT_RESCHEDULE_CONFLICT",
+            "detail": "The new slot must belong to the appointment clinician.",
+        })
+
+    now = timezone.now()
+    held_until = now + timedelta(
+        minutes=settings.APPOINTMENT_HOLD_TTL_MINUTES
+    )
+    before = serialize_instance(appointment)
+    if appointment.status == "REQUESTED":
+        if current_slot.status != "HELD":
+            raise ContractConflict({
+                "code": "APPOINTMENT_SLOT_CONFLICT",
+                "detail": "The current appointment slot is not held.",
+            })
+        current_slot.status = "AVAILABLE"
+        current_slot.held_until = None
+        current_slot.version += 1
+        current_slot.save(update_fields=["status", "held_until", "version"])
+        new_slot.status = "HELD"
+        new_slot.held_until = held_until
+        new_slot.version += 1
+        new_slot.save(update_fields=["status", "held_until", "version"])
+        appointment.slot = new_slot
+    else:
+        if current_slot.status != "BOOKED":
+            raise ContractConflict({
+                "code": "APPOINTMENT_SLOT_CONFLICT",
+                "detail": "The current appointment slot is not booked.",
+            })
+        new_slot.status = "HELD"
+        new_slot.held_until = held_until
+        new_slot.version += 1
+        new_slot.save(update_fields=["status", "held_until", "version"])
+        appointment.requested_slot = new_slot
+
+    appointment.request_type = "RESCHEDULE"
+    appointment.reschedule_requested_at = now
+    appointment.updated_at = now
+    update_fields = ["request_type", "reschedule_requested_at", "updated_at"]
+    update_fields.append("slot" if appointment.status == "REQUESTED" else "requested_slot")
+    appointment.save(update_fields=update_fields)
+    appointment = _appointment_refresh(appointment)
+    after = _appointment_payload(appointment)
+    _audit(request, spec, appointment, before, after)
+    _outbox(spec, appointment, after)
+    return Response(after, status=200)
+
+
+@transaction.atomic
+def _appointment_complete(request, spec, kwargs):
+    appointment = _appointment_locked(kwargs)
+    if (
+        _role_code(request.user) in {"NEUROLOGIST", "NEUROSURGEON"}
+        and appointment.clinician.user_id != request.user.id
+    ):
+        raise PermissionDenied({
+            "code": "FORBIDDEN_PERMISSION",
+            "detail": "Clinicians may complete only their own appointments.",
+        })
+    if appointment.status != "CONFIRMED":
+        raise ContractConflict({
+            "code": "APPOINTMENT_INVALID_STATE",
+            "detail": "Only a confirmed appointment can be completed.",
+        })
+    previous = appointment.status
+    before = serialize_instance(appointment)
+    now = timezone.now()
+    appointment.status = "COMPLETED"
+    appointment.completed_at = now
+    appointment.updated_at = now
+    appointment.save(update_fields=["status", "completed_at", "updated_at"])
+    _appointment_history(appointment, previous, "COMPLETED", request)
+    appointment = _appointment_refresh(appointment)
+    after = _appointment_payload(appointment)
+    after["completed_by"] = _appointment_user_payload(request.user)
+    _audit(request, spec, appointment, before, after)
+    _outbox(spec, appointment, after)
+    return Response(after, status=200)
+
+
+@transaction.atomic
+def _appointment_correct(request, spec, kwargs):
+    target_status = (
+        request.data.get("target_status")
+        if isinstance(request.data, dict)
+        else None
+    )
+    reason = _appointment_action_reason(request, "reason")
+    if target_status != "REQUESTED":
+        raise ContractError({
+            "code": "VALIDATION_ERROR",
+            "target_status": "Only REQUESTED is supported.",
+        })
+    if reason is None:
+        raise ContractError({
+            "code": "VALIDATION_ERROR",
+            "reason": "This field is required.",
+        })
+
+    appointment = _appointment_locked(kwargs)
+    if appointment.status not in {"REJECTED", "CONFIRMED"}:
+        raise ContractConflict({
+            "code": "APPOINTMENT_CORRECTION_INVALID_STATE",
+            "detail": "Only a rejected or confirmed appointment can be corrected.",
+        })
+    if appointment.requested_slot_id is not None:
+        raise ContractConflict({
+            "code": "APPOINTMENT_CORRECTION_CONFLICT",
+            "detail": "An appointment with a pending reschedule cannot be corrected.",
+        })
+
+    slot = _appointment_slots_locked(appointment)[appointment.slot_id]
+    expected_slot_status = (
+        "AVAILABLE" if appointment.status == "REJECTED" else "BOOKED"
+    )
+    if slot.status != expected_slot_status:
+        raise ContractConflict({
+            "code": "APPOINTMENT_SLOT_CONFLICT",
+            "detail": "The appointment slot has an invalid state for correction.",
+        })
+
+    previous = appointment.status
+    before = serialize_instance(appointment)
+    now = timezone.now()
+    slot.status = "HELD"
+    slot.held_until = now + timedelta(
+        minutes=settings.APPOINTMENT_HOLD_TTL_MINUTES
+    )
+    slot.version += 1
+    slot.save(update_fields=["status", "held_until", "version"])
+
+    appointment.status = "REQUESTED"
+    appointment.rejection_reason = None
+    appointment.confirmed_at = None
+    appointment.handled_by = None
+    appointment.updated_at = now
+    appointment.save(update_fields=[
+        "status", "rejection_reason", "confirmed_at", "handled_by",
+        "updated_at",
+    ])
+    _appointment_history(
+        appointment,
+        previous,
+        "REQUESTED",
+        request,
+        reason,
+    )
+    appointment = _appointment_refresh(appointment)
+    after = _appointment_payload(appointment)
+    after["previous_status"] = previous
+    after["correction_reason"] = reason
+    _audit(request, spec, appointment, before, after)
+    return Response(after, status=200)
 
 
 def _notification_preferences_get(request, spec, kwargs):
@@ -2564,8 +3072,14 @@ CUSTOM_HANDLERS = {
     "API-APP-001": _appointment_create,
     "API-APP-002": _appointment_list,
     "API-APP-003": _appointment_detail,
+    "API-APP-004": _appointment_reschedule,
+    "API-APP-005": _appointment_cancel,
     "API-APP-006": _appointment_request_list,
+    "API-APP-007": _appointment_accept,
+    "API-APP-008": _appointment_reject,
     "API-APP-009": _staff_appointment_list,
+    "API-APP-010": _appointment_complete,
+    "API-APP-011": _appointment_correct,
     "API-NOTI-003": _notification_preferences_get,
     "API-NOTI-004": _notification_preferences_patch,
     "API-FCM-001": _fcm_create,

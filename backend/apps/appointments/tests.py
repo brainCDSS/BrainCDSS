@@ -10,7 +10,12 @@ from rest_framework.test import APIRequestFactory, force_authenticate
 
 from apps.accounts.models import Permission, Role, RolePermission, User
 from apps.appointments.api.generated_real_149 import ContractView012
-from apps.appointments.models import Appointment, AppointmentSlot
+from apps.appointments.api.views import AppointmentCorrectView
+from apps.appointments.models import (
+    Appointment,
+    AppointmentSlot,
+    AppointmentStatusHistory,
+)
 from apps.common.remaining149_runtime import _appointment_payload
 from apps.organizations.models import Clinician, Department, Hospital
 from apps.patients.models import Patient
@@ -156,3 +161,198 @@ class StaffAppointmentResponseTests(TestCase):
         self.assertNotIn("patient_id", item)
         self.assertNotIn("department_id", item)
         self.assertNotIn("clinician_id", item)
+
+
+class AppointmentCorrectionTests(TestCase):
+    def setUp(self):
+        role = Role.objects.create(code="NURSE", name="Nurse")
+        permission = Permission.objects.create(
+            code="appointment.correct",
+            name="Correct appointment status",
+            domain="appointments",
+        )
+        RolePermission.objects.create(role=role, permission=permission)
+        self.user = User.objects.create_user(
+            login_id="appointment-correction-nurse",
+            password="test-password",
+            name="Correction Nurse",
+            role=role,
+        )
+        clinician_user = User.objects.create_user(
+            login_id="appointment-correction-clinician",
+            password="test-password",
+            name="Correction Clinician",
+            role=role,
+        )
+        self.hospital = Hospital.objects.create(
+            name="Correction Hospital",
+            address="Correction Address",
+        )
+        self.department = Department.objects.create(
+            hospital=self.hospital,
+            code="CORRECTION-NEUROLOGY",
+            name="Neurology",
+        )
+        self.clinician = Clinician.objects.create(
+            user=clinician_user,
+            department=self.department,
+        )
+        self.patient = Patient.objects.create(
+            patient_no="CORRECTION-PATIENT-001",
+            name="Correction Patient",
+            created_by=self.user,
+        )
+
+    def _appointment(self, status, slot_status):
+        start_at = django_timezone.now() + timedelta(days=1)
+        slot = AppointmentSlot.objects.create(
+            clinician=self.clinician,
+            start_at=start_at,
+            end_at=start_at + timedelta(minutes=30),
+            status=slot_status,
+        )
+        appointment = Appointment.objects.create(
+            patient=self.patient,
+            hospital=self.hospital,
+            department=self.department,
+            clinician=self.clinician,
+            slot=slot,
+            status=status,
+            rejection_reason="Incorrect rejection" if status == "REJECTED" else None,
+            confirmed_at=(
+                django_timezone.now() if status == "CONFIRMED" else None
+            ),
+            handled_by=self.user,
+        )
+        return appointment, slot
+
+    def _correct(self, appointment, payload):
+        request = APIRequestFactory().post(
+            f"/api/v1/appointments/{appointment.id}/correct",
+            payload,
+            format="json",
+        )
+        force_authenticate(request, user=self.user)
+        return AppointmentCorrectView.as_view()(
+            request,
+            appointment_id=appointment.id,
+        )
+
+    def test_rejected_appointment_is_corrected_to_requested(self):
+        appointment, slot = self._appointment("REJECTED", "AVAILABLE")
+        before = django_timezone.now()
+
+        response = self._correct(appointment, {
+            "target_status": "REQUESTED",
+            "reason": "Wrong rejection",
+        })
+
+        self.assertEqual(response.status_code, 200)
+        appointment.refresh_from_db()
+        slot.refresh_from_db()
+        self.assertEqual(appointment.status, "REQUESTED")
+        self.assertIsNone(appointment.rejection_reason)
+        self.assertIsNone(appointment.handled_by)
+        self.assertEqual(slot.status, "HELD")
+        self.assertGreater(slot.held_until, before + timedelta(minutes=9))
+        self.assertTrue(AppointmentStatusHistory.objects.filter(
+            appointment=appointment,
+            from_status="REJECTED",
+            to_status="REQUESTED",
+            changed_by=self.user,
+            reason="Wrong rejection",
+        ).exists())
+
+    def test_confirmed_appointment_is_corrected_to_requested(self):
+        appointment, slot = self._appointment("CONFIRMED", "BOOKED")
+
+        response = self._correct(appointment, {
+            "target_status": "REQUESTED",
+            "reason": "Wrong confirmation",
+        })
+
+        self.assertEqual(response.status_code, 200)
+        appointment.refresh_from_db()
+        slot.refresh_from_db()
+        self.assertEqual(appointment.status, "REQUESTED")
+        self.assertIsNone(appointment.confirmed_at)
+        self.assertIsNone(appointment.handled_by)
+        self.assertEqual(slot.status, "HELD")
+        self.assertTrue(AppointmentStatusHistory.objects.filter(
+            appointment=appointment,
+            from_status="CONFIRMED",
+            to_status="REQUESTED",
+            reason="Wrong confirmation",
+        ).exists())
+
+    def test_reason_is_required(self):
+        appointment, slot = self._appointment("REJECTED", "AVAILABLE")
+
+        response = self._correct(appointment, {
+            "target_status": "REQUESTED",
+            "reason": "",
+        })
+
+        self.assertEqual(response.status_code, 400)
+        appointment.refresh_from_db()
+        slot.refresh_from_db()
+        self.assertEqual(appointment.status, "REJECTED")
+        self.assertEqual(slot.status, "AVAILABLE")
+
+    def test_role_without_access_is_forbidden(self):
+        patient_role = Role.objects.create(code="PATIENT", name="Patient")
+        unauthorized_user = User.objects.create_user(
+            login_id="appointment-correction-patient",
+            password="test-password",
+            name="Unauthorized Patient",
+            role=patient_role,
+        )
+        appointment, slot = self._appointment("REJECTED", "AVAILABLE")
+        request = APIRequestFactory().post(
+            f"/api/v1/appointments/{appointment.id}/correct",
+            {
+                "target_status": "REQUESTED",
+                "reason": "Unauthorized correction",
+            },
+            format="json",
+        )
+        force_authenticate(request, user=unauthorized_user)
+
+        response = AppointmentCorrectView.as_view()(
+            request,
+            appointment_id=appointment.id,
+        )
+
+        self.assertEqual(response.status_code, 403)
+        appointment.refresh_from_db()
+        slot.refresh_from_db()
+        self.assertEqual(appointment.status, "REJECTED")
+        self.assertEqual(slot.status, "AVAILABLE")
+
+    def test_invalid_appointment_status_returns_conflict(self):
+        appointment, slot = self._appointment("CANCELLED", "AVAILABLE")
+
+        response = self._correct(appointment, {
+            "target_status": "REQUESTED",
+            "reason": "Invalid state correction",
+        })
+
+        self.assertEqual(response.status_code, 409)
+        appointment.refresh_from_db()
+        slot.refresh_from_db()
+        self.assertEqual(appointment.status, "CANCELLED")
+        self.assertEqual(slot.status, "AVAILABLE")
+
+    def test_invalid_slot_status_returns_conflict(self):
+        appointment, slot = self._appointment("REJECTED", "BOOKED")
+
+        response = self._correct(appointment, {
+            "target_status": "REQUESTED",
+            "reason": "Invalid slot correction",
+        })
+
+        self.assertEqual(response.status_code, 409)
+        appointment.refresh_from_db()
+        slot.refresh_from_db()
+        self.assertEqual(appointment.status, "REJECTED")
+        self.assertEqual(slot.status, "BOOKED")

@@ -1,4 +1,6 @@
-import { GoogleGenAI } from "@google/genai";
+import {
+  GoogleGenAI,
+} from "@google/genai";
 
 import type {
   AssistantProvider,
@@ -33,22 +35,25 @@ function getErrorStatus(
   error: unknown,
 ): number | undefined {
   if (
-    typeof error !== "object" ||
-    error === null ||
-    !("status" in error)
+    typeof error !== "object"
+    || error === null
+    || !("status" in error)
   ) {
     return undefined;
   }
 
   const status =
-    (error as { status?: unknown }).status;
+    (error as {
+      status?: unknown;
+    }).status;
 
   if (typeof status === "number") {
     return status;
   }
 
   if (typeof status === "string") {
-    const parsed = Number(status);
+    const parsed =
+      Number(status);
 
     if (Number.isFinite(parsed)) {
       return parsed;
@@ -62,66 +67,105 @@ function getErrorStatus(
 function sleep(
   delayMs: number,
 ): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, delayMs);
-  });
+  return new Promise(
+    (resolve) => {
+      setTimeout(
+        resolve,
+        delayMs,
+      );
+    },
+  );
 }
+
+
+export type VertexGeminiProviderConfig = {
+  project: string;
+  location: string;
+  model: string;
+};
 
 
 export class GeminiProvider
   implements AssistantProvider {
 
-  private readonly ai: GoogleGenAI;
-  private readonly model: string;
+  private readonly ai:
+    GoogleGenAI;
+
+  private readonly model:
+    string;
+
 
   constructor(
-    apiKey: string,
-    model: string,
+    config:
+      VertexGeminiProviderConfig,
   ) {
-    if (!apiKey.trim()) {
+    if (!config.project.trim()) {
       throw new Error(
-        "GEMINI_API_KEY_REQUIRED"
+        "GOOGLE_CLOUD_PROJECT_REQUIRED"
       );
     }
 
-    if (!model.trim()) {
+    if (!config.location.trim()) {
+      throw new Error(
+        "GOOGLE_CLOUD_LOCATION_REQUIRED"
+      );
+    }
+
+    if (!config.model.trim()) {
       throw new Error(
         "GEMINI_MODEL_REQUIRED"
       );
     }
 
-    this.ai = new GoogleGenAI({
-      apiKey,
-    });
+    this.ai =
+      new GoogleGenAI({
+        vertexai: true,
+        project: config.project,
+        location:
+          config.location,
+      });
 
-    this.model = model;
+    this.model =
+      config.model;
   }
 
-  async generate(input: {
-    role: AssistantRole;
-    prompt: string;
-  }): Promise<{
+
+  async generate(
+    input: {
+      role: AssistantRole;
+      prompt: string;
+    },
+  ): Promise<{
     text: string;
     usageTokens: number;
   }> {
+
     for (
       let attempt = 1;
-      attempt <= GEMINI_MAX_ATTEMPTS;
+      attempt <=
+        GEMINI_MAX_ATTEMPTS;
       attempt += 1
     ) {
       try {
         const response =
-          await this.ai.models.generateContent({
-            model: this.model,
-            contents: input.prompt,
-            config: {
-              systemInstruction:
-                SYSTEM_INSTRUCTION,
-            },
-          });
+          await this.ai.models
+            .generateContent({
+              model:
+                this.model,
+
+              contents:
+                input.prompt,
+
+              config: {
+                systemInstruction:
+                  SYSTEM_INSTRUCTION,
+              },
+            });
 
         const text =
-          response.text?.trim() ?? "";
+          response.text
+            ?.trim()
+          ?? "";
 
         if (!text) {
           throw new Error(
@@ -131,36 +175,40 @@ export class GeminiProvider
 
         return {
           text,
+
           usageTokens:
             response
               .usageMetadata
               ?.totalTokenCount
             ?? 0,
         };
+
       } catch (error) {
         const status =
-          getErrorStatus(error);
+          getErrorStatus(
+            error
+          );
 
-        const isTemporaryUnavailable =
+        const temporary =
           status === 503;
 
-        const isLastAttempt =
+        const lastAttempt =
           attempt ===
           GEMINI_MAX_ATTEMPTS;
 
         if (
-          !isTemporaryUnavailable ||
-          isLastAttempt
+          !temporary
+          || lastAttempt
         ) {
           throw error;
         }
 
         const retryDelayMs =
-          GEMINI_RETRY_BASE_DELAY_MS *
-          attempt;
+          GEMINI_RETRY_BASE_DELAY_MS
+          * attempt;
 
         console.warn(
-          "GEMINI_TEMPORARY_UNAVAILABLE",
+          "VERTEX_GEMINI_TEMPORARY_UNAVAILABLE",
           {
             attempt,
             maxAttempts:
@@ -172,13 +220,13 @@ export class GeminiProvider
         );
 
         await sleep(
-          retryDelayMs,
+          retryDelayMs
         );
       }
     }
 
     throw new Error(
-      "GEMINI_REQUEST_FAILED"
+      "VERTEX_GEMINI_REQUEST_FAILED"
     );
   }
 }

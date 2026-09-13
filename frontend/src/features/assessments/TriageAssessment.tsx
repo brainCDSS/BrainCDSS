@@ -41,6 +41,12 @@ type AssessmentChoice =
   | "ABNORMAL";
 
 
+type AssessmentStep =
+  | 1
+  | 2
+  | 3;
+
+
 /* =========================================================
    위험 문진 문항
 
@@ -81,6 +87,21 @@ export default function TriageAssessment({
     showResult,
     setShowResult,
   ] = useState(false);
+
+
+  /* ========================================================
+     화면 단계
+     --------------------------------------------------------
+     STEP 1: 증상 발생 정보 + FAST
+     STEP 2: 의식 / 신경학적 상태 + Vital Sign
+     STEP 3: 주요 증상 / 위험 문진 + 추가 메모
+     STEP 4: 결과 / 담당 신경과 지정(TriageResult)
+     ======================================================== */
+
+  const [
+    currentStep,
+    setCurrentStep,
+  ] = useState<AssessmentStep>(1);
 
 
   /* ========================================================
@@ -607,33 +628,34 @@ export default function TriageAssessment({
 
 
   /* ========================================================
-     결과 화면 Summary
+     단계 이동
+     --------------------------------------------------------
+     화면 전환만 수행한다.
+     API 저장은 기존 임시저장 또는 STEP 3의 결과 확인에서 수행한다.
      ======================================================== */
 
-  const triageSummary = {
-    fastCompleted: completedFastCount,
+  function handlePreviousStep() {
+    setApiError(null);
 
-    fastAbnormal: [
-      fastFace,
-      fastArm,
-      fastSpeech,
-    ].filter(
-      (value) =>
-        value === "ABNORMAL",
-    ).length,
+    setCurrentStep(
+      (previous) =>
+        previous === 3
+          ? 2
+          : 1,
+    );
+  }
 
-    bpSys,
-    bpDia,
-    lkwAt,
 
-    riskAbnormal:
-      Object.values(
-        riskAnswers,
-      ).filter(
-        (value) =>
-          value === "ABNORMAL",
-      ).length,
-  };
+  function handleNextStep() {
+    setApiError(null);
+
+    setCurrentStep(
+      (previous) =>
+        previous === 1
+          ? 2
+          : 3,
+    );
+  }
 
 
   /* ========================================================
@@ -642,15 +664,32 @@ export default function TriageAssessment({
 
   if (showResult) {
 
+    const fastValues = [
+      fastFace,
+      fastArm,
+      fastSpeech,
+    ];
+
+    const summary = {
+      fastCompleted: fastValues.filter(Boolean).length,
+      fastAbnormal: fastValues.filter(
+        (value) => value === "ABNORMAL",
+      ).length,
+      bpSys,
+      bpDia,
+      lkwAt,
+      riskAbnormal: Object.values(riskAnswers).filter(
+        (value) => value === "ABNORMAL",
+      ).length,
+    };
+
     return (
       <TriageResult
         result={
           assessmentResult
         }
 
-        summary={
-          triageSummary
-        }
+        summary={summary}
 
         onBack={() =>
           setShowResult(
@@ -658,13 +697,9 @@ export default function TriageAssessment({
           )
         }
 
-        onComplete={
-          onComplete ??
-          (() =>
-            setShowResult(
-              false,
-            ))
-        }
+        onComplete={() => {
+          onComplete?.();
+        }}
       />
     );
 
@@ -709,6 +744,54 @@ export default function TriageAssessment({
 
 
       {/* ===================================================
+          STEP Progress
+          =================================================== */}
+
+      <div
+        className="triage-step-navigation"
+        aria-label="초기평가 진행 단계"
+      >
+        {[
+          {
+            step: 1 as AssessmentStep,
+            label: "기본 정보 · FAST",
+          },
+          {
+            step: 2 as AssessmentStep,
+            label: "신경 상태 · Vital",
+          },
+          {
+            step: 3 as AssessmentStep,
+            label: "위험 문진 · 메모",
+          },
+        ].map((item) => (
+          <div
+            key={item.step}
+            className={[
+              "triage-step-navigation__item",
+              currentStep === item.step
+                ? "is-active"
+                : "",
+              currentStep > item.step
+                ? "is-complete"
+                : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          >
+            <span>
+              {item.step}
+            </span>
+
+            <strong>
+              {item.label}
+            </strong>
+          </div>
+        ))}
+      </div>
+
+
+      {/* ===================================================
           API Error
           =================================================== */}
 
@@ -734,792 +817,813 @@ export default function TriageAssessment({
 
 
       {/* ===================================================
-          1. 증상 발생 정보
+          현재 STEP
           =================================================== */}
 
-      <section className="triage-assessment__section">
-
-        <div className="triage-section-heading">
-
-          <div className="triage-section-number">
-            1
-          </div>
-
-
-          <div>
-
-            <h2>
-              증상 발생 정보
-            </h2>
-
-
-            <p>
-              증상 발생 시각과 Last Known Well을 확인합니다.
-            </p>
-
-          </div>
-
-        </div>
-
-
-        <div
-          className="
-            triage-assessment__grid
-            triage-grid-two
-          "
-        >
-
-          <label>
-
-            <span>
-              증상 발생 시각
-            </span>
-
-
-            <input
-              type="datetime-local"
-
-              min="1900-01-01T00:00"
-              max="2100-12-31T23:59"
-
-              value={
-                onsetAt
-              }
-
-              onChange={(event) =>
-                handleDateTimeChange(
-                  event.target.value,
-                  setOnsetAt,
-                )
-              }
-            />
-
-          </label>
-
-
-          <label>
-
-            <span>
-              Last Known Well (LKW)
-            </span>
-
-
-            <input
-              type="datetime-local"
-
-              min="1900-01-01T00:00"
-              max="2100-12-31T23:59"
-
-              value={
-                lkwAt
-              }
-
-              onChange={(event) =>
-                handleDateTimeChange(
-                  event.target.value,
-                  setLkwAt,
-                )
-              }
-            />
-
-          </label>
-
-        </div>
-
-      </section>
-
-
-      {/* ===================================================
-          2. FAST
-          =================================================== */}
-
-      <section className="triage-assessment__section">
-
-        <div className="triage-section-heading">
-
-          <div className="triage-section-number">
-            2
-          </div>
-
-
-          <div className="triage-section-heading-text">
-
-            <h2>
-              FAST 평가
-            </h2>
-
-
-            <p>
-              각 항목을 확인한 뒤 정상 또는 이상을 선택합니다.
-            </p>
-
-          </div>
-
-
-          <div className="triage-section-progress">
-            {completedFastCount} / 3 응답
-          </div>
-
-        </div>
-
-
-        <div className="triage-question-list">
-
-
-          {/* Face */}
-
-          <div className="triage-question-card">
-
-            <div className="triage-question-content">
-
-              <strong>
-                Face
-              </strong>
-
-              <span>
-                안면 비대칭 여부를 확인합니다.
-              </span>
-
-            </div>
-
-
-            <div className="triage-choice-group">
-
-              <button
-                type="button"
-
-                className={
-                  fastFace === "NORMAL"
-                    ? "triage-choice active"
-                    : "triage-choice"
-                }
-
-                onClick={() =>
-                  setFastFace(
-                    "NORMAL",
-                  )
-                }
-              >
-                정상
-              </button>
-
-
-              <button
-                type="button"
-
-                className={
-                  fastFace === "ABNORMAL"
-                    ? "triage-choice active abnormal"
-                    : "triage-choice"
-                }
-
-                onClick={() =>
-                  setFastFace(
-                    "ABNORMAL",
-                  )
-                }
-              >
-                이상
-              </button>
-
-            </div>
-
-          </div>
-
-
-          {/* Arm */}
-
-          <div className="triage-question-card">
-
-            <div className="triage-question-content">
-
-              <strong>
-                Arm
-              </strong>
-
-              <span>
-                상지 움직임 상태를 확인합니다.
-              </span>
-
-            </div>
-
-
-            <div className="triage-choice-group">
-
-              <button
-                type="button"
-
-                className={
-                  fastArm === "NORMAL"
-                    ? "triage-choice active"
-                    : "triage-choice"
-                }
-
-                onClick={() =>
-                  setFastArm(
-                    "NORMAL",
-                  )
-                }
-              >
-                정상
-              </button>
-
-
-              <button
-                type="button"
-
-                className={
-                  fastArm === "ABNORMAL"
-                    ? "triage-choice active abnormal"
-                    : "triage-choice"
-                }
-
-                onClick={() =>
-                  setFastArm(
-                    "ABNORMAL",
-                  )
-                }
-              >
-                이상
-              </button>
-
-            </div>
-
-          </div>
-
-
-          {/* Speech */}
-
-          <div className="triage-question-card">
-
-            <div className="triage-question-content">
-
-              <strong>
-                Speech
-              </strong>
-
-              <span>
-                언어 및 발화 상태를 확인합니다.
-              </span>
-
-            </div>
-
-
-            <div className="triage-choice-group">
-
-              <button
-                type="button"
-
-                className={
-                  fastSpeech === "NORMAL"
-                    ? "triage-choice active"
-                    : "triage-choice"
-                }
-
-                onClick={() =>
-                  setFastSpeech(
-                    "NORMAL",
-                  )
-                }
-              >
-                정상
-              </button>
-
-
-              <button
-                type="button"
-
-                className={
-                  fastSpeech === "ABNORMAL"
-                    ? "triage-choice active abnormal"
-                    : "triage-choice"
-                }
-
-                onClick={() =>
-                  setFastSpeech(
-                    "ABNORMAL",
-                  )
-                }
-              >
-                이상
-              </button>
-
-            </div>
-
-          </div>
-
-        </div>
-
-      </section>
-
-
-      {/* ===================================================
-          3. 의식 / 신경학적 상태
-          =================================================== */}
-
-      <section className="triage-assessment__section">
-
-        <div className="triage-section-heading">
-
-          <div className="triage-section-number">
-            3
-          </div>
-
-
-          <div>
-
-            <h2>
-              의식 / 신경학적 상태
-            </h2>
-
-
-            <p>
-              환자의 초기 의식상태를 확인합니다.
-            </p>
-
-          </div>
-
-        </div>
-
-
-        <div className="triage-question-list">
-
-          <div className="triage-question-card">
-
-            <div className="triage-question-content">
-
-              <strong>
-                의식상태
-              </strong>
-
-
-              <span>
-                현재 환자의 의식 및 반응 상태를 확인합니다.
-              </span>
-
-            </div>
-
-
-            <div className="triage-choice-group">
-
-              <button
-                type="button"
-
-                className={
-                  consciousnessState === "NORMAL"
-                    ? "triage-choice active"
-                    : "triage-choice"
-                }
-
-                onClick={() =>
-                  setConsciousnessState(
-                    "NORMAL",
-                  )
-                }
-              >
-                정상
-              </button>
-
-
-              <button
-                type="button"
-
-                className={
-                  consciousnessState === "ABNORMAL"
-                    ? "triage-choice active abnormal"
-                    : "triage-choice"
-                }
-
-                onClick={() =>
-                  setConsciousnessState(
-                    "ABNORMAL",
-                  )
-                }
-              >
-                이상
-              </button>
-
-            </div>
-
-          </div>
-
-        </div>
-
-      </section>
-
-
-      {/* ===================================================
-          4. Vital Sign
-          =================================================== */}
-
-      <section className="triage-assessment__section">
-
-        <div className="triage-section-heading">
-
-          <div className="triage-section-number">
-            4
-          </div>
-
-
-          <div>
-
-            <h2>
-              Vital Sign
-            </h2>
-
-
-            <p>
-              초기 측정된 생체징후를 입력합니다.
-            </p>
-
-          </div>
-
-        </div>
-
-
-        <div className="triage-assessment__grid">
-
-
-          {/* 수축기 혈압 */}
-
-          <label>
-
-            <span>
-              수축기 혈압
-            </span>
-
-
-            <div className="triage-input-with-unit">
-
-              <input
-                type="number"
-
-                value={
-                  bpSys
-                }
-
-                onChange={(event) =>
-                  setBpSys(
-                    event.target.value,
-                  )
-                }
-              />
-
-
-              <span>
-                mmHg
-              </span>
-
-            </div>
-
-          </label>
-
-
-          {/* 이완기 혈압 */}
-
-          <label>
-
-            <span>
-              이완기 혈압
-            </span>
-
-
-            <div className="triage-input-with-unit">
-
-              <input
-                type="number"
-
-                value={
-                  bpDia
-                }
-
-                onChange={(event) =>
-                  setBpDia(
-                    event.target.value,
-                  )
-                }
-              />
-
-
-              <span>
-                mmHg
-              </span>
-
-            </div>
-
-          </label>
-
-
-          {/* 심박수 */}
-
-          <label>
-
-            <span>
-              심박수
-            </span>
-
-
-            <div className="triage-input-with-unit">
-
-              <input
-                type="number"
-
-                value={
-                  heartRate
-                }
-
-                onChange={(event) =>
-                  setHeartRate(
-                    event.target.value,
-                  )
-                }
-              />
-
-
-              <span>
-                bpm
-              </span>
-
-            </div>
-
-          </label>
-
-
-          {/* 체온 */}
-
-          <label>
-
-            <span>
-              체온
-            </span>
-
-
-            <div className="triage-input-with-unit">
-
-              <input
-                type="number"
-
-                step="0.1"
-
-                value={
-                  temperature
-                }
-
-                onChange={(event) =>
-                  setTemperature(
-                    event.target.value,
-                  )
-                }
-              />
-
-
-              <span>
-                ℃
-              </span>
-
-            </div>
-
-          </label>
-
-        </div>
-
-      </section>
-
-
-      {/* ===================================================
-          5. 주요 증상 / 위험 문진
-          =================================================== */}
-
-      <section className="triage-assessment__section">
-
-        <div className="triage-section-heading">
-
-          <div className="triage-section-number">
-            5
-          </div>
-
-
-          <div>
-
-            <h2>
-              주요 증상 / 위험 문진
-            </h2>
-
-
-            <p>
-              주요 증상과 위험 문진 항목을 확인합니다.
-            </p>
-
-          </div>
-
-        </div>
-
-
-        <div className="triage-question-list">
-
-          {riskQuestions.length === 0 ? (
-
-            <div className="triage-question-card">
-
-              <div className="triage-question-content">
-
-                <strong>
-                  위험 문진 항목
-                </strong>
-
-
-                <span>
-                  Triage Rule 연동 후
-                  체크리스트 문항이 표시됩니다.
-                </span>
-
-              </div>
-
-            </div>
-
-          ) : (
-
-            riskQuestions.map(
-              (question) => {
-
-                const answer =
-                  riskAnswers[
-                    question.itemCode
-                  ] ?? "";
-
-
-                return (
-
-                  <div
-                    key={
-                      question.id
-                    }
-
-                    className="triage-question-card"
-                  >
-
-                    <div className="triage-question-content">
-
-                      <strong>
-                        {question.title}
-                      </strong>
-
-
-                      {question.description && (
-
-                        <span>
-                          {question.description}
-                        </span>
-
-                      )}
-
+      <div
+        className={
+          `triage-assessment__step triage-assessment__step--${currentStep}`
+        }
+      >
+
+        {currentStep === 1 && (
+          <>
+          {/* ===================================================
+                    1. 증상 발생 정보
+                    =================================================== */}
+
+                <section className="triage-assessment__section">
+
+                  <div className="triage-section-heading">
+
+                    <div className="triage-section-number">
+                      1
                     </div>
 
 
-                    <div className="triage-choice-group">
+                    <div>
 
-                      <button
-                        type="button"
-
-                        className={
-                          answer === "NORMAL"
-                            ? "triage-choice active"
-                            : "triage-choice"
-                        }
-
-                        onClick={() =>
-                          handleRiskAnswer(
-                            question.itemCode,
-                            "NORMAL",
-                          )
-                        }
-                      >
-                        정상
-                      </button>
+                      <h2>
+                        증상 발생 정보
+                      </h2>
 
 
-                      <button
-                        type="button"
-
-                        className={
-                          answer === "ABNORMAL"
-                            ? "triage-choice active abnormal"
-                            : "triage-choice"
-                        }
-
-                        onClick={() =>
-                          handleRiskAnswer(
-                            question.itemCode,
-                            "ABNORMAL",
-                          )
-                        }
-                      >
-                        이상
-                      </button>
+                      <p>
+                        증상 발생 시각과 Last Known Well을 확인합니다.
+                      </p>
 
                     </div>
 
                   </div>
 
-                );
 
-              },
-            )
+                  <div
+                    className="
+                      triage-assessment__grid
+                      triage-grid-two
+                    "
+                  >
 
-          )}
+                    <label>
 
-        </div>
-
-      </section>
-
-
-      {/* ===================================================
-          6. 추가 메모
-          =================================================== */}
-
-      <section className="triage-assessment__section">
-
-        <div className="triage-section-heading">
-
-          <div className="triage-section-number">
-            6
-          </div>
+                      <span>
+                        증상 발생 시각
+                      </span>
 
 
-          <div>
+                      <input
+                        type="datetime-local"
 
-            <h2>
-              추가 메모
-            </h2>
+                        min="1900-01-01T00:00"
+                        max="2100-12-31T23:59"
+
+                        value={
+                          onsetAt
+                        }
+
+                        onChange={(event) =>
+                          handleDateTimeChange(
+                            event.target.value,
+                            setOnsetAt,
+                          )
+                        }
+                      />
+
+                    </label>
 
 
-            <p>
-              체크리스트 외에 추가로 확인된 증상이나
-              특이사항을 기록합니다.
-            </p>
+                    <label>
 
-          </div>
-
-        </div>
+                      <span>
+                        Last Known Well (LKW)
+                      </span>
 
 
-        <textarea
-          value={
-            symptomNote
-          }
+                      <input
+                        type="datetime-local"
 
-          onChange={(event) =>
-            setSymptomNote(
-              event.target.value,
-            )
-          }
+                        min="1900-01-01T00:00"
+                        max="2100-12-31T23:59"
 
-          placeholder="환자의 추가 증상 및 특이사항을 입력하세요."
+                        value={
+                          lkwAt
+                        }
 
-          rows={5}
-        />
+                        onChange={(event) =>
+                          handleDateTimeChange(
+                            event.target.value,
+                            setLkwAt,
+                          )
+                        }
+                      />
 
-      </section>
+                    </label>
+
+                  </div>
+
+                </section>
+
+          {/* ===================================================
+                    2. FAST
+                    =================================================== */}
+
+                <section className="triage-assessment__section">
+
+                  <div className="triage-section-heading">
+
+                    <div className="triage-section-number">
+                      2
+                    </div>
+
+
+                    <div className="triage-section-heading-text">
+
+                      <h2>
+                        FAST 평가
+                      </h2>
+
+
+                      <p>
+                        각 항목을 확인한 뒤 정상 또는 이상을 선택합니다.
+                      </p>
+
+                    </div>
+
+
+                    <div className="triage-section-progress">
+                      {completedFastCount} / 3 응답
+                    </div>
+
+                  </div>
+
+
+                  <div className="triage-question-list">
+
+
+                    {/* Face */}
+
+                    <div className="triage-question-card">
+
+                      <div className="triage-question-content">
+
+                        <strong>
+                          Face
+                        </strong>
+
+                        <span>
+                          안면 비대칭 여부를 확인합니다.
+                        </span>
+
+                      </div>
+
+
+                      <div className="triage-choice-group">
+
+                        <button
+                          type="button"
+
+                          className={
+                            fastFace === "NORMAL"
+                              ? "triage-choice active"
+                              : "triage-choice"
+                          }
+
+                          onClick={() =>
+                            setFastFace(
+                              "NORMAL",
+                            )
+                          }
+                        >
+                          정상
+                        </button>
+
+
+                        <button
+                          type="button"
+
+                          className={
+                            fastFace === "ABNORMAL"
+                              ? "triage-choice active abnormal"
+                              : "triage-choice"
+                          }
+
+                          onClick={() =>
+                            setFastFace(
+                              "ABNORMAL",
+                            )
+                          }
+                        >
+                          이상
+                        </button>
+
+                      </div>
+
+                    </div>
+
+
+                    {/* Arm */}
+
+                    <div className="triage-question-card">
+
+                      <div className="triage-question-content">
+
+                        <strong>
+                          Arm
+                        </strong>
+
+                        <span>
+                          상지 움직임 상태를 확인합니다.
+                        </span>
+
+                      </div>
+
+
+                      <div className="triage-choice-group">
+
+                        <button
+                          type="button"
+
+                          className={
+                            fastArm === "NORMAL"
+                              ? "triage-choice active"
+                              : "triage-choice"
+                          }
+
+                          onClick={() =>
+                            setFastArm(
+                              "NORMAL",
+                            )
+                          }
+                        >
+                          정상
+                        </button>
+
+
+                        <button
+                          type="button"
+
+                          className={
+                            fastArm === "ABNORMAL"
+                              ? "triage-choice active abnormal"
+                              : "triage-choice"
+                          }
+
+                          onClick={() =>
+                            setFastArm(
+                              "ABNORMAL",
+                            )
+                          }
+                        >
+                          이상
+                        </button>
+
+                      </div>
+
+                    </div>
+
+
+                    {/* Speech */}
+
+                    <div className="triage-question-card">
+
+                      <div className="triage-question-content">
+
+                        <strong>
+                          Speech
+                        </strong>
+
+                        <span>
+                          언어 및 발화 상태를 확인합니다.
+                        </span>
+
+                      </div>
+
+
+                      <div className="triage-choice-group">
+
+                        <button
+                          type="button"
+
+                          className={
+                            fastSpeech === "NORMAL"
+                              ? "triage-choice active"
+                              : "triage-choice"
+                          }
+
+                          onClick={() =>
+                            setFastSpeech(
+                              "NORMAL",
+                            )
+                          }
+                        >
+                          정상
+                        </button>
+
+
+                        <button
+                          type="button"
+
+                          className={
+                            fastSpeech === "ABNORMAL"
+                              ? "triage-choice active abnormal"
+                              : "triage-choice"
+                          }
+
+                          onClick={() =>
+                            setFastSpeech(
+                              "ABNORMAL",
+                            )
+                          }
+                        >
+                          이상
+                        </button>
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                </section>
+          </>
+        )}
+
+
+        {currentStep === 2 && (
+          <>
+          {/* ===================================================
+                    3. 의식 / 신경학적 상태
+                    =================================================== */}
+
+                <section className="triage-assessment__section">
+
+                  <div className="triage-section-heading">
+
+                    <div className="triage-section-number">
+                      3
+                    </div>
+
+
+                    <div>
+
+                      <h2>
+                        의식 / 신경학적 상태
+                      </h2>
+
+
+                      <p>
+                        환자의 초기 의식상태를 확인합니다.
+                      </p>
+
+                    </div>
+
+                  </div>
+
+
+                  <div className="triage-question-list">
+
+                    <div className="triage-question-card">
+
+                      <div className="triage-question-content">
+
+                        <strong>
+                          의식상태
+                        </strong>
+
+
+                        <span>
+                          현재 환자의 의식 및 반응 상태를 확인합니다.
+                        </span>
+
+                      </div>
+
+
+                      <div className="triage-choice-group">
+
+                        <button
+                          type="button"
+
+                          className={
+                            consciousnessState === "NORMAL"
+                              ? "triage-choice active"
+                              : "triage-choice"
+                          }
+
+                          onClick={() =>
+                            setConsciousnessState(
+                              "NORMAL",
+                            )
+                          }
+                        >
+                          정상
+                        </button>
+
+
+                        <button
+                          type="button"
+
+                          className={
+                            consciousnessState === "ABNORMAL"
+                              ? "triage-choice active abnormal"
+                              : "triage-choice"
+                          }
+
+                          onClick={() =>
+                            setConsciousnessState(
+                              "ABNORMAL",
+                            )
+                          }
+                        >
+                          이상
+                        </button>
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                </section>
+
+          {/* ===================================================
+                    4. Vital Sign
+                    =================================================== */}
+
+                <section className="triage-assessment__section">
+
+                  <div className="triage-section-heading">
+
+                    <div className="triage-section-number">
+                      4
+                    </div>
+
+
+                    <div>
+
+                      <h2>
+                        Vital Sign
+                      </h2>
+
+
+                      <p>
+                        초기 측정된 생체징후를 입력합니다.
+                      </p>
+
+                    </div>
+
+                  </div>
+
+
+                  <div className="triage-assessment__grid">
+
+
+                    {/* 수축기 혈압 */}
+
+                    <label>
+
+                      <span>
+                        수축기 혈압
+                      </span>
+
+
+                      <div className="triage-input-with-unit">
+
+                        <input
+                          type="number"
+
+                          value={
+                            bpSys
+                          }
+
+                          onChange={(event) =>
+                            setBpSys(
+                              event.target.value,
+                            )
+                          }
+                        />
+
+
+                        <span>
+                          mmHg
+                        </span>
+
+                      </div>
+
+                    </label>
+
+
+                    {/* 이완기 혈압 */}
+
+                    <label>
+
+                      <span>
+                        이완기 혈압
+                      </span>
+
+
+                      <div className="triage-input-with-unit">
+
+                        <input
+                          type="number"
+
+                          value={
+                            bpDia
+                          }
+
+                          onChange={(event) =>
+                            setBpDia(
+                              event.target.value,
+                            )
+                          }
+                        />
+
+
+                        <span>
+                          mmHg
+                        </span>
+
+                      </div>
+
+                    </label>
+
+
+                    {/* 심박수 */}
+
+                    <label>
+
+                      <span>
+                        심박수
+                      </span>
+
+
+                      <div className="triage-input-with-unit">
+
+                        <input
+                          type="number"
+
+                          value={
+                            heartRate
+                          }
+
+                          onChange={(event) =>
+                            setHeartRate(
+                              event.target.value,
+                            )
+                          }
+                        />
+
+
+                        <span>
+                          bpm
+                        </span>
+
+                      </div>
+
+                    </label>
+
+
+                    {/* 체온 */}
+
+                    <label>
+
+                      <span>
+                        체온
+                      </span>
+
+
+                      <div className="triage-input-with-unit">
+
+                        <input
+                          type="number"
+
+                          step="0.1"
+
+                          value={
+                            temperature
+                          }
+
+                          onChange={(event) =>
+                            setTemperature(
+                              event.target.value,
+                            )
+                          }
+                        />
+
+
+                        <span>
+                          ℃
+                        </span>
+
+                      </div>
+
+                    </label>
+
+                  </div>
+
+                </section>
+          </>
+        )}
+
+
+        {currentStep === 3 && (
+          <>
+          {/* ===================================================
+                    5. 주요 증상 / 위험 문진
+                    =================================================== */}
+
+                <section className="triage-assessment__section">
+
+                  <div className="triage-section-heading">
+
+                    <div className="triage-section-number">
+                      5
+                    </div>
+
+
+                    <div>
+
+                      <h2>
+                        주요 증상 / 위험 문진
+                      </h2>
+
+
+                      <p>
+                        주요 증상과 위험 문진 항목을 확인합니다.
+                      </p>
+
+                    </div>
+
+                  </div>
+
+
+                  <div className="triage-question-list">
+
+                    {riskQuestions.length === 0 ? (
+
+                      <div className="triage-question-card">
+
+                        <div className="triage-question-content">
+
+                          <strong>
+                            위험 문진 항목
+                          </strong>
+
+
+                          <span>
+                            Triage Rule 연동 후
+                            체크리스트 문항이 표시됩니다.
+                          </span>
+
+                        </div>
+
+                      </div>
+
+                    ) : (
+
+                      riskQuestions.map(
+                        (question) => {
+
+                          const answer =
+                            riskAnswers[
+                              question.itemCode
+                            ] ?? "";
+
+
+                          return (
+
+                            <div
+                              key={
+                                question.id
+                              }
+
+                              className="triage-question-card"
+                            >
+
+                              <div className="triage-question-content">
+
+                                <strong>
+                                  {question.title}
+                                </strong>
+
+
+                                {question.description && (
+
+                                  <span>
+                                    {question.description}
+                                  </span>
+
+                                )}
+
+                              </div>
+
+
+                              <div className="triage-choice-group">
+
+                                <button
+                                  type="button"
+
+                                  className={
+                                    answer === "NORMAL"
+                                      ? "triage-choice active"
+                                      : "triage-choice"
+                                  }
+
+                                  onClick={() =>
+                                    handleRiskAnswer(
+                                      question.itemCode,
+                                      "NORMAL",
+                                    )
+                                  }
+                                >
+                                  정상
+                                </button>
+
+
+                                <button
+                                  type="button"
+
+                                  className={
+                                    answer === "ABNORMAL"
+                                      ? "triage-choice active abnormal"
+                                      : "triage-choice"
+                                  }
+
+                                  onClick={() =>
+                                    handleRiskAnswer(
+                                      question.itemCode,
+                                      "ABNORMAL",
+                                    )
+                                  }
+                                >
+                                  이상
+                                </button>
+
+                              </div>
+
+                            </div>
+
+                          );
+
+                        },
+                      )
+
+                    )}
+
+                  </div>
+
+                </section>
+
+          {/* ===================================================
+                    6. 추가 메모
+                    =================================================== */}
+
+                <section className="triage-assessment__section">
+
+                  <div className="triage-section-heading">
+
+                    <div className="triage-section-number">
+                      6
+                    </div>
+
+
+                    <div>
+
+                      <h2>
+                        추가 메모
+                      </h2>
+
+
+                      <p>
+                        체크리스트 외에 추가로 확인된 증상이나
+                        특이사항을 기록합니다.
+                      </p>
+
+                    </div>
+
+                  </div>
+
+
+                  <textarea
+                    value={
+                      symptomNote
+                    }
+
+                    onChange={(event) =>
+                      setSymptomNote(
+                        event.target.value,
+                      )
+                    }
+
+                    placeholder="환자의 추가 증상 및 특이사항을 입력하세요."
+
+                    rows={5}
+                  />
+
+                </section>
+          </>
+        )}
+
+      </div>
 
 
       {/* ===================================================
@@ -1528,42 +1632,63 @@ export default function TriageAssessment({
 
       <div className="triage-assessment__actions">
 
-        <button
-          type="button"
+        <div className="triage-assessment__actions-left">
 
-          className="triage-draft-button"
+          {currentStep > 1 && (
+            <button
+              type="button"
+              className="triage-back-button"
+              disabled={saving}
+              onClick={handlePreviousStep}
+            >
+              이전
+            </button>
+          )}
 
-          disabled={
-            saving
-          }
-
-          onClick={
-            handleDraftCheck
-          }
-        >
-          {saving
-            ? "저장 중..."
-            : "임시저장"}
-        </button>
+        </div>
 
 
-        <button
-          type="button"
+        <div className="triage-assessment__actions-right">
 
-          className="triage-complete-button"
+          <button
+            type="button"
+            className="triage-draft-button"
+            disabled={saving}
+            onClick={handleDraftCheck}
+          >
+            {saving
+              ? "저장 중..."
+              : "임시저장"}
+          </button>
 
-          disabled={
-            saving
-          }
 
-          onClick={
-            handleNextCheck
-          }
-        >
-          {saving
-            ? "처리 중..."
-            : "다음"}
-        </button>
+          {currentStep < 3 ? (
+
+            <button
+              type="button"
+              className="triage-complete-button"
+              disabled={saving}
+              onClick={handleNextStep}
+            >
+              다음
+            </button>
+
+          ) : (
+
+            <button
+              type="button"
+              className="triage-complete-button"
+              disabled={saving}
+              onClick={handleNextCheck}
+            >
+              {saving
+                ? "처리 중..."
+                : "결과 확인"}
+            </button>
+
+          )}
+
+        </div>
 
       </div>
 

@@ -91,20 +91,49 @@ def _assistant_role(
 
 
 def _trace_id(request) -> str:
-    candidate = (
+    """
+    Return the canonical BrainOn request ID.
+
+    CorrelationIdMiddleware is the primary owner of request ID
+    creation. Header lookup and UUID generation are fallbacks for
+    isolated tests or execution without the middleware.
+    """
+
+    candidates = (
+        getattr(
+            request,
+            "request_id",
+            None,
+        ),
+        getattr(
+            request,
+            "trace_id",
+            None,
+        ),
         request.headers.get(
-            "X-Request-ID",
-            "",
-        ).strip()
+            "X-Request-ID"
+        ),
+        request.headers.get(
+            "X-Trace-ID"
+        ),
     )
 
-    if candidate:
+    for candidate in candidates:
+        if not candidate:
+            continue
+
         try:
             return str(
-                UUID(candidate)
+                UUID(
+                    str(candidate)
+                )
             )
-        except ValueError:
-            pass
+        except (
+            ValueError,
+            TypeError,
+            AttributeError,
+        ):
+            continue
 
     return str(
         uuid4()
@@ -122,6 +151,7 @@ def _assistant_url() -> str:
 
 def _call_assistant_service(
     payload: dict,
+    request_id: str,
 ) -> dict:
     request_body = json.dumps(
         payload,
@@ -134,6 +164,10 @@ def _call_assistant_service(
         headers={
             "Content-Type":
                 "application/json; charset=utf-8",
+            "X-Request-ID":
+                request_id,
+            "X-Trace-ID":
+                request_id,
         },
         method="POST",
     )
@@ -286,7 +320,8 @@ class AssistantMessageView(APIView):
         try:
             result = (
                 _call_assistant_service(
-                    upstream_payload
+                    upstream_payload,
+                    trace_id,
                 )
             )
 
@@ -395,11 +430,12 @@ class AssistantMessageView(APIView):
 
                 # Debug/trace metadata.
                 # React 계약상 추가 필드는 무시 가능.
+                "request_id":
+                    trace_id,
+
+                # Backward-compatible alias.
                 "trace_id":
-                    result.get(
-                        "trace_id",
-                        trace_id,
-                    ),
+                    trace_id,
 
                 "provider":
                     result.get(

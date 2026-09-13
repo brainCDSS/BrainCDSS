@@ -16,6 +16,40 @@ from apps.ai_analysis.models import (
 from apps.imaging.models import NiftiArtifact
 
 
+def _canonical_request_id(
+    value=None,
+):
+    """
+    Normalize one BrainOn correlation identifier.
+
+    HTTP-originated jobs must receive the middleware request ID.
+    A new UUID is created only for jobs that have no parent
+    HTTP request, such as an independent background root job.
+    """
+    if value not in (
+        None,
+        "",
+    ):
+        try:
+            return str(
+                uuid.UUID(
+                    str(value)
+                )
+            )
+        except (
+            ValueError,
+            TypeError,
+            AttributeError,
+        ) as exc:
+            raise ValueError(
+                "REQUEST_ID_INVALID"
+            ) from exc
+
+    return str(
+        uuid.uuid4()
+    )
+
+
 def transition_analysis(analysis, *, status, stage, reason_code=None):
     """Persist the current state and its append-only history together."""
     previous_status = analysis.status
@@ -41,7 +75,8 @@ def transition_analysis(analysis, *, status, stage, reason_code=None):
 
 def create_queued_analysis(*, study, model_version, model_config_version,
                            requested_by, analysis_type, priority, inputs=None,
-                           series_ids=None, routing_config_version=None):
+                           series_ids=None, routing_config_version=None,
+                           request_id=None):
     """Create a synthetic-input job using the existing clinical schema."""
     now = timezone.now()
     with transaction.atomic():
@@ -56,7 +91,9 @@ def create_queued_analysis(*, study, model_version, model_config_version,
             priority=priority,
             requested_by=requested_by,
             attempt_count=0,
-            trace=str(uuid.uuid4()),
+            trace=_canonical_request_id(
+                request_id
+            ),
             requested_at=now,
             started_at=None,
             completed_at=None,

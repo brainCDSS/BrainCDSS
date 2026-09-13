@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -42,18 +43,40 @@ def call_inference(payload: dict) -> dict:
     return result
 
 
-_cached_identity_token = None
+_cached_identity_credentials = None
 
 
 def _identity_token():
-    global _cached_identity_token
-    if _cached_identity_token is None:
-        try:
-            from google.auth.transport.requests import Request as GoogleAuthRequest
-            from google.oauth2 import id_token
-        except ImportError as exc:
-            raise InferenceClientError("INFERENCE_AUTH_UNAVAILABLE", "google-auth is not installed") from exc
-        _cached_identity_token = id_token.fetch_id_token(
-            GoogleAuthRequest(), settings.INFERENCE_AUTH_AUDIENCE
-        )
-    return _cached_identity_token
+    global _cached_identity_credentials
+    try:
+        from google.auth import default
+        from google.auth.impersonated_credentials import Credentials, IDTokenCredentials
+        from google.auth.transport.requests import Request as GoogleAuthRequest
+        from google.oauth2 import id_token
+    except ImportError as exc:
+        raise InferenceClientError("INFERENCE_AUTH_UNAVAILABLE", "google-auth is not installed") from exc
+
+    request = GoogleAuthRequest()
+    target = os.getenv("INFERENCE_IMPERSONATE_SERVICE_ACCOUNT", "").strip()
+    if target:
+        if _cached_identity_credentials is None:
+            source_credentials, _ = default(
+                scopes=["https://www.googleapis.com/auth/cloud-platform"]
+            )
+            impersonated = Credentials(
+                source_credentials=source_credentials,
+                target_principal=target,
+                target_scopes=["https://www.googleapis.com/auth/cloud-platform"],
+                lifetime=3600,
+            )
+            _cached_identity_credentials = IDTokenCredentials(
+                target_credentials=impersonated,
+                target_audience=settings.INFERENCE_AUTH_AUDIENCE,
+                include_email=True,
+            )
+        if not _cached_identity_credentials.valid:
+            _cached_identity_credentials.refresh(request)
+        return _cached_identity_credentials.token
+
+    # Cloud Run and Worker Pool use the attached service account metadata.
+    return id_token.fetch_id_token(request, settings.INFERENCE_AUTH_AUDIENCE)

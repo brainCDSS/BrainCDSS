@@ -42,6 +42,9 @@ export interface ImagingPatientSummary {
   patient_id: string;
   patient_no?: string;
   name?: string;
+  birth_date?: string | null;
+  estimated_age?: number | null;
+  sex?: string | null;
 }
 
 export interface ImagingStudyApiItem {

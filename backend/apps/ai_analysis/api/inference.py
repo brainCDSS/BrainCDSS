@@ -1,6 +1,7 @@
 """Authenticated API for creating and reading real AI analyses."""
 
 from django.http import Http404
+from django.utils import timezone
 from kombu.exceptions import OperationalError
 from rest_framework import serializers, status
 from rest_framework.exceptions import PermissionDenied
@@ -10,17 +11,15 @@ from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema
 
 from apps.accounts.models import RolePermission
-from apps.ai_analysis.models import AIAnalysis, AIAnalysisInputSeries, AIAnalysisResult, AIModelConfigVersion, AIResultArtifact, AIRoutingConfigVersion, ModelVersion
-from apps.ai_analysis.api.generated_real_149 import ContractView000, SPECS
+from apps.ai_analysis.models import AIAnalysis, AIAnalysisInputSeries, AIAnalysisResult, AIModelConfigVersion, AIResultArtifact, AIResultReview, AIRoutingConfigVersion, ModelVersion
+from apps.ai_analysis.api.generated_real_149 import ContractView000
 from apps.ai_analysis.services.inference import create_queued_analysis, transition_analysis
 from apps.ai_analysis.tasks.inference import ROLE_ORDER, run_analysis_inference
-from apps.common.remaining149_runtime import execute_contract
 from apps.imaging.models import ImagingStudy, NiftiArtifact
 from apps.imaging.services.nifti import open_gcs_uri
 
 
 CLINICAL_AI_ROLES = {"NEUROLOGIST", "NEUROSURGEON", "RADIOLOGY"}
-AI_ANALYSIS_LIST_SPEC = next(spec for spec in SPECS if spec["api_id"] == "API-AI-002")
 
 
 class InputArtifactSerializer(serializers.Serializer):
@@ -93,6 +92,7 @@ def analysis_payload(analysis):
         "trace_id": analysis.trace,
         "priority": analysis.priority,
         "requested_at": analysis.requested_at,
+        "completed_at": analysis.completed_at,
         "model": {
             "code": analysis.model_version.model.code,
             "version": analysis.model_version.version,
@@ -109,7 +109,7 @@ def _can_read_analysis(request, analysis):
 
 
 class AnalysisCollectionView(ContractView000):
-    """Keep the generated GET worklist while replacing POST with real inference."""
+    """List real inference jobs and accept new inference requests."""
 
     permission_classes = [IsAuthenticated]
 
@@ -118,21 +118,30 @@ class AnalysisCollectionView(ContractView000):
         role_code = getattr(role, "code", None)
 
         if role_code in CLINICAL_AI_ROLES:
-            clinical_spec = {**AI_ANALYSIS_LIST_SPEC, "permission": None}
-            return execute_contract(request, clinical_spec)
-
-        if role_code == "SYSTEM_ADMIN":
+            analyses = AIAnalysis.objects.filter(requested_by=request.user)
+        elif role_code == "SYSTEM_ADMIN":
             has_job_view = RolePermission.objects.filter(
                 role=role,
                 permission__code="ai.job.view",
             ).exists()
-            if has_job_view:
-                return execute_contract(request, AI_ANALYSIS_LIST_SPEC)
+            if not has_job_view:
+                raise PermissionDenied({
+                    "code": "AI_ANALYSIS_LIST_FORBIDDEN",
+                    "detail": "The current role cannot view AI analysis jobs.",
+                })
+            analyses = AIAnalysis.objects.all()
+        else:
+            raise PermissionDenied({
+                "code": "AI_ANALYSIS_LIST_FORBIDDEN",
+                "detail": "The current role cannot view AI analysis jobs.",
+            })
 
-        raise PermissionDenied({
-            "code": "AI_ANALYSIS_LIST_FORBIDDEN",
-            "detail": "The current role cannot view AI analysis jobs.",
-        })
+        requested_status = request.query_params.get("status")
+        if requested_status:
+            analyses = analyses.filter(status=requested_status)
+        analyses = analyses.select_related("model_version__model").order_by("-requested_at")
+        rows = [analysis_payload(analysis) for analysis in analyses[:100]]
+        return Response({"count": analyses.count(), "next": None, "previous": None, "results": rows})
     @extend_schema(
         request=AnalysisCreateSerializer,
         responses={202: None},
@@ -177,6 +186,64 @@ class AnalysisDetailView(APIView):
         return Response(analysis_payload(analysis))
 
 
+class AnalysisResultView(APIView):
+    """Return the persisted inference result for the React result screen."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, analysis_id):
+        analysis = AIAnalysis.objects.filter(pk=analysis_id).first()
+        if analysis is None or not _can_read_analysis(request, analysis):
+            raise Http404
+
+        result = AIAnalysisResult.objects.filter(analysis=analysis).first()
+        if result is None:
+            return Response(
+                {
+                    "code": "AI_RESULT_NOT_READY",
+                    "detail": "The analysis result is not ready yet.",
+                    "status": analysis.status,
+                    "stage": analysis.stage,
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        findings = result.structured_findings or {}
+        latest_review = AIResultReview.objects.filter(result=result).order_by("-reviewed_at").first()
+        artifacts = AIResultArtifact.objects.filter(result=result).order_by("created_at")
+        return Response(
+            {
+                "analysis_id": str(analysis.id),
+                "result_id": str(result.id),
+                "output_schema_version": findings.get("output_schema_version", "1.0"),
+                "is_positive": result.is_positive,
+                "confidence": result.confidence,
+                "threshold_used": findings.get("threshold_used"),
+                "lesion_count": result.lesion_count,
+                "total_volume_ml": result.total_volume_ml,
+                "severity": result.severity,
+                "structured_findings": findings,
+                "artifacts": [
+                    {
+                        "artifact_id": str(item.id),
+                        "type": item.artifact_type,
+                        "sop_instance_uid": (
+                            str(item.dicom_object_reference_id)
+                            if item.dicom_object_reference_id
+                            else ""
+                        ),
+                    }
+                    for item in artifacts
+                ],
+                "latest_review": (
+                    {"decision": latest_review.decision}
+                    if latest_review is not None
+                    else None
+                ),
+            }
+        )
+
+
 class AnalysisNiftiViewerView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -212,3 +279,39 @@ class ResultArtifactContentView(APIView):
         if artifact is None or not _can_read_analysis(request, artifact.result.analysis):
             raise Http404
         return open_gcs_uri(artifact.uri)
+
+
+class AIResultReviewCollectionView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def _result(self, request, result_id):
+        result = AIAnalysisResult.objects.select_related("analysis").filter(pk=result_id).first()
+        if result is None or not _can_read_analysis(request, result.analysis):
+            raise Http404
+        return result
+
+    def get(self, request, result_id):
+        result = self._result(request, result_id)
+        rows = AIResultReview.objects.filter(result=result).order_by("-reviewed_at")
+        return Response({"result_id": str(result.id), "reviews": [self._payload(row) for row in rows]})
+
+    def post(self, request, result_id):
+        result = self._result(request, result_id)
+        decision = request.data.get("decision")
+        comment = str(request.data.get("comment", "")).strip()
+        if decision not in {"ACCEPT", "MODIFY", "REJECT"} or not comment:
+            raise serializers.ValidationError({"detail": "decision and comment are required."})
+        review = AIResultReview.objects.create(
+            result=result, reviewer=request.user, decision=decision, comment=comment,
+            corrected_findings=request.data.get("corrected_findings") or {}, reviewed_at=timezone.now(),
+        )
+        return Response(self._payload(review), status=status.HTTP_201_CREATED)
+
+    @staticmethod
+    def _payload(review):
+        return {
+            "review_id": str(review.id), "result_id": str(review.result_id),
+            "decision": review.decision, "comment": review.comment,
+            "corrected_findings": review.corrected_findings,
+            "reviewer_id": str(review.reviewer_id), "reviewed_at": review.reviewed_at,
+        }

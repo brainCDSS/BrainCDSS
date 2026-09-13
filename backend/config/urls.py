@@ -12,6 +12,8 @@ from apps.ai_analysis.api.development import DevelopmentAnalysisView
 from apps.ai_analysis.api.inference import (
     AnalysisCollectionView,
     AnalysisDetailView,
+    AnalysisResultView,
+    AIResultReviewCollectionView,
     AnalysisNiftiViewerView,
     ResultArtifactContentView,
 )
@@ -27,12 +29,20 @@ urlpatterns = [
     path("api/v1/ai-analyses", AnalysisCollectionView.as_view()),
     path("api/v1/ai-analyses/<uuid:analysis_id>", AnalysisDetailView.as_view()),
     path(
+        "api/v1/ai-analyses/<uuid:analysis_id>/result",
+        AnalysisResultView.as_view(),
+    ),
+    path(
         "api/v1/ai-analyses/<uuid:analysis_id>/nifti-viewer",
         AnalysisNiftiViewerView.as_view(),
     ),
     path(
         "api/v1/ai-result-artifacts/<uuid:artifact_id>/content",
         ResultArtifactContentView.as_view(),
+    ),
+    path(
+        "api/v1/ai-results/<uuid:result_id>/reviews",
+        AIResultReviewCollectionView.as_view(),
     ),
     path(
         "api/v1/imaging-studies/<uuid:study_id>/ai-inputs",

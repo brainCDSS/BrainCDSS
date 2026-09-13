@@ -16,7 +16,7 @@ from apps.ai_analysis.models import (
     ModelVersion,
 )
 from apps.ai_analysis.tasks.mock_inference import run_mock_analysis_inference
-from apps.ai_analysis.api.inference import AnalysisCollectionView
+from apps.ai_analysis.api.inference import AIResultReviewCollectionView, AnalysisCollectionView, AnalysisResultView
 from apps.imaging.models import ImagingStudy
 
 
@@ -32,6 +32,8 @@ class DevelopmentInferenceFlowTests(TestCase):
         response = AnalysisCollectionView.as_view()(request)
 
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 0)
+        self.assertEqual(response.data["results"], [])
 
     def test_system_admin_requires_ai_job_view_permission(self):
         admin_role = Role.objects.create(code="SYSTEM_ADMIN", name="Synthetic Admin")
@@ -177,6 +179,31 @@ class DevelopmentInferenceFlowTests(TestCase):
         result = AIAnalysisResult.objects.get(analysis=analysis)
         self.assertEqual(result.severity, "MOCK")
         self.assertIsNone(result.is_positive)
+
+        result_request = APIRequestFactory().get(
+            f"/api/v1/ai-analyses/{analysis.id}/result"
+        )
+        force_authenticate(result_request, user=self.user)
+        result_response = AnalysisResultView.as_view()(
+            result_request, analysis_id=analysis.id
+        )
+        self.assertEqual(result_response.status_code, 200)
+        result_data = result_response.data
+        self.assertEqual(result_data["analysis_id"], str(analysis.id))
+        self.assertEqual(result_data["result_id"], str(result.id))
+        self.assertEqual(result_data["severity"], "MOCK")
+        self.assertEqual(result_data["structured_findings"]["is_mock"], True)
+        self.assertEqual(result_data["artifacts"], [])
+
+        review_request = APIRequestFactory().post(
+            f"/api/v1/ai-results/{result.id}/reviews",
+            {"decision": "ACCEPT", "comment": "Synthetic clinical review"},
+            format="json",
+        )
+        force_authenticate(review_request, user=self.user)
+        review_response = AIResultReviewCollectionView.as_view()(review_request, result_id=result.id)
+        self.assertEqual(review_response.status_code, 201)
+        self.assertEqual(review_response.data["decision"], "ACCEPT")
 
     def test_failure_is_stored_and_readable(self):
         analysis = self.create_analysis("failure")

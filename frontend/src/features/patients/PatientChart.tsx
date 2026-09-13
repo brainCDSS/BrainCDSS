@@ -251,8 +251,8 @@ function AIAnalysisPanel({ analyses, selectedAnalysisId, result, isLoading, erro
       {!isLoading && !error && current && !result && <div className="panel-empty-state"><strong>{analysisLabel(current.analysis_type)}</strong><span>현재 상태: {current.status} · 완료된 결과가 아직 없습니다.</span></div>}
       {result && (
         <div className="analysis-result-body">
-          <div className="analysis-hero-metric"><div><span>분석 질환</span><strong>{analysisLabel(current?.analysis_type ?? "-")}</strong></div><div className={`risk-orb is-${result.severity.toLowerCase()}`}><strong>{Math.round(result.confidence * 100)}%</strong><span>Confidence</span></div></div>
-          <dl className="analysis-metrics"><div><dt>판정</dt><dd>{result.is_positive ? "양성 소견" : "음성 소견"}</dd></div><div><dt>AI 중증도</dt><dd>{result.severity || "-"}</dd></div><div><dt>병변 수</dt><dd>{result.lesion_count}개</dd></div><div><dt>병변 부피</dt><dd>{result.total_volume_ml} mL</dd></div></dl>
+          <div className="analysis-hero-metric"><div><span>분석 질환</span><strong>{analysisLabel(current?.analysis_type ?? "-")}</strong></div><div className={`risk-orb is-${(result.severity || "unknown").toLowerCase()}`}><strong>{result.confidence == null ? "-" : `${Math.round(result.confidence * 100)}%`}</strong><span>예측 점수</span></div></div>
+          <dl className="analysis-metrics"><div><dt>판정</dt><dd>{result.is_positive == null ? "결과 없음" : result.is_positive ? "양성 소견" : "음성 소견"}</dd></div><div><dt>AI 중증도</dt><dd>{result.severity || "-"}</dd></div><div><dt>병변 수</dt><dd>{result.lesion_count == null ? "-" : `${result.lesion_count}개`}</dd></div><div><dt>병변 부피</dt><dd>{result.total_volume_ml == null ? "-" : `${result.total_volume_ml} mL`}</dd></div></dl>
           <div className="analysis-findings"><span>주요 소견</span>{findings.length > 0 ? findings.map(([key, value]) => <div key={key}><strong>{key.replaceAll("_", " ")}</strong><p>{typeof value === "string" || typeof value === "number" ? String(value) : JSON.stringify(value)}</p></div>) : <p>구조화된 주요 소견이 없습니다.</p>}</div>
         </div>
       )}

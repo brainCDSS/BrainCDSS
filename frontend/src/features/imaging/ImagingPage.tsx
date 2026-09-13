@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { requestAIAnalysis } from "../ai-analysis/api";
+import type { AIAnalysisItem } from "../ai-analysis/types";
 import { getImagingStudies, getImagingStudy, getImagingStudySeries, getStudyAIInputs } from "./api";
 import type { AIInputBundle, ImagingSeries, ImagingStudy, ImagingStudyDetail } from "./types";
 import "./imaging.css";
@@ -10,7 +11,11 @@ const modalityOf = (study: ImagingStudy) => study.modality === "MRI" ? "MRI" : s
 const formatDate = (value?: string) => value ? new Date(value).toLocaleString("ko-KR") : "—";
 const formatSize = (bytes: number) => bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.ceil(bytes / 1024)} KB`;
 
-export default function ImagingPage() {
+interface ImagingPageProps {
+  onAnalysisStarted?: (analysis: AIAnalysisItem) => void;
+}
+
+export default function ImagingPage({ onAnalysisStarted }: ImagingPageProps) {
   const [studies, setStudies] = useState<ImagingStudy[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<ImagingStudyDetail | null>(null);
@@ -54,7 +59,14 @@ export default function ImagingPage() {
       return;
     }
     setSubmitting(true); setMessage(null);
-    try { await requestAIAnalysis({ study_id: selectedId, series_ids: selectedBundle.inputs.map((input) => input.series_id), analysis_type: analysisType, priority: "NORMAL" }, crypto.randomUUID()); setMessage("AI 분석 요청이 접수되었습니다. AI 분석 결과 메뉴에서 진행 상태를 확인하세요."); }
+    try {
+      const analysis = await requestAIAnalysis(
+        { study_id: selectedId, series_ids: selectedBundle.inputs.map((input) => input.series_id), analysis_type: analysisType, priority: "NORMAL" },
+        crypto.randomUUID(),
+      );
+      setMessage("AI 분석 요청이 접수되었습니다.");
+      onAnalysisStarted?.(analysis);
+    }
     catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       setMessage(`분석 요청에 실패했습니다. ${reason}`);

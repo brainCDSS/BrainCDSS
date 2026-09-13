@@ -39,6 +39,9 @@ def _study_payload(study):
             "patient_id": str(study.patient_id),
             "patient_no": study.patient.patient_no,
             "name": study.patient.name,
+            "birth_date": study.patient.birth_date,
+            "estimated_age": study.patient.estimated_age,
+            "sex": study.patient.sex,
         },
         "latest_analysis": None if latest is None else {
             "analysis_id": str(latest.id), "status": latest.status,

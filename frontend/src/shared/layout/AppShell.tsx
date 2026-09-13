@@ -137,6 +137,8 @@ export default function AppShell({
     "dashboard",
   );
 
+  const [activeAnalysisId, setActiveAnalysisId] = useState<string | null>(null);
+
 
   /* ========================================================
      3. 일반 환자 Workspace Tabs
@@ -1213,12 +1215,15 @@ export default function AppShell({
       "imaging"
     ) {
 
-      return <ImagingPage />;
+      return <ImagingPage onAnalysisStarted={(analysis) => {
+        setActiveAnalysisId(analysis.analysis_id);
+        handleMenuSelect("ai-results");
+      }} />;
 
     }
 
     if (activeMenu === "ai-results") {
-      return <AIAnalysisResultsPage />;
+      return <AIAnalysisResultsPage initialAnalysisId={activeAnalysisId} />;
     }
 
     if (activeMenu === "radiology-reports") {

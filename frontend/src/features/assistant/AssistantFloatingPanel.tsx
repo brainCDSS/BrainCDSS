@@ -13,6 +13,7 @@ interface AssistantFloatingPanelProps extends AssistantConversationProps {
 }
 
 export default function AssistantFloatingPanel({
+  patientId,
   onExpand,
   onClose,
   messages,
@@ -55,7 +56,17 @@ export default function AssistantFloatingPanel({
       const response = await sendAssistantMessage({
         message: prompt,
         conversation_id: conversationId,
-        context: { scope: "TODAY", patient_id: null, encounter_id: null },
+        context: patientId
+          ? {
+              scope: "PATIENT",
+              patient_id: patientId,
+              encounter_id: null,
+            }
+          : {
+              scope: "TODAY",
+              patient_id: null,
+              encounter_id: null,
+            },
       });
       setConversationId(response.conversation_id);
       setMessages((previous) => [...previous, {

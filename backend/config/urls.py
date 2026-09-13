@@ -119,11 +119,26 @@ urlpatterns += [
         include("apps.common.api.urls"),
     ),
 
+    # Assistant / internal MCP read-only API
+    path(
+        "",
+        include("apps.assistant.api.urls"),
+    ),
+
     # DUR / Medication Safety
     path(
         "",
         include(
             "apps.medication_safety.api.urls"
+        ),
+    ),
+
+    # Notification / FCM
+    # 실제 FCM API를 generated fallback보다 먼저 등록한다.
+    path(
+        "",
+        include(
+            "apps.notifications.api.urls"
         ),
     ),
 

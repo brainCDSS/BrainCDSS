@@ -3,6 +3,14 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      VITE_FIREBASE_API_KEY: ci-test-api-key
+      VITE_FIREBASE_AUTH_DOMAIN: ci.invalid
+      VITE_FIREBASE_PROJECT_ID: brainon-ci
+      VITE_FIREBASE_STORAGE_BUCKET: brainon-ci.invalid
+      VITE_FIREBASE_MESSAGING_SENDER_ID: "1234567890"
+      VITE_FIREBASE_APP_ID: "1:1234567890:web:ci"
+      VITE_FIREBASE_VAPID_KEY: ci-test-vapid-key
     defaults: {run: {working-directory: frontend}}
     steps:
       - uses: actions/checkout@v4

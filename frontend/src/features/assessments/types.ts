@@ -86,6 +86,8 @@ export interface AssessmentDetailResponse {
 
   encounter_id: string;
 
+  neurology_department_id?: string | null;
+
   status: string;
 
   total_score: number | null;
@@ -184,6 +186,7 @@ export interface CompleteAssessmentResponse {
 
 export interface Clinician {
   id: string;
+  user_id: string;
   name: string;
   specialty: string | null;
   license_no: string | null;
@@ -209,9 +212,12 @@ export interface ClinicianListResponse {
  * Worklist 한 건
  */
 export interface AssessmentWorklistItem {
+  /** Generic serializer 응답 호환용 원본 PK */
+  id?: string;
   assessment_id: string | null;
   encounter_id: string;
-  patient_summary: Record<string, unknown>;
+  encounter_type?: string | null;
+  patient_summary?: Record<string, unknown> | null;
   status: string;
   triage_priority: string | null;
   created_at: string | null;

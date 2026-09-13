@@ -8,7 +8,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.organizations.api.errors import DomainAPIException
-from apps.organizations.api.permissions import IsPatientRole
+from apps.organizations.api.permissions import (
+    IsPatientOrNurseRole,
+    IsPatientRole,
+)
 from apps.organizations.api.serializers import (
     ClinicianListQuerySerializer,
     DepartmentClinicianResponseSerializer,
@@ -189,7 +192,7 @@ class HospitalDetailView(APIView):
 class HospitalDepartmentListView(APIView):
     permission_classes = [
         IsAuthenticated,
-        IsPatientRole,
+        IsPatientOrNurseRole,
     ]
 
     @extend_schema(
@@ -228,7 +231,7 @@ class HospitalDepartmentListView(APIView):
 class DepartmentClinicianListView(APIView):
     permission_classes = [
         IsAuthenticated,
-        IsPatientRole,
+        IsPatientOrNurseRole,
     ]
 
     @extend_schema(
@@ -266,6 +269,7 @@ class DepartmentClinicianListView(APIView):
             "clinicians": [
                 {
                     "id": clinician.id,
+                    "user_id": clinician.user_id,
                     "name": clinician.user.name,
                     "specialty": clinician.specialty,
                     "license_no": clinician.license_no,

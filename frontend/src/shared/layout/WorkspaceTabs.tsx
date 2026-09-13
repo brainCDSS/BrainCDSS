@@ -148,6 +148,17 @@ interface WorkspaceTabsProps {
 
   onSelectDashboard?: () => void;
 
+
+  /* BrainOn AI */
+
+  isAssistantTabOpen?: boolean;
+
+  isAssistantTabActive?: boolean;
+
+  onSelectAssistantTab?: () => void;
+
+  onCloseAssistantTab?: () => void;
+
 }
 
 
@@ -209,6 +220,17 @@ export default function WorkspaceTabs({
   /* Dashboard */
 
   onSelectDashboard = () => {},
+
+
+  /* BrainOn AI */
+
+  isAssistantTabOpen = false,
+
+  isAssistantTabActive = false,
+
+  onSelectAssistantTab = () => {},
+
+  onCloseAssistantTab = () => {},
 
 }: WorkspaceTabsProps) {
 
@@ -346,7 +368,8 @@ export default function WorkspaceTabs({
     activeMenu === "dashboard" &&
     activePatientId === null &&
     activeConsultationId === null &&
-    !isConsultationListActive;
+    !isConsultationListActive &&
+    !isAssistantTabActive;
 
 
   /* ========================================================
@@ -432,6 +455,51 @@ export default function WorkspaceTabs({
 
 
         <div className="workspace-tabs-scroll">
+
+
+        {/* ===================================================
+            BrainOn AI
+            =================================================== */}
+
+        {isAssistantTabOpen && (
+          <button
+            type="button"
+            className={
+              isAssistantTabActive
+                ? "workspace-tab active"
+                : "workspace-tab"
+            }
+            onClick={onSelectAssistantTab}
+          >
+            <span className="workspace-tab-label">
+              BrainOn AI
+            </span>
+
+            <span
+              className="workspace-tab-close"
+              role="button"
+              tabIndex={0}
+              aria-label="BrainOn AI 탭 닫기"
+              title="탭 닫기"
+              onClick={(event) => {
+                event.stopPropagation();
+                onCloseAssistantTab();
+              }}
+              onKeyDown={(event) => {
+                if (
+                  event.key === "Enter" ||
+                  event.key === " "
+                ) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onCloseAssistantTab();
+                }
+              }}
+            >
+              ×
+            </span>
+          </button>
+        )}
 
 
         {/* ===================================================

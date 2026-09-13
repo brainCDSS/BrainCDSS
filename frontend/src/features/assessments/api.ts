@@ -33,12 +33,25 @@ export async function createEncounter(payload: CreateEncounterRequest): Promise<
    초기평가 대기 환자 목록 조회
    ========================================================= */
 
-export function getAssessmentWorklist():
+export async function getAssessmentWorklist():
 Promise<AssessmentWorklistResponse> {
 
-  return apiRequest<AssessmentWorklistResponse>(
+  const response = await apiRequest<AssessmentWorklistResponse>(
     "/api/v1/assessments/worklist",
   );
+
+  return {
+    ...response,
+    results: (response.results ?? []).map(
+      (item) => ({
+        ...item,
+        assessment_id:
+          item.assessment_id ??
+          item.id ??
+          null,
+      }),
+    ),
+  };
 }
 
 

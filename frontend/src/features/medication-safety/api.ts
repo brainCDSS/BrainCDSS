@@ -1,7 +1,55 @@
-import{apiRequest}from"../../api/client";import type{MedicationListResponse}from"./types";
-export function searchMedications(search:string){return apiRequest<MedicationListResponse>(`/api/v1/medications?search=${encodeURIComponent(search)}&is_active=true`)}
-export function checkPrescriptionSafety(payload:{patient_id:string;medications:Array<{medication_id:string;dose:number;unit:string;frequency_per_day:number;route:string}>;draft_prescription_id?:string}){return apiRequest<{safe:boolean;alerts:Array<Record<string,unknown>>;context:Record<string,unknown>}>("/api/v1/prescriptions/safety-check",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)})}
-export function createPrescription(payload:{encounter_id:string;items:Array<{medication_id:string;dose:number;dose_unit:string;route:string;frequency_per_day:number;timing:string;start_date:string;duration_days:number;instructions:string}>}){return apiRequest<Record<string,unknown>>("/api/v1/prescriptions",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)})}
-export function getPrescription(id:string){return apiRequest<Record<string,unknown>>(`/api/v1/prescriptions/${encodeURIComponent(id)}`)}
-export function updatePrescription(id:string,payload:{items:Array<Record<string,unknown>>}){return apiRequest<Record<string,unknown>>(`/api/v1/prescriptions/${encodeURIComponent(id)}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)})}
-export function finalizePrescription(id:string,payload:{overrides?:Array<{alert_type:string;rule_type:string;rule_id:string;reason:string}>}){return apiRequest<Record<string,unknown>>(`/api/v1/prescriptions/${encodeURIComponent(id)}/finalize`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)})}
+import { apiRequest } from "../../api/client";
+import type {
+  CreatePrescriptionRequest,
+  FinalizePrescriptionResponse,
+  MedicationListResponse,
+  PrescriptionOverride,
+  PrescriptionResponse,
+  SafetyCheckRequest,
+  SafetyCheckResponse,
+  UpdatePrescriptionRequest,
+} from "./types";
+
+export function searchMedications(search: string) {
+  const params = new URLSearchParams({ search, is_active: "true" });
+  return apiRequest<MedicationListResponse>(`/api/v1/medications?${params}`);
+}
+
+export function checkPrescriptionSafety(payload: SafetyCheckRequest) {
+  return apiRequest<SafetyCheckResponse>("/api/v1/prescriptions/safety-check", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function createPrescription(payload: CreatePrescriptionRequest) {
+  return apiRequest<PrescriptionResponse>("/api/v1/prescriptions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getPrescription(id: string) {
+  return apiRequest<PrescriptionResponse>(`/api/v1/prescriptions/${encodeURIComponent(id)}`);
+}
+
+export function updatePrescription(id: string, payload: UpdatePrescriptionRequest) {
+  return apiRequest<PrescriptionResponse>(`/api/v1/prescriptions/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function finalizePrescription(id: string, overrides: PrescriptionOverride[]) {
+  return apiRequest<FinalizePrescriptionResponse>(
+    `/api/v1/prescriptions/${encodeURIComponent(id)}/finalize`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ overrides }),
+    },
+  );
+}

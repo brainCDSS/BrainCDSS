@@ -30,6 +30,10 @@ import {
 import type {
   AssessmentWorklistItem,
 } from "./types";
+import {
+  formatMobilePhone,
+  limitDateYear,
+} from "../../shared/utils/inputFormatters";
 
 import "./css/reception_initial_assessment.css";
 
@@ -303,9 +307,13 @@ function apiError(
 
 
 function worklistValue(
-  summary: Record<string, unknown>,
+  summary: Record<string, unknown> | null | undefined,
   keys: string[],
 ) {
+  if (!summary) {
+    return null;
+  }
+
   for (const key of keys) {
     const value =
       summary[key];
@@ -387,6 +395,7 @@ function worklistEncounterType(
   item: AssessmentWorklistItem,
 ) {
   const value =
+    item.encounter_type ??
     worklistValue(
       item.patient_summary,
       [
@@ -1429,8 +1438,7 @@ export default function ReceptionInitialAssessment({
   ) {
     if (
       openingEncounterId !==
-        null ||
-      !item.assessmentId
+        null
     ) {
       return;
     }
@@ -1454,9 +1462,65 @@ export default function ReceptionInitialAssessment({
     );
 
     try {
+      let assessmentId =
+        item.assessmentId;
+
+      if (!assessmentId) {
+        const response =
+          await startAssessment({
+            encounter_id:
+              item.encounterId,
+          });
+
+        assessmentId =
+          response.assessment_id;
+
+        setWorklist(
+          (current) =>
+            current.map(
+              (entry) =>
+                entry.encounter_id ===
+                item.encounterId
+                  ? {
+                      ...entry,
+                      assessment_id:
+                        assessmentId,
+                      status:
+                        response.status,
+                    }
+                  : entry,
+            ),
+        );
+
+        setLocalVisitRows(
+          (current) =>
+            current.map(
+              (entry) =>
+                entry.encounterId ===
+                item.encounterId
+                  ? {
+                      ...entry,
+                      assessmentId,
+                      status:
+                        assessmentStatusToReceptionStatus(
+                          response.status,
+                        ),
+                    }
+                  : entry,
+            ),
+        );
+      }
+
       onOpenTriage(
-        item.assessmentId,
+        assessmentId,
         item.encounterId,
+      );
+    } catch (requestError) {
+      setError(
+        apiError(
+          requestError,
+          "초기평가를 시작하지 못했습니다.",
+        ),
       );
     } finally {
       setOpeningEncounterId(
@@ -1483,17 +1547,6 @@ export default function ReceptionInitialAssessment({
       !selectedPatient ||
       busy !== null
     ) {
-      return;
-    }
-
-    if (
-      visitMode ===
-      "WALK_IN"
-    ) {
-      setError(
-        "당일 내원은 현재 Encounter API 계약에 정의되어 있지 않습니다. 백엔드 API 확정 후 연결해 주세요.",
-      );
-
       return;
     }
 
@@ -1549,8 +1602,8 @@ export default function ReceptionInitialAssessment({
             encounterType,
 
           ...(
-            encounterType ===
-              "OUTPATIENT"
+            visitMode ===
+              "APPOINTMENT"
               ? {
                   appointment_id:
                     appointmentId,
@@ -1930,11 +1983,6 @@ export default function ReceptionInitialAssessment({
                         item.status,
                       );
 
-                    const canOpen =
-                      Boolean(
-                        item.assessmentId,
-                      );
-
                     const opening =
                       openingEncounterId ===
                       item.encounterId;
@@ -1946,22 +1994,16 @@ export default function ReceptionInitialAssessment({
                         }
                         type="button"
                         className={
-                          canOpen
-                            ? "reception-today-row is-clickable"
-                            : "reception-today-row"
+                          "reception-today-row is-clickable"
                         }
                         disabled={
                           openingEncounterId !==
                           null
                         }
                         onClick={() => {
-                          if (
-                            canOpen
-                          ) {
-                            void openTodayVisit(
-                              item,
-                            );
-                          }
+                          void openTodayVisit(
+                            item,
+                          );
                         }}
                       >
 
@@ -2497,8 +2539,9 @@ export default function ReceptionInitialAssessment({
                         ) => ({
                           ...current,
                           birth_date:
-                            event.target
-                              .value,
+                            limitDateYear(
+                              event.target.value,
+                            ),
                         }),
                       );
                     }}
@@ -2575,10 +2618,11 @@ export default function ReceptionInitialAssessment({
                       (
                         current,
                       ) => ({
-                        ...current,
-                        phone:
-                          event.target
-                            .value,
+                          ...current,
+                          phone:
+                          formatMobilePhone(
+                            event.target.value,
+                          ),
                       }),
                     );
                   }}
@@ -2819,7 +2863,7 @@ export default function ReceptionInitialAssessment({
                         "",
                       );
                     }}
-                    title="현재 Encounter API 계약에는 당일 내원이 정의되어 있지 않습니다."
+                    title="예약 없이 외래 Walk-in으로 접수합니다."
                   >
                     ○ 당일
                   </button>
@@ -3209,9 +3253,7 @@ export default function ReceptionInitialAssessment({
                       visitMode ===
                         "APPOINTMENT" &&
                       !appointmentId
-                    ) ||
-                    visitMode ===
-                      "WALK_IN"
+                    )
                   }
                   onClick={() => {
                     void registerEncounter();

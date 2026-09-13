@@ -12,6 +12,7 @@ export const ASSISTANT_QUICK_PROMPTS = [
 ];
 
 export interface AssistantConversationProps {
+  patientId: string | null;
   messages: AssistantChatMessage[];
   setMessages: Dispatch<SetStateAction<AssistantChatMessage[]>>;
   conversationId: string | null;
@@ -31,6 +32,7 @@ function formatTime(value: string) {
 }
 
 export default function AssistantWorkspace({
+  patientId,
   messages,
   setMessages,
   conversationId,
@@ -77,7 +79,17 @@ export default function AssistantWorkspace({
       const response = await sendAssistantMessage({
         message: prompt,
         conversation_id: conversationId,
-        context: { scope: "TODAY" },
+        context: patientId
+          ? {
+              scope: "PATIENT",
+              patient_id: patientId,
+              encounter_id: null,
+            }
+          : {
+              scope: "TODAY",
+              patient_id: null,
+              encounter_id: null,
+            },
       });
       setConversationId(response.conversation_id);
       setMessages((previous) => [...previous, {

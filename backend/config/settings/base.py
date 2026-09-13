@@ -22,6 +22,8 @@ SECRET_KEY = os.getenv(
     "unsafe-local-placeholder-only",
 )
 
+MCP_BACKEND_TOKEN = os.getenv("MCP_BACKEND_TOKEN", "")
+
 DEBUG = False
 
 ALLOWED_HOSTS = [

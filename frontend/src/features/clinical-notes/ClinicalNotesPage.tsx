@@ -1,13 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { getAIAnalyses } from "../ai-analysis/api";
-import type { AIAnalysisItem } from "../ai-analysis/types";
-import { getConsultations } from "../consultations/api";
-import type { ConsultationListItem } from "../consultations/types";
-import { getImagingStudies } from "../imaging/api";
-import type { ImagingStudy } from "../imaging/types";
 import { getPatientEncounters } from "../medication-safety/api";
 import type { EncounterListItem } from "../medication-safety/types";
+import { loadAuthSession } from "../auth/session";
 import { PatientHeader, PatientRail } from "../patients/PatientChart";
 import { getPatients } from "../patients/api";
 import type { Patient } from "../patients/types";
@@ -70,9 +65,6 @@ export default function ClinicalNotesPage({ selectedPatient: contextPatient = nu
   const [saving, setSaving] = useState(false);
   const [referenceLoading, setReferenceLoading] = useState(false);
   const [assessment, setAssessment] = useState<InitialAssessment | null>(null);
-  const [studies, setStudies] = useState<ImagingStudy[]>([]);
-  const [analyses, setAnalyses] = useState<AIAnalysisItem[]>([]);
-  const [consultations, setConsultations] = useState<ConsultationListItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const requestId = useRef(0);
   const automaticPatientId = useRef<string | null>(null);
@@ -136,35 +128,23 @@ export default function ClinicalNotesPage({ selectedPatient: contextPatient = nu
     encounterRank(left) - encounterRank(right) || (right.arrived_at ?? "").localeCompare(left.arrived_at ?? "")), [encounters]);
   const currentEncounter = sortedEncounters[0] ?? null;
   const activeEncounter = sortedEncounters.find((item) => item.status === "IN_PROGRESS" || item.status === "REGISTERED") ?? null;
-  const readOnly = selectedNote?.status === "FINAL";
+  const canWriteClinicalNote = loadAuthSession()?.user.role.code === "NEUROLOGIST";
+  const isDraftEditable = canWriteClinicalNote && selectedNote?.status === "DRAFT";
+  const readOnly = !isDraftEditable;
   const finalizeMissing = !draft.assessment.trim() || !draft.plan.trim() || !draft.clinicalOpinion.trim();
   const referenceEncounterId = selectedNote?.encounterId
     ?? (activeEncounter ? encounterId(activeEncounter) : currentEncounter ? encounterId(currentEncounter) : "");
 
   useEffect(() => {
     let active = true;
-    setAssessment(null); setStudies([]); setAnalyses([]); setConsultations([]);
+    setAssessment(null);
     if (!selectedPatient || !referenceEncounterId) { setReferenceLoading(false); return; }
     setReferenceLoading(true);
-    void Promise.allSettled([
-      getInitialAssessmentsByEncounter(referenceEncounterId),
-      getImagingStudies({ patientId: selectedPatient.id }),
-      getAIAnalyses(),
-      getConsultations(),
-    ]).then(([assessmentResult, studyResult, analysisResult, consultationResult]) => {
+    void getInitialAssessmentsByEncounter(referenceEncounterId).then((result) => {
       if (!active) return;
-      const nextStudies = studyResult.status === "fulfilled" ? studyResult.value : [];
-      const studyIds = new Set(nextStudies.map((study) => study.id));
-      setStudies(nextStudies);
-      setAnalyses(analysisResult.status === "fulfilled"
-        ? analysisResult.value.results.filter((item) => studyIds.has(item.study_id))
-        : []);
-      setConsultations(consultationResult.status === "fulfilled"
-        ? consultationResult.value.results.filter((item) => item.encounter_id === referenceEncounterId)
-        : []);
-      setAssessment(assessmentResult.status === "fulfilled"
-        ? assessmentResult.value.results[0] ?? null
-        : null);
+      setAssessment(result.results[0] ?? null);
+    }).catch(() => {
+      if (active) setAssessment(null);
     }).finally(() => { if (active) setReferenceLoading(false); });
     return () => { active = false; };
   }, [referenceEncounterId, selectedPatient]);
@@ -172,16 +152,10 @@ export default function ClinicalNotesPage({ selectedPatient: contextPatient = nu
     () => new Map((assessment?.items ?? []).map((item) => [item.item_code, item])),
     [assessment],
   );
-  const latestStudy = [...studies].sort((left, right) =>
-    (right.study_at ?? "").localeCompare(left.study_at ?? ""))[0] ?? null;
-  const latestAnalysis = [...analyses].sort((left, right) =>
-    right.requested_at.localeCompare(left.requested_at))[0] ?? null;
-  const latestConsultation = [...consultations].sort((left, right) =>
-    right.requested_at.localeCompare(left.requested_at))[0] ?? null;
 
   async function startDraft() {
     const activeEncounterId = activeEncounter ? encounterId(activeEncounter) : "";
-    if (!activeEncounterId) return;
+    if (!canWriteClinicalNote || !activeEncounterId) return;
     setSaving(true); setError(null);
     try {
       const note = await createClinicalNote({ encounterId: activeEncounterId });
@@ -193,7 +167,7 @@ export default function ClinicalNotesPage({ selectedPatient: contextPatient = nu
   }
 
   async function saveDraft() {
-    if (!selectedNote || readOnly) return;
+    if (!canWriteClinicalNote || !selectedNote || readOnly) return;
     setSaving(true); setError(null);
     try {
       const updated = await updateClinicalNote(selectedNote.noteId, draft);
@@ -205,7 +179,7 @@ export default function ClinicalNotesPage({ selectedPatient: contextPatient = nu
   }
 
   async function finalizeDraft() {
-    if (!selectedNote || readOnly || finalizeMissing) return;
+    if (!canWriteClinicalNote || !selectedNote || readOnly || finalizeMissing) return;
     setSaving(true); setError(null);
     try {
       await updateClinicalNote(selectedNote.noteId, draft);
@@ -228,7 +202,7 @@ export default function ClinicalNotesPage({ selectedPatient: contextPatient = nu
       {!notesLoading && encounters.length === 0 && <div className="patient-encounter-state is-empty">조회 가능한 Encounter가 없습니다.</div>}
       <div className="clinical-notes-content"><section className="clinical-notes-reference-panel">
         <div className="clinical-notes-picker">
-          <header><h2>진료기록</h2><button type="button" onClick={() => void startDraft()} disabled={!activeEncounter || saving} title={!activeEncounter ? "활성 Encounter가 있을 때만 작성할 수 있습니다." : undefined}>+ 새 기록 작성</button></header>
+          <header><h2>진료기록</h2>{canWriteClinicalNote && <button type="button" onClick={() => void startDraft()} disabled={!activeEncounter || saving} title={!activeEncounter ? "활성 Encounter가 있을 때만 작성할 수 있습니다." : undefined}>+ 새 기록 작성</button>}</header>
           <label><span>진료기록 선택</span><select value={selectedNote?.noteId ?? ""} disabled={notesLoading || notes.length === 0} onChange={(event) => {
             const note = notes.find((item) => item.noteId === event.target.value);
             if (note) void loadNote(note);
@@ -246,18 +220,13 @@ export default function ClinicalNotesPage({ selectedPatient: contextPatient = nu
                 <div className="is-wide"><dt>주요 증상</dt><dd>{assessment.symptom_note || "-"}</dd></div>
               </dl><div className="clinical-reference-metrics"><section><strong>FAST</strong>{(["FAST_FACE", "FAST_ARM"] as const).map((code) => <span key={code}><i>{code.replace("FAST_", "")}</i><b>{assessmentValue(assessmentItems.get(code)) ?? "-"}</b></span>)}</section><section><strong>Vital</strong>{(["BP_SYS", "HEART_RATE"] as const).map((code) => <span key={code}><i>{code === "BP_SYS" ? "수축기 혈압" : "심박수"}</i><b>{assessmentValue(assessmentItems.get(code)) ?? "-"}</b></span>)}</section></div></> : <p>현재 Encounter에서 조회 가능한 assessment_id가 없습니다.</p>}
             </article>
-            <div className="clinical-reference-links">
-              <article><span>▣</span><div><strong>최근 영상검사</strong>{latestStudy ? <small>{latestStudy.modality} · {dateTime(latestStudy.study_at)} · {latestStudy.status}</small> : <small>조회된 영상검사가 없습니다.</small>}</div></article>
-              <article><span>AI</span><div><strong>AI 분석 결과</strong>{latestAnalysis ? <small>{latestAnalysis.analysis_type} · {latestAnalysis.status}</small> : <small>조회된 AI 분석 결과가 없습니다.</small>}</div></article>
-              <article><span>♧</span><div><strong>협진 상태</strong>{latestConsultation ? <small>{latestConsultation.type} · {latestConsultation.ui_status}</small> : <small>조회된 협진이 없습니다.</small>}</div></article>
-            </div>
           </>}
         </div>
       </section><section className="clinical-notes-soap">
         <header><div><h2>SOAP</h2>{selectedNote && <span className={`is-${selectedNote.status.toLowerCase()}`}>{selectedNote.status}</span>}</div><small>{selectedNote ? `작성자 ID ${selectedNote.authorId || "-"}` : ""}</small></header>
         {!selectedNote ? <div className="clinical-notes-selection-empty"><strong>조회할 진료기록을 선택하거나 새 SOAP를 작성해 주세요.</strong></div> : <><div className="clinical-notes-soap-grid">
           {SOAP_FIELDS.map(([code, label, field]) => <label className={`clinical-notes-soap-field${field === "clinicalOpinion" ? " is-clinical-opinion" : ""}`} key={field}>
-            <span><b>{code}</b><strong>{label}</strong></span><textarea value={draft[field]} readOnly={readOnly} disabled={saving} aria-label={label} onChange={(event) => setDraft((current) => ({ ...current, [field]: event.target.value }))} />
+            <span><b>{code}</b><strong>{label}</strong></span>{isDraftEditable ? <textarea value={draft[field]} disabled={saving} aria-label={label} onChange={(event) => setDraft((current) => ({ ...current, [field]: event.target.value }))} /> : <div className="clinical-notes-static-field">{draft[field] || "-"}</div>}
           </label>)}</div>
           <footer><span>수정 {dateTime(selectedNote.updatedAt)}{selectedNote.finalizedAt ? ` · 확정 ${dateTime(selectedNote.finalizedAt)}` : ""}</span>
             {readOnly ? <strong className="clinical-notes-readonly">최종확정 기록 · 읽기 전용</strong> : <><button type="button" onClick={() => void saveDraft()} disabled={saving}>{saving ? "저장 중" : "임시저장"}</button><button type="button" className="is-primary" onClick={() => void finalizeDraft()} disabled={saving || finalizeMissing} title={finalizeMissing ? "평가, 계획, 통합 임상소견을 모두 입력해 주세요." : undefined}>최종확정</button></>}

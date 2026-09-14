@@ -297,9 +297,23 @@ function DashboardPatientList({
                     {patient.name}
                   </strong>
 
-                  <em>
-                    {patient.status}
-                  </em>
+                  {encounter && (
+                    <em
+                      className={
+                        encounter.status === "IN_PROGRESS"
+                          ? "is-in-progress"
+                          : encounter.status === "REGISTERED"
+                            ? "is-registered"
+                            : "is-default"
+                      }
+                    >
+                      {encounter.status === "IN_PROGRESS"
+                        ? "진료중"
+                        : encounter.status === "REGISTERED"
+                          ? "접수"
+                          : encounter.status}
+                    </em>
+                  )}
                 </span>
 
                 <small>
@@ -865,9 +879,23 @@ function PatientQuickView({
         <div>
           <h4>
             {patient.name}{" "}
-            <em>
-              {patient.status}
-            </em>
+            {encounter && (
+              <em
+                className={
+                  encounter.status === "IN_PROGRESS"
+                    ? "is-in-progress"
+                    : encounter.status === "REGISTERED"
+                      ? "is-registered"
+                      : "is-default"
+                }
+              >
+                {encounter.status === "IN_PROGRESS"
+                  ? "진료중"
+                  : encounter.status === "REGISTERED"
+                    ? "접수"
+                    : encounter.status}
+              </em>
+            )}
           </h4>
 
           <p>

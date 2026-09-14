@@ -164,6 +164,18 @@
   background:#e7f7f0;
   color:#147a55
 }
+.patient-mini-status.is-registered,.patient-status.is-registered {
+  background:#fff0cf;
+  color:#9a5800
+}
+.patient-mini-status.is-in-progress,.patient-status.is-in-progress {
+  background:#dff4e9;
+  color:#08734b
+}
+.patient-mini-status.is-completed,.patient-status.is-completed {
+  background:#e9edf3;
+  color:#526176
+}
 .patient-mini-status.is-temp,.patient-status.is-temp {
   background:#edf3ff;
   color:#3e68ba
@@ -1875,6 +1887,55 @@
   cursor:default;
   opacity:.65
 }
+.permission-modal-backdrop {
+  position:fixed;
+  z-index:1000;
+  inset:0;
+  display:grid;
+  place-items:center;
+  padding:24px;
+  background:rgba(20, 32, 51, .38)
+}
+.permission-modal {
+  width:min(360px, 100%);
+  padding:28px 24px 22px;
+  border:1px solid #dce5ef;
+  border-radius:14px;
+  background:#fff;
+  box-shadow:0 18px 46px rgba(20, 35, 58, .2);
+  text-align:center
+}
+.permission-modal__image {
+  width:68px;
+  height:68px;
+  margin:0 auto 16px;
+  border:1px dashed #b8cce7;
+  border-radius:14px;
+  background:#eef5ff
+}
+.permission-modal h2 {
+  margin:0;
+  color:#1f3150;
+  font-size:17px;
+  font-weight:800
+}
+.permission-modal p {
+  margin:9px 0 20px;
+  color:#71819a;
+  font-size:13px
+}
+.permission-modal button {
+  min-width:100px;
+  height:38px;
+  border:0;
+  border-radius:8px;
+  background:#2479e1;
+  color:#fff;
+  font:inherit;
+  font-size:13px;
+  font-weight:800;
+  cursor:pointer
+}
 .patient-context-item__meta {
   width:100%
 }
@@ -2740,4 +2801,10 @@
 .patient-summary-card header button {
   font-size: 10px;
   font-weight: 800;
+}
+
+.patient-context-item__topline .patient-mini-status {
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 700;
 }

@@ -53,6 +53,13 @@
   .dash-patient-panel>header{min-height:50px;padding-top:8px}.dash-patient-search{height:34px}.dash-patient-filters{padding-bottom:6px}
   .dash-patient{gap:3px;padding-top:6px;padding-bottom:6px}.dash-patient-pagination{min-height:38px;flex-basis:38px}
 }
+
+.dash-patient__top em.is-in-progress,
+.dash-quick h4 em.is-in-progress { background: #dff4e9; color: #08734b; }
+.dash-patient__top em.is-registered,
+.dash-quick h4 em.is-registered { background: #fff0cf; color: #9a5800; }
+.dash-patient__top em.is-default,
+.dash-quick h4 em.is-default { background: #e9edf3; color: #526176; }
 @media(max-height:700px){
   .dash-patient-scroll{display:block;overflow-y:auto}
   .dash-patient{height:auto;min-height:74px;margin-bottom:4px}

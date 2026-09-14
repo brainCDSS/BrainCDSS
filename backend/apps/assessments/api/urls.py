@@ -2,6 +2,7 @@ from django.urls import path
 
 from apps.assessments.api.views import (
     AssessmentDetailView,
+    AssessmentListCreateView,
     AssessmentWorklistView,
     EmergencyEventAcknowledgeView,
     EmergencyWorklistView,
@@ -9,6 +10,11 @@ from apps.assessments.api.views import (
 
 
 urlpatterns = [
+    path(
+        "api/v1/assessments",
+        AssessmentListCreateView.as_view(),
+        name="api-asm-assessment-list-by-encounter",
+    ),
     path(
         "api/v1/neurology/emergency-worklist",
         EmergencyWorklistView.as_view(),

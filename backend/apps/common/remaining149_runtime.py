@@ -3063,6 +3063,170 @@ def _batchb_allergy_deactivate(
 # === BATCH_B_LOCAL_HANDLERS_END ===
 
 
+# --- Clinical note write handlers -----------------------------------------
+
+_CLINICAL_NOTE_FIELDS = (
+    "subjective",
+    "objective",
+    "assessment",
+    "plan",
+    "clinical_opinion",
+)
+
+
+def _clinical_note_payload(note, *, include_created_at=False):
+    payload = {
+        "note_id": str(note.id),
+        "encounter_id": str(note.encounter_id),
+        "author_id": str(note.author_id),
+        "status": note.status,
+        "subjective": note.subjective,
+        "objective": note.objective,
+        "assessment": note.assessment,
+        "plan": note.plan,
+        "clinical_opinion": note.clinical_opinion,
+        "finalized_at": _safe_value(note.finalized_at),
+        "updated_at": _safe_value(note.updated_at),
+    }
+    if include_created_at:
+        payload["created_at"] = _safe_value(note.created_at)
+    return payload
+
+
+def _clinical_note_get_for_update(note_id):
+    ClinicalNote = apps.get_model("clinical_records", "ClinicalNote")
+    try:
+        return ClinicalNote.objects.select_for_update().get(pk=note_id)
+    except (ClinicalNote.DoesNotExist, ValueError, TypeError) as exc:
+        raise NotFound({
+            "code": "CLINICAL_NOTE_NOT_FOUND",
+            "detail": "Clinical note was not found.",
+        }) from exc
+
+
+def _clinical_note_require_author(request, note):
+    if note.author_id != request.user.id:
+        raise PermissionDenied({
+            "code": "CLINICAL_NOTE_FORBIDDEN",
+            "detail": "Only the author can modify this clinical note.",
+        })
+
+
+def _clinical_note_require_draft(note):
+    if note.status != "DRAFT":
+        raise ContractConflict({
+            "code": "CLINICAL_NOTE_INVALID_STATE",
+            "detail": "Only a DRAFT clinical note can be changed.",
+        })
+
+
+def _clinical_note_create(request, spec, kwargs):
+    ClinicalNote = apps.get_model("clinical_records", "ClinicalNote")
+    Encounter = apps.get_model("clinical_records", "Encounter")
+    encounter_id = request.data.get("encounter_id")
+
+    if not encounter_id:
+        raise ContractError({
+            "code": "ENCOUNTER_ID_REQUIRED",
+            "detail": "encounter_id is required.",
+        })
+
+    try:
+        # Lock the encounter so concurrent creates cannot both pass the
+        # per-encounter/author DRAFT check within this transaction.
+        encounter = Encounter.objects.select_for_update().get(pk=encounter_id)
+    except (Encounter.DoesNotExist, ValueError, TypeError) as exc:
+        raise NotFound({
+            "code": "ENCOUNTER_NOT_FOUND",
+            "detail": "Encounter was not found.",
+        }) from exc
+
+    if ClinicalNote.objects.filter(
+        encounter=encounter,
+        author=request.user,
+        status="DRAFT",
+    ).exists():
+        raise ContractConflict({
+            "code": "CLINICAL_NOTE_ALREADY_IN_PROGRESS",
+            "detail": "A DRAFT clinical note already exists for this encounter and author.",
+        })
+
+    now = timezone.now()
+    note = ClinicalNote.objects.create(
+        encounter=encounter,
+        author=request.user,
+        status="DRAFT",
+        subjective=request.data.get("subjective"),
+        objective=request.data.get("objective"),
+        assessment=request.data.get("assessment"),
+        plan=request.data.get("plan"),
+        created_at=now,
+        updated_at=now,
+    )
+    payload = _clinical_note_payload(note, include_created_at=True)
+    _outbox(spec, note, payload)
+    return Response(payload, status=201)
+
+
+def _clinical_note_update(request, spec, kwargs):
+    note = _clinical_note_get_for_update(kwargs.get("note_id"))
+    _clinical_note_require_author(request, note)
+    _clinical_note_require_draft(note)
+
+    supplied_fields = set(request.data.keys())
+    invalid_fields = supplied_fields.difference(_CLINICAL_NOTE_FIELDS)
+    if invalid_fields:
+        raise ContractError({
+            "code": "CLINICAL_NOTE_FIELDS_INVALID",
+            "detail": "Only SOAP and clinical_opinion fields can be updated.",
+            "fields": sorted(invalid_fields),
+        })
+    if not supplied_fields:
+        raise ContractError({
+            "code": "CLINICAL_NOTE_FIELDS_REQUIRED",
+            "detail": "At least one editable clinical note field is required.",
+        })
+
+    for field_name in supplied_fields:
+        setattr(note, field_name, request.data.get(field_name))
+    note.updated_at = timezone.now()
+    note.save(update_fields=[*sorted(supplied_fields), "updated_at"])
+
+    payload = _clinical_note_payload(note)
+    _outbox(spec, note, payload)
+    return Response(payload, status=200)
+
+
+def _clinical_note_finalize(request, spec, kwargs):
+    note = _clinical_note_get_for_update(kwargs.get("note_id"))
+    _clinical_note_require_author(request, note)
+    _clinical_note_require_draft(note)
+
+    missing_fields = [
+        field_name
+        for field_name in ("assessment", "plan", "clinical_opinion")
+        if not str(getattr(note, field_name) or "").strip()
+    ]
+    if missing_fields:
+        raise ContractError({
+            "code": "CLINICAL_NOTE_INCOMPLETE",
+            "detail": "assessment, plan, and clinical_opinion are required to finalize.",
+            "fields": missing_fields,
+        })
+
+    before = serialize_instance(note)
+    now = timezone.now()
+    note.status = "FINAL"
+    note.finalized_at = now
+    note.updated_at = now
+    note.save(update_fields=["status", "finalized_at", "updated_at"])
+
+    payload = _clinical_note_payload(note)
+    _audit(request, spec, note, before, serialize_instance(note))
+    _outbox(spec, note, payload)
+    return Response(payload, status=200)
+
+
 CUSTOM_HANDLERS = {
     "API-ALLERGY-003": _batchb_allergy_deactivate,
     "API-RX-002": _batchb_rx_detail,
@@ -3085,6 +3249,9 @@ CUSTOM_HANDLERS = {
     "API-FCM-001": _fcm_create,
     "API-MEDSAFE-001": _medication_safety_check,
     "API-CDS-001": _cds_discovery,
+    "API-NOTE-001": _clinical_note_create,
+    "API-NOTE-004": _clinical_note_update,
+    "API-NOTE-005": _clinical_note_finalize,
 }
 
 

@@ -3,8 +3,7 @@ import type { ReactNode } from "react";
 
 
 //[추가 - 챗봇 플로팅 화면 연결]
-import AssistantFloatingButton from "../../features/assistant/AssistantFloatingButton";
-import AssistantFloatingPanel from "../../features/assistant/AssistantFloatingPanel";
+import AssistantFloatingDock from "../../features/assistant/AssistantFloatingDock";
 import AssistantWorkspace from "../../features/assistant/AssistantWorkspace";
 import type { AssistantChatMessage } from "../../features/assistant/types";
 
@@ -1554,27 +1553,23 @@ export default function AppShell({
         </main>
       </div>
 
-      {isAssistantFloatingOpen && (
-        <AssistantFloatingPanel
-          patientId={activePatientId}
-          messages={assistantMessages}
-          setMessages={setAssistantMessages}
-          conversationId={assistantConversationId}
-          setConversationId={setAssistantConversationId}
-          onExpand={
-            handleOpenAssistantWorkspace
-          }
-          onClose={() => {
-            setIsAssistantFloatingOpen(false);
-          }}
-        />
-      )}
-
-      <AssistantFloatingButton
-        onClick={() => {
+      <AssistantFloatingDock
+        isOpen={isAssistantFloatingOpen}
+        patientId={activePatientId}
+        messages={assistantMessages}
+        setMessages={setAssistantMessages}
+        conversationId={assistantConversationId}
+        setConversationId={setAssistantConversationId}
+        onToggle={() => {
           setIsAssistantFloatingOpen(
             (previous) => !previous,
           );
+        }}
+        onExpand={
+          handleOpenAssistantWorkspace
+        }
+        onClose={() => {
+          setIsAssistantFloatingOpen(false);
         }}
       />
 

@@ -3,8 +3,11 @@ import type {
   ClinicalNote,
   ClinicalNoteApiItem,
   ClinicalNoteApiListResponse,
+  ClinicalNoteDraftFields,
   ClinicalNoteListResponse,
   ClinicalNoteStatus,
+  CreateClinicalNoteRequest,
+  InitialAssessmentEncounterResponse,
 } from "./types";
 
 function authorId(item: ClinicalNoteApiItem) {
@@ -57,4 +60,59 @@ export async function getClinicalNote(noteId: string): Promise<ClinicalNote> {
     `/api/v1/clinical-notes/${encodeURIComponent(noteId)}`,
   );
   return normalizeClinicalNote(response);
+}
+
+export async function createClinicalNote(
+  payload: CreateClinicalNoteRequest,
+): Promise<ClinicalNote> {
+  const response = await apiRequest<ClinicalNoteApiItem>("/api/v1/clinical-notes", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      encounter_id: payload.encounterId,
+      subjective: payload.subjective,
+      objective: payload.objective,
+      assessment: payload.assessment,
+      plan: payload.plan,
+    }),
+  });
+  return normalizeClinicalNote(response);
+}
+
+export async function updateClinicalNote(
+  noteId: string,
+  fields: ClinicalNoteDraftFields,
+): Promise<ClinicalNote> {
+  const response = await apiRequest<ClinicalNoteApiItem>(
+    `/api/v1/clinical-notes/${encodeURIComponent(noteId)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        subjective: fields.subjective,
+        objective: fields.objective,
+        assessment: fields.assessment,
+        plan: fields.plan,
+        clinical_opinion: fields.clinicalOpinion,
+      }),
+    },
+  );
+  return normalizeClinicalNote(response);
+}
+
+export async function finalizeClinicalNote(noteId: string): Promise<ClinicalNote> {
+  const response = await apiRequest<ClinicalNoteApiItem>(
+    `/api/v1/clinical-notes/${encodeURIComponent(noteId)}/finalize`,
+    { method: "POST" },
+  );
+  return normalizeClinicalNote(response);
+}
+
+export function getInitialAssessmentsByEncounter(
+  encounterId: string,
+): Promise<InitialAssessmentEncounterResponse> {
+  const query = new URLSearchParams({ encounter_id: encounterId });
+  return apiRequest<InitialAssessmentEncounterResponse>(
+    `/api/v1/assessments?${query.toString()}`,
+  );
 }

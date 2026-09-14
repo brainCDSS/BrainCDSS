@@ -2,22 +2,115 @@ from django.db import transaction
 from django.db.models import OuterRef, Q, Subquery
 from django.utils import timezone
 from django.utils.dateparse import parse_date
+from drf_spectacular.utils import extend_schema
 from rest_framework.exceptions import APIException, NotFound, PermissionDenied, ValidationError
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.assessments.api.generated_real_149 import ContractView002
+from apps.assessments.api.generated_real_149 import ContractView000, ContractView002
 from apps.assessments.api.serializers import (
+    AssessmentEncounterListResponseSerializer,
+    AssessmentEncounterQuerySerializer,
     AssessmentWorklistResponseSerializer,
     EmergencyEventAcknowledgeResponseSerializer,
     EmergencyWorklistResponseSerializer,
 )
-from apps.assessments.models import EmergencyEvent, InitialAssessment
+from apps.assessments.models import AssessmentItem, EmergencyEvent, InitialAssessment
 from apps.audit.services.audit_event import record_audit_event
 from apps.clinical_records.models import Encounter
 from apps.organizations.models import Department
+
+
+def _require_assessment_read_role(request):
+    role_code = getattr(getattr(request.user, "role", None), "code", None)
+    if role_code not in {"NEUROLOGIST", "NURSE"}:
+        raise PermissionDenied({
+            "code": "FORBIDDEN_ROLE",
+            "detail": "Only neurologists and nurses may read assessments.",
+        })
+
+
+def _serialize_assessment_detail(assessment, items):
+    assigned_neurologist = assessment.assigned_neurologist
+    return {
+        "assessment_id": assessment.id,
+        "encounter_id": assessment.encounter_id,
+        "status": assessment.status,
+        "total_score": assessment.total_score,
+        "triage_priority": assessment.triage_priority,
+        "onset_at": assessment.onset_at,
+        "lkw_at": assessment.lkw_at,
+        "symptom_note": assessment.symptom_note,
+        "assigned_neurologist": (
+            {"id": assigned_neurologist.id, "name": assigned_neurologist.name}
+            if assigned_neurologist else None
+        ),
+        "items": [
+            {
+                "item_code": item.item_code,
+                "value_text": item.value_text,
+                "value_numeric": item.value_numeric,
+                "unit": item.unit,
+                "score": item.score,
+                "is_red_flag": item.is_red_flag,
+                "note": item.note,
+            }
+            for item in items
+        ],
+        "created_at": assessment.created_at,
+        "updated_at": assessment.updated_at,
+    }
+
+
+class AssessmentListCreateView(ContractView000):
+    """Preserve the generated POST endpoint and add encounter-scoped reads."""
+
+    @extend_schema(
+        operation_id="api_asm_assessment_list_by_encounter",
+        tags=["Assessment"],
+        parameters=[AssessmentEncounterQuerySerializer],
+        responses={200: AssessmentEncounterListResponseSerializer},
+    )
+    def get(self, request, *args, **kwargs):
+        _require_assessment_read_role(request)
+        query = AssessmentEncounterQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        encounter_id = query.validated_data["encounter_id"]
+
+        try:
+            Encounter.objects.get(pk=encounter_id)
+        except Encounter.DoesNotExist as exc:
+            raise NotFound({
+                "code": "ENCOUNTER_NOT_FOUND",
+                "detail": "Encounter was not found.",
+            }) from exc
+
+        assessments = list(
+            InitialAssessment.objects
+            .filter(encounter_id=encounter_id)
+            .select_related("assigned_neurologist")
+            .order_by("-created_at")
+        )
+        items_by_assessment = {}
+        if assessments:
+            for item in AssessmentItem.objects.filter(
+                assessment_id__in=[assessment.id for assessment in assessments],
+            ).order_by("recorded_at", "id"):
+                items_by_assessment.setdefault(item.assessment_id, []).append(item)
+
+        payload = {
+            "count": len(assessments),
+            "results": [
+                _serialize_assessment_detail(
+                    assessment,
+                    items_by_assessment.get(assessment.id, []),
+                )
+                for assessment in assessments
+            ],
+        }
+        return Response(AssessmentEncounterListResponseSerializer(payload).data)
 
 
 class AssessmentDetailView(ContractView002):

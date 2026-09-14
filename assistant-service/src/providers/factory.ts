@@ -1,5 +1,6 @@
-import { GeminiProvider } from "./gemini/provider.js";
-import { MockProvider } from "./mock.js";
+import {
+  GeminiProvider,
+} from "./gemini/provider.js";
 
 import type {
   AssistantProvider,
@@ -7,54 +8,62 @@ import type {
 
 
 export type ProviderMode =
-  | "mock"
-  | "gemini";
+  | "vertex";
 
 
 export type ProviderBundle = {
   provider: AssistantProvider;
   mode: ProviderMode;
-  model: string | null;
+  model: string;
 };
+
+
+function requiredEnv(
+  name: string,
+): string {
+  const value =
+    process.env[name]
+      ?.trim()
+    ?? "";
+
+  if (!value) {
+    throw new Error(
+      `${name}_REQUIRED`
+    );
+  }
+
+  return value;
+}
 
 
 export function createProvider():
   ProviderBundle {
 
-  const apiKey =
-    process.env.GEMINI_API_KEY
-      ?.trim()
-    ?? "";
+  const project =
+    requiredEnv(
+      "GOOGLE_CLOUD_PROJECT"
+    );
 
-  if (!apiKey) {
-    return {
-      provider: new MockProvider(),
-      mode: "mock",
-      model: null,
-    };
-  }
+  const location =
+    requiredEnv(
+      "GOOGLE_CLOUD_LOCATION"
+    );
 
   const model =
-    process.env.GEMINI_MODEL
-      ?.trim()
-    ?? "";
-
-  if (
-    !model
-    || model.startsWith("TODO")
-  ) {
-    throw new Error(
-      "GEMINI_API_KEY is configured "
-      + "but GEMINI_MODEL is missing."
+    requiredEnv(
+      "GEMINI_MODEL"
     );
-  }
 
   return {
-    provider: new GeminiProvider(
-      apiKey,
-      model,
-    ),
-    mode: "gemini",
+    provider:
+      new GeminiProvider({
+        project,
+        location,
+        model,
+      }),
+
+    mode: "vertex",
+
     model,
   };
 }

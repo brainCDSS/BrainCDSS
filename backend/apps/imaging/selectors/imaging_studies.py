@@ -15,6 +15,7 @@ from apps.ai_analysis.models import (
 from apps.consultations.models import Consultation
 from apps.imaging.models import (
     ImagingStudy,
+    NiftiArtifact,
     SeriesReference,
 )
 from apps.radiology.models import RadiologyReport
@@ -101,6 +102,12 @@ def scoped_imaging_studies(user):
         "NEUROLOGIST",
         "NEUROSURGEON",
     }:
+        prototype_gcs_studies = (
+            NiftiArtifact.objects
+            .filter(source="PROTOTYPE_GCS")
+            .values("series__study_id")
+        )
+
         consultation_encounters = (
             Consultation.objects
             .filter(
@@ -128,6 +135,11 @@ def scoped_imaging_studies(user):
             | Q(
                 id__in=Subquery(
                     requested_ai_studies
+                )
+            )
+            | Q(
+                id__in=Subquery(
+                    prototype_gcs_studies
                 )
             )
         )

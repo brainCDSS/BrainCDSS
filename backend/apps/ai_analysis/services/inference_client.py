@@ -19,6 +19,16 @@ class InferenceClientError(RuntimeError):
 
 def call_inference(payload: dict) -> dict:
     headers = {"Content-Type": "application/json"}
+
+    trace_id = str(
+        payload.get("trace_id")
+        or ""
+    ).strip()
+
+    if trace_id:
+        headers["X-Request-ID"] = trace_id
+        headers["X-Trace-ID"] = trace_id
+
     if settings.INFERENCE_USE_ID_TOKEN:
         headers["Authorization"] = f"Bearer {_identity_token()}"
     request = Request(

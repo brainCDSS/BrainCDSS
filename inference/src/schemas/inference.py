@@ -75,7 +75,7 @@ class ModelInfo(StrictModel):
 
 
 class OutputObject(StrictModel):
-    type: Literal["NIFTI_MASK", "RESULT_JSON"]
+    type: Literal["NIFTI_MASK", "RESULT_JSON", "GRAD_CAM_NIFTI"]
     uri: str = Field(pattern=r"^gs://")
     size_bytes: int = Field(gt=0)
     sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
@@ -102,8 +102,12 @@ class InferenceResponse(StrictModel):
 
     @model_validator(mode="after")
     def validate_status_payload(self):
-        if self.status == "SUCCEEDED" and (self.error is not None or len(self.outputs) != 2):
-            raise ValueError("successful response requires two outputs and no error")
+        output_types = {item.type for item in self.outputs}
+        required = {"NIFTI_MASK", "RESULT_JSON"}
+        if self.status == "SUCCEEDED" and (
+            self.error is not None or not required.issubset(output_types)
+        ):
+            raise ValueError("successful response requires mask and result outputs and no error")
         if self.status == "FAILED" and self.error is None:
             raise ValueError("failed response requires error")
         return self

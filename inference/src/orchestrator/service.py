@@ -194,6 +194,24 @@ class InferenceService:
                 mask_path
             )
 
+            xai_path = output_dir / "grad-cam.nii.gz"
+            xai_metadata = None
+            xai_error = None
+            if os.getenv("XAI_ENABLED", "true").lower() in {"1", "true", "yes"}:
+                xai_started = time.perf_counter()
+                try:
+                    from src.xai.nnunet_gradcam import generate_nnunet_gradcam
+
+                    xai_metadata = generate_nnunet_gradcam(
+                        predictor,
+                        input_paths,
+                        input_paths[0],
+                        xai_path,
+                    )
+                except Exception as exc:  # XAI is optional; segmentation remains usable.
+                    xai_error = f"{type(exc).__name__}: {exc}"
+                timing["xai"] = _milliseconds(xai_started)
+
             result_path = (
                 work_dir
                 / "outputs"
@@ -220,6 +238,8 @@ class InferenceService:
                 "manifest_uri": manifest_uri,
                 "metrics": metrics,
                 "output_geometry": geometry,
+                "xai": xai_metadata,
+                "xai_error": xai_error,
                 "trace_id": trace_id,
             }
 
@@ -258,6 +278,15 @@ class InferenceService:
                 content_type="application/json",
             )
 
+            xai_info = (
+                self.storage.upload(
+                    xai_path,
+                    f"{prefix}/grad-cam.nii.gz",
+                )
+                if xai_metadata is not None and xai_path.is_file()
+                else None
+            )
+
             timing["upload"] = _milliseconds(
                 upload_started
             )
@@ -292,6 +321,11 @@ class InferenceService:
                     OutputObject(
                         type="RESULT_JSON",
                         **result_info.__dict__,
+                    ),
+                    *(
+                        [OutputObject(type="GRAD_CAM_NIFTI", **xai_info.__dict__)]
+                        if xai_info is not None
+                        else []
                     ),
                 ],
                 metrics=metrics,
@@ -382,6 +416,16 @@ class InferenceService:
                 verbose_preprocessing=False,
                 allow_tqdm=False,
             )
+
+            training_config = manifest.get("training_config")
+            if training_config:
+                config_path = (bundle_dir / training_config).resolve()
+                if not config_path.is_file() or bundle_dir.resolve() not in config_path.parents:
+                    raise ModelNotReadyError(
+                        "model training config is missing",
+                        detail={"training_config": training_config},
+                    )
+                os.environ["ICH_NNUNET_CONFIG"] = str(config_path)
 
             predictor.initialize_from_trained_model_folder(
                 str(bundle_dir),

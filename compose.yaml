@@ -113,7 +113,15 @@ services:
   assistant-service:
     build: ./assistant-service
     profiles: [assistant]
-    environment: {PORT: "8200", GEMINI_API_KEY: "${GEMINI_API_KEY:-}", GEMINI_MODEL: "${GEMINI_MODEL:-}", MCP_SERVER_URL: "http://mcp-server:8300/mcp"}
+    environment:
+      PORT: "8200"
+      GOOGLE_CLOUD_PROJECT: "${GOOGLE_CLOUD_PROJECT:-}"
+      GOOGLE_CLOUD_LOCATION: "${GOOGLE_CLOUD_LOCATION:-global}"
+      GOOGLE_APPLICATION_CREDENTIALS: "/run/secrets/gcloud-adc.json"
+      GEMINI_MODEL: "${GEMINI_MODEL:-gemini-2.5-flash}"
+      MCP_SERVER_URL: "http://mcp-server:8300/mcp"
+    volumes:
+      - ./secrets/gcloud-adc.json:/run/secrets/gcloud-adc.json:ro
     depends_on: [mcp-server]
     ports: ["8200:8200"]
     restart: unless-stopped

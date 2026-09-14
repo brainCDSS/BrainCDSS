@@ -50,7 +50,7 @@ export interface ImagingPatientSummary {
 export interface ImagingStudyApiItem {
   study_id: string;
   accession_number: string;
-  study_datetime: string;
+  study_datetime: string | null;
   modalities?: string[];
   modality?: string;
 
@@ -176,7 +176,7 @@ export interface ImagingStudy {
   modality: ImagingModality;
 
   series: string;
-  study_at: string;
+  study_at: string | null;
 
   /**
    * 현재 Imaging Study API 응답에 없는 UI 호환 필드.

@@ -35,6 +35,9 @@ export default function AIAnalysisResultsPage({ initialAnalysisId }: Props) {
   const [actionBusy, setActionBusy] = useState(false);
   const [reviewMessage, setReviewMessage] = useState<string | null>(null);
   const [selectedLesion, setSelectedLesion] = useState<number | null>(null);
+  const [studyIndex, setStudyIndex] = useState<Record<string, ImagingStudyDetail>>({});
+  const [patientQuery, setPatientQuery] = useState("");
+  const [listCollapsed, setListCollapsed] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -51,6 +54,29 @@ export default function AIAnalysisResultsPage({ initialAnalysisId }: Props) {
   }, [initialAnalysisId]);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    let active = true;
+    const missingStudyIds = [...new Set(items.map((item) => item.study_id))]
+      .filter((studyId) => !studyIndex[studyId]);
+    if (!missingStudyIds.length) return () => { active = false; };
+    void Promise.allSettled(missingStudyIds.map(async (studyId) => {
+      const detail = await getImagingStudy(studyId);
+      return [studyId, detail] as const;
+    })).then((settled) => {
+      if (!active) return;
+      setStudyIndex((current) => {
+        const next = { ...current };
+        settled.forEach((entry) => {
+          if (entry.status === "fulfilled") next[entry.value[0]] = entry.value[1];
+        });
+        return next;
+      });
+    });
+    return () => { active = false; };
+  // Refresh metadata when the analysis list changes. Failed study lookups stay
+  // unlinked until the next explicit list refresh instead of retrying in a loop.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items]);
   useEffect(() => {
     if (!selected || TERMINAL.has(selected.status)) return;
     let active = true; let timer: ReturnType<typeof setTimeout>;
@@ -75,7 +101,8 @@ export default function AIAnalysisResultsPage({ initialAnalysisId }: Props) {
 
   const rawLesions = result?.structured_findings?.lesions;
   const lesions: Lesion[] = Array.isArray(rawLesions) ? rawLesions.filter((item): item is Lesion => typeof item === "object" && item !== null) : [];
-  const xaiArtifacts = result?.artifacts.filter((item) => ["ATTENTION_MAP", "SALIENCY_MAP", "UNCERTAINTY_MAP"].includes(item.type)) ?? [];
+  const xaiArtifacts = result?.artifacts.filter((item) => ["GRAD_CAM_NIFTI", "ATTENTION_MAP_NIFTI", "ATTENTION_MAP", "SALIENCY_MAP", "UNCERTAINTY_MAP"].includes(item.type)) ?? [];
+  const xaiLabel = (type: string) => type === "GRAD_CAM_NIFTI" || type === "ATTENTION_MAP_NIFTI" ? "Grad-CAM" : type;
   const findingText = findingLabel(selected?.analysis_type, result?.is_positive);
 
   async function saveReview() {
@@ -87,6 +114,14 @@ export default function AIAnalysisResultsPage({ initialAnalysisId }: Props) {
   }
 
   const patient = study?.patient;
+  const normalizedQuery = patientQuery.trim().toLocaleLowerCase("ko-KR");
+  const visibleItems = items.filter((item) => {
+    if (!normalizedQuery) return true;
+    const indexedStudy = studyIndex[item.study_id];
+    const indexedPatient = indexedStudy?.patient;
+    return [indexedPatient?.name, indexedPatient?.patient_no, indexedStudy?.accession_number, ANALYSIS[item.analysis_type], item.analysis_type]
+      .some((value) => String(value ?? "").toLocaleLowerCase("ko-KR").includes(normalizedQuery));
+  });
   return <section className="ai-workspace-page clinical-ai-results">
     <header className="ai-workspace-heading compact"><div><h2>AI 분석 결과</h2><p>AI가 생성한 병변 분할과 정량 결과를 검토합니다.</p></div><div className="ai-workspace-filter"><label>분석 선택<select value={selected?.analysis_id ?? ""} onChange={(event) => setSelected(items.find((item) => item.analysis_id === event.target.value) ?? null)} disabled={loading}>{items.map((item) => <option key={item.analysis_id} value={item.analysis_id}>{ANALYSIS[item.analysis_type] ?? item.analysis_type} · {formatDate(item.requested_at)}</option>)}</select></label><button type="button" onClick={() => void load()}>새로고침</button></div></header>
     {error && <div className="ai-page-error">{error}</div>}
@@ -96,7 +131,26 @@ export default function AIAnalysisResultsPage({ initialAnalysisId }: Props) {
 
     {selected && !TERMINAL.has(selected.status) && <section className="ai-running-card"><div className="ai-running-spinner"/><div><strong>{STATUS[selected.status] ?? "분석 중"}</strong><span>{selected.stage || "요청 준비"}</span></div><div className="ai-analysis-progress"/></section>}
 
-    <div className="ai-workspace-body">
+    <div className={`ai-results-main-layout${listCollapsed ? " is-list-collapsed" : ""}`}>
+      <aside className="ai-result-patient-list" aria-label="환자별 AI 분석 결과 목록">
+        <header><strong>환자 결과</strong><span>{items.length}</span><button type="button" onClick={() => setListCollapsed(true)} aria-label="환자 결과 목록 접기">‹</button></header>
+        <label className="ai-result-patient-search"><span className="sr-only">환자 결과 검색</span><input value={patientQuery} onChange={(event) => setPatientQuery(event.target.value)} placeholder="이름, 환자번호, 검사번호 검색" /></label>
+        <div className="ai-result-patient-scroll">
+          {visibleItems.map((item) => {
+            const indexedStudy = studyIndex[item.study_id];
+            const indexedPatient = indexedStudy?.patient;
+            return <button type="button" key={item.analysis_id} className={selected?.analysis_id === item.analysis_id ? "is-selected" : ""} onClick={() => setSelected(item)}>
+              <span className="patient-result-heading"><strong>{indexedPatient?.name || "환자 정보 미연결"}</strong><em className={`is-${item.status.toLowerCase()}`}>{STATUS[item.status] ?? item.status}</em></span>
+              <span>{indexedPatient?.patient_no || indexedStudy?.accession_number || "검사 식별정보 없음"}</span>
+              <span>{ANALYSIS[item.analysis_type] ?? item.analysis_type}</span>
+              <time>{formatDate(item.requested_at)}</time>
+            </button>;
+          })}
+          {!visibleItems.length && <div className="ai-result-patient-empty">검색 결과가 없습니다.</div>}
+        </div>
+      </aside>
+      {listCollapsed && <button type="button" className="ai-result-list-opener" onClick={() => setListCollapsed(false)}>환자 결과 <span>{items.length}</span> ›</button>}
+      <div className="ai-workspace-body">
       <main className="ai-workspace-primary">{selected?.status === "COMPLETED" ? <Suspense fallback={<div className="nifti-viewer__message">뷰어 준비 중</div>}><NiftiViewer key={selected.analysis_id} analysisId={selected.analysis_id} focusSlice={selectedLesion == null ? null : lesions[selectedLesion]?.representative_slice}/></Suspense> : <section className="ai-viewer-card ai-viewer-empty"><strong>{selected ? "분석 결과를 기다리는 중입니다." : "분석을 선택하세요."}</strong></section>}</main>
       <aside className="ai-workspace-secondary clinical-result-panel">
         <nav className="result-tabs">{([['SUMMARY','요약'],['LESIONS','병변'],['XAI','XAI'],['REVIEW','검토']] as Array<[ResultTab,string]>).map(([id,label]) => <button type="button" key={id} className={tab === id ? "is-active" : ""} onClick={() => setTab(id)}>{label}</button>)}</nav>
@@ -107,10 +161,11 @@ export default function AIAnalysisResultsPage({ initialAnalysisId }: Props) {
             {result && <details className="technical-details"><summary>기술 상세</summary><pre>{JSON.stringify(result.structured_findings, null, 2)}</pre></details>}
           </section>}
           {tab === "LESIONS" && <section className="lesion-panel">{lesions.length ? lesions.map((lesion,index) => <button type="button" key={String(lesion.id ?? index)} className={selectedLesion === index ? "is-selected" : ""} disabled={lesion.representative_slice == null} onClick={() => setSelectedLesion(index)}><strong>병변 {index + 1}</strong><span>부피 {volume(lesion.volume_ml)}</span><span>대표 슬라이스 {lesion.representative_slice ?? "미산출"}</span><span>예측 점수 {lesion.prediction_score ?? "미산출"}</span></button>) : <div className="tab-empty"><strong>병변별 데이터 미생성</strong><span>{result?.total_volume_ml == null ? "병변별·총부피 정보가 없습니다." : `현재 결과에는 총부피 ${volume(result.total_volume_ml)}만 있습니다.`}</span></div>}</section>}
-          {tab === "XAI" && <section className="xai-panel">{xaiArtifacts.length ? xaiArtifacts.map((artifact) => <div key={artifact.artifact_id ?? artifact.type}><strong>{artifact.type}</strong><span>생성 완료</span></div>) : <div className="tab-empty"><strong>XAI 미생성</strong><span>분할 마스크는 표시 중이지만 XAI 결과로 간주하지 않습니다.</span></div>}</section>}
+          {tab === "XAI" && <section className="xai-panel">{xaiArtifacts.length ? xaiArtifacts.map((artifact) => <div key={artifact.artifact_id ?? artifact.type}><strong>{xaiLabel(artifact.type)}</strong><span>생성 완료</span></div>) : <div className="tab-empty"><strong>XAI 미생성</strong><span>분할 마스크는 표시 중이지만 XAI 결과로 간주하지 않습니다.</span></div>}</section>}
           {tab === "REVIEW" && <section className="review-panel"><div className="review-state"><span>현재 검토 상태</span><strong>{result?.latest_review?.decision ?? "미검토"}</strong></div><label>검토 결정<select value={reviewDecision} onChange={(e) => setReviewDecision(e.target.value as typeof reviewDecision)}><option value="ACCEPT">수용</option><option value="MODIFY">수정 필요</option><option value="REJECT">거절</option></select></label><label>의료진 소견<textarea value={opinion} onChange={(e) => setOpinion(e.target.value)} placeholder="AI 결과에 대한 소견을 입력하세요." /></label>{reviewMessage && <p>{reviewMessage}</p>}<div className="review-actions"><button type="button" disabled={actionBusy || !result || !opinion.trim()} onClick={() => void saveReview()}>검토 저장</button><button type="button" disabled title="판독 API 미연결">판독 작성</button><button type="button" disabled title="협진 API 미연결">협진 공유</button>{selected?.status === "QUEUED" && <button type="button" onClick={() => void cancelAIAnalysis(selected.analysis_id, "사용자 취소")}>분석 취소</button>}</div></section>}
         </div>
       </aside>
+      </div>
     </div>
   </section>;
 }

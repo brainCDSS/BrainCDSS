@@ -25,10 +25,15 @@ import type {
 import {
   createEncounter,
   getAssessmentWorklist,
+  getClinicians,
+  getHospitalDepartments,
+  getHospitals,
   startAssessment,
 } from "./api";
 import type {
   AssessmentWorklistItem,
+  Clinician,
+  DepartmentItem,
 } from "./types";
 import {
   formatMobilePhone,
@@ -123,6 +128,33 @@ const EMPTY_RECEPTION_DRAFT: ReceptionDraft = {
 
 
 const PAGE_SIZE = 10;
+
+
+/* =========================================================
+   접수 화면 표시 대상 진료과
+   ---------------------------------------------------------
+   소속기관은 화면에 표시하지 않습니다.
+   기존 Reference API에서 활성 병원들의 진료과를 조회한 뒤
+   Brain CDSS 접수에서 사용하는 진료과만 표시합니다.
+   ========================================================= */
+
+const RECEPTION_DEPARTMENT_NAMES = new Set([
+  "신경과",
+  "신경외과",
+  "영상의학과",
+]);
+
+const RECEPTION_DEPARTMENT_CODES = new Set([
+  "NEUROLOGY",
+  "NEUROSURGERY",
+  "RADIOLOGY",
+]);
+
+const RECEPTION_DEPARTMENT_ORDER = [
+  "신경과",
+  "신경외과",
+  "영상의학과",
+];
 
 
 /* =========================================================
@@ -631,11 +663,55 @@ export default function ReceptionInitialAssessment({
     setAppointmentLoading,
   ] = useState(false);
 
+
+  /* =======================================================
+     진료과 / 담당 의료진
+     -------------------------------------------------------
+     Backend Reference API:
+     GET /api/v1/hospitals
+     GET /api/v1/hospitals/{hospital_id}/departments
+     GET /api/v1/departments/{department_id}/clinicians
+
+     소속기관 선택 UI는 사용하지 않습니다.
+     병원 목록은 내부 조회에만 사용하고,
+     접수 화면에는 진료과와 담당의만 표시합니다.
+     ======================================================= */
+
+  const [
+    departments,
+    setDepartments,
+  ] = useState<DepartmentItem[]>([]);
+
+  const [
+    clinicians,
+    setClinicians,
+  ] = useState<Clinician[]>([]);
+
+  const [
+    departmentLoading,
+    setDepartmentLoading,
+  ] = useState(false);
+
+  const [
+    clinicianLoading,
+    setClinicianLoading,
+  ] = useState(false);
+
+  const [
+    organizationError,
+    setOrganizationError,
+  ] = useState<string | null>(
+    null,
+  );
+
   /*
-   * 아래 항목은 목표 UI를 먼저 맞추기 위한 화면 상태입니다.
-   * 현재 CreateEncounterRequest 계약에는 포함되지 않으므로
-   * registerEncounter()의 payload에는 넣지 않습니다.
-   * Backend 계약 확정 후 API 필드와 연결하세요.
+   * 아래 항목은 접수 화면에서 사용하는 UI 상태입니다.
+   * department에는 department_id,
+   * clinician에는 Clinician.user_id를 저장합니다.
+   *
+   * 현재 CreateEncounterRequest 계약에는 진료과/담당의가
+   * 포함되지 않으므로 registerEncounter() payload에는
+   * 아직 넣지 않습니다.
    */
   const [
     receptionDraft,
@@ -865,19 +941,21 @@ export default function ReceptionInitialAssessment({
         return;
       }
 
+      const nextDepartmentId =
+        selectedAppointment
+          .department
+          ?.id ??
+        selectedAppointment
+          .department_id ??
+        "";
+
       setReceptionDraft(
         (current) => ({
           ...current,
           department:
-            selectedAppointment
-              .department
-              ?.name ??
+            nextDepartmentId ||
             current.department,
-          clinician:
-            selectedAppointment
-              .clinician
-              ?.name ??
-            current.clinician,
+          clinician: "",
           channel: "OUTPATIENT_DESK",
         }),
       );
@@ -885,6 +963,347 @@ export default function ReceptionInitialAssessment({
     [
       selectedAppointment,
       visitMode,
+    ],
+  );
+
+
+  /* =======================================================
+     접수용 진료과 조회
+     -------------------------------------------------------
+     소속기관은 사용자에게 노출하지 않습니다.
+
+     1. 활성 병원 목록 조회
+     2. 각 병원의 활성 진료과 조회
+     3. 신경과 / 신경외과 / 영상의학과만 추림
+     4. 선택한 진료과 ID로 담당 의료진 조회
+     ======================================================= */
+
+  useEffect(
+    () => {
+      let active =
+        true;
+
+      setDepartments(
+        [],
+      );
+
+      setClinicians(
+        [],
+      );
+
+      setReceptionDraft(
+        (current) => ({
+          ...current,
+          clinician: "",
+        }),
+      );
+
+      setDepartmentLoading(
+        true,
+      );
+
+      setOrganizationError(
+        null,
+      );
+
+
+      async function loadReceptionDepartments() {
+        try {
+          const hospitalResponse =
+            await getHospitals();
+
+          if (!active) {
+            return;
+          }
+
+          const hospitals =
+            hospitalResponse.results ??
+            [];
+
+          const departmentResponses =
+            await Promise.all(
+              hospitals.map(
+                async (hospital) => {
+                  try {
+                    return await getHospitalDepartments(
+                      hospital.id,
+                    );
+                  } catch {
+                    /*
+                     * 특정 테스트 병원 데이터 조회가 실패해도
+                     * 다른 병원의 진료과 조회는 계속합니다.
+                     */
+                    return null;
+                  }
+                },
+              ),
+            );
+
+          if (!active) {
+            return;
+          }
+
+          const byId =
+            new Map<
+              string,
+              DepartmentItem
+            >();
+
+          for (
+            const response of departmentResponses
+          ) {
+            for (
+              const department of
+                response?.departments ??
+                []
+            ) {
+              const normalizedCode =
+                department.code
+                  .trim()
+                  .toUpperCase();
+
+              const normalizedName =
+                department.name.trim();
+
+              if (
+                !RECEPTION_DEPARTMENT_CODES.has(
+                  normalizedCode,
+                ) &&
+                !RECEPTION_DEPARTMENT_NAMES.has(
+                  normalizedName,
+                )
+              ) {
+                continue;
+              }
+
+              byId.set(
+                department.id,
+                department,
+              );
+            }
+          }
+
+          const list =
+            Array.from(
+              byId.values(),
+            ).sort(
+              (a, b) => {
+                const aIndex =
+                  RECEPTION_DEPARTMENT_ORDER.indexOf(
+                    a.name,
+                  );
+
+                const bIndex =
+                  RECEPTION_DEPARTMENT_ORDER.indexOf(
+                    b.name,
+                  );
+
+                return (
+                  (aIndex === -1
+                    ? 999
+                    : aIndex) -
+                  (bIndex === -1
+                    ? 999
+                    : bIndex)
+                );
+              },
+            );
+
+          setDepartments(
+            list,
+          );
+
+          setReceptionDraft(
+            (current) => ({
+              ...current,
+              department:
+                list.some(
+                  (item) =>
+                    item.id ===
+                    current.department,
+                )
+                  ? current.department
+                  : "",
+              clinician: "",
+            }),
+          );
+        } catch (requestError) {
+          if (!active) {
+            return;
+          }
+
+          setDepartments(
+            [],
+          );
+
+          setClinicians(
+            [],
+          );
+
+          setOrganizationError(
+            apiError(
+              requestError,
+              "진료과 정보를 불러오지 못했습니다.",
+            ),
+          );
+        } finally {
+          if (active) {
+            setDepartmentLoading(
+              false,
+            );
+          }
+        }
+      }
+
+
+      void loadReceptionDepartments();
+
+
+      return () => {
+        active =
+          false;
+      };
+    },
+    [],
+  );
+
+
+  /* =======================================================
+     진료과별 활성 의료진 조회
+     ======================================================= */
+
+  useEffect(
+    () => {
+      let active =
+        true;
+
+      setClinicians(
+        [],
+      );
+
+      setReceptionDraft(
+        (current) => ({
+          ...current,
+          clinician: "",
+        }),
+      );
+
+      const departmentId =
+        receptionDraft.department;
+
+      if (!departmentId) {
+        return () => {
+          active =
+            false;
+        };
+      }
+
+      setClinicianLoading(
+        true,
+      );
+
+      setOrganizationError(
+        null,
+      );
+
+      getClinicians(
+        departmentId,
+      )
+        .then(
+          (response) => {
+            if (!active) {
+              return;
+            }
+
+            const activeClinicians =
+              (response.clinicians ?? [])
+                .filter(
+                  (item) =>
+                    item.is_active,
+                );
+
+            setClinicians(
+              activeClinicians,
+            );
+
+            const appointmentClinicianId =
+              selectedAppointment
+                ?.clinician
+                ?.id ??
+              selectedAppointment
+                ?.clinician_id ??
+              "";
+
+            const appointmentClinicianName =
+              selectedAppointment
+                ?.clinician
+                ?.name ??
+              "";
+
+            const matchedClinician =
+              activeClinicians.find(
+                (item) =>
+                  item.user_id ===
+                    appointmentClinicianId ||
+                  item.id ===
+                    appointmentClinicianId ||
+                  (
+                    Boolean(
+                      appointmentClinicianName,
+                    ) &&
+                    item.name ===
+                      appointmentClinicianName
+                  ),
+              ) ??
+              null;
+
+            if (matchedClinician) {
+              setReceptionDraft(
+                (current) => ({
+                  ...current,
+                  clinician:
+                    matchedClinician.user_id,
+                }),
+              );
+            }
+          },
+        )
+        .catch(
+          (requestError) => {
+            if (!active) {
+              return;
+            }
+
+            setClinicians(
+              [],
+            );
+
+            setOrganizationError(
+              apiError(
+                requestError,
+                "담당 의료진 목록을 불러오지 못했습니다.",
+              ),
+            );
+          },
+        )
+        .finally(
+          () => {
+            if (active) {
+              setClinicianLoading(
+                false,
+              );
+            }
+          },
+        );
+
+      return () => {
+        active =
+          false;
+      };
+    },
+    [
+      receptionDraft.department,
+      selectedAppointment,
     ],
   );
 
@@ -1538,8 +1957,11 @@ export default function ReceptionInitialAssessment({
      encounter_type
      appointment_id (OUTPATIENT only)
 
-     화면의 방문 사유 / 진료과 / 담당의 / 접수 채널 /
-     우선순위 / 비고는 현재 API payload에 넣지 않습니다.
+     화면에서 선택한 진료과 / 담당의는 실제 Reference API로
+     조회하지만, 현재 Encounter 생성 계약에는 저장 필드가 없습니다.
+
+     응급 알림 수신자는 초기평가 완료 시
+     assigned_neurologist_id로 최종 확정됩니다.
      ======================================================= */
 
   async function registerEncounter() {
@@ -1557,6 +1979,26 @@ export default function ReceptionInitialAssessment({
     ) {
       setError(
         "예약 접수는 확정 예약을 선택해 주세요.",
+      );
+
+      return;
+    }
+
+    if (
+      !receptionDraft.department
+    ) {
+      setError(
+        "진료과를 선택해 주세요.",
+      );
+
+      return;
+    }
+
+    if (
+      !receptionDraft.clinician
+    ) {
+      setError(
+        "담당 의료진을 선택해 주세요.",
       );
 
       return;
@@ -3015,6 +3457,9 @@ export default function ReceptionInitialAssessment({
                     value={
                       receptionDraft.department
                     }
+                    disabled={
+                      departmentLoading
+                    }
                     onChange={(
                       event,
                     ) => {
@@ -3033,22 +3478,37 @@ export default function ReceptionInitialAssessment({
                   >
 
                     <option value="">
-                      진료과 선택
+                      {departmentLoading
+                        ? "진료과 조회 중..."
+                        : "진료과 선택"}
                     </option>
 
-                    <option value="신경과">
-                      신경과
-                    </option>
-
-                    <option value="신경외과">
-                      신경외과
-                    </option>
-
-                    <option value="영상의학과">
-                      영상의학과
-                    </option>
+                    {departments.map(
+                      (
+                        department,
+                      ) => (
+                        <option
+                          key={
+                            department.id
+                          }
+                          value={
+                            department.id
+                          }
+                        >
+                          {department.name}
+                        </option>
+                      ),
+                    )}
 
                   </select>
+
+                  {!departmentLoading &&
+                    departments.length ===
+                      0 && (
+                      <small>
+                        선택 가능한 진료과가 없습니다.
+                      </small>
+                    )}
 
                 </label>
 
@@ -3065,6 +3525,10 @@ export default function ReceptionInitialAssessment({
                   <select
                     value={
                       receptionDraft.clinician
+                    }
+                    disabled={
+                      !receptionDraft.department ||
+                      clinicianLoading
                     }
                     onChange={(
                       event,
@@ -3083,24 +3547,47 @@ export default function ReceptionInitialAssessment({
                   >
 
                     <option value="">
-                      담당 의료진 선택
+                      {clinicianLoading
+                        ? "담당 의료진 조회 중..."
+                        : !receptionDraft.department
+                          ? "진료과를 먼저 선택해 주세요"
+                          : "담당 의료진 선택"}
                     </option>
 
-                    {receptionDraft.clinician && (
-                      <option
-                        value={
-                          receptionDraft.clinician
-                        }
-                      >
-                        {receptionDraft.clinician}
-                      </option>
+                    {clinicians.map(
+                      (
+                        clinician,
+                      ) => (
+                        <option
+                          key={
+                            clinician.id
+                          }
+                          value={
+                            clinician.user_id
+                          }
+                        >
+                          {clinician.name}
+                          {clinician.specialty
+                            ? ` · ${clinician.specialty}`
+                            : ""}
+                        </option>
+                      ),
                     )}
 
                   </select>
 
-                  {!selectedAppointment && (
+                  {!clinicianLoading &&
+                    receptionDraft.department &&
+                    clinicians.length ===
+                      0 && (
+                      <small>
+                        선택 가능한 활성 의료진이 없습니다.
+                      </small>
+                    )}
+
+                  {organizationError && (
                     <small>
-                      진료과별 담당의 목록 API 연결 후 선택 항목을 채울 수 있습니다.
+                      {organizationError}
                     </small>
                   )}
 
@@ -3239,8 +3726,8 @@ export default function ReceptionInitialAssessment({
               <footer className="reception-register-actions">
 
                 <span>
-                  현재 API에는 환자 · 내원유형 · 예약 ID만 저장됩니다.
-                  나머지 접수 항목은 Backend 계약 확정 후 payload에 연결해야 합니다.
+                  현재 Encounter API에는 환자 · 내원유형 · 예약 ID만 저장됩니다.
+                  응급 알림 대상 의료진은 초기평가 완료 단계에서 최종 지정됩니다.
                 </span>
 
 
@@ -3249,6 +3736,10 @@ export default function ReceptionInitialAssessment({
                   disabled={
                     busy !== null ||
                     appointmentLoading ||
+                    departmentLoading ||
+                    clinicianLoading ||
+                    !receptionDraft.department ||
+                    !receptionDraft.clinician ||
                     (
                       visitMode ===
                         "APPOINTMENT" &&

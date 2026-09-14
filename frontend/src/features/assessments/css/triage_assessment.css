@@ -1065,7 +1065,48 @@
 .triage-step-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid #e7edf4}.triage-step-heading span{color:#2d7ed8;font-size:10px;font-weight:850;letter-spacing:.1em}.triage-step-heading h2{margin:3px 0 4px;color:#26384f;font-size:19px}.triage-step-heading p{margin:0;color:#7b889b;font-size:12px}.triage-step-heading>strong{padding:6px 10px;border-radius:999px;background:#eef5ff;color:#2c73c4;font-size:11px}
 .triage-step-panel .triage-assessment__grid{margin-bottom:16px}.triage-fast-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.triage-fast-grid .triage-question-card{min-height:130px;flex-direction:column;align-items:stretch}.triage-fast-grid .triage-choice-group{margin-top:auto}.triage-consciousness{margin-bottom:18px}.triage-vital-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.triage-rule-empty{min-height:105px}.triage-note-field{display:block;margin-top:18px}.triage-note-field>span{display:block;margin-bottom:8px;color:#43536a;font-size:12px;font-weight:750}.triage-note-field textarea{width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid #dce4ee;border-radius:10px;outline:none;background:#fff;color:#2e3e55;font:inherit;resize:vertical}.triage-note-field textarea:focus{border-color:#69a1e3;box-shadow:0 0 0 3px rgba(61,133,220,.1)}
 .triage-wizard-actions{display:flex;flex:0 0 auto;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding:12px 16px;border:1px solid #dfe7f1;border-radius:11px;background:#fff;box-shadow:0 -5px 18px rgba(50,78,112,.04)}.triage-wizard-actions>div{display:flex;gap:8px}.triage-wizard-actions button{min-width:100px;height:38px;padding:0 16px;border-radius:8px;font:inherit;font-size:12px;font-weight:800}.triage-wizard-actions .triage-complete-button{min-width:120px}
-.triage-result-step{display:flex;height:100%;min-height:0;flex-direction:column;padding:14px;overflow:visible}.triage-result-step>.triage-step-heading{margin-bottom:10px;padding-bottom:9px}.triage-result-overview{display:grid;grid-template-columns:1.2fr .8fr;gap:8px}.triage-result-step .triage-result-card{margin:0;padding:14px 16px;gap:16px}.triage-result-step .triage-result-values>div{min-height:58px;padding:7px 12px}.triage-input-summary,.triage-result-subcard{height:auto;min-height:0;padding:12px 14px;border:1px solid #e0e7f0;border-radius:11px;background:#fbfdff}.triage-input-summary h3,.triage-result-subcard h3{margin:0 0 8px;color:#30425c;font-size:14px}.triage-input-summary dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:0}.triage-input-summary dl div{padding:7px 8px;border-radius:8px;background:#fff}.triage-input-summary dt{color:#8290a3;font-size:10px}.triage-input-summary dd{margin:3px 0 0;color:#293b54;font-size:12px;font-weight:800}.triage-input-summary dd small{color:#8390a2;font-weight:500}.triage-result-columns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.triage-result-subcard p,.triage-result-empty{margin:0;color:#78869a;font-size:11px}.triage-result-subcard ul{margin:0;padding:0;list-style:none}.triage-result-subcard li{display:flex;justify-content:space-between;padding:6px 8px;border-bottom:1px solid #e7edf4;font-size:11px}.triage-result-subcard label{display:block;margin-top:9px}.triage-result-subcard label>span{display:block;margin-bottom:5px;color:#44556d;font-size:11px;font-weight:750}.triage-result-subcard select{width:100%;height:38px;padding:0 10px;border:1px solid #dbe4ee;border-radius:8px;background:#f3f6fa;color:#8390a2}.triage-result-actions{min-height:52px;margin-top:auto;padding:7px 2px 0;border:0;border-top:1px solid #e6ecf3;border-radius:0;box-shadow:none}.triage-result-actions .triage-complete-button:disabled{cursor:not-allowed;opacity:.5}
+.triage-result-step{display:flex;height:100%;min-height:0;flex-direction:column;padding:14px;overflow:visible}.triage-result-step>.triage-step-heading{margin-bottom:10px;padding-bottom:9px}.triage-result-overview{display:grid;grid-template-columns:1.2fr .8fr;gap:8px}.triage-result-step .triage-result-card{margin:0;padding:14px 16px;gap:16px}.triage-result-step .triage-result-values>div{min-height:58px;padding:7px 12px}.triage-input-summary,.triage-result-subcard{height:auto;min-height:0;padding:12px 14px;border:1px solid #e0e7f0;border-radius:11px;background:#fbfdff}.triage-input-summary h3,.triage-result-subcard h3{margin:0 0 8px;color:#30425c;font-size:14px}.triage-input-summary dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:0}.triage-input-summary dl div{padding:7px 8px;border-radius:8px;background:#fff}.triage-input-summary dt{color:#8290a3;font-size:10px}.triage-input-summary dd{margin:3px 0 0;color:#293b54;font-size:12px;font-weight:800}.triage-input-summary dd small{color:#8390a2;font-weight:500}.triage-result-columns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.triage-result-subcard p,.triage-result-empty{margin:0;color:#78869a;font-size:11px}.triage-result-subcard ul{margin:0;padding:0;list-style:none}.triage-result-subcard li{display:flex;justify-content:space-between;padding:6px 8px;border-bottom:1px solid #e7edf4;font-size:11px}.triage-result-subcard label{display:block;margin-top:9px}.triage-result-subcard label>span{display:block;margin-bottom:5px;color:#44556d;font-size:11px;font-weight:750}.triage-result-subcard select {
+  width: 100%;
+  height: 38px;
+  padding: 0 10px;
+
+  border: 1px solid #b8c7d9;
+  border-radius: 8px;
+
+  background: #ffffff;
+  color: #263445;
+
+  cursor: pointer;
+
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.triage-result-subcard select:hover:not(:disabled) {
+  border-color: #7fa4cf;
+  background: #fbfdff;
+}
+
+.triage-result-subcard select:focus:not(:disabled) {
+  border-color: #2f73df;
+  outline: none;
+
+  box-shadow:
+    0 0 0 3px rgba(47, 115, 223, 0.1);
+}
+
+.triage-result-subcard select:disabled {
+  border-color: #dbe4ee;
+
+  background: #f3f6fa;
+  color: #98a2b3;
+
+  cursor: not-allowed;
+  opacity: 0.72;
+}.triage-result-actions{min-height:52px;margin-top:auto;padding:7px 2px 0;border:0;border-top:1px solid #e6ecf3;border-radius:0;box-shadow:none}.triage-result-actions .triage-complete-button:disabled{cursor:not-allowed;opacity:.5}
 @media(max-width:1050px){.triage-wizard{min-width:900px}.triage-stepper button span{font-size:11px}.triage-vital-grid{grid-template-columns:repeat(2,1fr)}}
 
 
@@ -1197,4 +1238,590 @@
 
 .triage-complete-modal-confirm:hover {
   filter: brightness(0.96);
+}
+
+
+
+/* =========================================================
+   Triage STEP Layout Override
+   ---------------------------------------------------------
+   목적
+   - 초기평가를 3개 입력 STEP + 결과 STEP으로 분리
+   - 데스크톱에서 app-content 전체 세로 스크롤 제거
+   - 현재 STEP에 필요한 카드만 화면 높이 안에 표시
+   - Backend / API / 공용 layout.css는 변경하지 않음
+
+   이 블록을 triage_assessment.css 맨 아래에 추가한다.
+   ========================================================= */
+
+
+/* Triage 화면일 때만 Main Content 전체 스크롤을 막는다. */
+.app-content:has(.triage-assessment) {
+  overflow-y: hidden;
+}
+
+
+/* =========================================================
+   전체 화면
+   ========================================================= */
+
+.triage-assessment {
+  display: flex;
+
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  max-width: 1180px;
+
+  min-height: 0;
+
+  flex-direction: column;
+
+  gap: 12px;
+
+  padding: 18px 30px 16px;
+
+  box-sizing: border-box;
+
+  overflow: hidden;
+}
+
+
+/* =========================================================
+   Header
+   ========================================================= */
+
+.triage-assessment__header {
+  flex: 0 0 auto;
+
+  margin-bottom: 0;
+}
+
+
+.triage-assessment__eyebrow {
+  margin-bottom: 5px;
+}
+
+
+.triage-assessment__header h1 {
+  font-size: 25px;
+}
+
+
+.triage-assessment__header > div > p:last-child {
+  margin-top: 6px;
+
+  font-size: 13px;
+}
+
+
+/* =========================================================
+   STEP Navigation
+   ========================================================= */
+
+.triage-step-navigation {
+  display: grid;
+
+  flex: 0 0 auto;
+
+  width: 100%;
+
+  grid-template-columns:
+    repeat(3, minmax(0, 1fr));
+
+  gap: 8px;
+}
+
+
+.triage-step-navigation__item {
+  display: flex;
+
+  min-width: 0;
+  height: 42px;
+
+  align-items: center;
+
+  gap: 9px;
+
+  padding: 0 13px;
+
+  box-sizing: border-box;
+
+  background: #ffffff;
+
+  border: 1px solid #dce4ec;
+  border-radius: 9px;
+
+  color: #7a8799;
+}
+
+
+.triage-step-navigation__item > span {
+  display: flex;
+
+  width: 24px;
+  height: 24px;
+
+  flex: 0 0 24px;
+
+  align-items: center;
+  justify-content: center;
+
+  background: #f2f5f8;
+
+  border-radius: 999px;
+
+  color: #667085;
+
+  font-size: 11px;
+  font-weight: 800;
+}
+
+
+.triage-step-navigation__item > strong {
+  min-width: 0;
+
+  overflow: hidden;
+
+  font-size: 12px;
+  font-weight: 700;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+.triage-step-navigation__item.is-active {
+  background: #f4f8ff;
+
+  border-color: #8fb5e5;
+
+  color: #315f98;
+}
+
+
+.triage-step-navigation__item.is-active > span {
+  background: #2f73df;
+
+  color: #ffffff;
+}
+
+
+.triage-step-navigation__item.is-complete {
+  background: #f8fbff;
+
+  border-color: #cbd9e8;
+
+  color: #4c6f98;
+}
+
+
+.triage-step-navigation__item.is-complete > span {
+  background: #dceafd;
+
+  color: #315f98;
+}
+
+
+/* =========================================================
+   현재 STEP Body
+   ========================================================= */
+
+.triage-assessment__step {
+  display: flex;
+
+  flex: 1 1 auto;
+
+  min-height: 0;
+
+  flex-direction: column;
+
+  gap: 12px;
+
+  overflow: hidden;
+}
+
+
+.triage-assessment__step .triage-assessment__section {
+  margin-bottom: 0;
+
+  padding: 16px 20px;
+}
+
+
+.triage-assessment__step .triage-section-heading {
+  margin-bottom: 13px;
+}
+
+
+.triage-assessment__step .triage-assessment__section h2 {
+  margin-top: 1px;
+
+  font-size: 16px;
+}
+
+
+.triage-assessment__step .triage-section-heading p {
+  font-size: 12px;
+}
+
+
+/* =========================================================
+   STEP 1
+   증상 발생 정보 + FAST
+   ========================================================= */
+
+.triage-assessment__step--1
+> .triage-assessment__section:first-child {
+  flex: 0 0 auto;
+}
+
+
+.triage-assessment__step--1
+> .triage-assessment__section:last-child {
+  flex: 1 1 auto;
+
+  min-height: 0;
+}
+
+
+.triage-assessment__step--1
+.triage-question-list {
+  gap: 8px;
+}
+
+
+.triage-assessment__step--1
+.triage-question-card {
+  min-height: 58px;
+
+  padding: 10px 14px;
+}
+
+
+/* =========================================================
+   STEP 2
+   의식 / 신경학적 상태 + Vital
+   ========================================================= */
+
+.triage-assessment__step--2
+> .triage-assessment__section:first-child {
+  flex: 0 0 auto;
+}
+
+
+.triage-assessment__step--2
+> .triage-assessment__section:last-child {
+  flex: 1 1 auto;
+
+  min-height: 0;
+}
+
+
+.triage-assessment__step--2
+.triage-question-card {
+  min-height: 62px;
+
+  padding: 11px 14px;
+}
+
+
+.triage-assessment__step--2
+.triage-assessment__grid {
+  grid-template-columns:
+    repeat(4, minmax(0, 1fr));
+
+  gap: 14px;
+}
+
+
+/* =========================================================
+   STEP 3
+   위험 문진 + 추가 메모
+   ========================================================= */
+
+.triage-assessment__step--3
+> .triage-assessment__section:first-child {
+  flex: 0 0 auto;
+}
+
+
+.triage-assessment__step--3
+> .triage-assessment__section:last-child {
+  flex: 1 1 auto;
+
+  min-height: 0;
+}
+
+
+.triage-assessment__step--3
+.triage-question-card {
+  min-height: 58px;
+
+  padding: 10px 14px;
+}
+
+
+.triage-assessment__step--3
+textarea {
+  min-height: 96px;
+  height: 100px;
+
+  resize: none;
+}
+
+
+/* =========================================================
+   Bottom Actions
+   ========================================================= */
+
+.triage-assessment__actions {
+  display: flex;
+
+  flex: 0 0 auto;
+
+  width: 100%;
+
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 12px;
+
+  padding-top: 0;
+}
+
+
+.triage-assessment__actions-left,
+.triage-assessment__actions-right {
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+}
+
+
+.triage-back-button {
+  background: #ffffff;
+
+  border: 1px solid #b8c5d3;
+
+  color: #526174;
+}
+
+
+.triage-back-button:hover:not(:disabled) {
+  background: #f5f8fb;
+
+  border-color: #97a8ba;
+
+  color: #344054;
+}
+
+
+.triage-assessment__actions button:disabled {
+  cursor: not-allowed;
+
+  opacity: 0.55;
+}
+
+
+/* =========================================================
+   Dark Mode
+   ========================================================= */
+
+[data-theme="dark"]
+.triage-step-navigation__item {
+  background: #172033;
+
+  border-color: #334155;
+
+  color: #aeb9c8;
+}
+
+
+[data-theme="dark"]
+.triage-step-navigation__item > span {
+  background: #202b40;
+
+  color: #cbd5e1;
+}
+
+
+[data-theme="dark"]
+.triage-step-navigation__item.is-active {
+  background: #1b2b43;
+
+  border-color: #5279aa;
+
+  color: #bfdbfe;
+}
+
+
+[data-theme="dark"]
+.triage-step-navigation__item.is-active > span {
+  background: #3b82f6;
+
+  color: #ffffff;
+}
+
+
+[data-theme="dark"]
+.triage-step-navigation__item.is-complete {
+  background: #18263b;
+
+  border-color: #3c526e;
+
+  color: #a9c6ea;
+}
+
+
+[data-theme="dark"]
+.triage-back-button {
+  background: #172033;
+
+  border-color: #45566d;
+
+  color: #cbd5e1;
+}
+
+
+/* =========================================================
+   Compact Desktop Height
+   ---------------------------------------------------------
+   높이가 짧은 노트북에서도 STEP 내부가 한 화면에 들어오도록
+   여백만 더 줄인다.
+   ========================================================= */
+
+@media (max-height: 760px) and (min-width: 701px) {
+
+  .triage-assessment {
+    gap: 8px;
+
+    padding-top: 12px;
+    padding-bottom: 10px;
+  }
+
+
+  .triage-assessment__header h1 {
+    font-size: 22px;
+  }
+
+
+  .triage-assessment__header > div > p:last-child {
+    margin-top: 3px;
+  }
+
+
+  .triage-step-navigation__item {
+    height: 36px;
+  }
+
+
+  .triage-assessment__step {
+    gap: 8px;
+  }
+
+
+  .triage-assessment__step
+  .triage-assessment__section {
+    padding: 12px 16px;
+  }
+
+
+  .triage-assessment__step
+  .triage-section-heading {
+    margin-bottom: 9px;
+  }
+
+
+  .triage-question-list {
+    gap: 6px;
+  }
+
+
+  .triage-assessment__step
+  .triage-question-card {
+    min-height: 48px;
+
+    padding: 7px 12px;
+  }
+
+
+  .triage-assessment__section textarea {
+    min-height: 78px;
+    height: 78px;
+  }
+
+
+  .triage-assessment__actions button {
+    height: 38px;
+  }
+}
+
+
+/* =========================================================
+   Narrow Screen
+   ---------------------------------------------------------
+   의료진 Web의 주 대상은 데스크톱이지만,
+   폭이 좁아질 경우 입력 자체가 잘리지 않도록 재배치한다.
+   ========================================================= */
+
+@media (max-width: 980px) {
+
+  .triage-assessment {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+
+  .triage-assessment__step--2
+  .triage-assessment__grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+}
+
+
+@media (max-width: 700px) {
+
+  .app-content:has(.triage-assessment) {
+    overflow-y: auto;
+  }
+
+
+  .triage-assessment {
+    height: auto;
+    max-height: none;
+
+    overflow: visible;
+  }
+
+
+  .triage-step-navigation {
+    grid-template-columns: 1fr;
+  }
+
+
+  .triage-assessment__step {
+    overflow: visible;
+  }
+
+
+  .triage-assessment__actions {
+    align-items: stretch;
+
+    flex-direction: column;
+  }
+
+
+  .triage-assessment__actions-left,
+  .triage-assessment__actions-right {
+    width: 100%;
+  }
+
+
+  .triage-assessment__actions-right {
+    justify-content: flex-end;
+  }
 }

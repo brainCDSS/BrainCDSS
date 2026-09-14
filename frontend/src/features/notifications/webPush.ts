@@ -7,6 +7,7 @@ import {
   firebaseVapidKey,
   firebaseWebConfig,
   getFirebaseMessaging,
+  isFirebaseConfigured,
 } from "../../lib/firebase";
 
 import {
@@ -84,6 +85,12 @@ function createServiceWorkerUrl() {
 
 
 export async function connectWebPush() {
+  if (!isFirebaseConfigured) {
+    throw new Error(
+      "FIREBASE_NOT_CONFIGURED",
+    );
+  }
+
   if (!("Notification" in window)) {
     throw new Error(
       "WEB_NOTIFICATION_NOT_SUPPORTED",

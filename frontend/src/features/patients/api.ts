@@ -2,6 +2,7 @@ import { apiRequest } from "../../api/client";
 
 import type {
   Patient,
+  PatientDetail,
   PatientListResponse,
 } from "./types";
 
@@ -63,8 +64,8 @@ export function createPatient(
 }
 
 /** GET /api/v1/patients/{patient_id} */
-export function getPatient(patientId: string): Promise<Patient> {
-  return apiRequest<Patient>(
+export function getPatient(patientId: string): Promise<PatientDetail> {
+  return apiRequest<PatientDetail>(
     `/api/v1/patients/${encodeURIComponent(patientId)}`,
   );
 }

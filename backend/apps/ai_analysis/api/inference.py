@@ -339,7 +339,18 @@ class AnalysisNiftiViewerView(APIView):
             }
             for item in AIResultArtifact.objects.filter(result=result, artifact_type="NIFTI_MASK")
         ]
-        return Response({"analysis_id": str(analysis.id), "inputs": inputs, "masks": masks})
+        xai = [] if result is None else [
+            {
+                "artifact_id": str(item.id),
+                "type": item.artifact_type,
+                "url": f"/api/v1/ai-result-artifacts/{item.id}/content",
+            }
+            for item in AIResultArtifact.objects.filter(
+                result=result,
+                artifact_type__in=["GRAD_CAM_NIFTI", "ATTENTION_MAP_NIFTI"],
+            )
+        ]
+        return Response({"analysis_id": str(analysis.id), "inputs": inputs, "masks": masks, "xai": xai})
 
 
 class ResultArtifactContentView(APIView):

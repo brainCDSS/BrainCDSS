@@ -20,3 +20,22 @@ class EncounterCreateResponseSerializer(serializers.Serializer):
     encounter_type = serializers.CharField()
     status = serializers.CharField()
     arrived_at = serializers.DateTimeField()
+
+
+class EncounterListQuerySerializer(serializers.Serializer):
+    patient_id = serializers.UUIDField(required=True)
+    status = serializers.ChoiceField(
+        choices=("IN_PROGRESS", "REGISTERED"),
+        required=False,
+    )
+
+
+class EncounterListResponseSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    patient_id = serializers.UUIDField()
+    encounter_no = serializers.CharField()
+    encounter_type = serializers.CharField()
+    status = serializers.CharField()
+    arrived_at = serializers.DateTimeField()
+    started_at = serializers.DateTimeField(allow_null=True)
+    ended_at = serializers.DateTimeField(allow_null=True)

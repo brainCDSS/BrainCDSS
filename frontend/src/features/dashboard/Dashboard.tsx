@@ -10,6 +10,8 @@ import { getConsultations } from "../consultations/api";
 import type { ConsultationListItem } from "../consultations/types";
 import { getImagingStudies } from "../imaging/api";
 import type { ImagingStudy } from "../imaging/types";
+import { getPatientEncounters } from "../medication-safety/api";
+import type { EncounterListItem } from "../medication-safety/types";
 import { getPatients } from "../patients/api";
 import type { Patient } from "../patients/types";
 
@@ -27,6 +29,7 @@ interface DashboardData {
   analyses: AIAnalysisItem[];
   consultations: ConsultationListItem[];
   assessments: AssessmentWorklistItem[];
+  encounters: EncounterListItem[];
 }
 
 const EMPTY_DATA: DashboardData = {
@@ -35,6 +38,7 @@ const EMPTY_DATA: DashboardData = {
   analyses: [],
   consultations: [],
   assessments: [],
+  encounters: [],
 };
 
 const PATIENT_PAGE_SIZE = 6;
@@ -148,6 +152,7 @@ function DashboardPatientList({
   search,
   onSearch,
   onSelect,
+  encounters,
 }: {
   patients: Patient[];
   studies: ImagingStudy[];
@@ -156,6 +161,7 @@ function DashboardPatientList({
   search: string;
   onSearch: (value: string) => void;
   onSelect: (patient: Patient) => void;
+  encounters: EncounterListItem[];
 }) {
   const [page, setPage] =
     useState(1);
@@ -239,6 +245,7 @@ function DashboardPatientList({
       <div className="dash-patient-scroll">
         {pagePatients.map(
           (patient) => {
+            const encounter = encounters.find((item) => item.patient_id === patient.id);
             const patientStudies =
               studies.filter(
                 (study) =>
@@ -309,10 +316,7 @@ function DashboardPatientList({
                     "-"}
                 </small>
 
-                <small>
-                  진료과 미연결 ·
-                  내원 형태 미연결
-                </small>
+                <small>{encounter ? `${encounter.encounter_type} · ${encounter.status}` : "현재 Encounter 없음"}</small>
 
                 <span className="dash-patient__tags">
                   <i>
@@ -658,17 +662,16 @@ function WorkflowPanel({
           item.status ===
           "PENDING",
       ).length,
-      null,
+      assessments.filter((item) => item.status === "COMPLETED" && isToday(item.created_at, selectedDate)).length,
     ],
     [
       "영상검사",
-      null,
+      studies.filter((item) => item.status === "RECEIVING").length,
       studies.filter(
         (item) =>
-          item.status ===
-          "QUEUED",
+          item.status === "INCOMPLETE" || item.status === "UNMATCHED",
       ).length,
-      null,
+      studies.filter((item) => item.status === "AVAILABLE" && isToday(item.study_at, selectedDate)).length,
     ],
     [
       "AI 분석",
@@ -682,7 +685,7 @@ function WorkflowPanel({
           item.status ===
           "QUEUED",
       ).length,
-      null,
+      analyses.filter((item) => item.status === "COMPLETED" && isToday(item.completed_at, selectedDate)).length,
     ],
     [
       "협진",
@@ -782,12 +785,14 @@ function PatientQuickView({
   patient,
   studies,
   analyses,
+  encounter,
   onOpenPatient,
   onOpenImaging,
 }: {
   patient: Patient | null;
   studies: ImagingStudy[];
   analyses: AIAnalysisItem[];
+  encounter: EncounterListItem | null;
   onOpenPatient: (
     patient: Patient,
   ) => void;
@@ -798,7 +803,7 @@ function PatientQuickView({
       <article className="dash-quick dash-chart-card">
         <header>
           <h3>
-            선택 환자 Quick View
+            환자 Quick View
           </h3>
         </header>
 
@@ -843,7 +848,7 @@ function PatientQuickView({
           <span aria-hidden="true">
             ♨
           </span>{" "}
-          선택 환자 Quick View
+          환자 Quick View
         </h3>
 
         <button
@@ -918,19 +923,17 @@ function PatientQuickView({
       <dl>
         <div>
           <dt>내원일</dt>
-          <dd>미연결</dd>
+          <dd>{encounter?.arrived_at ? new Date(encounter.arrived_at).toLocaleDateString("ko-KR") : "Encounter 없음"}</dd>
         </div>
 
         <div>
-          <dt>주요 증상</dt>
-          <dd>미연결</dd>
+          <dt>내원 형태</dt>
+          <dd>{encounter?.encounter_type ?? "Encounter 없음"}</dd>
         </div>
 
         <div>
-          <dt>현재 상태</dt>
-          <dd>
-            {patient.status}
-          </dd>
+          <dt>Encounter 상태</dt>
+          <dd>{encounter?.status ?? "Encounter 없음"}</dd>
         </div>
       </dl>
 
@@ -1060,6 +1063,7 @@ export default function Dashboard({
               ? assessments.value
                   .results
               : [],
+          encounters: [],
         };
 
         setData(next);
@@ -1070,6 +1074,16 @@ export default function Dashboard({
             next.patients[0] ??
             null,
         );
+
+        void Promise.allSettled(
+          next.patients.map((patient) => getPatientEncounters(patient.id)),
+        ).then((results) => {
+          if (!active) return;
+          const encounters = results.flatMap((result) =>
+            result.status === "fulfilled" ? result.value : [],
+          );
+          setData((current) => ({ ...current, encounters }));
+        });
 
         if (
           [
@@ -1139,6 +1153,13 @@ export default function Dashboard({
       ],
     );
 
+  const selectedEncounter = selectedPatient
+    ? data.encounters.find((encounter) => encounter.patient_id === selectedPatient.id) ?? null
+    : null;
+  const encountersForDate = data.encounters.filter((encounter) =>
+    isToday(encounter.arrived_at, selectedDate),
+  );
+
   const dateLabel =
     selectedDate.toLocaleDateString(
       "ko-KR",
@@ -1168,7 +1189,7 @@ export default function Dashboard({
     );
   }
 
-  function selectAndOpen(
+  function selectPatient(
     patient: Patient,
   ) {
     setSelectedPatient(
@@ -1200,8 +1221,9 @@ export default function Dashboard({
           setSearch
         }
         onSelect={
-          selectAndOpen
+          selectPatient
         }
+        encounters={data.encounters}
       />
 
       <main className="dash-main">
@@ -1276,16 +1298,16 @@ export default function Dashboard({
           <KpiCard
             icon="♟"
             label="오늘 환자"
-            value="—"
-            summary="내원 API 미연결"
+            value={`${encountersForDate.length}건`}
+            summary="Encounter 내원 기준"
             tone="blue"
           />
 
           <KpiCard
             icon="◷"
             label="대기 환자"
-            value="—"
-            summary="대기 상태 API 미연결"
+            value={`${encountersForDate.filter((encounter) => encounter.status === "REGISTERED").length}건`}
+            summary="REGISTERED 상태"
             tone="purple"
           />
 
@@ -1403,6 +1425,7 @@ export default function Dashboard({
             analyses={
               selectedAnalyses
             }
+            encounter={selectedEncounter}
             onOpenPatient={
               onOpenPatient
             }

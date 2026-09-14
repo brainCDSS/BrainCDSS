@@ -86,3 +86,9 @@ class ManifestModelLoader:
         expected = manifest.get("inputs", {}).get("roles")
         if not expected:
             raise ModelNotReadyError("manifest input roles are missing")
+        training_config = manifest.get("training_config")
+        if training_config and training_config not in {entry.get("path") for entry in manifest["files"]}:
+            raise ModelNotReadyError(
+                "model training config is not checksum-protected",
+                detail={"training_config": training_config},
+            )

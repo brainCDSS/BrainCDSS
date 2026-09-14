@@ -28,12 +28,16 @@ function toScreenStudy(item: ImagingStudyApiItem): ImagingStudy {
   };
 }
 
-export async function getImagingStudies(): Promise<ImagingStudy[]> {
+export async function getImagingStudies(
+  filters: { patientId?: string } = {},
+): Promise<ImagingStudy[]> {
   const studies: ImagingStudy[] = [];
   let page = 1;
   let hasNext = true;
   while (hasNext) {
-    const response = await apiRequest<ImagingStudyListResponse>(`/api/v1/imaging-studies?page=${page}`);
+    const query = new URLSearchParams({ page: String(page) });
+    if (filters.patientId) query.set("patient_id", filters.patientId);
+    const response = await apiRequest<ImagingStudyListResponse>(`/api/v1/imaging-studies?${query}`);
     studies.push(...response.results.map(toScreenStudy));
     hasNext = Boolean(response.next);
     page += 1;

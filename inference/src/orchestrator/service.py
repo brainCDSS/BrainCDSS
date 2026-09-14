@@ -7,6 +7,7 @@ import os
 import shutil
 import threading
 import time
+from itertools import permutations
 from pathlib import Path
 from uuid import uuid4
 
@@ -50,6 +51,21 @@ class InferenceService:
             "ready": not reasons,
             "reasons": reasons,
         }
+
+    def release_predictors(self) -> None:
+        """Release GPU model caches after a MOSEC request completes."""
+        import gc
+
+        with self._predictor_lock:
+            self._predictors.clear()
+        gc.collect()
+        try:
+            import torch
+
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except ImportError:
+            pass
 
     def execute(self, request: InferenceRequest) -> InferenceResponse:
         started = time.perf_counter()
@@ -162,7 +178,10 @@ class InferenceService:
                     ]
                 ],
                 [str(mask_truncated)],
-                save_probabilities=False,
+                # nnU-Net already produces the foreground softmax values during
+                # segmentation. Keep that export so the viewer can show a
+                # lesion-probability map without running the model a second time.
+                save_probabilities=True,
                 overwrite=True,
             )
 
@@ -181,6 +200,13 @@ class InferenceService:
                     f"nnU-Net did not create a mask: {mask_path}",
                 )
 
+            probability_path = output_dir / "lesion-probability.nii.gz"
+            probability_metadata = self._export_probability_map(
+                Path(str(mask_truncated) + ".npz"),
+                mask_path,
+                probability_path,
+            )
+
             timing["inference"] = _milliseconds(
                 inference_started
             )
@@ -194,15 +220,15 @@ class InferenceService:
                 mask_path
             )
 
-            xai_path = output_dir / "grad-cam.nii.gz"
+            xai_path = output_dir / "integrated-gradients.nii.gz"
             xai_metadata = None
             xai_error = None
             if os.getenv("XAI_ENABLED", "true").lower() in {"1", "true", "yes"}:
                 xai_started = time.perf_counter()
                 try:
-                    from src.xai.nnunet_gradcam import generate_nnunet_gradcam
+                    from src.xai.nnunet_integrated_gradients import generate_nnunet_integrated_gradients
 
-                    xai_metadata = generate_nnunet_gradcam(
+                    xai_metadata = generate_nnunet_integrated_gradients(
                         predictor,
                         input_paths,
                         input_paths[0],
@@ -238,6 +264,7 @@ class InferenceService:
                 "manifest_uri": manifest_uri,
                 "metrics": metrics,
                 "output_geometry": geometry,
+                "probability_map": probability_metadata,
                 "xai": xai_metadata,
                 "xai_error": xai_error,
                 "trace_id": trace_id,
@@ -281,9 +308,18 @@ class InferenceService:
             xai_info = (
                 self.storage.upload(
                     xai_path,
-                    f"{prefix}/grad-cam.nii.gz",
+                    f"{prefix}/integrated-gradients.nii.gz",
                 )
                 if xai_metadata is not None and xai_path.is_file()
+                else None
+            )
+
+            probability_info = (
+                self.storage.upload(
+                    probability_path,
+                    f"{prefix}/lesion-probability.nii.gz",
+                )
+                if probability_metadata is not None and probability_path.is_file()
                 else None
             )
 
@@ -323,7 +359,12 @@ class InferenceService:
                         **result_info.__dict__,
                     ),
                     *(
-                        [OutputObject(type="GRAD_CAM_NIFTI", **xai_info.__dict__)]
+                        [OutputObject(type="LESION_PROBABILITY_NIFTI", **probability_info.__dict__)]
+                        if probability_info is not None
+                        else []
+                    ),
+                    *(
+                        [OutputObject(type="INTEGRATED_GRADIENTS_NIFTI", **xai_info.__dict__)]
                         if xai_info is not None
                         else []
                     ),
@@ -552,6 +593,83 @@ class InferenceService:
         return (
             metrics,
             geometry,
+        )
+
+    @staticmethod
+    def _export_probability_map(
+        probabilities_path: Path,
+        reference_path: Path,
+        output_path: Path,
+    ) -> dict | None:
+        """Export nnU-Net foreground softmax values in source NIfTI space.
+
+        ``predict_from_files_sequential(save_probabilities=True)`` writes an
+        NPZ next to the segmentation. The exporter has already restored those
+        probabilities to the same voxel grid as the mask, so this conversion
+        must preserve the reference affine rather than resample or invent an
+        alignment transform.
+        """
+        if not probabilities_path.is_file():
+            return None
+
+        import nibabel as nib
+        import numpy as np
+
+        with np.load(probabilities_path) as archive:
+            probabilities = np.asarray(archive["probabilities"], dtype=np.float32)
+        if probabilities.ndim != 4 or probabilities.shape[0] < 2:
+            raise InferenceServiceError(
+                "INVALID_PROBABILITY_OUTPUT",
+                "nnU-Net probability export must contain background and foreground channels",
+            )
+
+        # Multi-label models can have more than one foreground channel. The
+        # displayed map answers one stable clinical question: probability that
+        # this voxel belongs to any predicted lesion label.
+        foreground = np.max(probabilities[1:], axis=0).astype(np.float32)
+        reference = nib.load(str(reference_path))
+        foreground = InferenceService._match_reference_axes(
+            foreground,
+            tuple(reference.shape[:3]),
+        )
+        header = reference.header.copy()
+        header.set_data_dtype(np.float32)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        nib.save(
+            nib.Nifti1Image(foreground, reference.affine, header),
+            str(output_path),
+        )
+        return {
+            "type": "LESION_PROBABILITY_NIFTI",
+            "semantics": "VOXELWISE_FOREGROUND_PROBABILITY",
+            "normalization": "MODEL_INFERENCE_PROBABILITY_0_1",
+            "foreground_channels": int(probabilities.shape[0] - 1),
+        }
+
+    @staticmethod
+    def _match_reference_axes(
+        volume,
+        reference_shape: tuple[int, int, int],
+    ):
+        """Match nnU-Net's image-reader axis order to a written NIfTI mask."""
+        import numpy as np
+
+        array = np.asarray(volume, dtype=np.float32)
+        if tuple(array.shape) == reference_shape:
+            return array
+        reversed_array = array.transpose(tuple(reversed(range(array.ndim))))
+        if tuple(reversed_array.shape) == reference_shape:
+            return reversed_array
+        candidates = [
+            axes for axes in permutations(range(array.ndim))
+            if tuple(array.shape[index] for index in axes) == reference_shape
+        ]
+        if len(candidates) == 1:
+            return array.transpose(candidates[0])
+        raise InferenceServiceError(
+            "PROBABILITY_GEOMETRY_MISMATCH",
+            "nnU-Net probability grid cannot be matched to the NIfTI mask grid",
+            detail={"probability_shape": list(array.shape), "mask_shape": list(reference_shape)},
         )
 
 

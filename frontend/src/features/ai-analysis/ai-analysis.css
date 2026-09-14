@@ -36,3 +36,27 @@
 .clinical-ai-results .ai-results-main-layout{display:grid;flex:1;min-height:0;grid-template-columns:220px minmax(0,1fr);gap:8px;overflow:hidden}.clinical-ai-results .ai-results-main-layout.is-list-collapsed{grid-template-columns:min-content minmax(0,1fr)}.clinical-ai-results .ai-results-main-layout>.ai-workspace-body{height:100%}
 .ai-result-patient-list{display:flex;min-width:0;min-height:0;flex-direction:column;overflow:hidden;border:1px solid #d7e2ef;border-radius:10px;background:#fff}.ai-result-patient-list>header{display:flex;min-height:38px;align-items:center;gap:6px;padding:0 9px;border-bottom:1px solid #e4ebf4;color:#19365d}.ai-result-patient-list>header strong{font-size:13px}.ai-result-patient-list>header span,.ai-result-list-opener span{display:inline-grid;min-width:19px;height:19px;place-items:center;border-radius:10px;background:#e8f2ff;color:#176fd0;font-size:10px}.ai-result-patient-list>header button{width:25px;height:25px;margin-left:auto;border:1px solid #d9e4f1;border-radius:6px;background:#fff;color:#52708f;cursor:pointer}.ai-result-patient-search{padding:7px;border-bottom:1px solid #e8eef5}.ai-result-patient-search input{box-sizing:border-box;width:100%;height:30px;padding:0 9px;border:1px solid #d7e2ef;border-radius:7px;color:#253b58;font-size:11px;outline:none}.ai-result-patient-search input:focus{border-color:#2380e8;box-shadow:0 0 0 2px rgba(35,128,232,.12)}.ai-result-patient-scroll{min-height:0;flex:1;overflow:auto;padding:5px}.ai-result-patient-scroll>button{display:flex;box-sizing:border-box;width:100%;min-height:82px;flex-direction:column;gap:3px;margin-bottom:5px;padding:8px;border:1px solid #e0e8f2;border-radius:8px;background:#fff;color:#60748d;text-align:left;cursor:pointer}.ai-result-patient-scroll>button:hover{border-color:#9fc8f5;background:#f8fbff}.ai-result-patient-scroll>button.is-selected{border-color:#247ce0;background:#edf6ff;box-shadow:inset 3px 0 #247ce0}.ai-result-patient-scroll>button>span,.ai-result-patient-scroll time{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px}.ai-result-patient-scroll time{color:#8391a3}.patient-result-heading{display:flex;align-items:center;gap:5px}.patient-result-heading strong{min-width:0;flex:1;overflow:hidden;color:#18385e;font-size:12px;text-overflow:ellipsis}.patient-result-heading em{padding:2px 5px;border-radius:8px;background:#edf1f5;color:#65758a;font-size:8px;font-style:normal;font-weight:800}.patient-result-heading em.is-completed{background:#e3f7eb;color:#168450}.patient-result-heading em.is-failed,.patient-result-heading em.is-cancelled{background:#fff0f1;color:#c84c58}.patient-result-heading em.is-processing,.patient-result-heading em.is-retrying,.patient-result-heading em.is-queued{background:#fff5d9;color:#9a6b00}.ai-result-patient-empty{padding:20px 8px;color:#8290a2;font-size:11px;text-align:center}.ai-result-list-opener{width:34px;height:100%;padding:6px 4px;border:1px solid #d7e2ef;border-radius:9px;background:#fff;color:#315c8b;font-size:10px;line-height:1.25;cursor:pointer;writing-mode:vertical-rl}.ai-result-list-opener span{display:inline-grid;margin-top:5px;writing-mode:horizontal-tb}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 @media(max-width:1400px){.clinical-ai-results .ai-results-main-layout{grid-template-columns:190px minmax(0,1fr)}.ai-result-patient-scroll>button{min-height:72px;padding:6px}}
+
+/* The outer shell owns the viewport height. Make the final workspace row a
+   definite flex track so the viewer footer stays inside it rather than being
+   clipped below the app content. */
+.clinical-ai-results .ai-results-main-layout{flex:1 1 0;height:0}
+.clinical-ai-results .ai-results-main-layout>.ai-workspace-body{height:100%;min-height:0;grid-template-rows:minmax(0,1fr)}
+.clinical-ai-results .ai-workspace-primary{min-height:0;overflow:hidden}
+
+/* Header, workspace tabs, title and patient context consume part of the
+   browser viewport before the viewer begins. Cap the card itself so its
+   fixed toolbar/footer never falls below the visible app area. */
+.clinical-ai-results .nifti-result-viewer{height:min(100%,calc(100dvh - 260px));max-height:calc(100dvh - 260px)}
+
+/* The clinical viewer has many controls in a narrow working column. Never
+   shrink Korean labels into one character per line: keep each control intact
+   and let only the control strip scroll horizontally when needed. */
+.clinical-ai-results .nifti-toolbar{align-items:center}
+.clinical-ai-results .nifti-viewer-controls{min-width:0;flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;overflow-y:hidden;white-space:nowrap;scrollbar-width:thin}
+.clinical-ai-results .nifti-viewer-controls>button,.clinical-ai-results .nifti-viewer-controls>label,.clinical-ai-results .nifti-viewer-modes{flex:0 0 auto;white-space:nowrap}
+.clinical-ai-results .nifti-viewer-controls>button{min-width:max-content;height:27px;padding:0 8px}
+.clinical-ai-results .nifti-viewer-controls>label{gap:5px}
+.clinical-ai-results .nifti-viewer-modes button{min-width:31px;white-space:nowrap}
+.clinical-ai-results .nifti-window-value{flex:0 0 auto;min-width:104px}
+@media(max-width:1400px){.clinical-ai-results .nifti-viewer-controls{justify-content:flex-start}}

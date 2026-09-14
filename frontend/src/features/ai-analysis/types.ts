@@ -50,4 +50,4 @@ export interface AIResultReview {
   comment: string; corrected_findings?: Record<string, unknown>; reviewer_id?: string; reviewed_at: string;
 }
 export interface AIResultReviewList { result_id: string; reviews: AIResultReview[] }
-export interface NiftiViewerManifest { analysis_id: string; inputs: Array<{ role: string; url: string }>; masks: Array<{ artifact_id: string; type: string; url: string }>; xai?: Array<{ artifact_id: string; type: string; url: string }> }
+export interface NiftiViewerManifest { analysis_id: string; inputs: Array<{ role: string; url: string }>; masks: Array<{ artifact_id: string; type: string; url: string }>; probabilities?: Array<{ artifact_id: string; type: string; url: string }>; xai?: Array<{ artifact_id: string; type: string; url: string }> }

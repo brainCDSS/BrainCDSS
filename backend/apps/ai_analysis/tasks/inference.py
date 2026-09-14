@@ -257,7 +257,7 @@ def _validate_success_response(
     output_types = {item.get("type") for item in response.get("outputs", [])}
     if not {"NIFTI_MASK", "RESULT_JSON"}.issubset(output_types):
         raise InferenceClientError("INVALID_INFERENCE_RESPONSE", "required outputs are missing")
-    if not output_types.issubset({"NIFTI_MASK", "RESULT_JSON", "GRAD_CAM_NIFTI", "ATTENTION_MAP_NIFTI"}):
+    if not output_types.issubset({"NIFTI_MASK", "RESULT_JSON", "LESION_PROBABILITY_NIFTI", "GRAD_CAM_NIFTI", "INTEGRATED_GRADIENTS_NIFTI", "ATTENTION_MAP_NIFTI"}):
         raise InferenceClientError("INVALID_INFERENCE_RESPONSE", "unsupported output artifact")
     for output in response["outputs"]:
         if not output.get("uri", "").startswith("gs://") or not output.get("sha256"):

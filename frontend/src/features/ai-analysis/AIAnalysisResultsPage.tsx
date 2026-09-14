@@ -101,8 +101,8 @@ export default function AIAnalysisResultsPage({ initialAnalysisId }: Props) {
 
   const rawLesions = result?.structured_findings?.lesions;
   const lesions: Lesion[] = Array.isArray(rawLesions) ? rawLesions.filter((item): item is Lesion => typeof item === "object" && item !== null) : [];
-  const xaiArtifacts = result?.artifacts.filter((item) => ["GRAD_CAM_NIFTI", "ATTENTION_MAP_NIFTI", "ATTENTION_MAP", "SALIENCY_MAP", "UNCERTAINTY_MAP"].includes(item.type)) ?? [];
-  const xaiLabel = (type: string) => type === "GRAD_CAM_NIFTI" || type === "ATTENTION_MAP_NIFTI" ? "Grad-CAM" : type;
+  const xaiArtifacts = result?.artifacts.filter((item) => ["GRAD_CAM_NIFTI", "INTEGRATED_GRADIENTS_NIFTI", "ATTENTION_MAP_NIFTI", "ATTENTION_MAP", "SALIENCY_MAP", "UNCERTAINTY_MAP"].includes(item.type)) ?? [];
+  const xaiLabel = (type: string) => type === "INTEGRATED_GRADIENTS_NIFTI" ? "Integrated Gradients" : type === "GRAD_CAM_NIFTI" || type === "ATTENTION_MAP_NIFTI" ? "Grad-CAM (legacy)" : type;
   const findingText = findingLabel(selected?.analysis_type, result?.is_positive);
 
   async function saveReview() {

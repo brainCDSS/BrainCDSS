@@ -571,6 +571,11 @@ class InferenceService:
                 )
             },
         }
+        metrics["lesions"] = InferenceService._summarize_lesions(
+            data,
+            voxel_volume_mm3,
+        )
+        metrics["lesion_count"] = len(metrics["lesions"])
 
         geometry = {
             "shape": [
@@ -594,6 +599,49 @@ class InferenceService:
             metrics,
             geometry,
         )
+
+    @staticmethod
+    def _summarize_lesions(
+        mask,
+        voxel_volume_mm3: float,
+    ) -> list[dict]:
+        """Describe actual 3-D connected components from the saved mask.
+
+        This deliberately reports segmentation geometry only. It does not
+        infer an anatomical location or diagnostic subtype without a validated
+        atlas/clinical model. ``representative_slice`` is a one-based axial
+        NIfTI slice index with the largest component area and can drive the
+        viewer directly.
+        """
+        import numpy as np
+        from scipy import ndimage
+
+        foreground = np.asarray(mask) != 0
+        if foreground.ndim != 3 or not foreground.any():
+            return []
+        labels, count = ndimage.label(
+            foreground,
+            structure=np.ones((3, 3, 3), dtype=np.uint8),
+        )
+        total_voxels = int(foreground.sum())
+        lesions = []
+        for label_id in range(1, count + 1):
+            component = labels == label_id
+            voxel_count = int(component.sum())
+            if not voxel_count:
+                continue
+            axial_counts = component.sum(axis=(0, 1))
+            representative_slice = int(np.argmax(axial_counts)) + 1
+            lesions.append(
+                {
+                    "id": int(label_id),
+                    "voxel_count": voxel_count,
+                    "volume_ml": float(voxel_count * voxel_volume_mm3 / 1000.0),
+                    "relative_volume_pct": float(voxel_count * 100.0 / total_voxels),
+                    "representative_slice": representative_slice,
+                }
+            )
+        return sorted(lesions, key=lambda item: item["volume_ml"], reverse=True)
 
     @staticmethod
     def _export_probability_map(

@@ -28,7 +28,7 @@ export default function NiftiViewer({ analysisId, focusSlice }: { analysisId: st
   const [sourceRole, setSourceRole] = useState("");
   const [hasMask, setHasMask] = useState(false);
   const [maskVisible, setMaskVisible] = useState(true);
-  const [maskOpacity, setMaskOpacity] = useState(55);
+  const [maskOpacity, setMaskOpacity] = useState(72);
   const [hasProbability, setHasProbability] = useState(false);
   const [probabilityVisible, setProbabilityVisible] = useState(false);
   const [probabilityOpacity, setProbabilityOpacity] = useState(48);
@@ -145,7 +145,7 @@ export default function NiftiViewer({ analysisId, focusSlice }: { analysisId: st
       await viewer.loadVolumes([
         { ...authenticatedAsset(source.url), name: `${source.role.toLowerCase()}.nii.gz`, colormap: "gray", opacity: 1 },
         ...(probability ? [{ ...authenticatedAsset(probability.url), name: "lesion-probability.nii.gz", colormap: "turbo", opacity: 0, cal_min: 0.15, cal_max: 1, trustCalMinMax: true, ignoreZeroVoxels: true }] : []),
-        ...(mask ? [{ ...authenticatedAsset(mask.url), name: "ai-segmentation.nii.gz", colormap: "red", opacity: maskOpacity / 100, ignoreZeroVoxels: true }] : []),
+        ...(mask ? [{ ...authenticatedAsset(mask.url), name: "ai-segmentation.nii.gz", colormap: "red", opacity: maskOpacity / 100, cal_min: 0.5, trustCalMinMax: true, ignoreZeroVoxels: true }] : []),
         ...(xai ? [{
           ...authenticatedAsset(xai.url),
           name: "integrated-gradients.nii.gz",
@@ -185,6 +185,15 @@ export default function NiftiViewer({ analysisId, focusSlice }: { analysisId: st
       const maskGeometry = maskIndex === null ? undefined : geometryOf(viewer.volumes[maskIndex]);
       const aligned = !maskGeometry || sameGeometry(sourceGeometry, maskGeometry);
       setAlignment(aligned && probabilityAligned); maskIndexRef.current = maskIndex !== null && aligned ? maskIndex : null; setHasMask(maskIndex !== null && aligned);
+      if (maskIndex !== null) {
+        const maskVolume = viewer.volumes[maskIndex];
+        // Binary labels must start at the visible end of the red LUT. Without
+        // this window a label value of 1 can be rendered as near-black.
+        maskVolume.cal_min = 0.5;
+        maskVolume.cal_max = Math.max(1, Number(maskVolume.cal_max) || 1);
+        maskVolume.colormapType = 1;
+        viewer.updateGLVolume();
+      }
       if (maskIndex !== null && !aligned) viewer.setOpacity(maskIndex, 0);
       if (probabilityIndex !== null && !probabilityAligned) viewer.setOpacity(probabilityIndex, 0);
       const xaiGeometry = xaiIndex === null ? undefined : geometryOf(viewer.volumes[xaiIndex]);
@@ -247,17 +256,23 @@ export default function NiftiViewer({ analysisId, focusSlice }: { analysisId: st
     <header className="nifti-toolbar">
       <div className="nifti-title"><span>NIFTI · NIIVUE</span><h3>{sourceRole ? `${sourceRole} 원본 + AI 분할` : "AI 분석 영상"}</h3></div>
       <div className="nifti-viewer-controls">
+        <div className="nifti-primary-controls">
         <div className="nifti-viewer-modes">{MODES.map(([mode, label]) => <button type="button" key={mode} className={viewMode === mode ? "is-active" : ""} onClick={() => changeView(mode)}>{label}</button>)}</div>
         <button type="button" className={crosshairVisible ? "is-on" : ""} onClick={toggleCrosshair}>십자선</button>
         <output className="nifti-window-value" aria-label="현재 윈도우 레벨과 폭">WL {windowing ? windowing.level.toFixed(1) : "—"} · WW {windowing ? windowing.width.toFixed(1) : "—"}</output>
         {sourceRole === "CT" && <><button type="button" onClick={() => setSourceWindow(40, 80)}>뇌창</button><button type="button" onClick={() => setSourceWindow(600, 2800)}>뼈창</button></>}
+        </div>
+        <div className="nifti-overlay-controls">
         <label><input type="checkbox" checked={maskVisible} disabled={!hasMask} onChange={(event) => setMaskVisible(event.target.checked)} /> 마스크</label>
         <label>투명도 <input type="range" min="0" max="100" value={maskOpacity} disabled={!hasMask} onChange={(event) => setMaskOpacity(Number(event.target.value))} /><strong>{maskOpacity}%</strong></label>
         <label><input type="checkbox" checked={probabilityVisible} disabled={!hasProbability} onChange={(event) => setProbabilityVisible(event.target.checked)} /> 병변 가능도</label>
         <label>가능도 <input type="range" min="0" max="100" value={probabilityOpacity} disabled={!hasProbability} onChange={(event) => setProbabilityOpacity(Number(event.target.value))} /><strong>{probabilityOpacity}%</strong></label>
         <label><input type="checkbox" checked={xaiVisible} disabled={!hasXai} onChange={(event) => setXaiVisible(event.target.checked)} /> XAI Heatmap</label>
         <label>XAI <input type="range" min="0" max="100" value={xaiOpacity} disabled={!hasXai} onChange={(event) => setXaiOpacity(Number(event.target.value))} /><strong>{xaiOpacity}%</strong></label>
+        </div>
+        <div className="nifti-view-actions">
         <button type="button" onClick={() => fit()}>화면 맞춤</button><button type="button" onClick={() => fit(viewMode, true)}>초기화</button><button type="button" onClick={() => void toggleFullscreen()}>전체화면</button>
+        </div>
       </div>
     </header>
     <div className="nifti-viewer"><canvas ref={canvasRef} />{message && <div className={`nifti-viewer__message${alignment === false ? " is-warning" : ""}`}>{message}</div>}</div>

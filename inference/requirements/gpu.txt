@@ -2,4 +2,5 @@
 torch>=2.7,<3
 captum>=0.8,<1
 nnunetv2>=2.6,<3
+scipy>=1.11,<2
 PyYAML>=6,<7

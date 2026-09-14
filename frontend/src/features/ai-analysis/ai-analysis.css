@@ -49,14 +49,35 @@
    fixed toolbar/footer never falls below the visible app area. */
 .clinical-ai-results .nifti-result-viewer{height:min(100%,calc(100dvh - 260px));max-height:calc(100dvh - 260px)}
 
-/* The clinical viewer has many controls in a narrow working column. Never
-   shrink Korean labels into one character per line: keep each control intact
-   and let only the control strip scroll horizontally when needed. */
-.clinical-ai-results .nifti-toolbar{align-items:center}
-.clinical-ai-results .nifti-viewer-controls{min-width:0;flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;overflow-y:hidden;white-space:nowrap;scrollbar-width:thin}
-.clinical-ai-results .nifti-viewer-controls>button,.clinical-ai-results .nifti-viewer-controls>label,.clinical-ai-results .nifti-viewer-modes{flex:0 0 auto;white-space:nowrap}
-.clinical-ai-results .nifti-viewer-controls>button{min-width:max-content;height:27px;padding:0 8px}
-.clinical-ai-results .nifti-viewer-controls>label{gap:5px}
+/* The clinical viewer has many controls in a narrow working column. Keep
+   Korean labels intact and use two compact rows instead of a horizontal strip. */
+.clinical-ai-results .nifti-toolbar{display:grid!important;grid-template-columns:94px minmax(0,1fr);align-items:center;min-height:58px!important;padding:4px 7px}
+.clinical-ai-results .nifti-title{min-width:0}.clinical-ai-results .nifti-title h3{line-height:1.25}
+.clinical-ai-results .nifti-viewer-controls{display:grid;min-width:0;height:50px;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:24px 24px;gap:2px 6px;overflow:hidden;white-space:nowrap}
+.clinical-ai-results .nifti-primary-controls,.clinical-ai-results .nifti-overlay-controls{display:flex;min-width:0;align-items:center;gap:4px;overflow:hidden;white-space:nowrap}
+.clinical-ai-results .nifti-primary-controls{grid-column:1;grid-row:1}.clinical-ai-results .nifti-overlay-controls{grid-column:1;grid-row:2}
+.clinical-ai-results .nifti-view-actions{display:flex;grid-column:2;grid-row:1 / span 2;align-items:center;gap:4px}
+.clinical-ai-results .nifti-primary-controls>button,.clinical-ai-results .nifti-view-actions>button{min-width:max-content;height:27px;padding:0 8px;border:1px solid #3a4d68;border-radius:5px;background:#17243a;color:#c9d5e5;font:inherit;cursor:pointer}
+.clinical-ai-results .nifti-overlay-controls>label,.clinical-ai-results .nifti-viewer-modes{flex:0 0 auto;white-space:nowrap}
+.clinical-ai-results .nifti-overlay-controls>label{display:flex;align-items:center;gap:5px}
 .clinical-ai-results .nifti-viewer-modes button{min-width:31px;white-space:nowrap}
 .clinical-ai-results .nifti-window-value{flex:0 0 auto;min-width:104px}
-@media(max-width:1400px){.clinical-ai-results .nifti-viewer-controls{justify-content:flex-start}}
+@media(max-width:1400px){.clinical-ai-results .nifti-toolbar{display:grid!important;grid-template-columns:94px minmax(0,1fr);align-items:center!important;flex-direction:unset}.clinical-ai-results .nifti-title{display:block}.clinical-ai-results .nifti-viewer-controls{width:auto;justify-content:flex-start}}
+
+/* A single clinical result panel keeps the summary and lesion context visible
+   while reserving the lower edge for the physician's review action. */
+.clinical-result-overview{display:flex!important;min-height:0;flex-direction:column}
+.clinical-result-overview .result-overview-body{min-height:0;flex:1;overflow:auto}
+.clinical-result-overview .clinical-summary{padding-bottom:7px}
+.lesion-overview{margin:0 8px 8px;border-top:1px solid #e4ebf3}
+.lesion-overview>header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 4px 7px}
+.lesion-overview>header span{display:block;color:#687992;font-size:10px}
+.lesion-overview>header strong{display:block;margin-top:2px;color:#183d68;font-size:13px}
+.lesion-overview>header button{height:27px;flex:0 0 auto;border:1px solid #9fc8f5;border-radius:6px;background:#f2f8ff;color:#146dcc;font:inherit;font-size:10px;font-weight:800;cursor:pointer}
+.lesion-list{display:grid;gap:6px;padding:0 4px 7px}
+.lesion-list button{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:8px;border:1px solid #dce6f1;border-radius:7px;background:#f8fafd;color:#40516a;text-align:left;font:inherit;font-size:10px;cursor:pointer}
+.lesion-list button strong{grid-column:1/-1;color:#1d4777;font-size:11px}.lesion-list button.is-selected{border-color:#1976d2;background:#eaf4ff;box-shadow:0 0 0 2px rgba(25,118,210,.12)}
+.lesion-list button em{grid-column:1/-1;color:#60758f;font-size:10px;font-style:normal}
+.lesion-list button:disabled{cursor:default;opacity:.75}
+.lesion-explanation{padding:0 4px 8px;color:#526b88;font-size:11px;line-height:1.45}.lesion-explanation strong{color:#1d4777}.lesion-explanation p{margin:5px 0}.lesion-explanation small{display:block;color:#8a97a9;font-size:10px}
+.review-panel-embedded{min-height:0;flex:0 0 auto;gap:6px;padding:8px 10px;border-top:1px solid #dce5f0;background:#fbfdff}.review-panel-embedded textarea{min-height:50px;resize:vertical}.review-panel-embedded label{gap:3px}.review-panel-embedded select{padding:5px}.review-panel-embedded .review-actions{margin-top:0}.review-panel-embedded .review-actions button{height:31px;font-size:10px}

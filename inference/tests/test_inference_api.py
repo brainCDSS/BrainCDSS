@@ -66,3 +66,24 @@ def test_invalid_roles_use_standard_error():
     response = client.post("/v1/inferences", json=body)
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "INVALID_REQUEST"
+
+
+def test_success_contract_accepts_optional_xai_artifact():
+    response = InferenceResponse(
+        analysis_id=uuid4(),
+        analysis_type=AnalysisType.HEMORRHAGIC_STROKE_CT,
+        attempt=1,
+        status="SUCCEEDED",
+        model=ModelInfo(
+            name="hemorrhagic-stroke-ct",
+            version="H-N00",
+            manifest_uri="gs://models/h/manifest.json",
+        ),
+        outputs=[
+            OutputObject(type="NIFTI_MASK", uri="gs://results/mask.nii.gz", size_bytes=1, sha256="a" * 64),
+            OutputObject(type="RESULT_JSON", uri="gs://results/result.json", size_bytes=1, sha256="b" * 64),
+            OutputObject(type="GRAD_CAM_NIFTI", uri="gs://results/grad-cam.nii.gz", size_bytes=1, sha256="c" * 64),
+        ],
+        trace_id="trace",
+    )
+    assert len(response.outputs) == 3

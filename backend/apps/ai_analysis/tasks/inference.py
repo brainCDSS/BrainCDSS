@@ -111,8 +111,10 @@ def build_inference_payload(analysis, attempt_number):
 
 def _validate_success_response(response):
     output_types = {item.get("type") for item in response.get("outputs", [])}
-    if output_types != {"NIFTI_MASK", "RESULT_JSON"}:
+    if not {"NIFTI_MASK", "RESULT_JSON"}.issubset(output_types):
         raise InferenceClientError("INVALID_INFERENCE_RESPONSE", "required outputs are missing")
+    if not output_types.issubset({"NIFTI_MASK", "RESULT_JSON", "GRAD_CAM_NIFTI", "ATTENTION_MAP_NIFTI"}):
+        raise InferenceClientError("INVALID_INFERENCE_RESPONSE", "unsupported output artifact")
     for output in response["outputs"]:
         if not output.get("uri", "").startswith("gs://") or not output.get("sha256"):
             raise InferenceClientError("INVALID_INFERENCE_RESPONSE", "invalid output metadata")

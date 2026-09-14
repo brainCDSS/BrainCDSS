@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 
-import { getAssessmentWorklist } from "../assessments/api";
 import type { AssessmentWorklistItem } from "../assessments/types";
 import { getAIAnalyses } from "../ai-analysis/api";
 import type { AIAnalysisItem } from "../ai-analysis/types";
@@ -1016,14 +1015,12 @@ export default function Dashboard({
       getImagingStudies(),
       getAIAnalyses(),
       getConsultations(),
-      getAssessmentWorklist(),
     ]).then(
       ([
         patients,
         studies,
         analyses,
         consultations,
-        assessments,
       ]) => {
         if (!active) {
           return;
@@ -1058,11 +1055,7 @@ export default function Dashboard({
               : [],
 
           assessments:
-            assessments.status ===
-            "fulfilled"
-              ? assessments.value
-                  .results
-              : [],
+            [],
           encounters: [],
         };
 
@@ -1091,7 +1084,6 @@ export default function Dashboard({
             studies,
             analyses,
             consultations,
-            assessments,
           ].some(
             (result) =>
               result.status ===

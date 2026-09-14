@@ -1,414 +1,482 @@
 .clinical-notes-dashboard {
   grid-template-columns: 250px minmax(0, 1fr);
+  grid-template-rows: 112px minmax(0, 1fr);
 }
 
-.clinical-notes-dashboard
-  .patient-workspace
-  .patient-context-header--compact,
-.clinical-notes-dashboard
-  .patient-workspace
-  .patient-context-main {
+.clinical-notes-dashboard .patient-workspace .patient-context-header--compact,
+.clinical-notes-dashboard .patient-workspace .patient-context-main {
   grid-column: 2;
 }
 
-.clinical-notes-dashboard:not(
-  :has(.patient-context-header--compact)
-)
-.patient-context-main {
-  grid-column: 2;
+.clinical-notes-dashboard .patient-workspace .patient-context-header--compact {
+  grid-row: 1;
 }
 
-
-/* =========================================================
-   Main
-   ========================================================= */
+.clinical-notes-dashboard .patient-workspace .patient-context-main {
+  grid-row: 2;
+}
 
 .clinical-notes-main {
   display: flex;
   min-width: 0;
   min-height: 0;
   flex-direction: column;
-
+  overflow: hidden;
   padding: 12px;
-
   background: #ffffff;
-
   color: #263247;
-
-  font-size: 14px;
 }
-
 
 .clinical-notes-content {
   display: grid;
-
   min-width: 0;
   min-height: 0;
-  flex: 1;
-
-  grid-template-columns:
-    minmax(250px, 32%)
-    minmax(0, 68%);
-
+  flex: 1 1 auto;
+  grid-template-columns: minmax(340px, 43%) minmax(0, 57%);
   gap: 12px;
+  overflow: hidden;
 }
 
-
-/* =========================================================
-   Panels
-   ========================================================= */
-
-.clinical-notes-list-panel,
+.clinical-notes-reference-panel,
 .clinical-notes-soap {
   display: flex;
   min-width: 0;
   min-height: 0;
   flex-direction: column;
-
-  overflow: auto;
-
+  overflow: hidden;
   border: 1px solid var(--pc-border);
   border-radius: 12px;
-
   background: #ffffff;
-
-  box-shadow:
-    0 5px 16px
-    rgba(46, 74, 110, 0.04);
+  box-shadow: 0 5px 16px rgba(46, 74, 110, 0.04);
 }
 
-
-/* =========================================================
-   Panel Header
-   ========================================================= */
-
-.clinical-notes-list-panel > header,
+.clinical-notes-picker,
+.clinical-notes-reference > header,
 .clinical-notes-soap > header {
   display: flex;
-
-  min-height: 58px;
-
+  flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
-
   gap: 12px;
-
-  padding: 13px 16px;
-
-  border-bottom:
-    1px solid var(--pc-border);
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--pc-border);
 }
 
+.clinical-notes-picker {
+  display: block;
+}
 
-.clinical-notes-list-panel h2,
+.clinical-notes-picker > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.clinical-notes-picker h2,
+.clinical-notes-reference h2,
 .clinical-notes-soap h2 {
   margin: 0;
-
   color: #172033;
-
-  font-size: 17px;
+  font-size: 16px;
   line-height: 1.3;
-
   font-weight: 800;
 }
 
-
-/* =========================================================
-   Buttons
-   ========================================================= */
-
-.clinical-notes-list-panel > header button,
+.clinical-notes-picker button,
 .clinical-notes-soap footer button {
-  min-height: 36px;
-
-  padding: 8px 13px;
-
+  min-height: 34px;
+  padding: 7px 12px;
   border: 1px solid #b9d0ed;
   border-radius: 8px;
-
   background: #edf5ff;
   color: #2f73c4;
-
   font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
 
+.clinical-notes-picker button:disabled,
+.clinical-notes-soap footer button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.clinical-notes-picker label {
+  display: grid;
+  gap: 6px;
+}
+
+.clinical-notes-picker label > span {
+  color: #6d798d;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.clinical-notes-picker select {
+  width: 100%;
+  height: 38px;
+  min-width: 0;
+  padding: 0 10px;
+  border: 1px solid #d6e0ec;
+  border-radius: 8px;
+  outline: none;
+  background: #fbfcff;
+  color: #263247;
+  font: inherit;
+  font-size: 12px;
+}
+
+.clinical-notes-picker select:focus {
+  border-color: #76a9f8;
+  box-shadow: 0 0 0 3px rgba(79, 143, 232, 0.08);
+}
+
+.clinical-notes-reference {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.clinical-notes-reference > header {
+  min-height: 48px;
+}
+
+.clinical-notes-reference-empty,
+.clinical-notes-selection-empty {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  color: #6d798d;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.clinical-reference-assessment {
+  margin: 12px 14px 0;
+  padding: 12px;
+  border: 1px solid #e1e8f1;
+  border-radius: 10px;
+  background: #fbfdff;
+}
+
+.clinical-reference-assessment h3 {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin: 0 0 10px;
+  color: #263247;
   font-size: 13px;
   font-weight: 800;
 }
 
+.clinical-reference-assessment h3 small {
+  color: #8490a2;
+  font-size: 10px;
+  font-weight: 600;
+}
 
-/* =========================================================
-   Note List
-   ========================================================= */
-
-.clinical-notes-list-panel > button {
+.clinical-reference-assessment dl {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
 
-  width: auto;
-
-  gap: 7px;
-
-  margin: 9px 10px 0;
-
-  padding: 13px 14px;
-
-  border: 1px solid #e3e8f2;
-  border-radius: 10px;
-
+.clinical-reference-assessment dl > div {
+  min-width: 0;
+  padding: 8px 9px;
+  border-radius: 8px;
   background: #ffffff;
-  color: #263a5a;
-
-  font: inherit;
-
-  text-align: left;
-
-  cursor: pointer;
 }
 
-
-.clinical-notes-list-panel > button:hover {
-  border-color: #b8d2f4;
-  background: #f6faff;
+.clinical-reference-assessment dl > div.is-wide {
+  grid-column: 1 / -1;
 }
 
-
-.clinical-notes-list-panel
-  > button.is-selected {
-  border-color: #76a9f8;
-
-  background: #eef5ff;
-
-  box-shadow:
-    inset 3px 0 0 #2f78e8;
+.clinical-reference-assessment dt {
+  color: #7c889b;
+  font-size: 10px;
 }
 
-
-.clinical-notes-list-panel > button > span,
-.clinical-notes-soap > header > div {
-  display: flex;
-
-  align-items: center;
-  justify-content: space-between;
-
-  gap: 10px;
-}
-
-
-.clinical-notes-list-panel
-  > button strong {
-  color: #1f2d44;
-
-  font-size: 14px;
-  line-height: 1.4;
-
-  font-weight: 800;
-}
-
-
-.clinical-notes-list-panel small {
-  color: #64748b;
-
-  font-size: 12px;
+.clinical-reference-assessment dd {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+  color: #33435c;
+  font-size: 11px;
+  font-weight: 750;
   line-height: 1.45;
 }
 
-
-/* =========================================================
-   Status Badge
-   ========================================================= */
-
-.clinical-notes-list-panel em,
-.clinical-notes-soap header span {
-  padding: 4px 8px;
-
-  border-radius: 999px;
-
+.clinical-reference-assessment > p {
+  margin: 0;
+  color: #7b8798;
   font-size: 11px;
-  line-height: 1.2;
+  line-height: 1.5;
+}
 
-  font-style: normal;
+.clinical-reference-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.clinical-reference-metrics section {
+  display: grid;
+  gap: 6px;
+  padding: 9px 10px;
+  border-radius: 9px;
+  background: #f2f6fb;
+}
+
+.clinical-reference-metrics strong {
+  color: #34465f;
+  font-size: 11px;
   font-weight: 800;
 }
 
+.clinical-reference-metrics span {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
 
-.clinical-notes-list-panel em.is-draft,
-.clinical-notes-soap
-  header span.is-draft {
+.clinical-reference-metrics i {
+  min-width: 0;
+  overflow: hidden;
+  color: #7c899c;
+  font-size: 10px;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clinical-reference-metrics b {
+  color: #2f4f76;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.clinical-reference-links {
+  display: grid;
+  gap: 0;
+  margin: 12px 14px 14px;
+  overflow: hidden;
+  border: 1px solid #e1e8f1;
+  border-radius: 10px;
+}
+
+.clinical-reference-links article {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 11px;
+  border-bottom: 1px solid #e8edf4;
+  background: #ffffff;
+}
+
+.clinical-reference-links article:last-child {
+  border-bottom: 0;
+}
+
+.clinical-reference-links article > span {
+  display: grid;
+  width: 27px;
+  height: 27px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 8px;
+  background: #edf4ff;
+  color: #3975c4;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.clinical-reference-links article > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.clinical-reference-links strong {
+  color: #34445c;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.clinical-reference-links small {
+  overflow: hidden;
+  color: #77859a;
+  font-size: 10px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clinical-notes-soap > header > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.clinical-notes-soap > header > small {
+  overflow: hidden;
+  color: #748196;
+  font-size: 10px;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clinical-notes-soap header span {
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  line-height: 1.2;
+  font-weight: 800;
+}
+
+.clinical-notes-soap header span.is-draft {
   background: #e8f1ff;
   color: #2c6db8;
 }
 
-
-.clinical-notes-list-panel em.is-final,
-.clinical-notes-soap
-  header span.is-final {
+.clinical-notes-soap header span.is-final {
   background: #e7f6ec;
   color: #218655;
 }
 
-
-/* =========================================================
-   SOAP Fields
-   ========================================================= */
+.clinical-notes-soap-grid {
+  display: grid;
+  min-height: 0;
+  flex: 1 1 auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: auto auto auto;
+  gap: 10px 12px;
+  padding: 12px 14px;
+  overflow: hidden;
+}
 
 .clinical-notes-soap-field {
   display: grid;
-
-  gap: 9px;
-
-  padding: 11px 16px;
+  min-width: 0;
+  gap: 7px;
 }
 
+.clinical-notes-soap-field:nth-child(1) { grid-column: 1; grid-row: 1; }
+.clinical-notes-soap-field:nth-child(2) { grid-column: 1; grid-row: 2; }
+.clinical-notes-soap-field:nth-child(3) { grid-column: 2; grid-row: 1; }
+.clinical-notes-soap-field:nth-child(4) { grid-column: 2; grid-row: 2; }
+.clinical-notes-soap-field.is-clinical-opinion { grid-column: 1 / -1; grid-row: 3; }
 
 .clinical-notes-soap-field > span {
   display: flex;
-
   align-items: center;
-
-  gap: 9px;
-
+  gap: 8px;
   color: #263247;
-
-  font-size: 14px;
-  line-height: 1.4;
-
-  font-weight: 700;
+  font-size: 12px;
+  line-height: 1.35;
+  font-weight: 750;
 }
-
 
 .clinical-notes-soap-field b {
   display: grid;
-
-  width: 30px;
-  height: 30px;
-
+  width: 27px;
+  height: 27px;
+  flex: 0 0 auto;
   place-items: center;
-
   border-radius: 8px;
-
   background: #eaf3ff;
   color: #2176df;
-
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 800;
 }
-
 
 .clinical-notes-soap-field textarea {
-  min-height: 82px;
-
-  resize: vertical;
-
-  padding: 12px 13px;
-
+  width: 100%;
+  min-height: 96px;
+  height: 96px;
+  padding: 10px 11px;
   border: 1px solid #d6e0ec;
   border-radius: 9px;
-
+  outline: none;
   background: #fbfcff;
   color: #263247;
-
   font: inherit;
-
-  font-size: 14px;
-  line-height: 1.6;
-
-  font-weight: 500;
+  font-size: 12px;
+  line-height: 1.5;
+  resize: vertical;
 }
 
-
-.clinical-notes-soap-field
-  textarea:focus {
+.clinical-notes-soap-field textarea:focus {
   border-color: #76a9f8;
-
-  outline: none;
-
-  box-shadow:
-    0 0 0 3px
-    rgba(79, 143, 232, 0.08);
+  box-shadow: 0 0 0 3px rgba(79, 143, 232, 0.08);
 }
 
-
-/* =========================================================
-   Footer
-   ========================================================= */
+.clinical-notes-soap-field textarea:read-only {
+  background: #f6f8fb;
+  color: #5d6a7d;
+}
 
 .clinical-notes-soap footer {
   display: flex;
-
+  flex: 0 0 auto;
   align-items: center;
   justify-content: flex-end;
-
   gap: 8px;
-
-  margin-top: auto;
-
-  padding: 11px 16px;
-
-  border-top:
-    1px solid var(--pc-border);
+  padding: 10px 14px;
+  border-top: 1px solid var(--pc-border);
 }
 
-
-.clinical-notes-soap footer span {
+.clinical-notes-soap footer > span {
+  min-width: 0;
   margin-right: auto;
-
-  color: #64748b;
-
-  font-size: 12px;
-  line-height: 1.4;
-
-  font-weight: 500;
+  overflow: hidden;
+  color: #748196;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-
-/* =========================================================
-   Empty / Error
-   ========================================================= */
-
-.clinical-notes-empty,
-.clinical-notes-selection-empty {
-  display: flex;
-
-  min-height: 120px;
-  flex: 1;
-
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-
-  gap: 7px;
-
-  padding: 20px;
-
-  color: #64748b;
-
-  font-size: 13px;
-  line-height: 1.5;
-
-  text-align: center;
+.clinical-notes-soap footer button.is-primary {
+  border-color: #2f78e8;
+  background: #2f78e8;
+  color: #ffffff;
 }
 
+.clinical-notes-readonly {
+  color: #218655;
+  font-size: 11px;
+  font-weight: 800;
+}
 
 .clinical-notes-error {
+  flex: 0 0 auto;
   margin-bottom: 10px;
-
   padding: 10px 13px;
-
   border: 1px solid #f0c8cd;
   border-radius: 8px;
-
   background: #fff1f2;
   color: #bd4550;
-
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.5;
 }
 
-
-.clinical-notes-main
-  > .patient-encounter-state {
+.clinical-notes-main > .patient-encounter-state {
+  flex: 0 0 auto;
   margin: 0 0 10px;
 }
-
 
 @media (max-width: 1180px) {
   .clinical-notes-dashboard {

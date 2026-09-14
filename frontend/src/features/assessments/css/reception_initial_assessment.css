@@ -2095,8 +2095,8 @@ button:disabled {
 
 /* 전체 접수 페이지 */
 .reception-page {
-  height: calc(100dvh - 104px);
-  max-height: calc(100dvh - 104px);
+  height: 100%;
+  max-height: 100%;
   min-height: 0;
 
   display: flex;
@@ -2230,6 +2230,7 @@ button:disabled {
 .reception-today-table__body {
   flex: 1 1 auto;
   min-height: 0;
+  max-height: none;
 
   overflow-y: auto;
 }
@@ -2269,6 +2270,14 @@ button:disabled {
 .reception-search-content {
   flex: 1 1 auto;
   min-height: 0;
+
+  overflow-y: auto;
+}
+
+.reception-result-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
 
   overflow-y: auto;
 }

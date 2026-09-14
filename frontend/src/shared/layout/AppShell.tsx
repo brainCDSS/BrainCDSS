@@ -161,6 +161,13 @@ export default function AppShell({
     null,
   );
 
+  const [
+    assistantPatientId,
+    setAssistantPatientId,
+  ] = useState<string | null>(
+    null,
+  );
+
 
   /* ========================================================
      5. 현재 진행 중인 Assessment
@@ -254,6 +261,8 @@ export default function AppShell({
      ======================================================== */
 
   const handleOpenAssistantWorkspace = () => {
+    setAssistantPatientId(activePatientId);
+
     setIsAssistantTabOpen(true);
     setIsAssistantTabActive(true);
     setIsAssistantFloatingOpen(false);
@@ -265,6 +274,8 @@ export default function AppShell({
   };
 
   const handleSelectAssistantTab = () => {
+    setAssistantPatientId(activePatientId);
+
     setIsAssistantTabActive(true);
     setIsAssistantFloatingOpen(false);
 
@@ -963,6 +974,7 @@ export default function AppShell({
     if (isAssistantTabActive) {
       return (
         <AssistantWorkspace
+          patientId={assistantPatientId}
           messages={assistantMessages}
           setMessages={setAssistantMessages}
           conversationId={assistantConversationId}
@@ -1432,6 +1444,7 @@ export default function AppShell({
 
       {isAssistantFloatingOpen && (
         <AssistantFloatingPanel
+          patientId={activePatientId}
           messages={assistantMessages}
           setMessages={setAssistantMessages}
           conversationId={assistantConversationId}

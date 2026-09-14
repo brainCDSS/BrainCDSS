@@ -1,5 +1,6 @@
 """Authenticated API for creating and reading real AI analyses."""
 
+from django.db import transaction
 from django.http import Http404
 from django.utils import timezone
 from kombu.exceptions import OperationalError
@@ -11,6 +12,7 @@ from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema
 
 from apps.accounts.models import RolePermission
+from apps.audit.services.audit_event import record_audit_event
 from apps.ai_analysis.models import AIAnalysis, AIAnalysisInputSeries, AIAnalysisResult, AIModelConfigVersion, AIResultArtifact, AIResultReview, AIRoutingConfigVersion, ModelVersion
 from apps.ai_analysis.api.generated_real_149 import ContractView000
 from apps.ai_analysis.services.inference import create_queued_analysis, transition_analysis
@@ -89,6 +91,7 @@ def analysis_payload(analysis):
         "stage": analysis.stage,
         "attempt_count": analysis.attempt_count,
         "failure_code": analysis.failure_code,
+        "request_id": analysis.trace,
         "trace_id": analysis.trace,
         "priority": analysis.priority,
         "requested_at": analysis.requested_at,
@@ -150,27 +153,95 @@ class AnalysisCollectionView(ContractView000):
         serializer = AnalysisCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         values = serializer.validated_data
-        analysis = create_queued_analysis(
-            study=values["study"],
-            model_version=values["model_version"],
-            model_config_version=values["model_config_version"],
-            requested_by=request.user,
-            analysis_type=values["analysis_type"],
-            priority=values["priority"],
-            inputs=values["inputs"],
-            series_ids=values.get("series_ids"),
-            routing_config_version=values.get("routing_config_version"),
-        )
-        try:
-            run_analysis_inference.apply_async(args=[str(analysis.id)], retry=False)
-        except (OperationalError, OSError):
-            transition_analysis(
-                analysis,
-                status="FAILED",
-                stage="VALIDATING",
-                reason_code="BROKER_UNAVAILABLE",
+        with transaction.atomic():
+            analysis = create_queued_analysis(
+                study=values["study"],
+                model_version=values["model_version"],
+                model_config_version=values["model_config_version"],
+                requested_by=request.user,
+                analysis_type=values["analysis_type"],
+                priority=values["priority"],
+                inputs=values["inputs"],
+                series_ids=values.get("series_ids"),
+                routing_config_version=values.get("routing_config_version"),
+                request_id=getattr(
+                    request,
+                    "request_id",
+                    None,
+                ),
             )
-            return Response(analysis_payload(analysis), status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+            record_audit_event(
+                source_service="backend.ai_analysis",
+                action="AI_ANALYSIS_REQUESTED",
+                resource_type="AIAnalysis",
+                outcome="SUCCESS",
+                request=request,
+                resource_id=analysis.id,
+                patient_id=analysis.study.patient_id,
+                after_json={
+                    "analysis_id":
+                        str(analysis.id),
+                    "status":
+                        analysis.status,
+                    "stage":
+                        analysis.stage,
+                    "analysis_type":
+                        analysis.analysis_type,
+                    "trace_id":
+                        analysis.trace,
+                },
+            )
+
+        try:
+            run_analysis_inference.apply_async(
+                args=[
+                    str(analysis.id)
+                ],
+                retry=False,
+                headers={
+                    "request_id":
+                        analysis.trace,
+                    "trace_id":
+                        analysis.trace,
+                },
+            )
+        except (OperationalError, OSError):
+            with transaction.atomic():
+                transition_analysis(
+                    analysis,
+                    status="FAILED",
+                    stage="VALIDATING",
+                    reason_code="BROKER_UNAVAILABLE",
+                )
+
+                record_audit_event(
+                    source_service="backend.ai_analysis",
+                    action="AI_ANALYSIS_QUEUE_FAILED",
+                    resource_type="AIAnalysis",
+                    outcome="FAILURE",
+                    request=request,
+                    resource_id=analysis.id,
+                    patient_id=analysis.study.patient_id,
+                    reason="BROKER_UNAVAILABLE",
+                    after_json={
+                        "analysis_id":
+                            str(analysis.id),
+                        "status":
+                            analysis.status,
+                        "stage":
+                            analysis.stage,
+                        "failure_code":
+                            analysis.failure_code,
+                        "trace_id":
+                            analysis.trace,
+                    },
+                )
+
+            return Response(
+                analysis_payload(analysis),
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
         return Response(analysis_payload(analysis), status=status.HTTP_202_ACCEPTED)
 
 

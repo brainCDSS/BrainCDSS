@@ -1,12 +1,14 @@
-# Test-only overrides avoid external API keys and real medical data.
+# Test-only overrides.
+#
+# Assistant production/runtime provider is Vertex AI only.
+# MockProvider is used directly by unit tests and is not enabled
+# through Compose runtime configuration.
+
 services:
   backend:
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.test
-      GEMINI_API_KEY: ""
+
   inference-api:
     environment:
       MODEL_BUNDLE_URI: ""
-  assistant-service:
-    environment:
-      ASSISTANT_PROVIDER: mock

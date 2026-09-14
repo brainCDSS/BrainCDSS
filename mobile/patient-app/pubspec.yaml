@@ -9,6 +9,8 @@ dependencies:
     sdk: flutter
   brainon_mobile_core:
     path: ../packages/brainon_mobile_core
+  firebase_core: ^4.14.0
+  firebase_messaging: ^16.6.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

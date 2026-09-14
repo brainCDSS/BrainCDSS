@@ -1,19 +1,37 @@
 import 'package:flutter/material.dart';
 
+import '../../core/api/api_client.dart';
 import '../auth/auth_session.dart';
+import '../notifications/notifications_api.dart';
 
-const _primary = Color(0xFF416AAB);
-const _soft = Color(0xFFEAF1FC);
-const _border = Color(0xFFDEE6F2);
-const _text = Color(0xFF1D3153);
-const _muted = Color(0xFF75849A);
+const _primary = Color(0xFF5665B8);
+const _soft = Color(0xFFE5E8FF);
+const _border = Color(0xFFCFD7E8);
+const _text = Color(0xFF263A5A);
+const _muted = Color(0xFF65758D);
 const _danger = Color(0xFFE94E4E);
 
 class ProfilePage extends StatelessWidget {
-  const ProfilePage({super.key, required this.session, required this.onLogout});
+  const ProfilePage({super.key, required this.session, required this.onLogout, required this.apiClient});
 
   final AuthSession session;
   final VoidCallback onLogout;
+  final ApiClient apiClient;
+
+  static void openMyInfo(BuildContext context, AuthSession session) =>
+      _openPage(context, _MyInfoPage(session: session));
+
+  static void openConnections(BuildContext context) =>
+      _openPage(context, const _ConnectionSettingsPage());
+
+  static void openNotifications(BuildContext context, ApiClient client) =>
+      _openPage(context, _NotificationSettingsPage(apiClient: client));
+
+  static void openTerms(BuildContext context) =>
+      _openPage(context, const _TermsPage());
+
+  static void _openPage(BuildContext context, Widget page) =>
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
 
   @override
   Widget build(BuildContext context) {
@@ -36,10 +54,10 @@ class ProfilePage extends StatelessWidget {
           ]),
         ),
         const SizedBox(height: 18),
-        _ProfileMenu(icon: Icons.person_outline, title: '내 정보', description: '기본 정보를 확인할 수 있어요.', onTap: () => _open(context, _MyInfoPage(session: session))),
-        _ProfileMenu(icon: Icons.link_outlined, title: '연결 설정', description: '연동 서비스 설정을 관리할 수 있어요.', onTap: () => _open(context, const _ConnectionSettingsPage())),
-        _ProfileMenu(icon: Icons.notifications_outlined, title: '알림 설정', description: '알림 수신 항목을 설정할 수 있어요.', onTap: () => _open(context, const _NotificationSettingsPage())),
-        _ProfileMenu(icon: Icons.description_outlined, title: '동의 · 약관', description: '이용 약관과 동의 내역을 확인할 수 있어요.', onTap: () => _open(context, const _TermsPage())),
+        _ProfileMenu(icon: Icons.person_outline, title: '내 정보', description: '기본 정보를 확인할 수 있어요.', onTap: () => openMyInfo(context, session)),
+        _ProfileMenu(icon: Icons.link_outlined, title: '연결 설정', description: '연동 서비스 설정을 관리할 수 있어요.', onTap: () => openConnections(context)),
+        _ProfileMenu(icon: Icons.notifications_outlined, title: '알림 설정', description: '알림 수신 항목을 설정할 수 있어요.', onTap: () => openNotifications(context, apiClient)),
+        _ProfileMenu(icon: Icons.description_outlined, title: '동의 · 약관', description: '이용 약관과 동의 내역을 확인할 수 있어요.', onTap: () => openTerms(context)),
         const SizedBox(height: 14),
         OutlinedButton.icon(
           style: OutlinedButton.styleFrom(foregroundColor: _danger, padding: const EdgeInsets.symmetric(vertical: 14)),
@@ -50,8 +68,6 @@ class ProfilePage extends StatelessWidget {
       ],
     );
   }
-
-  void _open(BuildContext context, Widget page) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
 
   Future<void> _confirmLogout(BuildContext context) async {
     final confirmed = await showDialog<bool>(context: context, builder: (dialogContext) => AlertDialog(
@@ -147,33 +163,45 @@ class _TermsPage extends StatelessWidget {
 }
 
 class _NotificationSettingsPage extends StatefulWidget {
-  const _NotificationSettingsPage();
+  const _NotificationSettingsPage({required this.apiClient});
+  final ApiClient apiClient;
   @override
   State<_NotificationSettingsPage> createState() => _NotificationSettingsPageState();
 }
 
 class _NotificationSettingsPageState extends State<_NotificationSettingsPage> {
-  final Map<String, bool> _values = {
-    '예약 알림': true,
-    '복약 알림': true,
-    '검사 결과 알림': true,
-    '진료 · 처방 알림': false,
-  };
+  late final NotificationsApi _api = NotificationsApi(widget.apiClient);
+  NotificationPreferences? _preferences;
+  String? _error;
+  bool _saving = false;
+
+  @override
+  void initState() { super.initState(); _load(); }
+
+  Future<void> _load() async { try { final value = await _api.preferences(); if (mounted) setState(() { _preferences = value; _error = null; }); } catch (_) { if (mounted) setState(() => _error = '알림 설정을 불러오지 못했습니다.'); } }
+
+  Future<void> _change(NotificationCategoryPreference item, bool enabled) async {
+    if (item.isRequired && !enabled || _preferences == null) return;
+    setState(() { _preferences = _preferences!.toggle(item.category, enabled); _saving = true; });
+    try { final saved = await _api.updatePreferences(_preferences!); if (mounted) setState(() { _preferences = saved; _saving = false; }); } catch (_) { if (mounted) setState(() { _error = '알림 설정을 저장하지 못했습니다.'; _saving = false; }); }
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('알림 설정')),
     body: ListView(padding: const EdgeInsets.all(20), children: [
+      if (_preferences == null && _error == null) const Center(child: CircularProgressIndicator()),
+      if (_error != null) TextButton(onPressed: _load, child: Text('$_error 다시 시도')),
+      if (_preferences != null)
       Container(
         decoration: BoxDecoration(color: Colors.white, border: Border.all(color: _border), borderRadius: BorderRadius.circular(18)),
-        child: Column(children: _values.entries.map((entry) => SwitchListTile(
-          title: Text(entry.key, style: const TextStyle(color: _text, fontWeight: FontWeight.w600)),
-          value: entry.value,
-          onChanged: (value) => setState(() => _values[entry.key] = value),
+        child: Column(children: _preferences!.categories.map((entry) => SwitchListTile(
+          title: Text(entry.category, style: const TextStyle(color: _text, fontWeight: FontWeight.w600)),
+          subtitle: entry.isRequired ? const Text('필수 알림') : null,
+          value: entry.isRequired ? true : entry.enabled,
+          onChanged: entry.isRequired || _saving ? null : (value) => _change(entry, value),
         )).toList()),
       ),
-      const SizedBox(height: 14),
-      const Text('알림 설정 저장 API가 연결되기 전까지 현재 화면에서만 유지됩니다.', textAlign: TextAlign.center, style: TextStyle(color: _muted, fontSize: 12)),
     ]),
   );
 }
@@ -199,7 +227,7 @@ class _EmptySettingsPage extends StatelessWidget {
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: Text(title)),
     body: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-      Icon(icon, color: const Color(0xFF8FAFE8), size: 40),
+      Icon(icon, color: const Color(0xFF8B96E8), size: 40),
       const SizedBox(height: 14),
       Text(message, style: const TextStyle(color: _text, fontWeight: FontWeight.w700)),
       const SizedBox(height: 6),
@@ -207,4 +235,3 @@ class _EmptySettingsPage extends StatelessWidget {
     ])),
   );
 }
-

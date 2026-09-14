@@ -38,6 +38,7 @@ class HomeAppointment {
     required this.hospitalName,
     required this.departmentName,
     required this.clinicianName,
+    required this.clinicianId,
     required this.scheduledAt,
   });
 
@@ -48,6 +49,7 @@ class HomeAppointment {
   final String hospitalName;
   final String departmentName;
   final String clinicianName;
+  final String clinicianId;
 
   final DateTime? scheduledAt;
 
@@ -69,6 +71,7 @@ class HomeAppointment {
       clinicianName: _nestedName(
         json['clinician'],
       ),
+      clinicianId: _nestedId(json['clinician']),
       scheduledAt: _parseDateTime(
         json['scheduled_at'],
       ),
@@ -80,6 +83,11 @@ class HomeAppointment {
       return value['name']?.toString() ?? '';
     }
 
+    return '';
+  }
+
+  static String _nestedId(dynamic value) {
+    if (value is Map) return value['id']?.toString() ?? '';
     return '';
   }
 

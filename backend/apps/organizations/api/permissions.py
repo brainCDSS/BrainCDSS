@@ -23,3 +23,15 @@ class IsPatientOrNurseRole(BasePermission):
 
     def has_permission(self, request, view):
         return get_role_code(request.user) in {"PATIENT", "NURSE"}
+
+
+class IsPatientNurseOrDoctorRole(BasePermission):
+    message = "PATIENT, NURSE, NEUROLOGIST, or NEUROSURGEON role is required."
+
+    def has_permission(self, request, view):
+        return get_role_code(request.user) in {
+            "PATIENT",
+            "NURSE",
+            "NEUROLOGIST",
+            "NEUROSURGEON",
+        }

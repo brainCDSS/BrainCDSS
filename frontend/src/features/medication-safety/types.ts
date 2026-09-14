@@ -17,6 +17,25 @@ export interface MedicationListResponse {
   results: MedicationItem[];
 }
 
+export interface EncounterListItem {
+  encounter_id?: string;
+  id?: string;
+  patient_id: string;
+  encounter_no: string;
+  encounter_type: string;
+  status: string;
+  arrived_at?: string;
+  started_at?: string | null;
+  ended_at?: string | null;
+}
+
+export interface EncounterListResponse {
+  count: number;
+  next?: string | null;
+  previous?: string | null;
+  results: EncounterListItem[];
+}
+
 export interface PrescriptionItemInput {
   item_id?: string | null;
   medication_id: string;

@@ -45,6 +45,8 @@ function queryString(values: Record<string, string | number | undefined>) {
 
 export function getStaffAppointments(filters: {
   date?: string;
+  from?: string;
+  to?: string;
   clinicianId?: string;
   status?: string;
   page?: number;
@@ -53,6 +55,8 @@ export function getStaffAppointments(filters: {
   return apiRequest<StaffAppointmentsResponse>(
     `/api/v1/staff/appointments${queryString({
       date: filters.date,
+      from: filters.from,
+      to: filters.to,
       clinician_id: filters.clinicianId,
       status: filters.status,
       page: filters.page,

@@ -260,7 +260,7 @@ export default function SurgicalPlanningPage() {
             </option>
             {selectableStudies.map((study) => (
               <option key={study.id} value={study.id}>
-                {study.modality} · {study.accession_number} · {new Date(study.study_at).toLocaleString("ko-KR")}
+                {study.modality} · {study.accession_number} · {study.study_at ? new Date(study.study_at).toLocaleString("ko-KR") : "—"}
               </option>
             ))}
           </select>

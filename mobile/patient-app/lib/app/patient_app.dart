@@ -34,13 +34,13 @@ class _PatientAppState extends State<PatientApp> {
 
   @override
   Widget build(BuildContext context) {
-    const primary = Color(0xFF8FAFE8);
-    const primaryDark = Color(0xFF416AAB);
-    const background = Color(0xFFF7F9FC);
+    const primary = Color(0xFF8B96E8);
+    const primaryDark = Color(0xFF5665B8);
+    const background = Color(0xFFF8F9FC);
     const surface = Color(0xFFFFFFFF);
-    const textPrimary = Color(0xFF1D3153);
-    const textSecondary = Color(0xFF75849A);
-    const border = Color(0xFFDEE6F2);
+    const textPrimary = Color(0xFF263A5A);
+    const textSecondary = Color(0xFF65758D);
+    const border = Color(0xFFCFD7E8);
     const emergency = Color(0xFFE94E4E);
 
     final colorScheme = ColorScheme.fromSeed(

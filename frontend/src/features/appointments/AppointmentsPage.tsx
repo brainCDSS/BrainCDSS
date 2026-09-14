@@ -51,6 +51,9 @@ interface AppointmentSummaryCounts {
 
 
 const APPOINTMENTS_PER_PAGE = 5;
+const CALENDAR_START_HOUR = 8;
+const CALENDAR_END_HOUR = 18;
+const CALENDAR_SLOT_MINUTES = 30;
 
 
 /* =========================================================
@@ -127,6 +130,36 @@ function todayValue() {
     String(now.getMonth() + 1).padStart(2, "0"),
     String(now.getDate()).padStart(2, "0"),
   ].join("-");
+}
+
+
+function dateValue(value: Date) {
+  return [
+    value.getFullYear(),
+    String(value.getMonth() + 1).padStart(2, "0"),
+    String(value.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+
+function addDays(value: string, days: number) {
+  const date = new Date(`${value}T12:00:00`);
+  date.setDate(date.getDate() + days);
+  return dateValue(date);
+}
+
+
+function startOfWeek(value: string) {
+  const date = new Date(`${value}T12:00:00`);
+  const day = date.getDay();
+  date.setDate(date.getDate() - (day === 0 ? 6 : day - 1));
+  return dateValue(date);
+}
+
+
+function minutesFromMidnight(value: string) {
+  const [hour, minute] = value.split(":").map(Number);
+  return hour * 60 + minute;
 }
 
 
@@ -416,6 +449,161 @@ function can(
 }
 
 
+function WeeklyScheduleCalendar({
+  weekStart,
+  onWeekChange,
+  schedule,
+  appointments,
+}: {
+  weekStart: string;
+  onWeekChange: (value: string) => void;
+  schedule: ScheduleRule[];
+  appointments: StaffAppointment[];
+}) {
+  const dates = Array.from(
+    { length: 7 },
+    (_, index) => addDays(weekStart, index),
+  );
+  const slots = Array.from(
+    {
+      length:
+        ((CALENDAR_END_HOUR - CALENDAR_START_HOUR) * 60) /
+          CALENDAR_SLOT_MINUTES +
+        1,
+    },
+    (_, index) => {
+      const minutes =
+        CALENDAR_START_HOUR * 60 + index * CALENDAR_SLOT_MINUTES;
+      return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(
+        minutes % 60,
+      ).padStart(2, "0")}`;
+    },
+  );
+  const calendarMinutes =
+    (CALENDAR_END_HOUR - CALENDAR_START_HOUR) * 60;
+  const today = todayValue();
+
+  return (
+    <section className="weekly-schedule-card">
+      <header className="weekly-schedule-heading">
+        <div>
+          <h3>내 진료 스케줄</h3>
+          <p>확정된 진료 스케줄과 예약 환자를 주간 단위로 확인합니다.</p>
+        </div>
+        <div className="weekly-schedule-navigation">
+          <button type="button" onClick={() => onWeekChange(addDays(weekStart, -7))}>
+            이전 주
+          </button>
+          <strong>
+            {weekStart.replaceAll("-", ".")} ~ {addDays(weekStart, 6).replaceAll("-", ".")}
+          </strong>
+          <button type="button" onClick={() => onWeekChange(addDays(weekStart, 7))}>
+            다음 주
+          </button>
+          <button type="button" onClick={() => onWeekChange(startOfWeek(todayValue()))}>
+            오늘
+          </button>
+        </div>
+      </header>
+
+      <div className="weekly-calendar-scroll">
+        <div className="weekly-calendar">
+          <div className="weekly-calendar-corner">시간</div>
+          {dates.map((day, index) => (
+            <div
+              className={`weekly-calendar-day${day === today ? " is-today" : ""}${index === 6 ? " is-sunday" : ""}`}
+              key={day}
+            >
+              {`${WEEKDAYS[index]} ${Number(day.slice(5, 7))}.${Number(day.slice(8, 10))}`}
+            </div>
+          ))}
+
+          <div className="weekly-calendar-times">
+            {slots.map((slot) => <span key={slot}>{slot}</span>)}
+          </div>
+
+          {dates.map((day, dayIndex) => {
+            const rules = schedule.filter(
+              (rule) =>
+                rule.is_active &&
+                rule.weekday === dayIndex &&
+                rule.effective_from <= day &&
+                (!rule.effective_to || rule.effective_to >= day),
+            );
+            const dayAppointments = appointments.filter((item) => {
+              const start = appointmentStart(item);
+              return start ? dateValue(new Date(start)) === day : false;
+            });
+
+            return (
+              <div className="weekly-calendar-column" key={day}>
+                {slots.slice(0, -1).map((slot) => (
+                  <span className="weekly-calendar-line" key={slot} />
+                ))}
+                {rules.map((rule) => {
+                  const start = Math.max(
+                    minutesFromMidnight(rule.start_time),
+                    CALENDAR_START_HOUR * 60,
+                  );
+                  const end = Math.min(
+                    minutesFromMidnight(rule.end_time),
+                    CALENDAR_END_HOUR * 60,
+                  );
+                  return end > start ? (
+                    <span
+                      className="weekly-calendar-availability"
+                      key={rule.id ?? `${rule.weekday}-${rule.start_time}`}
+                      style={{
+                        top: `${((start - CALENDAR_START_HOUR * 60) / calendarMinutes) * 100}%`,
+                        height: `${((end - start) / calendarMinutes) * 100}%`,
+                      }}
+                    />
+                  ) : null;
+                })}
+                {dayAppointments.map((item) => {
+                  const startValue = appointmentStart(item);
+                  if (!startValue) return null;
+                  const startDate = new Date(startValue);
+                  const start = startDate.getHours() * 60 + startDate.getMinutes();
+                  const endValue = item.end_at ?? item.slot?.end_at;
+                  const endDate = endValue ? new Date(endValue) : null;
+                  const end = endDate && !Number.isNaN(endDate.getTime())
+                    ? endDate.getHours() * 60 + endDate.getMinutes()
+                    : start + CALENDAR_SLOT_MINUTES;
+                  const supplement = patientSupplement(item);
+
+                  return (
+                    <article
+                      className={`weekly-appointment is-${item.status.toLowerCase()}`}
+                      key={appointmentId(item)}
+                      style={{
+                        top: `${((start - CALENDAR_START_HOUR * 60) / calendarMinutes) * 100}%`,
+                        height: `${Math.max(((end - start) / calendarMinutes) * 100, 5)}%`,
+                      }}
+                    >
+                      <strong>{item.patient?.name ?? "환자명 미제공"}</strong>
+                      {supplement && <span>{supplement}</span>}
+                      <span>{requestTypeLabel(item.request_type)}</span>
+                    </article>
+                  );
+                })}
+              </div>
+            );
+          })}
+
+          {schedule.filter((rule) => rule.is_active).length === 0 &&
+            appointments.length === 0 && (
+              <div className="weekly-calendar-empty">
+                등록된 스케줄이 없습니다.
+              </div>
+            )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+
 /* =========================================================
  * Component
  * ======================================================= */
@@ -486,6 +674,15 @@ export default function AppointmentsPage({
   ] = useState<
     ScheduleRule[]
   >([]);
+
+  const [weekStart, setWeekStart] = useState(
+    () => startOfWeek(todayValue()),
+  );
+
+  const [
+    weeklyAppointments,
+    setWeeklyAppointments,
+  ] = useState<StaffAppointment[]>([]);
 
   const [
     draftRule,
@@ -805,11 +1002,32 @@ export default function AppointmentsPage({
           });
         });
         if (active) {
-          setClinicians(
-            [...values.values()].sort((left, right) =>
+          const nextClinicians = [...values.values()].sort(
+            (left, right) =>
               left.name.localeCompare(right.name, "ko"),
-            ),
           );
+
+          setClinicians(nextClinicians);
+          setClinicianId((currentClinicianId) => {
+            if (isDoctor) {
+              return nextClinicians.find(
+                (clinician) =>
+                  clinician.user_id === currentUser.id,
+              )?.id ?? "";
+            }
+
+            if (
+              currentClinicianId &&
+              nextClinicians.some(
+                (clinician) =>
+                  clinician.id === currentClinicianId,
+              )
+            ) {
+              return currentClinicianId;
+            }
+
+            return nextClinicians[0]?.id ?? "";
+          });
         }
       } catch {
         if (active) {
@@ -822,7 +1040,7 @@ export default function AppointmentsPage({
     return () => {
       active = false;
     };
-  }, [currentUser.hospital?.id]);
+  }, [currentUser.hospital?.id, currentUser.id, isDoctor]);
 
   const clinicianOptions = useMemo(
     () => clinicians.map(
@@ -1380,7 +1598,7 @@ export default function AppointmentsPage({
    * 스케줄
    * ======================================================= */
 
-  async function loadSchedule() {
+  const loadSchedule = useCallback(async () => {
     if (!clinicianId) {
       return;
     }
@@ -1389,11 +1607,15 @@ export default function AppointmentsPage({
     setError(null);
 
     try {
+      const scheduleFrom =
+        activeTab === "manage" ? weekStart : date;
+      const scheduleTo =
+        activeTab === "manage" ? addDays(weekStart, 6) : date;
       const response =
         await getClinicianSchedule(
           clinicianId,
-          date,
-          date,
+          scheduleFrom,
+          scheduleTo,
         );
 
       setSchedule(
@@ -1403,9 +1625,11 @@ export default function AppointmentsPage({
           []
         ).filter(
           (rule) =>
-            !rule.clinician_id ||
-            rule.clinician_id ===
-              clinicianId,
+            (
+              !rule.clinician_id ||
+              rule.clinician_id === clinicianId
+            ) &&
+            (!isDoctor || rule.is_active),
         ),
       );
     } catch {
@@ -1415,7 +1639,61 @@ export default function AppointmentsPage({
     } finally {
       setLoading(false);
     }
-  }
+  }, [activeTab, clinicianId, date, isDoctor, weekStart]);
+
+
+  useEffect(() => {
+    if (
+      clinicianId &&
+      (
+        activeTab === "schedule" ||
+        activeTab === "manage"
+      )
+    ) {
+      void loadSchedule();
+    }
+  }, [activeTab, clinicianId, loadSchedule]);
+
+
+  useEffect(() => {
+    if (activeTab !== "manage" || !clinicianId) {
+      return;
+    }
+
+    let active = true;
+
+    const loadWeeklyAppointments = async () => {
+      try {
+        const response = await getStaffAppointments({
+          from: weekStart,
+          to: addDays(weekStart, 6),
+          clinicianId,
+          page: 1,
+          pageSize: 100,
+        });
+        const items = normalize(
+          response.results ?? response.appointments ?? [],
+        ).filter((item) =>
+          ["CONFIRMED", "IN_PROGRESS", "COMPLETED"].includes(
+            item.status,
+          ),
+        );
+
+        if (active) {
+          setWeeklyAppointments(items);
+        }
+      } catch {
+        if (active) {
+          setWeeklyAppointments([]);
+        }
+      }
+    };
+
+    void loadWeeklyAppointments();
+    return () => {
+      active = false;
+    };
+  }, [activeTab, clinicianId, weekStart]);
 
 
   async function saveSchedule() {
@@ -1470,15 +1748,6 @@ export default function AppointmentsPage({
       setSelected(null);
     }
 
-    if (
-      (
-        tab === "schedule" ||
-        tab === "manage"
-      ) &&
-      clinicianId
-    ) {
-      void loadSchedule();
-    }
   }
 
 
@@ -2546,7 +2815,46 @@ export default function AppointmentsPage({
        * 스케줄 관리
        * =================================================== */}
 
-      {activeTab ===
+      {activeTab === "manage" && (
+        <>
+          <div className="weekly-schedule-clinician">
+            <span>담당 의료진</span>
+            {isDoctor ? (
+              <strong>
+                {clinicians.find((clinician) => clinician.id === clinicianId)?.name ?? currentUser.name}
+              </strong>
+            ) : (
+              <select
+                value={clinicianId}
+                onChange={(event) => setClinicianId(event.target.value)}
+              >
+                <option value="">담당 의료진 선택</option>
+                {clinicianOptions.map(([id, name]) => (
+                  <option value={id} key={id}>{name}</option>
+                ))}
+              </select>
+            )}
+          </div>
+          {clinicianId ? (
+            <WeeklyScheduleCalendar
+              weekStart={weekStart}
+              onWeekChange={setWeekStart}
+              schedule={schedule}
+              appointments={weeklyAppointments}
+            />
+          ) : (
+            <section className="weekly-schedule-card">
+              <div className="appointment-empty">
+                {isDoctor
+                  ? "로그인 사용자와 연결된 의료진 정보를 확인할 수 없습니다."
+                  : "담당 의료진을 선택해 주세요."}
+              </div>
+            </section>
+          )}
+        </>
+      )}
+
+      {isDoctor && isNurse && activeTab ===
         "manage" && (
         <section className="appointment-schedule-card">
 
@@ -2562,67 +2870,56 @@ export default function AppointmentsPage({
               </h3>
             </div>
 
-            <div>
-              <select
-                value={
-                  clinicianId
-                }
-                onChange={(
-                  event,
-                ) =>
-                  setClinicianId(
-                    event.target
-                      .value,
-                  )
-                }
-              >
-                <option value="">
-                  담당 의료진
-                  선택
-                </option>
+            {isDoctor ? (
+              <div>
+                <strong>
+                  {clinicians.find(
+                    (clinician) =>
+                      clinician.id === clinicianId,
+                  )?.name ?? currentUser.name}
+                </strong>
+              </div>
+            ) : (
+              <div>
+                <select
+                  value={clinicianId}
+                  onChange={(event) =>
+                    setClinicianId(event.target.value)
+                  }
+                >
+                  <option value="">
+                    담당 의료진 선택
+                  </option>
 
-                {clinicianOptions.map(
-                  ([
-                    id,
-                    name,
-                  ]) => (
-                    <option
-                      value={id}
-                      key={id}
-                    >
+                  {clinicianOptions.map(([id, name]) => (
+                    <option value={id} key={id}>
                       {name}
                     </option>
-                  ),
-                )}
-              </select>
+                  ))}
+                </select>
 
-              <button
-                type="button"
-                disabled={
-                  !clinicianId
-                }
-                onClick={() =>
-                  void loadSchedule()
-                }
-              >
-                조회
-              </button>
-            </div>
+                <button
+                  type="button"
+                  disabled={!clinicianId}
+                  onClick={() => void loadSchedule()}
+                >
+                  조회
+                </button>
+              </div>
+            )}
           </header>
 
 
           {!clinicianId ? (
             <div className="appointment-empty">
-              현재 예약 응답에서
-              확인된 담당 의료진을
-              선택해 주세요.
-              로그인 응답에는
-              clinician_id가
-              제공되지 않습니다.
+              {isDoctor
+                ? "로그인 사용자와 연결된 의료진 정보를 확인할 수 없습니다."
+                : "담당 의료진을 선택해 주세요."}
             </div>
           ) : (
             <>
-              <div className="schedule-rule-editor">
+              {!isDoctor && (
+                <div className="schedule-rule-editor">
 
                 <label>
                   요일
@@ -2798,7 +3095,8 @@ export default function AppointmentsPage({
                 >
                   규칙 추가
                 </button>
-              </div>
+                </div>
+              )}
 
 
               {schedule.length ===
@@ -2854,41 +3152,30 @@ export default function AppointmentsPage({
                             "계속"}
                         </span>
 
-                        <label>
-                          <input
-                            type="checkbox"
-                            checked={
-                              rule.is_active
-                            }
-                            onChange={(
-                              event,
-                            ) =>
-                              setSchedule(
-                                (
-                                  previous,
-                                ) =>
-                                  previous.map(
-                                    (
-                                      item,
-                                      itemIndex,
-                                    ) =>
-                                      itemIndex ===
-                                      index
-                                        ? {
-                                            ...item,
-                                            is_active:
-                                              event
-                                                .target
-                                                .checked,
-                                          }
-                                        : item,
+                        {isDoctor ? (
+                          <span>확정</span>
+                        ) : (
+                          <label>
+                            <input
+                              type="checkbox"
+                              checked={rule.is_active}
+                              onChange={(event) =>
+                                setSchedule((previous) =>
+                                  previous.map((item, itemIndex) =>
+                                    itemIndex === index
+                                      ? {
+                                          ...item,
+                                          is_active: event.target.checked,
+                                        }
+                                      : item,
                                   ),
-                              )
-                            }
-                          />
+                                )
+                              }
+                            />
 
-                          활성
-                        </label>
+                            활성
+                          </label>
+                        )}
                       </div>
                     ),
                   )}
@@ -2898,22 +3185,21 @@ export default function AppointmentsPage({
           )}
 
 
-          <footer>
-            <button
-              type="button"
-              disabled={
-                !clinicianId ||
-                !mayManageSchedule ||
-                schedule.length ===
-                  0
-              }
-              onClick={() =>
-                void saveSchedule()
-              }
-            >
-              스케줄 저장
-            </button>
-          </footer>
+          {!isDoctor && (
+            <footer>
+              <button
+                type="button"
+                disabled={
+                  !clinicianId ||
+                  !mayManageSchedule ||
+                  schedule.length === 0
+                }
+                onClick={() => void saveSchedule()}
+              >
+                스케줄 저장
+              </button>
+            </footer>
+          )}
 
 
           {actionError && (

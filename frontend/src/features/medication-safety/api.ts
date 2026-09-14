@@ -1,6 +1,8 @@
 import { apiRequest } from "../../api/client";
 import type {
   CreatePrescriptionRequest,
+  EncounterListItem,
+  EncounterListResponse,
   FinalizePrescriptionResponse,
   MedicationListResponse,
   PrescriptionOverride,
@@ -9,6 +11,30 @@ import type {
   SafetyCheckResponse,
   UpdatePrescriptionRequest,
 } from "./types";
+
+export async function getPatientEncounters(patientId: string) {
+  const params = new URLSearchParams({ patient_id: patientId });
+  const response = await apiRequest<EncounterListResponse | EncounterListItem[]>(
+    `/api/v1/encounters?${params}`,
+  );
+  return Array.isArray(response) ? response : response.results;
+}
+
+export async function getActiveEncounter(patientId: string) {
+  const encounters = await getPatientEncounters(patientId);
+  return encounters
+    .filter((encounter) =>
+      encounter.patient_id === patientId &&
+      (encounter.status === "IN_PROGRESS" || encounter.status === "REGISTERED"),
+    )
+    .sort((left, right) => {
+      const statusOrder = (status: string) => status === "IN_PROGRESS" ? 0 : 1;
+      return statusOrder(left.status) - statusOrder(right.status) ||
+        (right.started_at ?? right.arrived_at ?? "").localeCompare(
+          left.started_at ?? left.arrived_at ?? "",
+        );
+    })[0] ?? null;
+}
 
 export function searchMedications(search: string) {
   const params = new URLSearchParams({ search, is_active: "True" });

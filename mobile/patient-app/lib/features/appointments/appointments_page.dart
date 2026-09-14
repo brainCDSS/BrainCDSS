@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../core/api/api_client.dart';
 import '../home/home_api.dart';
+import 'appointments_api.dart';
 
-const _primary = Color(0xFF416AAB);
-const _soft = Color(0xFFEAF1FC);
-const _border = Color(0xFFDEE6F2);
-const _text = Color(0xFF1D3153);
-const _muted = Color(0xFF75849A);
+const _primary = Color(0xFF367FD3);
+const _soft = Color(0xFFE7F1FF);
+const _border = Color(0xFFCFD7E8);
+const _text = Color(0xFF263A5A);
+const _muted = Color(0xFF65758D);
 const _danger = Color(0xFFE94E4E);
 
 class AppointmentsPage extends StatefulWidget {
@@ -15,15 +16,38 @@ class AppointmentsPage extends StatefulWidget {
 
   final ApiClient apiClient;
 
+  static void openReservation(BuildContext context, ApiClient apiClient, {VoidCallback? onChanged}) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => _ReservationStartPage(apiClient: apiClient, onChanged: onChanged)),
+    );
+  }
+
   @override
-  State<AppointmentsPage> createState() => _AppointmentsPageState();
+  State<AppointmentsPage> createState() => AppointmentsPageState();
 }
 
-class _AppointmentsPageState extends State<AppointmentsPage> {
+class AppointmentsPageState extends State<AppointmentsPage> {
   late final HomeApi _api;
+  final _upcomingKey = GlobalKey();
+  final _pastKey = GlobalKey();
   bool _loading = true;
   String? _error;
   List<HomeAppointment> _appointments = const [];
+
+  void showUpcoming() => _showSection(_upcomingKey);
+
+  void showPast() => _showSection(_pastKey);
+
+  void _showSection(GlobalKey key) {
+    final sectionContext = key.currentContext;
+    if (sectionContext != null) {
+      Scrollable.ensureVisible(
+        sectionContext,
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeOut,
+      );
+    }
+  }
 
   @override
   void initState() {
@@ -69,11 +93,12 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
         children: [
-          _ReserveBanner(onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const _ReservationStartPage()),
-          )),
+          _ReserveBanner(onTap: () => AppointmentsPage.openReservation(context, widget.apiClient, onChanged: _load)),
           const SizedBox(height: 24),
-          const _SectionTitle('예정된 예약'),
+          KeyedSubtree(
+            key: _upcomingKey,
+            child: const _SectionTitle('예정된 예약'),
+          ),
           const SizedBox(height: 10),
           if (_loading)
             const _StateCard.loading()
@@ -91,7 +116,10 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
               onTap: () => _openDetail(item),
             )),
           const SizedBox(height: 24),
-          const _SectionTitle('지난 예약'),
+          KeyedSubtree(
+            key: _pastKey,
+            child: const _SectionTitle('지난 예약'),
+          ),
           const SizedBox(height: 10),
           if (!_loading && _error == null && past.isEmpty)
             const _StateCard.empty(
@@ -109,10 +137,11 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
     );
   }
 
-  void _openDetail(HomeAppointment appointment) {
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => AppointmentDetailPage(appointment: appointment),
+  Future<void> _openDetail(HomeAppointment appointment) async {
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => AppointmentDetailPage(appointment: appointment, apiClient: widget.apiClient),
     ));
+    await _load();
   }
 }
 
@@ -180,26 +209,45 @@ class _AppointmentTile extends StatelessWidget {
   }
 }
 
-class AppointmentDetailPage extends StatelessWidget {
-  const AppointmentDetailPage({super.key, required this.appointment});
+class AppointmentDetailPage extends StatefulWidget {
+  const AppointmentDetailPage({super.key, required this.appointment, required this.apiClient});
   final HomeAppointment appointment;
+  final ApiClient apiClient;
+
+  @override
+  State<AppointmentDetailPage> createState() => _AppointmentDetailPageState();
+}
+
+class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
+  Map<String, dynamic>? _detail;
+  String? _error;
+
+  @override
+  void initState() { super.initState(); _load(); }
+
+  Future<void> _load() async {
+    try { final value = await AppointmentsApi(widget.apiClient).detail(widget.appointment.appointmentId); if (mounted) setState(() { _detail = value; _error = null; }); }
+    catch (_) { if (mounted) setState(() => _error = '예약 상세를 불러오지 못했습니다.'); }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final date = appointment.scheduledAt?.toLocal();
+    if (_detail == null) return Scaffold(appBar: AppBar(title: const Text('예약 상세')), body: Center(child: _error == null ? const CircularProgressIndicator() : TextButton(onPressed: _load, child: Text('$_error 다시 시도'))));
+    String nested(String key) { final value = _detail![key]; return value is Map ? value['name']?.toString() ?? '' : ''; }
+    final date = DateTime.tryParse(_detail!['scheduled_at']?.toString() ?? '')?.toLocal();
     return Scaffold(
       appBar: AppBar(title: const Text('예약 상세')),
       body: ListView(padding: const EdgeInsets.all(20), children: [
-        _InfoCard(title: appointment.departmentName.isEmpty ? '진료 예약' : appointment.departmentName, rows: {
+        _InfoCard(title: nested('department').isEmpty ? '진료 예약' : nested('department'), rows: {
           '예약일시': date == null ? '-' : _formatDate(date),
-          '병원': appointment.hospitalName.isEmpty ? '-' : appointment.hospitalName,
-          '의료진': appointment.clinicianName.isEmpty ? '-' : appointment.clinicianName,
-          '상태': _statusLabel(appointment.status),
-          '예약 유형': appointment.requestType.isEmpty ? '-' : appointment.requestType,
+          '병원': nested('hospital').isEmpty ? '-' : nested('hospital'),
+          '의료진': nested('clinician').isEmpty ? '-' : nested('clinician'),
+          '상태': _statusLabel(_detail!['status']?.toString() ?? ''),
+          '예약 유형': _detail!['request_type']?.toString() ?? '-',
         }),
         const SizedBox(height: 18),
         Row(children: [
-          Expanded(child: OutlinedButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const _ReservationChangePage())), child: const Text('예약 변경'))),
+          Expanded(child: OutlinedButton(onPressed: () async { final changed = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => _ReservationChangePage(apiClient: widget.apiClient, appointment: widget.appointment))); if (changed == true && context.mounted) Navigator.pop(context); }, child: const Text('예약 변경'))),
           const SizedBox(width: 10),
           Expanded(child: OutlinedButton(style: OutlinedButton.styleFrom(foregroundColor: _danger), onPressed: () => _showCancel(context), child: const Text('예약 취소'))),
         ]),
@@ -208,34 +256,155 @@ class AppointmentDetailPage extends StatelessWidget {
   }
 
   void _showCancel(BuildContext context) {
+    final reason = TextEditingController();
     showDialog<void>(context: context, builder: (dialogContext) => AlertDialog(
       title: const Text('예약을 취소할까요?'),
-      content: const Text('예약 취소 API가 확인되지 않아 현재 화면에서는 실제 취소가 처리되지 않습니다.'),
-      actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('확인'))],
+      content: TextField(controller: reason, decoration: const InputDecoration(labelText: '취소 사유 (선택)')),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('닫기')),
+        FilledButton(onPressed: () async {
+          try {
+            await AppointmentsApi(widget.apiClient).cancel(widget.appointment.appointmentId, reason: reason.text);
+            if (dialogContext.mounted) Navigator.pop(dialogContext);
+            if (context.mounted) Navigator.pop(context);
+          } on ApiException catch (error) {
+            if (dialogContext.mounted) ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(content: Text(error.message)));
+          }
+        }, child: const Text('예약 취소')),
+      ],
     ));
   }
 }
 
 class _ReservationStartPage extends StatelessWidget {
-  const _ReservationStartPage();
+  const _ReservationStartPage({required this.apiClient, this.onChanged});
+  final ApiClient apiClient;
+  final VoidCallback? onChanged;
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('진료 예약')),
-    body: const _StateCard.empty(icon: Icons.calendar_month_outlined, title: '예약 접수 화면 준비 중', description: '예약 생성 API 계약이 확인되면 진료과와 일정을 연결합니다.'),
+  Widget build(BuildContext context) => _SlotSelectionPage(
+    apiClient: apiClient,
+    title: '진료 예약',
+    onSubmit: (slotId) => AppointmentsApi(apiClient).create(slotId),
+    onChanged: onChanged,
   );
 }
 
 class _ReservationChangePage extends StatelessWidget {
-  const _ReservationChangePage();
+  const _ReservationChangePage({required this.apiClient, required this.appointment});
+  final ApiClient apiClient;
+  final HomeAppointment appointment;
+  @override
+  Widget build(BuildContext context) => _SlotSelectionPage(
+    apiClient: apiClient,
+    title: '예약 변경',
+    fixedClinicianId: appointment.clinicianId,
+    onSubmit: (slotId) => AppointmentsApi(apiClient).reschedule(appointment.appointmentId, slotId),
+  );
+}
+
+class _SlotSelectionPage extends StatefulWidget {
+  const _SlotSelectionPage({required this.apiClient, required this.title, required this.onSubmit, this.fixedClinicianId, this.onChanged});
+  final ApiClient apiClient;
+  final String title;
+  final String? fixedClinicianId;
+  final Future<void> Function(String slotId) onSubmit;
+  final VoidCallback? onChanged;
+  @override
+  State<_SlotSelectionPage> createState() => _SlotSelectionPageState();
+}
+
+class _SlotSelectionPageState extends State<_SlotSelectionPage> {
+  late final AppointmentsApi _api = AppointmentsApi(widget.apiClient);
+  List<ClinicianOption> _clinicians = const [];
+  List<AppointmentSlot> _slots = const [];
+  String? _clinicianId;
+  String? _selectedSlotId;
+  DateTime _date = DateTime.now();
+  bool _loading = true;
+  bool _submitting = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _clinicianId = widget.fixedClinicianId?.isNotEmpty == true ? widget.fixedClinicianId : null;
+    if (_clinicianId == null) {
+      _loadClinicians();
+    } else {
+      _loadSlots();
+    }
+  }
+
+  Future<void> _loadClinicians() async {
+    try {
+      final values = await _api.clinicians();
+      if (!mounted) return;
+      setState(() { _clinicians = values; _loading = false; });
+    } catch (_) {
+      if (mounted) setState(() { _error = '의료진 목록을 불러오지 못했습니다.'; _loading = false; });
+    }
+  }
+
+  Future<void> _loadSlots() async {
+    final clinicianId = _clinicianId;
+    if (clinicianId == null || clinicianId.isEmpty) return;
+    setState(() { _loading = true; _error = null; _selectedSlotId = null; });
+    try {
+      final values = await _api.slots(clinicianId, _date);
+      if (mounted) setState(() { _slots = values; _loading = false; });
+    } catch (_) {
+      if (mounted) setState(() { _slots = const []; _error = '예약 가능 시간을 불러오지 못했습니다.'; _loading = false; });
+    }
+  }
+
+  Future<void> _pickDate() async {
+    final selected = await showDatePicker(context: context, initialDate: _date, firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 365)));
+    if (selected != null) { _date = selected; await _loadSlots(); }
+  }
+
+  Future<void> _submit() async {
+    final slotId = _selectedSlotId;
+    if (slotId == null) return;
+    setState(() => _submitting = true);
+    try {
+      await widget.onSubmit(slotId);
+      widget.onChanged?.call();
+      if (mounted) Navigator.pop(context, true);
+    } on ApiException catch (error) {
+      if (mounted) setState(() { _error = error.message; _submitting = false; });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _error = '요청을 처리하지 못했습니다.';
+          _submitting = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('예약 변경')),
+    appBar: AppBar(title: Text(widget.title)),
     body: ListView(padding: const EdgeInsets.all(20), children: [
-      const _SectionTitle('날짜 선택'),
+      if (widget.fixedClinicianId == null) DropdownButtonFormField<String>(
+        value: _clinicianId,
+        decoration: const InputDecoration(labelText: '담당 의료진'),
+        items: _clinicians.map((item) => DropdownMenuItem(value: item.id, child: Text('${item.name} · ${item.department}'))).toList(),
+        onChanged: (value) { setState(() => _clinicianId = value); if (value != null) _loadSlots(); },
+      ),
       const SizedBox(height: 12),
-      const _StateCard.empty(icon: Icons.event_repeat_outlined, title: '변경 가능한 일정이 없습니다.', description: '예약 변경 API와 가용 슬롯이 연결되면 표시됩니다.'),
+      OutlinedButton.icon(onPressed: _pickDate, icon: const Icon(Icons.calendar_today_outlined), label: Text('${_date.year}.${_date.month}.${_date.day}')),
+      const SizedBox(height: 16),
+      if (_loading) const Center(child: CircularProgressIndicator())
+      else if (_error != null) _StateCard.error(message: _error!, onRetry: _loadSlots)
+      else if (_slots.isEmpty) const _StateCard.empty(icon: Icons.event_busy_outlined, title: '예약 가능한 시간이 없습니다.', description: '다른 날짜 또는 의료진을 선택해 주세요.')
+      else Wrap(spacing: 8, runSpacing: 8, children: _slots.map((slot) => ChoiceChip(
+        selected: _selectedSlotId == slot.id,
+        label: Text(slot.startAt?.toLocal().toString().substring(11, 16) ?? '-'),
+        onSelected: (_) => setState(() => _selectedSlotId = slot.id),
+      )).toList()),
       const SizedBox(height: 20),
-      FilledButton(onPressed: null, child: const Text('다음')),
+      FilledButton(onPressed: _selectedSlotId == null || _submitting ? null : _submit, child: Text(_submitting ? '처리 중...' : '확인')),
     ]),
   );
 }
@@ -286,7 +455,7 @@ class _StateCard extends StatelessWidget {
     child: loading
       ? const Center(child: CircularProgressIndicator())
       : Column(children: [
-          Icon(icon, color: const Color(0xFF8FAFE8), size: 34),
+          Icon(icon, color: _primary, size: 34),
           const SizedBox(height: 12),
           Text(message ?? title, textAlign: TextAlign.center, style: const TextStyle(color: _text, fontWeight: FontWeight.w700)),
           if (message == null) ...[const SizedBox(height: 6), Text(description, textAlign: TextAlign.center, style: const TextStyle(color: _muted, height: 1.4))],

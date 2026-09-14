@@ -1336,6 +1336,231 @@
    Schedule
 ========================================================= */
 
+.weekly-schedule-clinician {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+  color: #65758d;
+  font-size: 12px;
+}
+
+.weekly-schedule-clinician strong,
+.weekly-schedule-clinician select {
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid #c9daec;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #263a5a;
+  font: inherit;
+  font-weight: 800;
+}
+
+.weekly-schedule-card {
+  flex: 1;
+  min-height: 0;
+  margin-top: 10px;
+  overflow: hidden;
+  border: 1px solid #dce5ef;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.weekly-schedule-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px;
+  border-bottom: 1px solid #dfe7f1;
+}
+
+.weekly-schedule-heading h3,
+.weekly-schedule-heading p {
+  margin: 0;
+}
+
+.weekly-schedule-heading h3 {
+  color: #1b2d46;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.weekly-schedule-heading p {
+  margin-top: 4px;
+  color: #718097;
+  font-size: 12px;
+}
+
+.weekly-schedule-navigation {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.weekly-schedule-navigation strong {
+  min-width: 210px;
+  color: #203752;
+  font-size: 13px;
+  text-align: center;
+}
+
+.weekly-schedule-navigation button {
+  min-height: 34px;
+  padding: 6px 11px;
+  border: 1px solid #c9daec;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #176fd5;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.weekly-calendar-scroll {
+  height: calc(100% - 78px);
+  min-height: 480px;
+  overflow: auto;
+  padding: 0 16px 16px;
+}
+
+.weekly-calendar {
+  position: relative;
+  display: grid;
+  grid-template-columns: 66px repeat(7, minmax(120px, 1fr));
+  grid-template-rows: 42px 600px;
+  min-width: 940px;
+  border: 1px solid #dce5ef;
+  border-radius: 9px;
+  overflow: hidden;
+}
+
+.weekly-calendar-corner,
+.weekly-calendar-day {
+  display: grid;
+  place-items: center;
+  border-right: 1px solid #dfe7f1;
+  border-bottom: 1px solid #dfe7f1;
+  background: #f8fafc;
+  color: #2d435f;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.weekly-calendar-day.is-today {
+  background: #e9f3ff;
+  color: #0968d4;
+}
+
+.weekly-calendar-day.is-sunday {
+  background: #fff4f4;
+  color: #c63f48;
+}
+
+.weekly-calendar-times {
+  display: grid;
+  grid-template-rows: repeat(21, 1fr);
+  border-right: 1px solid #dfe7f1;
+  background: #fbfcfe;
+}
+
+.weekly-calendar-times span {
+  padding-top: 3px;
+  color: #62758f;
+  font-size: 11px;
+  text-align: center;
+  transform: translateY(-8px);
+}
+
+.weekly-calendar-column {
+  position: relative;
+  display: grid;
+  grid-template-rows: repeat(20, 1fr);
+  border-right: 1px solid #dfe7f1;
+  background: #ffffff;
+}
+
+.weekly-calendar-line {
+  border-bottom: 1px solid #e7edf4;
+}
+
+.weekly-calendar-availability {
+  position: absolute;
+  right: 4px;
+  left: 4px;
+  z-index: 1;
+  border-left: 3px solid #a7c9ee;
+  border-radius: 4px;
+  background: rgba(225, 239, 255, 0.55);
+  pointer-events: none;
+}
+
+.weekly-appointment {
+  position: absolute;
+  right: 6px;
+  left: 6px;
+  z-index: 2;
+  min-height: 42px;
+  overflow: hidden;
+  padding: 6px 7px;
+  border: 1px solid #bdd6f2;
+  border-left: 3px solid #1477e6;
+  border-radius: 6px;
+  background: #eef6ff;
+  color: #29405c;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.weekly-appointment strong,
+.weekly-appointment span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.weekly-appointment strong {
+  font-size: 11px;
+}
+
+.weekly-appointment.is-in_progress {
+  border-color: #a9dfc2;
+  border-left-color: #13a05d;
+  background: #edf9f2;
+}
+
+.weekly-appointment.is-completed {
+  border-color: #ccd6e3;
+  border-left-color: #8295ad;
+  background: #f3f6f9;
+}
+
+.weekly-calendar-empty {
+  position: absolute;
+  inset: 42px 0 0 66px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.82);
+  color: #76869b;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+@media (max-width: 1100px) {
+  .weekly-schedule-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .weekly-schedule-navigation {
+    width: 100%;
+  }
+}
+
 .appointment-schedule-card {
   flex: 1;
 

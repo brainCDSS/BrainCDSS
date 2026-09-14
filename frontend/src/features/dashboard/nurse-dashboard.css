@@ -263,6 +263,9 @@
    MAIN
    ========================================================= */
 
+/* Keep the nurse dashboard patient list aligned with the shared patient rail. */
+.nurse-dashboard .dash-patient-panel>header{min-height:58px;box-sizing:border-box;padding:14px 14px 8px}.nurse-dashboard .dash-patient-panel h2{font-size:17px}.nurse-dashboard .dash-patient-panel h2 span{font-size:14px}.nurse-dashboard .dash-patient-search{height:40px;margin:0 11px 9px;padding:0 10px}.nurse-dashboard .dash-patient-search input,.nurse-dashboard .dash-patient-search input::placeholder{font-size:12px}.nurse-dashboard .dash-patient-scroll{display:grid;min-height:0;flex:1 1 auto;grid-template-rows:repeat(6,minmax(0,1fr));gap:4px;padding:0 8px 5px;overflow:hidden}.nurse-dashboard .dash-patient{position:relative;height:100%;min-height:0;justify-content:center;gap:5px;margin:0;padding:10px 10px 9px 40px;border:1px solid #e4eaf2;border-radius:10px;background:#fff;overflow:hidden}.nurse-dashboard .dash-patient__top strong{font-size:15px;line-height:1.25;font-weight:850}.nurse-dashboard .dash-patient small{color:#697b98;font-size:11px;line-height:1.3}.nurse-dashboard .dash-patient__top em{padding:3px 6px;font-size:9px}.nurse-dashboard .dash-patient__avatar{top:11px;left:10px;width:24px;height:24px;font-size:12px}.nurse-dashboard .dash-patient.is-selected{border-color:#aebafc;background:linear-gradient(110deg,#f0f3ff,#fbfcff);box-shadow:0 5px 14px rgba(61,87,160,.08)}.nurse-dashboard .dash-patient.is-selected:before{width:3px;background:#695cf2}.nurse-dashboard .dash-patient-pagination{min-height:44px;flex:0 0 44px;gap:12px;margin-top:0;background:#fbfcfe}.nurse-dashboard .dash-patient-pagination button{width:30px;height:30px}.nurse-dashboard .dash-patient-pagination span{font-size:11px}.nurse-dashboard .dash-patient-pagination strong{font-size:13px}@media(max-height:700px){.nurse-dashboard .dash-patient-scroll{display:block;overflow-y:auto}.nurse-dashboard .dash-patient{height:auto;min-height:74px;margin-bottom:4px}}
+
 .nurse-dashboard-main {
   min-width: 0;
 
@@ -1114,3 +1117,8 @@
   font-weight: 800;
   cursor: default;
 }
+
+/* Final shared patient-list sizing; keep this after legacy dashboard rules. */
+.nurse-dashboard .dash-patient-panel__header{padding:14px 14px 8px}.nurse-dashboard .dash-patient-search{height:40px;margin:0 11px 9px;padding:0 10px}.nurse-dashboard .dash-patient-search input,.nurse-dashboard .dash-patient-search input::placeholder{font-size:12px}.nurse-dashboard .dash-patient-scroll{display:grid;grid-template-rows:repeat(6,minmax(0,1fr));gap:4px;padding:0 8px 5px;overflow:hidden}.nurse-dashboard .dash-patient{height:100%;min-height:0;justify-content:center;gap:5px;margin:0;padding:10px 10px 9px 40px;border-color:#e4eaf2}.nurse-dashboard .dash-patient__top strong{font-size:15px;line-height:1.25}.nurse-dashboard .dash-patient small{font-size:11px;line-height:1.3}.nurse-dashboard .dash-patient__top em{padding:3px 6px;font-size:9px}.nurse-dashboard .dash-patient__avatar{top:11px;left:10px;width:24px;height:24px}.nurse-dashboard .dash-patient.is-selected{border-color:#aebafc;background:linear-gradient(110deg,#f0f3ff,#fbfcff);box-shadow:0 5px 14px rgba(61,87,160,.08)}.nurse-dashboard .dash-patient.is-selected:before{width:3px;background:#695cf2}.nurse-dashboard .dash-patient-pagination{min-height:44px;flex:0 0 44px;gap:12px;margin-top:0;background:#fbfcfe}.nurse-dashboard .dash-patient-pagination button{width:30px;height:30px}.nurse-dashboard .dash-patient-pagination span{font-size:11px}.nurse-dashboard .dash-patient-pagination strong{font-size:13px}
+
+@media(max-height:700px){.nurse-dashboard .dash-patient-scroll{display:block;overflow-y:auto}.nurse-dashboard .dash-patient{height:auto;min-height:74px;margin-bottom:4px}}

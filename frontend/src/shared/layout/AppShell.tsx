@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 
@@ -23,9 +23,11 @@ import AIAnalysisResultsPage from "../../features/ai-analysis/AIAnalysisResultsP
 import RadiologyReportsPage from "../../features/radiology/RadiologyReportsPage";
 import CDSSResultsPage from "../../features/cdss/CDSSResultsPage";
 import MedicationSafetyPage from "../../features/medication-safety/MedicationSafetyPage";
+import { getActiveEncounter } from "../../features/medication-safety/api";
 import NotificationsPage from "../../features/notifications/NotificationsPage";
 import SurgicalPlanningPage from "../../features/surgical-planning/SurgicalPlanningPage";
 import AppointmentsPage from "../../features/appointments/AppointmentsPage";
+import ClinicalNotesPage from "../../features/clinical-notes/ClinicalNotesPage";
 
 // [추가] 관리자 화면 연결
 import AdminDashboard from "../../features/admin/AdminDashboard";
@@ -74,7 +76,7 @@ interface ActiveAssessmentContext {
 
 interface PrescriptionContext {
   patient: Patient;
-  encounterId: string;
+  encounterId: string | null;
 }
 
 
@@ -182,6 +184,10 @@ export default function AppShell({
 
   const [prescriptionContext, setPrescriptionContext] =
     useState<PrescriptionContext | null>(null);
+  const [patientEncounterIds, setPatientEncounterIds] = useState<
+    Record<string, string | null>
+  >({});
+  const encounterRequestId = useRef(0);
 
 
   /* ========================================================
@@ -244,6 +250,51 @@ export default function AppShell({
           (patient) =>
             patient.id === activePatientId,
         ) ?? null;
+
+  function resolvePrescriptionEncounter(patient: Patient) {
+    const requestId = ++encounterRequestId.current;
+    setPrescriptionContext({ patient, encounterId: null });
+    void getActiveEncounter(patient.id)
+      .then((encounter) => {
+        if (encounterRequestId.current !== requestId) return;
+        setPrescriptionContext({
+          patient,
+          encounterId: encounter?.encounter_id ?? encounter?.id ?? null,
+        });
+      })
+      .catch(() => {
+        if (encounterRequestId.current === requestId) {
+          setPrescriptionContext({ patient, encounterId: null });
+        }
+      });
+  }
+
+  function resolvePatientEncounter(patient: Patient) {
+    const requestId = ++encounterRequestId.current;
+    setPatientEncounterIds((current) => ({
+      ...current,
+      [patient.id]: null,
+    }));
+    setPrescriptionContext({ patient, encounterId: null });
+    void getActiveEncounter(patient.id)
+      .then((encounter) => {
+        if (encounterRequestId.current !== requestId) return;
+        const encounterId = encounter?.encounter_id ?? encounter?.id ?? null;
+        setPatientEncounterIds((current) => ({
+          ...current,
+          [patient.id]: encounterId,
+        }));
+        setPrescriptionContext({ patient, encounterId });
+      })
+      .catch(() => {
+        if (encounterRequestId.current !== requestId) return;
+        setPatientEncounterIds((current) => ({
+          ...current,
+          [patient.id]: null,
+        }));
+        setPrescriptionContext({ patient, encounterId: null });
+      });
+  }
 
 
   /* ========================================================
@@ -329,6 +380,11 @@ export default function AppShell({
       return;
     }
 
+    /* 환자 Chart에서 처방/DUR로 이동해도 선택 환자를 유지한다. */
+    if (menu === "prescriptions" && activePatient) {
+      resolvePrescriptionEncounter(activePatient);
+    }
+
     /**
      * 현재 AppShell에서 실제 연결된 메뉴
      */
@@ -337,6 +393,7 @@ export default function AppShell({
       menu !== "patients" &&
       menu !== "worklist" &&
       menu !== "triage" &&
+      menu !== "clinical-notes" &&
       menu !== "appointments" &&
       menu !== "consultations" &&
       menu !== "imaging" &&
@@ -824,15 +881,34 @@ export default function AppShell({
 
   const handlePatientSelect = (
     patient: Patient,
+    encounterId?: string,
   ) => {
 
     setIsAssistantTabActive(false);
 
-    setPrescriptionContext(null);
+    if (encounterId) {
+      encounterRequestId.current += 1;
+      setPatientEncounterIds((current) => ({
+        ...current,
+        [patient.id]: encounterId,
+      }));
+      setPrescriptionContext({ patient, encounterId });
+    } else if (Object.prototype.hasOwnProperty.call(patientEncounterIds, patient.id)) {
+      setPrescriptionContext({
+        patient,
+        encounterId: patientEncounterIds[patient.id],
+      });
+    } else {
+      resolvePatientEncounter(patient);
+    }
 
-    /* 현재 PatientChart 탭을 재사용하고 선택한 환자로 내용을 교체한다. */
     setOpenPatientTabs(
-      [patient],
+      (current) =>
+        current.some(
+          (tab) => tab.id === patient.id,
+        )
+          ? current
+          : [...current, patient],
     );
 
 
@@ -866,8 +942,7 @@ export default function AppShell({
     patient: Patient,
     encounterId: string,
   ) => {
-    handlePatientSelect(patient);
-    setPrescriptionContext({ patient, encounterId });
+    handlePatientSelect(patient, encounterId);
   };
 
   const handleWorklistPrescriptionSelect = (
@@ -880,6 +955,30 @@ export default function AppShell({
     setActiveAssessmentContext(null);
     setActiveConsultationId(null);
     setActiveMenu("prescriptions");
+  };
+
+  const handlePrescriptionPatientSelect = (patient: Patient) => {
+    setIsAssistantTabActive(false);
+    resolvePrescriptionEncounter(patient);
+    setActivePatientId(null);
+    setActiveAssessmentContext(null);
+    setActiveConsultationId(null);
+    setActiveMenu("prescriptions");
+  };
+
+  const handleOpenPrescriptionPatientChart = (patient: Patient) => {
+    const encounterId =
+      prescriptionContext?.patient.id === patient.id
+        ? prescriptionContext.encounterId
+        : null;
+    setPatientEncounterIds((current) => ({
+      ...current,
+      [patient.id]: encounterId,
+    }));
+    setOpenPatientTabs((current) =>
+      current.some((tab) => tab.id === patient.id) ? current : [...current, patient],
+    );
+    handleSelectPatientTab(patient.id);
   };
 
 
@@ -1020,6 +1119,7 @@ export default function AppShell({
           patient={
             activePatient
           }
+          encounterId={patientEncounterIds[activePatient.id] ?? null}
           patients={
             openPatientTabs
           }
@@ -1053,6 +1153,7 @@ export default function AppShell({
         <PatientChart
           key="patient-chart"
           patient={null}
+          encounterId={null}
           onSelectPatient={handlePatientSelect}
           onNavigate={handleMenuSelect}
           canViewAIAnalyses={
@@ -1169,6 +1270,10 @@ export default function AppShell({
       return <AppointmentsPage currentUser={currentUser} />;
     }
 
+    if (activeMenu === "clinical-notes") {
+      return <ClinicalNotesPage />;
+    }
+
 
     /* -------------------------------------------------------
        협진
@@ -1249,13 +1354,12 @@ export default function AppShell({
     if (activeMenu === "prescriptions") {
       return (
         <MedicationSafetyPage
-          key={prescriptionContext?.encounterId ?? "no-prescription-context"}
           context={prescriptionContext === null ? null : {
-            patientId: prescriptionContext.patient.id,
-            patientName: prescriptionContext.patient.name,
-            patientNo: prescriptionContext.patient.patient_no,
+            patient: prescriptionContext.patient,
             encounterId: prescriptionContext.encounterId,
           }}
+          onSelectPatient={handlePrescriptionPatientSelect}
+          onOpenPatientChart={handleOpenPrescriptionPatientChart}
         />
       );
     }

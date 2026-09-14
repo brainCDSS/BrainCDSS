@@ -6,12 +6,14 @@ import { getConsultations } from "../consultations/api";
 import type { ConsultationListItem } from "../consultations/types";
 import { getImagingStudies } from "../imaging/api";
 import type { ImagingStudy } from "../imaging/types";
-import { getPatients } from "./api";
-import type { Patient } from "./types";
+import { getPatientEncounters } from "../medication-safety/api";
+import type { EncounterListItem } from "../medication-safety/types";
+import { getPatient, getPatients } from "./api";
+import type { Patient, PatientDetail } from "./types";
 import "./css/patient_chart.css";
 
 type Destination = "imaging" | "ai-results" | "consultations" | "prescriptions";
-interface Props { patient: Patient | null; patients?: Patient[]; onSelectPatient?: (patient: Patient) => void; onNavigate?: (destination: Destination) => void; canViewAIAnalyses?: boolean; canViewConsultations?: boolean }
+interface Props { patient: Patient | null; encounterId: string | null; patients?: Patient[]; onSelectPatient?: (patient: Patient) => void; onNavigate?: (destination: Destination) => void; canViewAIAnalyses?: boolean; canViewConsultations?: boolean }
 interface ChartData { studies: ImagingStudy[]; analyses: AIAnalysisItem[]; consultations: ConsultationListItem[] }
 interface TimelineEvent { id: string; at: string; title: string; detail: string; tone: "imaging" | "ai" | "consultation" }
 const PAGE_SIZE = 6;
@@ -21,15 +23,15 @@ function age(patient: Patient) { return patient.estimated_age === null ? "-" : `
 function dateTime(value?: string | null) { if (!value) return "-"; const date = new Date(value); return Number.isNaN(date.getTime()) ? value : date.toLocaleString("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }); }
 function analysisName(value: string) { const key = value.toUpperCase(); if (key.includes("ISCHEM")) return "허혈성 뇌졸중"; if (key.includes("HEMORRH")) return "출혈성 뇌졸중"; if (key.includes("ANEURYSM")) return "뇌동맥류"; return value; }
 
-function PatientRail({ selectedId, patients, onSelect }: { selectedId: string | null; patients: Patient[]; onSelect?: (patient: Patient) => void }) {
+export function PatientRail({ selectedId, patients, onSelect }: { selectedId: string | null; patients: Patient[]; onSelect?: (patient: Patient) => void }) {
   const [search, setSearch] = useState(""); const [page, setPage] = useState(1);
   const filtered = useMemo(() => { const query = search.trim().toLowerCase(); return query ? patients.filter((item) => item.name.toLowerCase().includes(query) || item.patient_no.toLowerCase().includes(query)) : patients; }, [patients, search]);
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)); const current = Math.min(page, pages); const rows = filtered.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
   useEffect(() => setPage(1), [search]);
-  return <aside className="patient-context-rail"><header className="patient-context-rail__header"><div><span>PATIENT LIST</span><strong>환자 목록</strong></div><small>{patients.length}명</small></header><label className="patient-context-search"><span aria-hidden="true">⌕</span><input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="이름 또는 등록번호 검색" /></label><div className="patient-context-list">{rows.map((item) => <button key={item.id} type="button" className={`patient-context-item${item.id === selectedId ? " is-selected" : ""}`} onClick={() => onSelect?.(item)} aria-current={item.id === selectedId ? "true" : undefined}><span className="patient-context-item__topline"><strong>{item.name}</strong><span className={`patient-mini-status is-${item.status.toLowerCase()}`}>{item.status}</span></span><span className="patient-context-item__demographics">{sex(item.sex)} · {age(item)}</span><span className="patient-context-item__meta">{item.patient_no}<time>-</time></span></button>)}{rows.length === 0 && <div className="patient-context-empty">검색 결과가 없습니다.</div>}</div><nav className="patient-context-pagination"><button type="button" disabled={current === 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>‹</button><span><strong>{current}</strong> / {pages}</span><button type="button" disabled={current === pages} onClick={() => setPage((value) => Math.min(pages, value + 1))}>›</button></nav></aside>;
+  return <aside className="patient-context-rail"><header className="patient-context-rail__header"><div><span>PATIENT LIST</span><strong>환자 목록</strong></div><small>{patients.length}명</small></header><label className="patient-context-search"><span aria-hidden="true">⌕</span><input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="이름 또는 등록번호 검색" /></label><div className="patient-context-list">{rows.map((item) => { const demographics = [sex(item.sex), age(item)].filter((value) => value !== "-").join(" · "); return <button key={item.id} type="button" className={`patient-context-item${item.id === selectedId ? " is-selected" : ""}`} onClick={() => onSelect?.(item)} aria-current={item.id === selectedId ? "true" : undefined}><span className="patient-context-item__avatar" aria-hidden="true">{item.name.slice(0, 1)}</span><span className="patient-context-item__topline"><strong>{item.name}</strong><span className={`patient-mini-status is-${item.status.toLowerCase()}`}>{item.status}</span></span>{demographics && <span className="patient-context-item__demographics">{demographics}</span>}<span className="patient-context-item__meta">환자번호 {item.patient_no}</span></button>; })}{rows.length === 0 && <div className="patient-context-empty">검색 결과가 없습니다.</div>}</div><nav className="patient-context-pagination"><button type="button" disabled={current === 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>‹</button><span><strong>{current}</strong> / {pages}</span><button type="button" disabled={current === pages} onClick={() => setPage((value) => Math.min(pages, value + 1))}>›</button></nav></aside>;
 }
 
-function PatientHeader({ patient }: { patient: Patient }) {
+export function PatientHeader({ patient, care, onOpenDetails }: { patient: Patient; care?: { department?: string | null; clinician?: string | null; latestVisit?: string | null; diagnosis?: string | null; encounterStatus?: string | null; encounterType?: string | null; arrivedAt?: string | null; endedAt?: string | null }; onOpenDetails?: () => void }) {
   return <header className="patient-context-header patient-context-header--compact">
     <div className="patient-context-header__identity">
       <div className="patient-avatar" aria-hidden="true">{patient.name.slice(0, 1)}</div>
@@ -53,12 +55,19 @@ function PatientHeader({ patient }: { patient: Patient }) {
       <span>-</span>
     </div>
     <dl className="patient-context-care">
-      <div><dt>진료과</dt><dd>-</dd></div>
-      <div><dt>담당의</dt><dd>-</dd></div>
-      <div><dt>최근 내원</dt><dd>-</dd></div>
-      <div><dt>주진단</dt><dd>-</dd></div>
+      {care?.encounterStatus || care?.encounterType || care?.arrivedAt ? <>
+        <div><dt>내원일시</dt><dd>{dateTime(care.arrivedAt)}</dd></div>
+        <div><dt>Encounter 상태</dt><dd>{care.encounterStatus || "-"}</dd></div>
+        <div><dt>내원 형태</dt><dd>{care.encounterType || "-"}</dd></div>
+        <div><dt>종료일시</dt><dd>{dateTime(care.endedAt)}</dd></div>
+      </> : <>
+        <div><dt>진료과</dt><dd>{care?.department || "-"}</dd></div>
+        <div><dt>담당의</dt><dd>{care?.clinician || "-"}</dd></div>
+        <div><dt>최근 내원</dt><dd>{care?.latestVisit || "-"}</dd></div>
+        <div><dt>주진단</dt><dd>{care?.diagnosis || "-"}</dd></div>
+      </>}
     </dl>
-    <button className="patient-context-detail" type="button">상세 정보 <span aria-hidden="true">⌄</span></button>
+    {onOpenDetails && <button className="patient-context-detail" type="button" onClick={onOpenDetails}>상세 정보 <span aria-hidden="true">⌄</span></button>}
   </header>;
 }
 
@@ -76,20 +85,59 @@ function Analysis({ item, result, loading, error, onOpen }: { item: AIAnalysisIt
   return <section className="patient-dashboard-card ai-result-card"><header className="patient-card-header"><h2>AI 분석 결과</h2><small>{item ? dateTime(item.requested_at) : "-"}</small></header>{loading ? <div className="panel-empty-state">AI 결과를 불러오는 중입니다.</div> : error ? <div className="panel-empty-state is-error">{error}</div> : !item ? <div className="panel-empty-state"><strong>AI 분석 결과가 없습니다.</strong></div> : !result ? <div className="panel-empty-state"><strong>{analysisName(item.analysis_type)}</strong><span>현재 상태: {item.status}</span></div> : <div className="analysis-result-body"><dl className="analysis-metrics"><div><dt>분석 유형</dt><dd>{analysisName(item.analysis_type)}</dd></div><div><dt>Confidence</dt><dd>{result.confidence == null ? "-" : `${Math.round(result.confidence * 100)}%`}</dd></div><div><dt>병변 개수</dt><dd>{result.lesion_count}</dd></div><div><dt>병변 총 부피</dt><dd>{result.total_volume_ml} mL</dd></div><div><dt>Severity</dt><dd>{result.severity || "-"}</dd></div><div><dt>추정 위치</dt><dd>{String(result.structured_findings.location ?? "-")}</dd></div></dl><div className="analysis-findings"><span>주요 소견</span>{findings.length ? findings.map(([key, value]) => <p key={key}><strong>{key.replaceAll("_", " ")}</strong> {typeof value === "object" ? JSON.stringify(value) : String(value)}</p>) : <p>구조화된 주요 소견이 없습니다.</p>}</div><button className="patient-panel-link" type="button" onClick={onOpen}>상세 결과 보기 ›</button></div>}</section>;
 }
 
-function Timeline({ events }: { events: TimelineEvent[] }) { return <section className="patient-dashboard-card timeline-card"><header className="patient-card-header"><h2>진료기록 / 경과</h2></header>{events.length ? <ol className="clinical-timeline">{events.map((event) => <li key={event.id} className={`is-${event.tone}`}><time>{dateTime(event.at)}</time><div><strong>{event.title}</strong><p>{event.detail}</p></div></li>)}</ol> : <div className="panel-empty-state"><strong>표시할 진료 경과가 없습니다.</strong><span>영상·AI·협진 이벤트가 시간순으로 표시됩니다.</span></div>}</section>; }
-function Prescriptions({ onOpen }: { onOpen?: () => void }) { return <section className="patient-dashboard-card recent-prescriptions-card"><header className="patient-card-header"><h2>최근 처방</h2></header><div className="panel-empty-state"><strong>환자별 처방 목록 API 미연결</strong><span>약품명, 용량·투여경로, 횟수, 기간, 상태 데이터가 없습니다.</span></div><button className="patient-panel-link" type="button" onClick={onOpen}>처방 상세 보기 ›</button></section>; }
+function Timeline({ events }: { events: TimelineEvent[] }) { return <section className="patient-dashboard-card timeline-card"><header className="patient-card-header"><h2>진료기록 / 경과</h2><button type="button" disabled title="전체 진료기록 조회 API가 제공되지 않습니다.">전체보기</button></header>{events.length ? <ol className="clinical-timeline">{events.map((event) => <li key={event.id} className={`is-${event.tone}`}><time>{dateTime(event.at)}</time><div><strong>{event.title}</strong><p>{event.detail}</p></div></li>)}</ol> : <div className="panel-empty-state"><strong>표시할 진료 경과가 없습니다.</strong><span>영상·AI·협진 이벤트가 시간순으로 표시됩니다.</span></div>}</section>; }
+function Prescriptions({ onOpen }: { onOpen?: () => void }) { return <section className="patient-dashboard-card recent-prescriptions-card"><header className="patient-card-header"><h2>최근 처방</h2></header><div className="panel-empty-state"><strong>최근 처방 내역이 없습니다.</strong><span>의료진용 환자별 처방 목록 API가 제공되지 않습니다.</span></div><button className="patient-panel-link recent-prescriptions-card__open" type="button" onClick={onOpen}>처방 / DUR 열기</button></section>; }
 
-export default function PatientChart({ patient, patients = [], onSelectPatient, onNavigate, canViewAIAnalyses = false, canViewConsultations = false }: Props) {
+export default function PatientChart({ patient, encounterId, patients = [], onSelectPatient, onNavigate, canViewAIAnalyses = false, canViewConsultations = false }: Props) {
   const [patientList, setPatientList] = useState<Patient[]>(patients); const [data, setData] = useState<ChartData>({ studies: [], analyses: [], consultations: [] });
-  const [loading, setLoading] = useState(false); const [error, setError] = useState<string | null>(null); const [selectedStudyId, setSelectedStudyId] = useState<string | null>(null); const [analysisResults, setAnalysisResults] = useState<Record<string, AIAnalysisResult>>({}); const [analysisLoading, setAnalysisLoading] = useState(false); const clinicalRequestId = useRef(0); const analysisRequestId = useRef(0);
+  const [patientDetail, setPatientDetail] = useState<PatientDetail | null>(null); const [loading, setLoading] = useState(false); const [error, setError] = useState<string | null>(null); const [selectedStudyId, setSelectedStudyId] = useState<string | null>(null); const [analysisResults, setAnalysisResults] = useState<Record<string, AIAnalysisResult>>({}); const [analysisLoading, setAnalysisLoading] = useState(false); const [analysisError, setAnalysisError] = useState<string | null>(null); const clinicalRequestId = useRef(0); const analysisRequestId = useRef(0);
+  const [encounter, setEncounter] = useState<EncounterListItem | null>(null); const [encounterLoading, setEncounterLoading] = useState(false); const [encounterError, setEncounterError] = useState<string | null>(null); const encounterRequestId = useRef(0);
   const automaticPatientId = useRef<string | null>(null);
 
   useEffect(() => {
-    const id = ++clinicalRequestId.current; setError(null); setLoading(true);
-    const analyses = canViewAIAnalyses ? getAIAnalyses() : Promise.resolve({ count: 0, results: [] }); const consultations = canViewConsultations ? getConsultations() : Promise.resolve({ count: 0, results: [] });
-    void Promise.allSettled([getPatients(), getImagingStudies(), analyses, consultations]).then(([people, imaging, ai, consult]) => { if (clinicalRequestId.current !== id) return; if (people.status === "fulfilled") setPatientList(people.value.results); setData({ studies: imaging.status === "fulfilled" ? imaging.value : [], analyses: ai.status === "fulfilled" ? ai.value.results : [], consultations: consult.status === "fulfilled" ? consult.value.results : [] }); if ([imaging, ai, consult].some((entry) => entry.status === "rejected")) setError("일부 임상 데이터를 불러오지 못했습니다."); setLoading(false); });
-    return () => { if (clinicalRequestId.current === id) clinicalRequestId.current += 1; };
-  }, [canViewAIAnalyses, canViewConsultations]);
+    let active = true;
+    void getPatients().then((response) => {
+      if (active) setPatientList(response.results);
+    }).catch(() => {
+      if (active) setError("환자 목록을 불러오지 못했습니다.");
+    });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    const requestId = ++clinicalRequestId.current;
+    setPatientDetail(null); setData({ studies: [], analyses: [], consultations: [] }); setSelectedStudyId(null); setAnalysisResults({}); setAnalysisError(null); setError(null);
+    if (!patient) { setLoading(false); return; }
+    setLoading(true);
+    const analysesRequest = canViewAIAnalyses ? getAIAnalyses() : Promise.resolve({ count: 0, results: [] as AIAnalysisItem[] });
+    const consultationsRequest = canViewConsultations ? getConsultations() : Promise.resolve({ count: 0, results: [] as ConsultationListItem[] });
+    void Promise.allSettled([getPatient(patient.id), getImagingStudies({ patientId: patient.id }), analysesRequest, consultationsRequest]).then(([detail, imaging, analyses, consultations]) => {
+      if (clinicalRequestId.current !== requestId) return;
+      if (detail.status === "fulfilled") setPatientDetail(detail.value);
+      setData({ studies: imaging.status === "fulfilled" ? imaging.value : [], analyses: analyses.status === "fulfilled" ? analyses.value.results : [], consultations: consultations.status === "fulfilled" ? consultations.value.results : [] });
+      if ([detail, imaging, analyses, consultations].some((request) => request.status === "rejected")) setError("일부 환자 임상 데이터를 불러오지 못했습니다.");
+      setLoading(false);
+    });
+    return () => { if (clinicalRequestId.current === requestId) clinicalRequestId.current += 1; };
+  }, [patient?.id, canViewAIAnalyses, canViewConsultations]);
+
+  useEffect(() => {
+    const requestId = ++encounterRequestId.current;
+    setEncounter(null); setEncounterError(null);
+    if (!patient || !encounterId) { setEncounterLoading(false); return; }
+    setEncounterLoading(true);
+    void getPatientEncounters(patient.id).then((items) => {
+      if (encounterRequestId.current !== requestId) return;
+      const matched = items.find((item) => (item.encounter_id ?? item.id) === encounterId) ?? null;
+      setEncounter(matched);
+      if (!matched) setEncounterError("연결된 Encounter 정보를 조회할 수 없습니다.");
+    }).catch(() => {
+      if (encounterRequestId.current === requestId) setEncounterError("Encounter 정보를 불러오지 못했습니다.");
+    }).finally(() => {
+      if (encounterRequestId.current === requestId) setEncounterLoading(false);
+    });
+    return () => { if (encounterRequestId.current === requestId) encounterRequestId.current += 1; };
+  }, [encounterId, patient?.id]);
 
   useEffect(() => {
     if (patient) {
@@ -104,23 +152,25 @@ export default function PatientChart({ patient, patients = [], onSelectPatient, 
     onSelectPatient(firstPatient);
   }, [onSelectPatient, patient, patientList]);
 
-  const studies = useMemo(() => patient ? data.studies.filter((item) => item.patient_id === patient.id).sort((a, b) => b.study_at.localeCompare(a.study_at)) : [], [data.studies, patient]);
+  const displayPatient = patientDetail?.id === patient?.id ? patientDetail : patient;
+  const studies = useMemo(() => patient ? data.studies.filter((item) => item.patient_id === patient.id).sort((a, b) => (b.study_at ?? "").localeCompare(a.study_at ?? "")) : [], [data.studies, patient]);
   const studyIds = useMemo(() => new Set(studies.map((item) => item.id)), [studies]); const analyses = useMemo(() => data.analyses.filter((item) => studyIds.has(item.study_id)).sort((a, b) => b.requested_at.localeCompare(a.requested_at)), [data.analyses, studyIds]); const consultations = useMemo(() => patient ? data.consultations.filter((item) => item.patient_summary.id === patient.id).sort((a, b) => b.requested_at.localeCompare(a.requested_at)) : [], [data.consultations, patient]);
   const selectedStudy = studies.find((item) => item.id === selectedStudyId) ?? studies[0] ?? null; const selectedAnalysis = analyses[0] ?? null; const selectedAnalysisResult = selectedAnalysis ? analysisResults[selectedAnalysis.analysis_id] ?? null : null;
-  useEffect(() => { const id = ++analysisRequestId.current; if (!selectedAnalysis || selectedAnalysis.status !== "COMPLETED" || analysisResults[selectedAnalysis.analysis_id]) { setAnalysisLoading(false); return; } setAnalysisLoading(true); getAIAnalysisResult(selectedAnalysis.analysis_id).then((value) => { if (analysisRequestId.current === id) setAnalysisResults((current) => ({ ...current, [value.analysis_id]: value })); }).catch(() => { if (analysisRequestId.current === id) setError("AI 상세 결과를 불러오지 못했습니다."); }).finally(() => { if (analysisRequestId.current === id) setAnalysisLoading(false); }); }, [selectedAnalysis?.analysis_id, selectedAnalysis?.status, analysisResults]);
-  const events = useMemo<TimelineEvent[]>(() => [...studies.map((item) => ({ id: `study-${item.id}`, at: item.study_at, title: `${item.modality} 영상검사`, detail: `${item.series} · ${item.status}`, tone: "imaging" as const })), ...analyses.map((item) => ({ id: `ai-${item.analysis_id}`, at: item.requested_at, title: `${analysisName(item.analysis_type)} AI 분석`, detail: `${item.status} · ${item.stage}`, tone: "ai" as const })), ...consultations.map((item) => ({ id: `consult-${item.consultation_id}`, at: item.requested_at, title: `${item.type} 협진 요청`, detail: `${item.ui_status} · ${item.priority}`, tone: "consultation" as const }))].sort((a, b) => b.at.localeCompare(a.at)), [studies, analyses, consultations]);
+  useEffect(() => { const id = ++analysisRequestId.current; if (!selectedAnalysis || selectedAnalysis.status !== "COMPLETED" || analysisResults[selectedAnalysis.analysis_id]) { setAnalysisLoading(false); return; } setAnalysisLoading(true); setAnalysisError(null); getAIAnalysisResult(selectedAnalysis.analysis_id).then((value) => { if (analysisRequestId.current === id) setAnalysisResults((current) => ({ ...current, [value.analysis_id]: value })); }).catch(() => { if (analysisRequestId.current === id) setAnalysisError("AI 상세 결과를 불러오지 못했습니다."); }).finally(() => { if (analysisRequestId.current === id) setAnalysisLoading(false); }); }, [selectedAnalysis?.analysis_id, selectedAnalysis?.status, analysisResults]);
+  const events = useMemo<TimelineEvent[]>(() => [...studies.map((item) => ({ id: `study-${item.id}`, at: item.study_at ?? "", title: `${item.modality} 영상검사`, detail: `${item.series} · ${item.status}`, tone: "imaging" as const })), ...analyses.map((item) => ({ id: `ai-${item.analysis_id}`, at: item.requested_at, title: `${analysisName(item.analysis_type)} AI 분석`, detail: `${item.status} · ${item.stage}`, tone: "ai" as const })), ...consultations.map((item) => ({ id: `consult-${item.consultation_id}`, at: item.requested_at, title: `${item.type} 협진 요청`, detail: `${item.ui_status} · ${item.priority}`, tone: "consultation" as const }))].sort((a, b) => b.at.localeCompare(a.at)), [studies, analyses, consultations]);
 
   function selectPatient(nextPatient: Patient) { setSelectedStudyId(null); setError(null); onSelectPatient?.(nextPatient); }
   return <section className="patient-context-dashboard">
     <div className="patient-workspace">
       <PatientRail selectedId={patient?.id ?? null} patients={patientList.length ? patientList : patients} onSelect={selectPatient} />
-      {patient && <PatientHeader patient={patient} />}
+      {displayPatient && <PatientHeader patient={displayPatient} care={encounter ? { arrivedAt: encounter.arrived_at, endedAt: encounter.ended_at, encounterStatus: encounter.status, encounterType: encounter.encounter_type } : undefined} />}
       {patient ? <main className="patient-context-main">
+        {encounterLoading ? <div className="patient-encounter-state">Encounter 정보를 불러오는 중입니다.</div> : !encounterId ? <div className="patient-encounter-state is-empty">현재 활성 Encounter가 없습니다.</div> : encounterError ? <div className="patient-encounter-state is-empty">{encounterError}</div> : null}
         {error && <div className="patient-data-warning">{error}</div>}
         <SummaryCards studies={studies} consultations={consultations} onNavigate={onNavigate} />
-        <div className="patient-clinical-focus">{loading ? <div className="patient-chart-loading">환자 임상 데이터를 불러오는 중입니다.</div> : <><Viewer studies={studies} selected={selectedStudy} onSelect={setSelectedStudyId} onOpen={() => onNavigate?.("imaging")} /><Analysis item={selectedAnalysis} result={selectedAnalysisResult} loading={analysisLoading} error={null} onOpen={() => onNavigate?.("ai-results")} /></>}</div>
+        <div className="patient-clinical-focus">{loading ? <div className="patient-chart-loading">환자 임상 데이터를 불러오는 중입니다.</div> : <><Viewer studies={studies} selected={selectedStudy} onSelect={setSelectedStudyId} onOpen={() => onNavigate?.("imaging")} /><Analysis item={selectedAnalysis} result={selectedAnalysisResult} loading={analysisLoading} error={analysisError} onOpen={() => onNavigate?.("ai-results")} /></>}</div>
       </main> : <main className="patient-context-main patient-context-main--empty"><div className="patient-selection-empty"><strong>선택된 환자가 없습니다.</strong><span>왼쪽 환자 목록에서 환자를 선택해 주세요.</span></div></main>}
     </div>
-    <aside className="patient-context-aside"><Timeline events={patient ? events : []} /><Prescriptions onOpen={() => onNavigate?.("prescriptions")} /></aside>
+    <aside className="patient-context-aside"><Prescriptions onOpen={() => onNavigate?.("prescriptions")} /><Timeline events={patient ? events : []} /></aside>
   </section>;
 }

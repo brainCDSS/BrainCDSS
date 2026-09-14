@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../core/api/api_client.dart';
 import '../auth/auth_session.dart';
+import '../emergency/fast_emergency_page.dart';
+import '../notifications/notifications_api.dart';
 import 'home_api.dart';
 
 class HomePage extends StatefulWidget {
@@ -19,21 +21,23 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  static const Color _primary = Color(0xFF8FAFE8);
-  static const Color _primaryDark = Color(0xFF416AAB);
-  static const Color _primarySoft = Color(0xFFEAF1FC);
+  static const Color _primary = Color(0xFF8B96E8);
+  static const Color _primaryDark = Color(0xFF5665B8);
+  static const Color _primarySoft = Color(0xFFE5E8FF);
   static const Color _surface = Color(0xFFFFFFFF);
-  static const Color _border = Color(0xFFDEE6F2);
-  static const Color _textPrimary = Color(0xFF1D3153);
-  static const Color _textSecondary = Color(0xFF75849A);
+  static const Color _border = Color(0xFFCFD7E8);
+  static const Color _textPrimary = Color(0xFF263A5A);
+  static const Color _textSecondary = Color(0xFF65758D);
   static const Color _emergency = Color(0xFFE94E4E);
 
   late final HomeApi _homeApi;
+  late final NotificationsApi _notificationsApi;
 
   bool _isLoadingAppointments = true;
   String? _appointmentError;
 
   List<HomeAppointment> _appointments = const [];
+  List<PatientNotification> _notifications = const [];
 
   @override
   void initState() {
@@ -42,8 +46,19 @@ class _HomePageState extends State<HomePage> {
     _homeApi = HomeApi(
       widget.apiClient,
     );
+    _notificationsApi = NotificationsApi(widget.apiClient);
 
     _loadAppointments();
+    _loadNotifications();
+  }
+
+  Future<void> _loadNotifications() async {
+    try {
+      final response = await _notificationsApi.list(unreadOnly: true);
+      if (mounted) setState(() => _notifications = response.items.where((item) => !item.isRead).toList());
+    } catch (_) {
+      if (mounted) setState(() => _notifications = const []);
+    }
   }
 
   Future<void> _loadAppointments() async {
@@ -134,7 +149,7 @@ class _HomePageState extends State<HomePage> {
     final todayAppointments = _todayAppointments;
 
     return RefreshIndicator(
-      onRefresh: _loadAppointments,
+      onRefresh: () async { await Future.wait([_loadAppointments(), _loadNotifications()]); },
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(
@@ -169,11 +184,15 @@ class _HomePageState extends State<HomePage> {
             subtitle: '확인이 필요한 알림을 확인하세요.',
           ),
           const SizedBox(height: 12),
-          const _EmptyCard(
+          if (_notifications.isEmpty) const _EmptyCard(
             icon: Icons.notifications_none_rounded,
             title: '확인할 알림이 없습니다.',
             description: '새로운 알림이 등록되면 이곳에 표시됩니다.',
-          ),
+          ) else ..._notifications.take(3).map((item) => Card(child: ListTile(
+            leading: Icon(Icons.notifications_active_outlined, color: item.severity == 'CRITICAL' ? _emergency : _primaryDark),
+            title: Text(item.title), subtitle: Text(item.body),
+            onTap: () async { await _notificationsApi.markRead(item.id); await _loadNotifications(); },
+          ))),
           const SizedBox(height: 28),
           _buildSectionTitle(
             title: '오늘 복약',
@@ -418,17 +437,7 @@ class _HomePageState extends State<HomePage> {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () {
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'FAST 응급안내 화면은 연결 예정입니다.',
-                        ),
-                      ),
-                    );
-                  },
+                  onPressed: () => FastEmergencyPage.open(context),
                   icon: const Icon(
                     Icons.health_and_safety_outlined,
                   ),
@@ -516,7 +525,7 @@ class _SummaryCard extends StatelessWidget {
         color: const Color(0xFFFFFFFF),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: const Color(0xFFDEE6F2),
+          color: const Color(0xFFCFD7E8),
         ),
       ),
       child: Column(
@@ -526,20 +535,20 @@ class _SummaryCard extends StatelessWidget {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: const Color(0xFFEAF1FC),
+              color: const Color(0xFFE5E8FF),
               borderRadius: BorderRadius.circular(11),
             ),
             child: Icon(
               icon,
               size: 20,
-              color: const Color(0xFF416AAB),
+              color: const Color(0xFF5665B8),
             ),
           ),
           const SizedBox(height: 14),
           Text(
             label,
             style: const TextStyle(
-              color: Color(0xFF75849A),
+              color: Color(0xFF65758D),
               fontSize: 12,
             ),
           ),
@@ -549,7 +558,7 @@ class _SummaryCard extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: Color(0xFF1D3153),
+              color: Color(0xFF263A5A),
               fontSize: 14,
               fontWeight: FontWeight.w800,
             ),
@@ -583,7 +592,7 @@ class _AppointmentCard extends StatelessWidget {
         color: const Color(0xFFFFFFFF),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: const Color(0xFFDEE6F2),
+          color: const Color(0xFFCFD7E8),
         ),
       ),
       child: Row(
@@ -593,12 +602,12 @@ class _AppointmentCard extends StatelessWidget {
             width: 46,
             height: 46,
             decoration: BoxDecoration(
-              color: const Color(0xFFEAF1FC),
+              color: const Color(0xFFE5E8FF),
               borderRadius: BorderRadius.circular(14),
             ),
             child: const Icon(
               Icons.calendar_today_outlined,
-              color: Color(0xFF416AAB),
+              color: Color(0xFF5665B8),
             ),
           ),
           const SizedBox(width: 14),
@@ -617,7 +626,7 @@ class _AppointmentCard extends StatelessWidget {
                               ),
                         style: const TextStyle(
                           color: Color(
-                            0xFF1D3153,
+                            0xFF263A5A,
                           ),
                           fontSize: 17,
                           fontWeight: FontWeight.w800,
@@ -638,7 +647,7 @@ class _AppointmentCard extends StatelessWidget {
                     info.join(' · '),
                     style: const TextStyle(
                       color: Color(
-                        0xFF75849A,
+                        0xFF65758D,
                       ),
                       fontSize: 13,
                       height: 1.4,
@@ -679,13 +688,13 @@ class _StatusBadge extends StatelessWidget {
         vertical: 6,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFFEAF1FC),
+        color: const Color(0xFFE5E8FF),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         _statusLabel(status),
         style: const TextStyle(
-          color: Color(0xFF416AAB),
+          color: Color(0xFF5665B8),
           fontSize: 11,
           fontWeight: FontWeight.w700,
         ),
@@ -738,7 +747,7 @@ class _EmptyCard extends StatelessWidget {
         color: const Color(0xFFFFFFFF),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: const Color(0xFFDEE6F2),
+          color: const Color(0xFFCFD7E8),
         ),
       ),
       child: Column(
@@ -746,14 +755,14 @@ class _EmptyCard extends StatelessWidget {
           Icon(
             icon,
             size: 32,
-            color: const Color(0xFF8FAFE8),
+            color: const Color(0xFF8B96E8),
           ),
           const SizedBox(height: 12),
           Text(
             title,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: Color(0xFF1D3153),
+              color: Color(0xFF263A5A),
               fontSize: 15,
               fontWeight: FontWeight.w700,
             ),
@@ -763,7 +772,7 @@ class _EmptyCard extends StatelessWidget {
             description,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: Color(0xFF75849A),
+              color: Color(0xFF65758D),
               fontSize: 13,
               height: 1.4,
             ),

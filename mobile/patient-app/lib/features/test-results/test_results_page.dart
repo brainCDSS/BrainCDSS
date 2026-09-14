@@ -1,29 +1,41 @@
 import 'package:flutter/material.dart';
+import '../../core/api/api_client.dart';
 
-const _primary = Color(0xFF416AAB);
-const _soft = Color(0xFFEAF1FC);
-const _border = Color(0xFFDEE6F2);
-const _text = Color(0xFF1D3153);
-const _muted = Color(0xFF75849A);
+const _primary = Color(0xFF7567C8);
+const _soft = Color(0xFFEEEAFE);
+const _border = Color(0xFFCFD7E8);
+const _text = Color(0xFF263A5A);
+const _muted = Color(0xFF65758D);
 
 class TestResultsPage extends StatelessWidget {
-  const TestResultsPage({super.key});
+  const TestResultsPage({super.key, required this.apiClient});
+  final ApiClient apiClient;
+
+  static void openResults(BuildContext context) =>
+      _openPage(context, const _ResultDetailPage());
+
+  static void openVisits(BuildContext context) =>
+      _openPage(context, const _VisitDetailPage());
+
+  static void openPrescriptions(BuildContext context, ApiClient client) =>
+      _openPage(context, const _PrescriptionDetailPage());
+
+  static void _openPage(BuildContext context, Widget page) {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
+  }
 
   @override
   Widget build(BuildContext context) => ListView(
     padding: const EdgeInsets.all(20),
     children: [
-      _MenuCard(icon: Icons.assignment_turned_in_outlined, title: '검사 결과', description: '검사 결과를 확인할 수 있어요.', onTap: () => _open(context, const _ResultDetailPage())),
+      _MenuCard(icon: Icons.assignment_turned_in_outlined, title: '검사 결과', description: '검사 결과를 확인할 수 있어요.', onTap: () => openResults(context)),
       const SizedBox(height: 12),
-      _MenuCard(icon: Icons.history_edu_outlined, title: '진료 내역', description: '진료 기록을 확인할 수 있어요.', onTap: () => _open(context, const _VisitDetailPage())),
+      _MenuCard(icon: Icons.history_edu_outlined, title: '진료 내역', description: '진료 기록을 확인할 수 있어요.', onTap: () => openVisits(context)),
       const SizedBox(height: 12),
-      _MenuCard(icon: Icons.description_outlined, title: '처방 정보', description: '처방된 약 정보를 확인할 수 있어요.', onTap: () => _open(context, const _PrescriptionDetailPage())),
+      _MenuCard(icon: Icons.description_outlined, title: '처방 정보', description: '처방된 약 정보를 확인할 수 있어요.', onTap: () => openPrescriptions(context, apiClient)),
     ],
   );
 
-  void _open(BuildContext context, Widget page) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
-  }
 }
 
 class _MenuCard extends StatelessWidget {
@@ -80,10 +92,10 @@ class _PrescriptionDetailPage extends StatelessWidget {
   const _PrescriptionDetailPage();
   @override
   Widget build(BuildContext context) => const _DetailScaffold(
-    title: '처방 상세',
+    title: '처방 정보',
     icon: Icons.receipt_long_outlined,
     emptyTitle: '등록된 처방 정보가 없습니다.',
-    description: '환자용 처방 조회 API가 연결되면 상세 정보가 표시됩니다.',
+    description: '환자 본인 범위가 보장되는 처방 목록 API 연결이 필요합니다.',
   );
 }
 
@@ -103,7 +115,7 @@ class _DetailScaffold extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 42),
       decoration: BoxDecoration(color: Colors.white, border: Border.all(color: _border), borderRadius: BorderRadius.circular(18)),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 38, color: const Color(0xFF8FAFE8)),
+        Icon(icon, size: 38, color: _primary),
         const SizedBox(height: 14),
         Text(emptyTitle, textAlign: TextAlign.center, style: const TextStyle(color: _text, fontWeight: FontWeight.w700)),
         const SizedBox(height: 7),
@@ -112,4 +124,3 @@ class _DetailScaffold extends StatelessWidget {
     )),
   );
 }
-

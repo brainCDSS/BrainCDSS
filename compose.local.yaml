@@ -1,0 +1,90 @@
+# BrainOn 로컬 개발 override.
+# 사용:
+# docker compose -f compose.yaml -f compose.local.yaml \
+#   --profile web --profile assistant --profile imaging --profile observability \
+#   up -d --build
+#
+# 로컬 PostgreSQL까지 Docker로 사용할 때는 --profile localdb 를 추가한다.
+
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+
+  rabbitmq:
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  backend:
+    environment:
+      DJANGO_SETTINGS_MODULE: "${DJANGO_SETTINGS_MODULE:-config.settings.local}"
+      DJANGO_DEBUG: "${DJANGO_DEBUG:-true}"
+      GOOGLE_APPLICATION_CREDENTIALS: "/run/secrets/firebase-adminsdk.json"
+      FCM_PROJECT_ID: "${FCM_PROJECT_ID:-brainon-cdss-apex}"
+      FCM_CREDENTIALS_PATH: "/run/secrets/firebase-adminsdk.json"
+    volumes:
+      - ./secrets/firebase-adminsdk.json:/run/secrets/firebase-adminsdk.json:ro
+    ports:
+      - "8080:8080"
+
+  celery-worker:
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: "/run/secrets/firebase-adminsdk.json"
+      FCM_PROJECT_ID: "${FCM_PROJECT_ID:-brainon-cdss-apex}"
+      FCM_CREDENTIALS_PATH: "/run/secrets/firebase-adminsdk.json"
+    volumes:
+      - ./secrets/firebase-adminsdk.json:/run/secrets/firebase-adminsdk.json:ro
+
+  celery-inference-worker:
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: "/run/secrets/firebase-adminsdk.json"
+    volumes:
+      - ./secrets/firebase-adminsdk.json:/run/secrets/firebase-adminsdk.json:ro
+
+  frontend:
+    environment:
+      VITE_BACKEND_URL: "${VITE_BACKEND_URL:-http://localhost:8080}"
+    ports:
+      - "5173:5173"
+
+  inference-api:
+    ports:
+      - "8100:8100"
+
+  assistant-service:
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: "/run/secrets/gcloud-adc.json"
+    volumes:
+      - ./secrets/gcloud-adc.json:/run/secrets/gcloud-adc.json:ro
+    ports:
+      - "8200:8200"
+
+  mcp-server:
+    ports:
+      - "8300:8300"
+
+  orthanc:
+    ports:
+      - "127.0.0.1:8042:8042"
+      - "127.0.0.1:4242:4242"
+
+  ohif:
+    ports:
+      - "3000:80"
+
+  prometheus:
+    ports:
+      - "9090:9090"
+
+  grafana:
+    ports:
+      - "3001:3000"
+
+  loki:
+    ports:
+      - "3100:3100"
+
+  alloy:
+    ports:
+      - "4317:4317"

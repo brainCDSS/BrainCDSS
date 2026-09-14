@@ -33,8 +33,10 @@ def get_firebase_app():
         )
 
     if not credentials_path:
-        raise RuntimeError(
-            "FCM_CREDENTIALS_PATH_REQUIRED"
+        return firebase_admin.initialize_app(
+            options={
+                "projectId": project_id,
+            },
         )
 
     path = Path(credentials_path)

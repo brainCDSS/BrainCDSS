@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import ipaddress
-import uuid
 
 from django.db import IntegrityError, transaction
 from django.utils import timezone
@@ -29,101 +27,14 @@ from apps.accounts.selectors.accounts import (
     user_detail_payload,
     user_summary_payload,
 )
-from apps.audit.models import AuditLog
+from apps.audit.services.audit_event import (
+    record_audit_event,
+)
 
 
 # ============================================================
-# REQUEST / AUDIT HELPERS
+# AUDIT SNAPSHOT
 # ============================================================
-
-def _request_id(request):
-    raw = (
-        getattr(request, "request_id", None)
-        or request.headers.get("X-Request-ID")
-    )
-
-    if raw:
-        try:
-            return uuid.UUID(str(raw))
-        except (ValueError, TypeError, AttributeError):
-            pass
-
-    value = uuid.uuid4()
-
-    try:
-        request.request_id = value
-    except Exception:
-        pass
-
-    return value
-
-
-def _request_ip(request):
-    forwarded = request.META.get(
-        "HTTP_X_FORWARDED_FOR",
-        "",
-    )
-
-    raw = (
-        forwarded.split(",")[0].strip()
-        if forwarded
-        else request.META.get(
-            "REMOTE_ADDR",
-            "",
-        )
-    )
-
-    if not raw:
-        return None
-
-    try:
-        return str(ipaddress.ip_address(raw))
-    except ValueError:
-        return None
-
-
-def _audit(
-    *,
-    request,
-    actor,
-    source_service,
-    action,
-    resource_type,
-    resource_id=None,
-    outcome="SUCCESS",
-    reason=None,
-    before_json=None,
-    after_json=None,
-):
-    AuditLog.objects.create(
-        actor_user=actor,
-        actor_login=actor.login_id,
-        actor_role_code=actor.role.code,
-        source_service=source_service,
-        action=action,
-        resource_type=resource_type,
-        resource=(
-            str(resource_id)
-            if resource_id is not None
-            else None
-        ),
-        patient=None,
-        outcome=outcome,
-        reason=reason,
-        before_json=before_json,
-        after_json=after_json,
-        request_ip=_request_ip(request),
-        user_agent=(
-            request.headers.get(
-                "User-Agent",
-                "",
-            )
-            or None
-        ),
-        request=_request_id(request),
-        occurred_at=timezone.now(),
-    )
-
 
 def _user_audit_snapshot(user):
     return {
@@ -289,9 +200,9 @@ def change_password(
         ]
     )
 
-    _audit(
+    record_audit_event(
         request=request,
-        actor=user,
+        actor_user=user,
         source_service="AUTH_API",
         action="CHANGE_PASSWORD",
         resource_type="User",
@@ -384,9 +295,9 @@ def create_user(
         .get(pk=user.pk)
     )
 
-    _audit(
+    record_audit_event(
         request=request,
-        actor=request.user,
+        actor_user=request.user,
         source_service="ADMIN_API",
         action="CREATE_USER",
         resource_type="User",
@@ -517,9 +428,9 @@ def update_user(
         target
     )
 
-    _audit(
+    record_audit_event(
         request=request,
-        actor=request.user,
+        actor_user=request.user,
         source_service="ADMIN_API",
         action="UPDATE_USER",
         resource_type="User",
@@ -613,9 +524,9 @@ def replace_role_permissions(
         )
     )
 
-    _audit(
+    record_audit_event(
         request=request,
-        actor=request.user,
+        actor_user=request.user,
         source_service="ADMIN_API",
         action="UPDATE_PERMISSION",
         resource_type="Role",

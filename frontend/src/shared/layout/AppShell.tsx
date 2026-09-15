@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 
@@ -14,9 +14,11 @@ import EmergencyWorklist from "../../features/assessments/EmergencyWorklist";
 // [추가 끝] 신경과 응급 Worklist 연결
 
 import PatientChart from "../../features/patients/PatientChart";
+import { getPatient } from "../../features/patients/api";
 
 import ConsultationList from "../../features/consultations/ConsultationList";
 import ConsultationPatientReview from "../../features/consultations/ConsultationPatientReview";
+import { getConsultationDetail } from "../../features/consultations/api";
 import ImagingPage from "../../features/imaging/ImagingPage";
 import AIAnalysisResultsPage from "../../features/ai-analysis/AIAnalysisResultsPage";
 import RadiologyReportsPage from "../../features/radiology/RadiologyReportsPage";
@@ -76,6 +78,50 @@ interface ActiveAssessmentContext {
 interface PrescriptionContext {
   patient: Patient;
   encounterId: string | null;
+}
+
+interface StoredWorkspaceState {
+  userId: string;
+  activeMenu: SidebarMenuKey;
+  openMenuTabs: MenuWorkspaceTabKey[];
+  activePatientId: string | null;
+  openPatientIds: string[];
+  activeConsultationId: string | null;
+  openConsultationIds: string[];
+  isConsultationListTabOpen: boolean;
+  activeAssessmentContext: ActiveAssessmentContext | null;
+  activeAnalysisId: string | null;
+  isAssistantTabOpen: boolean;
+  isAssistantTabActive: boolean;
+  assistantPatientId: string | null;
+}
+
+const WORKSPACE_STORAGE_PREFIX = "brain-cdss-workspace";
+
+const SIDEBAR_MENU_KEYS: SidebarMenuKey[] = [
+  "dashboard", "patients", "worklist", "triage", "clinical-notes",
+  "appointments", "imaging", "ai-results", "radiology-reports", "cdss",
+  "consultations", "surgical-planning", "prescriptions", "notifications",
+  "admin-users", "admin-monitoring", "admin-audit", "admin-settings",
+];
+
+function isSidebarMenuKey(value: unknown): value is SidebarMenuKey {
+  return typeof value === "string" &&
+    SIDEBAR_MENU_KEYS.includes(value as SidebarMenuKey);
+}
+
+function isMenuWorkspaceTabKey(value: unknown): value is MenuWorkspaceTabKey {
+  return isSidebarMenuKey(value) &&
+    value !== "dashboard" &&
+    value !== "consultations";
+}
+
+function isStringOrNull(value: unknown): value is string | null {
+  return value === null || typeof value === "string";
+}
+
+function workspaceStorageKey(userId: string) {
+  return `${WORKSPACE_STORAGE_PREFIX}:${userId}`;
 }
 
 
@@ -236,6 +282,184 @@ export default function AppShell({
     openMenuTabs,
     setOpenMenuTabs,
   ] = useState<MenuWorkspaceTabKey[]>([]);
+
+  const [isWorkspaceHydrated, setIsWorkspaceHydrated] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const storageKey = workspaceStorageKey(currentUser.id);
+
+    async function restoreWorkspace() {
+      try {
+        const storedValue = sessionStorage.getItem(storageKey);
+        if (!storedValue) return;
+
+        const stored = JSON.parse(storedValue) as Partial<StoredWorkspaceState>;
+        if (
+          stored.userId !== currentUser.id ||
+          !isSidebarMenuKey(stored.activeMenu) ||
+          !canAccessMenu(currentUser.role.code, stored.activeMenu) ||
+          !Array.isArray(stored.openMenuTabs) ||
+          !Array.isArray(stored.openPatientIds) ||
+          !Array.isArray(stored.openConsultationIds) ||
+          !isStringOrNull(stored.activePatientId) ||
+          !isStringOrNull(stored.activeConsultationId)
+        ) {
+          sessionStorage.removeItem(storageKey);
+          return;
+        }
+
+        const openMenuTabs = stored.openMenuTabs.filter(
+          (menu): menu is MenuWorkspaceTabKey =>
+            isMenuWorkspaceTabKey(menu) &&
+            canAccessMenu(currentUser.role.code, menu),
+        );
+        const patientIds = Array.from(new Set(
+          stored.openPatientIds.filter(
+            (id): id is string => typeof id === "string",
+          ),
+        ));
+        const consultationIds = Array.from(new Set(
+          stored.openConsultationIds.filter(
+            (id): id is string => typeof id === "string",
+          ),
+        ));
+
+        const [patientResults, consultationResults] = await Promise.all([
+          canAccessMenu(currentUser.role.code, "patients")
+            ? Promise.allSettled(patientIds.map((id) => getPatient(id)))
+            : Promise.resolve([]),
+          canAccessMenu(currentUser.role.code, "consultations")
+            ? Promise.allSettled(
+                consultationIds.map((id) => getConsultationDetail(id)),
+              )
+            : Promise.resolve([]),
+        ]);
+        if (cancelled) return;
+
+        const patients = patientResults.flatMap((result) =>
+          result.status === "fulfilled" ? [result.value] : [],
+        );
+        const consultations = consultationResults.flatMap((result) =>
+          result.status === "fulfilled" ? [result.value] : [],
+        );
+        const restoredPatientId = patients.some(
+          (patient) => patient.id === stored.activePatientId,
+        ) ? stored.activePatientId : null;
+        const restoredConsultationId = consultations.some(
+          (consultation) =>
+            consultation.consultation_id === stored.activeConsultationId,
+        ) ? stored.activeConsultationId : null;
+        const assessment = stored.activeAssessmentContext;
+        const restoredAssessment =
+          assessment &&
+          typeof assessment.assessmentId === "string" &&
+          typeof assessment.encounterId === "string" &&
+          canAccessMenu(currentUser.role.code, "triage")
+            ? assessment
+            : null;
+        const assistantIsActive =
+          stored.isAssistantTabOpen === true &&
+          stored.isAssistantTabActive === true;
+
+        setOpenMenuTabs(openMenuTabs);
+        setOpenPatientTabs(patients);
+        setOpenConsultationTabs(consultations);
+        setIsConsultationListTabOpen(
+          stored.isConsultationListTabOpen === true &&
+          canAccessMenu(currentUser.role.code, "consultations"),
+        );
+        setActiveAnalysisId(
+          isStringOrNull(stored.activeAnalysisId)
+            ? stored.activeAnalysisId
+            : null,
+        );
+        setAssistantPatientId(
+          isStringOrNull(stored.assistantPatientId)
+            ? stored.assistantPatientId
+            : null,
+        );
+        setIsAssistantTabOpen(stored.isAssistantTabOpen === true);
+        setIsAssistantTabActive(assistantIsActive);
+
+        if (assistantIsActive) {
+          setActiveMenu("dashboard");
+        } else if (restoredPatientId) {
+          setActivePatientId(restoredPatientId);
+          setActiveMenu("patients");
+          const activePatient = patients.find(
+            (patient) => patient.id === restoredPatientId,
+          );
+          if (activePatient) resolvePatientEncounter(activePatient);
+        } else if (restoredConsultationId) {
+          setActiveConsultationId(restoredConsultationId);
+          setActiveMenu("consultations");
+        } else if (stored.activeMenu === "triage") {
+          if (restoredAssessment) {
+            setActiveAssessmentContext(restoredAssessment);
+            setActiveMenu("triage");
+          }
+        } else {
+          setActiveMenu(stored.activeMenu);
+        }
+      } catch {
+        sessionStorage.removeItem(storageKey);
+      } finally {
+        if (!cancelled) setIsWorkspaceHydrated(true);
+      }
+    }
+
+    void restoreWorkspace();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser.id, currentUser.role.code]);
+
+  useEffect(() => {
+    if (!isWorkspaceHydrated) return;
+
+    const workspace: StoredWorkspaceState = {
+      userId: currentUser.id,
+      activeMenu,
+      openMenuTabs,
+      activePatientId,
+      openPatientIds: openPatientTabs.map((patient) => patient.id),
+      activeConsultationId,
+      openConsultationIds: openConsultationTabs.map(
+        (consultation) => consultation.consultation_id,
+      ),
+      isConsultationListTabOpen,
+      activeAssessmentContext,
+      activeAnalysisId,
+      isAssistantTabOpen,
+      isAssistantTabActive,
+      assistantPatientId,
+    };
+
+    try {
+      sessionStorage.setItem(
+        workspaceStorageKey(currentUser.id),
+        JSON.stringify(workspace),
+      );
+    } catch {
+      // Storage 제한 환경에서는 현재 메모리 상태로 계속 동작한다.
+    }
+  }, [
+    activeAnalysisId,
+    activeAssessmentContext,
+    activeConsultationId,
+    activeMenu,
+    activePatientId,
+    assistantPatientId,
+    currentUser.id,
+    isAssistantTabActive,
+    isAssistantTabOpen,
+    isConsultationListTabOpen,
+    isWorkspaceHydrated,
+    openConsultationTabs,
+    openMenuTabs,
+    openPatientTabs,
+  ]);
 
 
   /* ========================================================

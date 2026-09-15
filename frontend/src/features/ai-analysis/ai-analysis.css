@@ -55,12 +55,14 @@
 .clinical-ai-results .nifti-title{min-width:0}.clinical-ai-results .nifti-title h3{line-height:1.25}
 .clinical-ai-results .nifti-viewer-controls{display:grid;min-width:0;height:50px;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:24px 24px;gap:2px 6px;overflow:hidden;white-space:nowrap}
 .clinical-ai-results .nifti-primary-controls,.clinical-ai-results .nifti-overlay-controls{display:flex;min-width:0;align-items:center;gap:4px;overflow:hidden;white-space:nowrap}
+.clinical-ai-results .nifti-source-selector{display:flex;overflow:hidden;border:1px solid #3a4d68;border-radius:6px}.clinical-ai-results .nifti-source-selector button{min-width:40px;height:25px;padding:0 7px;border:0;border-right:1px solid #3a4d68;background:#17243a;color:#c9d5e5;font:inherit;cursor:pointer}.clinical-ai-results .nifti-source-selector button:last-child{border-right:0}.clinical-ai-results .nifti-source-selector button.is-active{background:#1676dc;color:#fff}
 .clinical-ai-results .nifti-primary-controls{grid-column:1;grid-row:1}.clinical-ai-results .nifti-overlay-controls{grid-column:1;grid-row:2}
 .clinical-ai-results .nifti-view-actions{display:flex;grid-column:2;grid-row:1 / span 2;align-items:center;gap:4px}
 .clinical-ai-results .nifti-primary-controls>button,.clinical-ai-results .nifti-view-actions>button{min-width:max-content;height:27px;padding:0 8px;border:1px solid #3a4d68;border-radius:5px;background:#17243a;color:#c9d5e5;font:inherit;cursor:pointer}
 .clinical-ai-results .nifti-overlay-controls>label,.clinical-ai-results .nifti-viewer-modes{flex:0 0 auto;white-space:nowrap}
 .clinical-ai-results .nifti-overlay-controls>label{display:flex;align-items:center;gap:5px}
 .clinical-ai-results .nifti-viewer-modes button{min-width:31px;white-space:nowrap}
+.clinical-ai-results .voxel-probe{margin:0 10px 10px;border:1px solid #dce6f1;border-radius:8px;background:#fbfdff}.clinical-ai-results .voxel-probe header{padding:8px 9px;border-bottom:1px solid #e8eef5;color:#315577;font-size:11px;font-weight:800}.clinical-ai-results .voxel-probe p{margin:0;padding:9px;color:#718197;font-size:11px}.clinical-ai-results .voxel-probe dl{margin:0;padding:4px 9px}.clinical-ai-results .voxel-probe dl div{display:flex;justify-content:space-between;gap:8px;padding:3px 0;font-size:11px}.clinical-ai-results .voxel-probe dt{color:#718197}.clinical-ai-results .voxel-probe dd{margin:0;color:#233e61;font-weight:800}
 .clinical-ai-results .nifti-window-value{flex:0 0 auto;min-width:104px}
 @media(max-width:1400px){.clinical-ai-results .nifti-toolbar{display:grid!important;grid-template-columns:94px minmax(0,1fr);align-items:center!important;flex-direction:unset}.clinical-ai-results .nifti-title{display:block}.clinical-ai-results .nifti-viewer-controls{width:auto;justify-content:flex-start}}
 

@@ -216,11 +216,11 @@ class InferenceService:
             # ---------------------------------------------------------
             post_started = time.perf_counter()
 
-            metrics, geometry = self._summarize(
-                mask_path
-            )
+            component_path = output_dir / "lesion-components.nii.gz"
+            metrics, geometry = self._summarize(mask_path, component_path)
 
             xai_path = output_dir / "integrated-gradients.nii.gz"
+            xai_paths: list[tuple[str, Path]] = []
             xai_metadata = None
             xai_error = None
             if os.getenv("XAI_ENABLED", "true").lower() in {"1", "true", "yes"}:
@@ -228,12 +228,27 @@ class InferenceService:
                 try:
                     from src.xai.nnunet_integrated_gradients import generate_nnunet_integrated_gradients
 
-                    xai_metadata = generate_nnunet_integrated_gradients(
-                        predictor,
-                        input_paths,
-                        input_paths[0],
-                        xai_path,
-                    )
+                    if request.analysis_type.value == "ISCHEMIC_STROKE_DWI_ADC":
+                        # Keep DWI and ADC explanations independent.  The model
+                        # still receives DWI->0, ADC->1 exactly as before.
+                        dwi_path = output_dir / "integrated-gradients-dwi.nii.gz"
+                        adc_path = output_dir / "integrated-gradients-adc.nii.gz"
+                        xai_metadata = {
+                            "DWI": generate_nnunet_integrated_gradients(
+                                predictor, input_paths, input_paths[0], dwi_path,
+                                channel_index=0,
+                            ),
+                            "ADC": generate_nnunet_integrated_gradients(
+                                predictor, input_paths, input_paths[1], adc_path,
+                                channel_index=1,
+                            ),
+                        }
+                        xai_paths = [("DWI", dwi_path), ("ADC", adc_path)]
+                    else:
+                        xai_metadata = generate_nnunet_integrated_gradients(
+                            predictor, input_paths, input_paths[0], xai_path,
+                        )
+                        xai_paths = [("DEFAULT", xai_path)]
                 except Exception as exc:  # XAI is optional; segmentation remains usable.
                     xai_error = f"{type(exc).__name__}: {exc}"
                 timing["xai"] = _milliseconds(xai_started)
@@ -305,14 +320,14 @@ class InferenceService:
                 content_type="application/json",
             )
 
-            xai_info = (
-                self.storage.upload(
-                    xai_path,
-                    f"{prefix}/integrated-gradients.nii.gz",
+            xai_infos = {
+                role: self.storage.upload(
+                    path,
+                    f"{prefix}/{path.name}",
                 )
-                if xai_metadata is not None and xai_path.is_file()
-                else None
-            )
+                for role, path in xai_paths
+                if xai_metadata is not None and path.is_file()
+            }
 
             probability_info = (
                 self.storage.upload(
@@ -321,6 +336,11 @@ class InferenceService:
                 )
                 if probability_metadata is not None and probability_path.is_file()
                 else None
+            )
+
+            component_info = self.storage.upload(
+                component_path,
+                f"{prefix}/lesion-components.nii.gz",
             )
 
             timing["upload"] = _milliseconds(
@@ -363,10 +383,18 @@ class InferenceService:
                         if probability_info is not None
                         else []
                     ),
+                    OutputObject(type="LESION_COMPONENT_MAP_NIFTI", **component_info.__dict__),
                     *(
-                        [OutputObject(type="INTEGRATED_GRADIENTS_NIFTI", **xai_info.__dict__)]
-                        if xai_info is not None
-                        else []
+                        [OutputObject(type="INTEGRATED_GRADIENTS_NIFTI", **xai_infos["DEFAULT"].__dict__)]
+                        if "DEFAULT" in xai_infos else []
+                    ),
+                    *(
+                        [OutputObject(type="INTEGRATED_GRADIENTS_DWI_NIFTI", **xai_infos["DWI"].__dict__)]
+                        if "DWI" in xai_infos else []
+                    ),
+                    *(
+                        [OutputObject(type="INTEGRATED_GRADIENTS_ADC_NIFTI", **xai_infos["ADC"].__dict__)]
+                        if "ADC" in xai_infos else []
                     ),
                 ],
                 metrics=metrics,
@@ -523,6 +551,7 @@ class InferenceService:
     @staticmethod
     def _summarize(
         mask_path: Path,
+        component_path: Path,
     ):
         import nibabel as nib
         import numpy as np
@@ -571,11 +600,18 @@ class InferenceService:
                 )
             },
         }
-        metrics["lesions"] = InferenceService._summarize_lesions(
+        component_map, metrics["lesions"] = InferenceService._component_map_and_lesions(
             data,
             voxel_volume_mm3,
         )
         metrics["lesion_count"] = len(metrics["lesions"])
+
+        component_header = image.header.copy()
+        component_header.set_data_dtype(np.int32)
+        nib.save(
+            nib.Nifti1Image(component_map.astype(np.int32), image.affine, component_header),
+            str(component_path),
+        )
 
         geometry = {
             "shape": [
@@ -601,10 +637,10 @@ class InferenceService:
         )
 
     @staticmethod
-    def _summarize_lesions(
+    def _component_map_and_lesions(
         mask,
         voxel_volume_mm3: float,
-    ) -> list[dict]:
+    ) -> tuple["np.ndarray", list[dict]]:
         """Describe actual 3-D connected components from the saved mask.
 
         This deliberately reports segmentation geometry only. It does not
@@ -618,30 +654,39 @@ class InferenceService:
 
         foreground = np.asarray(mask) != 0
         if foreground.ndim != 3 or not foreground.any():
-            return []
-        labels, count = ndimage.label(
+            return np.zeros_like(foreground, dtype=np.int32), []
+        raw_labels, count = ndimage.label(
             foreground,
             structure=np.ones((3, 3, 3), dtype=np.uint8),
         )
         total_voxels = int(foreground.sum())
-        lesions = []
+        components = []
         for label_id in range(1, count + 1):
-            component = labels == label_id
+            component = raw_labels == label_id
             voxel_count = int(component.sum())
             if not voxel_count:
                 continue
             axial_counts = component.sum(axis=(0, 1))
             representative_slice = int(np.argmax(axial_counts)) + 1
-            lesions.append(
+            components.append(
                 {
-                    "id": int(label_id),
+                    "raw_label": int(label_id),
                     "voxel_count": voxel_count,
                     "volume_ml": float(voxel_count * voxel_volume_mm3 / 1000.0),
                     "relative_volume_pct": float(voxel_count * 100.0 / total_voxels),
                     "representative_slice": representative_slice,
                 }
             )
-        return sorted(lesions, key=lambda item: item["volume_ml"], reverse=True)
+        # The map and the clinical list share one deterministic ordering.  Do
+        # not expose scipy's traversal label because it is not volume ordered.
+        components.sort(key=lambda item: item["volume_ml"], reverse=True)
+        component_map = np.zeros_like(raw_labels, dtype=np.int32)
+        lesions = []
+        for component_id, component in enumerate(components, start=1):
+            component_map[raw_labels == component.pop("raw_label")] = component_id
+            component["id"] = component_id
+            lesions.append(component)
+        return component_map, lesions
 
     @staticmethod
     def _export_probability_map(

@@ -323,12 +323,13 @@ class AnalysisNiftiViewerView(APIView):
         if analysis is None or not _can_read_analysis(request, analysis):
             raise Http404
         series_ids = AIAnalysisInputSeries.objects.filter(analysis=analysis).values_list("series_id", flat=True)
+        role_order = {"DWI": 0, "ADC": 1, "CT": 2, "MRA": 3}
         inputs = [
             {
                 "role": item.role,
                 "url": f"/api/v1/nifti-artifacts/{item.id}/content",
             }
-            for item in NiftiArtifact.objects.filter(series_id__in=series_ids).order_by("role")
+            for item in sorted(NiftiArtifact.objects.filter(series_id__in=series_ids), key=lambda value: role_order.get(value.role, 99))
         ]
         result = AIAnalysisResult.objects.filter(analysis=analysis).first()
         masks = [] if result is None else [
@@ -350,7 +351,7 @@ class AnalysisNiftiViewerView(APIView):
                 artifact_type="LESION_PROBABILITY_NIFTI",
             )
         ]
-        xai = [] if result is None else [
+        components = [] if result is None else [
             {
                 "artifact_id": str(item.id),
                 "type": item.artifact_type,
@@ -358,10 +359,26 @@ class AnalysisNiftiViewerView(APIView):
             }
             for item in AIResultArtifact.objects.filter(
                 result=result,
-                artifact_type__in=["GRAD_CAM_NIFTI", "INTEGRATED_GRADIENTS_NIFTI", "ATTENTION_MAP_NIFTI"],
+                artifact_type="LESION_COMPONENT_MAP_NIFTI",
             )
         ]
-        return Response({"analysis_id": str(analysis.id), "inputs": inputs, "masks": masks, "probabilities": probabilities, "xai": xai})
+        xai_roles = {
+            "INTEGRATED_GRADIENTS_DWI_NIFTI": "DWI",
+            "INTEGRATED_GRADIENTS_ADC_NIFTI": "ADC",
+        }
+        xai = [] if result is None else [
+            {
+                "artifact_id": str(item.id),
+                "type": item.artifact_type,
+                "role": xai_roles.get(item.artifact_type),
+                "url": f"/api/v1/ai-result-artifacts/{item.id}/content",
+            }
+            for item in AIResultArtifact.objects.filter(
+                result=result,
+                artifact_type__in=["GRAD_CAM_NIFTI", "INTEGRATED_GRADIENTS_NIFTI", "INTEGRATED_GRADIENTS_DWI_NIFTI", "INTEGRATED_GRADIENTS_ADC_NIFTI", "ATTENTION_MAP_NIFTI"],
+            )
+        ]
+        return Response({"analysis_id": str(analysis.id), "inputs": inputs, "masks": masks, "probabilities": probabilities, "components": components, "xai": xai})
 
 
 class ResultArtifactContentView(APIView):

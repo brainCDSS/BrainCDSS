@@ -19,7 +19,7 @@ from .nnunet_gradcam import (
 )
 
 
-def generate_nnunet_integrated_gradients(predictor, input_paths: list[Path], reference_path: Path, output_path: Path) -> dict:
+def generate_nnunet_integrated_gradients(predictor, input_paths: list[Path], reference_path: Path, output_path: Path, *, channel_index: int | None = None) -> dict:
     """Generate a full-volume Smooth Integrated Gradients NIfTI."""
     import nibabel as nib
     import torch
@@ -40,6 +40,7 @@ def generate_nnunet_integrated_gradients(predictor, input_paths: list[Path], ref
         steps=int(os.getenv("XAI_IG_STEPS", "8")),
         smooth_samples=int(os.getenv("XAI_SMOOTHGRAD_SAMPLES", "4")),
         noise_std=float(os.getenv("XAI_SMOOTHGRAD_NOISE_STD", "0.05")),
+        channel_index=channel_index,
     )
     reference = nib.load(str(reference_path))
     original = _restore_original_space(heatmap[crop], predictor, properties)
@@ -63,10 +64,11 @@ def generate_nnunet_integrated_gradients(predictor, input_paths: list[Path], ref
         "normalization": "GLOBAL_ABS_MIN_MAX_0_1",
         "ig_steps": int(os.getenv("XAI_IG_STEPS", "8")),
         "smoothgrad_samples": int(os.getenv("XAI_SMOOTHGRAD_SAMPLES", "4")),
+        "input_channel": channel_index,
     }
 
 
-def _aggregate(network, tensor, slicers, device, predicted_roi, *, steps, smooth_samples, noise_std):
+def _aggregate(network, tensor, slicers, device, predicted_roi, *, steps, smooth_samples, noise_std, channel_index: int | None = None):
     import torch
 
     heatmap_sum = np.zeros(tuple(int(value) for value in tensor.shape[1:]), dtype=np.float32)
@@ -82,7 +84,10 @@ def _aggregate(network, tensor, slicers, device, predicted_roi, *, steps, smooth
             continue
         network.zero_grad(set_to_none=True)
         patch = tensor[slicer][None].to(device, memory_format=torch.contiguous_format)
-        attribution = explainer.attribute(patch, roi_mask, steps, smooth_samples, noise_std)[0, 0].cpu().numpy().astype(np.float32)
+        attribution = explainer.attribute(
+            patch, roi_mask, steps, smooth_samples, noise_std,
+            channel_index=channel_index,
+        )[0, 0].cpu().numpy().astype(np.float32)
         if gaussian is None or gaussian.shape != attribution.shape:
             gaussian = _gaussian_importance_map(tuple(attribution.shape))
         heatmap_sum[spatial_slices] += attribution * gaussian

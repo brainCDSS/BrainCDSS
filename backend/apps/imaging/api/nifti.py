@@ -30,7 +30,10 @@ def _study_payload(study):
         "accession_number": study.accession_number,
         "study_datetime": study.study_datetime,
         "modalities": study.modalities or sorted({item.modality for item in series}),
-        "scan_type": "MRA" if "MRA" in roles else None,
+        # A study can contain more than one derived input.  Prefer MRA only
+        # when it is actually present, otherwise expose the concrete input
+        # family used by the viewer.
+        "scan_type": "MRA" if "MRA" in roles else ("CT" if "CT" in roles else ("MRI" if {"DWI", "ADC"} & roles else None)),
         "study_description": study.study_description,
         "status": study.status,
         "series_count": len(series),

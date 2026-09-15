@@ -12,7 +12,7 @@ class IntegratedGradients3D:
         self.network = network
         self.foreground_class = foreground_class
 
-    def attribute(self, inputs, roi_mask, steps: int = 8, smooth_samples: int = 4, noise_std: float = 0.05):
+    def attribute(self, inputs, roi_mask, steps: int = 8, smooth_samples: int = 4, noise_std: float = 0.05, channel_index: int | None = None):
         import torch
         from captum.attr import IntegratedGradients
 
@@ -40,6 +40,13 @@ class IntegratedGradients3D:
                 attribution /= smooth_samples
                 # Positive magnitude means the input voxel affects the ROI logit;
                 # it is not clipped by the predicted segmentation mask.
-                return attribution.abs().mean(dim=1, keepdim=True).detach()
+                magnitude = attribution.abs()
+                if channel_index is not None:
+                    # MRI uses DWI=0 and ADC=1.  Keep the selected input
+                    # channel instead of averaging them into one explanation.
+                    if channel_index < 0 or channel_index >= magnitude.shape[1]:
+                        raise ValueError(f"invalid attribution channel {channel_index}")
+                    return magnitude[:, channel_index:channel_index + 1].detach()
+                return magnitude.mean(dim=1, keepdim=True).detach()
         finally:
             self.network.train(was_training)

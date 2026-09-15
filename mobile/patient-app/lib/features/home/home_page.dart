@@ -345,6 +345,7 @@ class _HomePageState extends State<HomePage> {
 
     if (_appointmentError != null) {
       return Container(
+        
         padding: const EdgeInsets.all(20),
         decoration: _cardDecoration(),
         child: Column(

@@ -3,9 +3,17 @@ from django.urls import path
 from apps.prescriptions.api.prescription_finalize_views import (
     PrescriptionFinalizeView,
 )
+from apps.prescriptions.api.current_medications_views import (
+    CurrentMedicationsView,
+)
 
 
 urlpatterns = [
+    path(
+        "api/v1/patients/<uuid:patient_id>/current-medications",
+        CurrentMedicationsView.as_view(),
+        name="api-current-medications",
+    ),
     path(
         (
             "api/v1/prescriptions/"

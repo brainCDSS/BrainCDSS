@@ -15,7 +15,7 @@ class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key, required this.session, required this.onLogout, required this.apiClient});
 
   final AuthSession session;
-  final VoidCallback onLogout;
+  final Future<void> Function() onLogout;
   final ApiClient apiClient;
 
   static void openMyInfo(BuildContext context, AuthSession session) =>
@@ -78,7 +78,7 @@ class ProfilePage extends StatelessWidget {
         FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('로그아웃')),
       ],
     ));
-    if (confirmed == true) onLogout();
+    if (confirmed == true) await onLogout();
   }
 }
 

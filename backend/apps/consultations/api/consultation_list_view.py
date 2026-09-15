@@ -5,6 +5,13 @@ from apps.consultations.api.generated_real_149 import ContractView000, SPECS
 from apps.consultations.models import Consultation
 from apps.organizations.models import Clinician
 
+from django.db import transaction
+from django.utils import timezone
+from rest_framework.response import Response
+
+from apps.clinical_records.models import Encounter
+from apps.consultations.models import Consultation, ConsultationHistory
+from apps.common.remaining149_runtime import ContractError, check_access
 
 LIST_SPEC = next(spec for spec in SPECS if spec["api_id"] == "API-CON-002")
 
@@ -48,6 +55,137 @@ def _allowed_actions(consultation, user):
 
 
 class ConsultationListCreateView(ContractView000):
+    @transaction.atomic
+    def post(self, request, *args, **kwargs):
+        from rest_framework.exceptions import NotFound
+
+        from apps.common.remaining149_runtime import _audit, _outbox
+
+        create_spec = next(
+            spec for spec in SPECS if spec["api_id"] == "API-CON-001"
+        )
+        check_access(request, create_spec)
+
+        if not isinstance(request.data, dict):
+            raise ContractError({"code": "VALIDATION_ERROR", "detail": "JSON object is required."})
+
+        encounter_id = request.data.get("encounter_id")
+        consultation_type = request.data.get("consultation_type")
+        assigned_to_id = request.data.get("assigned_to_id")
+        priority = request.data.get("priority")
+        reason = str(request.data.get("reason") or "").strip()
+
+        errors = {}
+        if not encounter_id:
+            errors["encounter_id"] = "This field is required."
+        if consultation_type not in {"RADIOLOGY", "NEUROSURGERY"}:
+            errors["consultation_type"] = "Use RADIOLOGY or NEUROSURGERY."
+        if not assigned_to_id:
+            errors["assigned_to_id"] = "This field is required."
+        if priority not in {"ROUTINE", "URGENT", "STAT"}:
+            errors["priority"] = "Use ROUTINE, URGENT, or STAT."
+        if not reason:
+            errors["reason"] = "This field is required."
+        if errors:
+            raise ContractError({"code": "VALIDATION_ERROR", **errors})
+
+        try:
+            encounter = Encounter.objects.select_for_update().get(pk=encounter_id)
+        except (Encounter.DoesNotExist, ValueError) as exc:
+            raise NotFound({"code": "ENCOUNTER_NOT_FOUND"}) from exc
+
+        if encounter.status not in {"REGISTERED", "IN_PROGRESS"}:
+            raise ContractError({
+                "code": "VALIDATION_ERROR",
+                "encounter_id": "Consultations require a REGISTERED or IN_PROGRESS encounter.",
+            })
+
+        if not Clinician.objects.filter(
+            user=request.user,
+            department__code="NEUROLOGY",
+            is_active=True,
+        ).exists():
+            raise ContractError({
+                "code": "VALIDATION_ERROR",
+                "detail": "The requester must be an active neurology clinician.",
+            })
+
+        try:
+            assignee = Clinician.objects.select_related(
+                "user__role",
+                "department",
+            ).get(user_id=assigned_to_id)
+        except (Clinician.DoesNotExist, ValueError) as exc:
+            raise ContractError({
+                "code": "VALIDATION_ERROR",
+                "assigned_to_id": "Select an active clinician user.",
+            }) from exc
+
+        expected_role = {
+            "NEUROSURGERY": "NEUROSURGEON",
+            "RADIOLOGY": "RADIOLOGY",
+        }[consultation_type]
+        if (
+            not assignee.is_active
+            or assignee.department.code != consultation_type
+            or _role_code(assignee.user) != expected_role
+        ):
+            raise ContractError({
+                "code": "VALIDATION_ERROR",
+                "assigned_to_id": "The clinician does not match the consultation type.",
+            })
+
+        if Consultation.objects.filter(
+            encounter=encounter,
+            consultation_type=consultation_type,
+            assigned_to_id=assignee.user_id,
+            status__in={"REQUESTED", "ACCEPTED", "IN_PROGRESS", "RESPONDED"},
+        ).exists():
+            from apps.common.remaining149_runtime import ContractConflict
+
+            raise ContractConflict({"code": "CONSULTATION_ACTIVE_DUPLICATE"})
+
+        now = timezone.now()
+        consultation = Consultation.objects.create(
+            encounter=encounter,
+            consultation_type=consultation_type,
+            requested_by=request.user,
+            assigned_to=assignee.user,
+            priority=priority,
+            reason=reason,
+            status="REQUESTED",
+            requested_at=now,
+            created_at=now,
+            updated_at=now,
+        )
+        ConsultationHistory.objects.create(
+            consultation=consultation,
+            from_status=None,
+            to_status="REQUESTED",
+            changed_by=request.user,
+            reason=reason,
+            changed_at=now,
+        )
+
+        payload = {
+            "consultation_id": str(consultation.id),
+            "encounter_id": str(consultation.encounter_id),
+            "type": consultation.consultation_type,
+            "assigned_to_id": str(consultation.assigned_to_id),
+            "assigned_to": _user_summary(
+                consultation.assigned_to,
+                {assignee.user_id: assignee},
+            ),
+            "priority": consultation.priority,
+            "reason": consultation.reason,
+            "status": consultation.status,
+            "requested_at": consultation.requested_at,
+            "allowed_actions": _allowed_actions(consultation, request.user),
+        }
+        _audit(request, create_spec, consultation, None, payload)
+        _outbox(create_spec, consultation, payload)
+        return Response(payload, status=201)
+
     def get(self, request, *args, **kwargs):
         check_access(request, LIST_SPEC)
         queryset = Consultation.objects.select_related(

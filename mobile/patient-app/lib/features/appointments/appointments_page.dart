@@ -68,6 +68,12 @@ class AppointmentsPageState extends State<AppointmentsPage> {
         _appointments = result;
         _loading = false;
       });
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error.message;
+        _loading = false;
+      });
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -221,12 +227,14 @@ class AppointmentDetailPage extends StatefulWidget {
 class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
   Map<String, dynamic>? _detail;
   String? _error;
+  bool _isCancelling = false;
 
   @override
   void initState() { super.initState(); _load(); }
 
   Future<void> _load() async {
     try { final value = await AppointmentsApi(widget.apiClient).detail(widget.appointment.appointmentId); if (mounted) setState(() { _detail = value; _error = null; }); }
+    on ApiException catch (error) { if (mounted) setState(() => _error = error.message); }
     catch (_) { if (mounted) setState(() => _error = '예약 상세를 불러오지 못했습니다.'); }
   }
 
@@ -249,7 +257,7 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
         Row(children: [
           Expanded(child: OutlinedButton(onPressed: () async { final changed = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => _ReservationChangePage(apiClient: widget.apiClient, appointment: widget.appointment))); if (changed == true && context.mounted) Navigator.pop(context); }, child: const Text('예약 변경'))),
           const SizedBox(width: 10),
-          Expanded(child: OutlinedButton(style: OutlinedButton.styleFrom(foregroundColor: _danger), onPressed: () => _showCancel(context), child: const Text('예약 취소'))),
+          Expanded(child: OutlinedButton(style: OutlinedButton.styleFrom(foregroundColor: _danger), onPressed: _isCancelling ? null : () => _showCancel(context), child: Text(_isCancelling ? '취소 중...' : '예약 취소'))),
         ]),
       ]),
     );
@@ -263,12 +271,18 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
       actions: [
         TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('닫기')),
         FilledButton(onPressed: () async {
+          if (_isCancelling) return;
+          setState(() => _isCancelling = true);
           try {
             await AppointmentsApi(widget.apiClient).cancel(widget.appointment.appointmentId, reason: reason.text);
             if (dialogContext.mounted) Navigator.pop(dialogContext);
             if (context.mounted) Navigator.pop(context);
           } on ApiException catch (error) {
             if (dialogContext.mounted) ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(content: Text(error.message)));
+          } catch (_) {
+            if (dialogContext.mounted) ScaffoldMessenger.of(dialogContext).showSnackBar(const SnackBar(content: Text('예약 취소를 처리하지 못했습니다.')));
+          } finally {
+            if (mounted) setState(() => _isCancelling = false);
           }
         }, child: const Text('예약 취소')),
       ],
@@ -340,6 +354,8 @@ class _SlotSelectionPageState extends State<_SlotSelectionPage> {
       final values = await _api.clinicians();
       if (!mounted) return;
       setState(() { _clinicians = values; _loading = false; });
+    } on ApiException catch (error) {
+      if (mounted) setState(() { _error = error.message; _loading = false; });
     } catch (_) {
       if (mounted) setState(() { _error = '의료진 목록을 불러오지 못했습니다.'; _loading = false; });
     }
@@ -352,6 +368,8 @@ class _SlotSelectionPageState extends State<_SlotSelectionPage> {
     try {
       final values = await _api.slots(clinicianId, _date);
       if (mounted) setState(() { _slots = values; _loading = false; });
+    } on ApiException catch (error) {
+      if (mounted) setState(() { _slots = const []; _error = error.message; _loading = false; });
     } catch (_) {
       if (mounted) setState(() { _slots = const []; _error = '예약 가능 시간을 불러오지 못했습니다.'; _loading = false; });
     }
@@ -364,7 +382,7 @@ class _SlotSelectionPageState extends State<_SlotSelectionPage> {
 
   Future<void> _submit() async {
     final slotId = _selectedSlotId;
-    if (slotId == null) return;
+    if (slotId == null || _submitting) return;
     setState(() => _submitting = true);
     try {
       await widget.onSubmit(slotId);
@@ -373,12 +391,9 @@ class _SlotSelectionPageState extends State<_SlotSelectionPage> {
     } on ApiException catch (error) {
       if (mounted) setState(() { _error = error.message; _submitting = false; });
     } catch (_) {
-      if (mounted) {
-        setState(() {
-          _error = '요청을 처리하지 못했습니다.';
-          _submitting = false;
-        });
-      }
+      if (mounted) setState(() => _error = '요청을 처리하지 못했습니다.');
+    } finally {
+      if (mounted) setState(() => _submitting = false);
     }
   }
 

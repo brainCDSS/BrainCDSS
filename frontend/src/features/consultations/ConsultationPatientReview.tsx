@@ -283,6 +283,8 @@ export default function ConsultationPatientReview({
   );
 
   const [actionBusy, setActionBusy] = useState(false);
+  const [respondComplete, setRespondComplete] = useState(false);
+  const [respondUnavailable, setRespondUnavailable] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [studies, setStudies] = useState<ImagingStudy[]>([]);
   const [analyses, setAnalyses] = useState<AIAnalysisItem[]>([]);
@@ -308,6 +310,7 @@ export default function ConsultationPatientReview({
         if (!finalOpinion) return;
         const treatmentPlan = globalThis.prompt("치료 계획을 입력해 주세요. (선택)")?.trim();
         await respondConsultation(consultation.consultation_id, { final_opinion: finalOpinion, ...(treatmentPlan ? { treatment_plan: treatmentPlan } : {}) });
+        setRespondComplete(true);
       }
       setConsultation(await getConsultationDetail(consultation.consultation_id));
     } catch { setActionError("협진 상태 변경에 실패했습니다."); }
@@ -808,9 +811,6 @@ export default function ConsultationPatientReview({
             협진 Patient Review
           </h1>
 
-          <p>
-            협진 요청과 환자 정보를 함께 검토합니다.
-          </p>
 
         </div>
 
@@ -1238,9 +1238,6 @@ export default function ConsultationPatientReview({
 
           </div>
 
-        </div>
-
-
         {/* ===================================================
             협진 요청 사유
             =================================================== */}
@@ -1257,8 +1254,10 @@ export default function ConsultationPatientReview({
 
 
           <div className="consultation-review__reason-content">
-            API 필드 연동 예정
+            {(consultation as ConsultationListItem & { reason?: string | null }).reason || "-"}
           </div>
+
+        </div>
 
         </div>
 
@@ -1463,32 +1462,13 @@ export default function ConsultationPatientReview({
           CONSULTATION DETAIL
           ===================================================== */}
 
-      {consultation.allowed_actions.length > 0 && <div className="clinical-action-bar">
-        {consultation.allowed_actions.map((action) => <button className="clinical-action" disabled={actionBusy} key={action} onClick={() => void runAction(action)} type="button">{action}</button>)}
-      </div>}
+      <div className="clinical-action-bar">
+        {consultation.allowed_actions.includes("CANCEL") && <button className="clinical-action" disabled={actionBusy} onClick={() => void runAction("CANCEL")} type="button">협진 취소</button>}
+        <button className="clinical-action" disabled={actionBusy} onClick={() => consultation.allowed_actions.includes("RESPOND") ? void runAction("RESPOND") : setRespondUnavailable(true)} type="button">협진 회신 작성</button>
+      </div>
       {actionError && <div className="clinical-state clinical-state--error" role="alert">{actionError}</div>}
-
-      <button
-        type="button"
-        className="consultation-review__detail-button"
-        disabled={
-          !onOpenDetail
-        }
-        onClick={() => {
-
-          onOpenDetail?.(
-            consultation.consultation_id,
-          );
-
-        }}
-      >
-        협진 상세로 이동
-
-        <span aria-hidden="true">
-          →
-        </span>
-
-      </button>
+      {respondUnavailable && <div className="consultation-review__completion-modal-backdrop" role="presentation"><section className="consultation-review__completion-modal" role="dialog" aria-modal="true"><h2>협진 회신을 작성할 수 없습니다.</h2><p>검토 중 상태의 배정 의료진만 회신할 수 있습니다.</p><div><button type="button" onClick={() => setRespondUnavailable(false)}>확인</button></div></section></div>}
+      {respondComplete && <div className="consultation-review__completion-modal-backdrop" role="presentation"><section className="consultation-review__completion-modal" role="dialog" aria-modal="true"><h2>협진 회신이 완료되었습니다.</h2><p>수술·시술 플래닝 화면으로 이동하시겠습니까?</p><div><button type="button" onClick={() => setRespondComplete(false)}>나중에</button><button type="button" onClick={() => setRespondComplete(false)}>플래닝으로 이동</button></div></section></div>}
 
     </section>
   );

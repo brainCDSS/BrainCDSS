@@ -27,9 +27,15 @@ class ApiClient {
   );
 
   String? _accessToken;
+  Future<String?> Function()? _tokenRefresher;
+  Future<String?>? _refreshing;
 
   void setAccessToken(String? token) {
     _accessToken = token;
+  }
+
+  void setTokenRefresher(Future<String?> Function()? refresher) {
+    _tokenRefresher = refresher;
   }
 
   Map<String, String> get _headers => {
@@ -47,9 +53,8 @@ class ApiClient {
       queryParameters: query,
     );
 
-    final response = await http.get(
-      uri,
-      headers: _headers,
+    final response = await _requestWithRefresh(
+      () => http.get(uri, headers: _headers),
     );
 
     return _decodeResponse(response);
@@ -58,15 +63,19 @@ class ApiClient {
   Future<Map<String, dynamic>> post(
     String path, {
     Map<String, dynamic>? body,
+    bool retryOnUnauthorized = true,
   }) async {
     final uri = Uri.parse('$baseUrl$path');
 
     debugPrint('API POST: $uri');
 
-    final response = await http.post(
-      uri,
-      headers: _headers,
-      body: jsonEncode(body ?? {}),
+    final response = await _requestWithRefresh(
+      () => http.post(
+        uri,
+        headers: _headers,
+        body: jsonEncode(body ?? {}),
+      ),
+      retryOnUnauthorized: retryOnUnauthorized,
     );
 
     debugPrint('API STATUS: ${response.statusCode}');
@@ -85,12 +94,34 @@ class ApiClient {
     String path, {
     Map<String, dynamic>? body,
   }) async {
-    final response = await http.patch(
-      Uri.parse('$baseUrl$path'),
-      headers: _headers,
-      body: jsonEncode(body ?? {}),
+    final uri = Uri.parse('$baseUrl$path');
+    final response = await _requestWithRefresh(
+      () => http.patch(
+        uri,
+        headers: _headers,
+        body: jsonEncode(body ?? {}),
+      ),
     );
     return _decodeResponse(response);
+  }
+
+  Future<http.Response> _requestWithRefresh(
+    Future<http.Response> Function() request, {
+    bool retryOnUnauthorized = true,
+  }) async {
+    final response = await request();
+    if (response.statusCode != 401 || !retryOnUnauthorized) {
+      return response;
+    }
+
+    final refresher = _tokenRefresher;
+    if (refresher == null) return response;
+
+    _refreshing ??= refresher().whenComplete(() => _refreshing = null);
+    final refreshedToken = await _refreshing;
+    if (refreshedToken == null || refreshedToken.isEmpty) return response;
+
+    return request();
   }
 
   Map<String, dynamic> _decodeResponse(

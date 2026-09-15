@@ -17,6 +17,25 @@ export interface MedicationListResponse {
   results: MedicationItem[];
 }
 
+export interface CurrentMedicationItem {
+  item_id: string;
+  prescription_id: string;
+  medication_id: string;
+  medication_code: string | null;
+  medication_name: string;
+  dose: string;
+  dose_unit: string;
+  frequency_per_day: number;
+  timing: string | null;
+  start_date: string;
+  duration_days: number;
+}
+
+export interface CurrentMedicationListResponse {
+  count: number;
+  results: CurrentMedicationItem[];
+}
+
 export interface EncounterListItem {
   encounter_id?: string;
   id?: string;

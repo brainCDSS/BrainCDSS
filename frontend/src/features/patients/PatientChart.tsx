@@ -1,9 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { FormEvent } from "react";
 
 import { getAIAnalyses, getAIAnalysisResult } from "../ai-analysis/api";
 import type { AIAnalysisItem, AIAnalysisResult } from "../ai-analysis/types";
-import { getConsultations } from "../consultations/api";
-import type { ConsultationListItem } from "../consultations/types";
+import { getClinicians } from "../assessments/api";
+import type { Clinician } from "../assessments/types";
+import { getActiveHospitals, getHospitalDetail } from "../appointments/api";
+import { createConsultation, getConsultations } from "../consultations/api";
+import type {
+  ConsultationListItem,
+  ConsultationPriority,
+  ConsultationType,
+} from "../consultations/types";
 import { getImagingStudies } from "../imaging/api";
 import type { ImagingStudy } from "../imaging/types";
 import { getPatientEncounters } from "../medication-safety/api";
@@ -97,9 +105,120 @@ export function PatientHeader({ patient, care, onOpenDetails }: { patient: Patie
   </header>;
 }
 
-function SummaryCards({ studies, consultations, onNavigate }: { studies: ImagingStudy[]; consultations: ConsultationListItem[]; onNavigate?: (destination: Destination) => void }) {
-  const latest = studies[0]; const consultation = consultations[0];
-  return <section className="patient-summary-grid"><article className="patient-summary-card"><header><span>♥</span><h3>Vital Sign</h3></header><div className="summary-empty"><strong>Vital API 미연결</strong><span>BP / HR / RR / BT 데이터가 없습니다.</span></div></article><article className="patient-summary-card"><header><span>▣</span><h3>최근 영상검사</h3><small>{latest ? dateTime(latest.study_at) : "-"}</small></header>{latest ? <div className="patient-recent-study-list">{studies.slice(0, 3).map((study) => <div key={study.id}><strong>{study.modality}</strong><span>{study.status}</span><time>{dateTime(study.study_at)}</time></div>)}</div> : <div className="summary-empty"><strong>검사 없음</strong><span>연결된 영상검사가 없습니다.</span></div>}<button type="button" onClick={() => onNavigate?.("imaging")}>검사 상세 보기 ›</button></article><article className="patient-summary-card"><header><span>♧</span><h3>협진 상태</h3><button type="button" onClick={() => onNavigate?.("consultations")}>더보기 ›</button></header>{consultation ? <dl><div><dt>협진 대상</dt><dd>{consultation.type}</dd></div><div><dt>상태</dt><dd>{consultation.ui_status}</dd></div><div><dt>우선순위</dt><dd>{consultation.priority}</dd></div></dl> : <div className="summary-empty"><strong>협진 없음</strong><span>조회 가능한 협진이 없습니다.</span></div>}</article></section>;
+function SummaryCards({
+  studies,
+  consultations,
+  onNavigate,
+  canRequestConsultation,
+  consultationRequestDisabled,
+  onRequestConsultation,
+}: {
+  studies: ImagingStudy[];
+  consultations: ConsultationListItem[];
+  onNavigate?: (destination: Destination) => void;
+  canRequestConsultation: boolean;
+  consultationRequestDisabled: boolean;
+  onRequestConsultation?: () => void;
+}) {
+  const latest = studies[0];
+  const consultation = consultations[0];
+
+  return (
+    <section className="patient-summary-grid">
+      <article className="patient-summary-card">
+        <header>
+          <span>♥</span>
+          <h3>Vital Sign</h3>
+        </header>
+
+        <div className="summary-empty">
+          <strong>Vital API 미연결</strong>
+          <span>BP / HR / RR / BT 데이터가 없습니다.</span>
+        </div>
+      </article>
+
+      <article className="patient-summary-card">
+        <header>
+          <span>▣</span>
+          <h3>최근 영상검사</h3>
+          <small>{latest ? dateTime(latest.study_at) : "-"}</small>
+        </header>
+
+        {latest ? (
+          <div className="patient-recent-study-list">
+            {studies.slice(0, 3).map((study) => (
+              <div key={study.id}>
+                <strong>{study.modality}</strong>
+                <span>{study.status}</span>
+                <time>{dateTime(study.study_at)}</time>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="summary-empty">
+            <strong>검사 없음</strong>
+            <span>연결된 영상검사가 없습니다.</span>
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={() => onNavigate?.("imaging")}
+        >
+          검사 상세 보기 ›
+        </button>
+      </article>
+
+      <article className="patient-summary-card">
+        <header>
+          <span>♧</span>
+          <h3>협진 상태</h3>
+
+          <div className="patient-consultation-actions">
+            {canRequestConsultation && (
+              <button
+                type="button"
+                className="patient-consultation-request"
+                disabled={consultationRequestDisabled}
+                onClick={onRequestConsultation}
+              >
+                협진 요청
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => onNavigate?.("consultations")}
+            >
+              더보기 ›
+            </button>
+          </div>
+        </header>
+
+        {consultation ? (
+          <dl>
+            <div>
+              <dt>협진 대상</dt>
+              <dd>{consultation.type}</dd>
+            </div>
+            <div>
+              <dt>상태</dt>
+              <dd>{consultation.ui_status}</dd>
+            </div>
+            <div>
+              <dt>우선순위</dt>
+              <dd>{consultation.priority}</dd>
+            </div>
+          </dl>
+        ) : (
+          <div className="summary-empty">
+            <strong>협진 없음</strong>
+            <span>조회 가능한 협진이 없습니다.</span>
+          </div>
+        )}
+      </article>
+    </section>
+  );
 }
 
 function Viewer({ studies, selected, onSelect, onOpen }: { studies: ImagingStudy[]; selected: ImagingStudy | null; onSelect: (id: string) => void; onOpen?: () => void }) {
@@ -115,12 +234,33 @@ function Timeline({ events }: { events: TimelineEvent[] }) { return <section cla
 function Prescriptions({ onOpen }: { onOpen?: () => void }) { return <section className="patient-dashboard-card recent-prescriptions-card"><header className="patient-card-header"><h2>최근 처방</h2></header><div className="panel-empty-state"><strong>최근 처방 내역이 없습니다.</strong><span>의료진용 환자별 처방 목록 API가 제공되지 않습니다.</span></div><button className="patient-panel-link recent-prescriptions-card__open" type="button" onClick={onOpen}>처방 / DUR 열기</button></section>; }
 
 export default function PatientChart({ patient, encounterId, patients = [], onSelectPatient, onNavigate, canViewAIAnalyses = false, canViewConsultations = false }: Props) {
+  const [activeTab, setActiveTab] = useState<"summary" | "clinical">("summary");
   const [patientList, setPatientList] = useState<Patient[]>(patients); const [data, setData] = useState<ChartData>({ studies: [], analyses: [], consultations: [] });
   const [isPermissionModalOpen, setIsPermissionModalOpen] = useState(false);
   const [patientDetail, setPatientDetail] = useState<PatientDetail | null>(null); const [loading, setLoading] = useState(false); const [error, setError] = useState<string | null>(null); const [selectedStudyId, setSelectedStudyId] = useState<string | null>(null); const [analysisResults, setAnalysisResults] = useState<Record<string, AIAnalysisResult>>({}); const [analysisLoading, setAnalysisLoading] = useState(false); const [analysisError, setAnalysisError] = useState<string | null>(null); const clinicalRequestId = useRef(0); const analysisRequestId = useRef(0);
   const [encounter, setEncounter] = useState<EncounterListItem | null>(null); const [encounterLoading, setEncounterLoading] = useState(false); const [encounterError, setEncounterError] = useState<string | null>(null); const encounterRequestId = useRef(0);
   const automaticPatientId = useRef<string | null>(null);
-  const isNurse = loadAuthSession()?.user.role.code === "NURSE";
+  const currentUser = loadAuthSession()?.user;
+  const currentRole = currentUser?.role.code;
+  const isNurse = currentRole === "NURSE";
+  const canRequestConsultation = currentRole === "NEUROLOGIST";
+
+  const [isConsultationRequestOpen, setIsConsultationRequestOpen] = useState(false);
+  const [consultationType, setConsultationType] = useState<ConsultationType>("RADIOLOGY");
+  const [selectedClinicianId, setSelectedClinicianId] = useState("");
+  const [consultationClinicians, setConsultationClinicians] = useState<Clinician[]>([]);
+  const [consultationCliniciansLoading, setConsultationCliniciansLoading] = useState(false);
+  const [consultationCliniciansError, setConsultationCliniciansError] = useState<string | null>(null);
+  const [consultationPriority, setConsultationPriority] = useState<ConsultationPriority>("ROUTINE");
+  const [consultationReason, setConsultationReason] = useState("");
+  const [consultationSubmitting, setConsultationSubmitting] = useState(false);
+  const [consultationRequestError, setConsultationRequestError] = useState<string | null>(null);
+
+  const consultationRequestDisabled =
+    encounterLoading ||
+    !encounterId ||
+    !encounter ||
+    (encounter.status !== "REGISTERED" && encounter.status !== "IN_PROGRESS");
 
   useEffect(() => {
     let active = true;
@@ -187,19 +327,279 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
   useEffect(() => { const id = ++analysisRequestId.current; if (!selectedAnalysis || selectedAnalysis.status !== "COMPLETED" || analysisResults[selectedAnalysis.analysis_id]) { setAnalysisLoading(false); return; } setAnalysisLoading(true); setAnalysisError(null); getAIAnalysisResult(selectedAnalysis.analysis_id).then((value) => { if (analysisRequestId.current === id) setAnalysisResults((current) => ({ ...current, [value.analysis_id]: value })); }).catch(() => { if (analysisRequestId.current === id) setAnalysisError("AI 상세 결과를 불러오지 못했습니다."); }).finally(() => { if (analysisRequestId.current === id) setAnalysisLoading(false); }); }, [selectedAnalysis?.analysis_id, selectedAnalysis?.status, analysisResults]);
   const events = useMemo<TimelineEvent[]>(() => [...studies.map((item) => ({ id: `study-${item.id}`, at: item.study_at ?? "", title: `${item.modality} 영상검사`, detail: `${item.series} · ${item.status}`, tone: "imaging" as const })), ...analyses.map((item) => ({ id: `ai-${item.analysis_id}`, at: item.requested_at, title: `${analysisName(item.analysis_type)} AI 분석`, detail: `${item.status} · ${item.stage}`, tone: "ai" as const })), ...consultations.map((item) => ({ id: `consult-${item.consultation_id}`, at: item.requested_at, title: `${item.type} 협진 요청`, detail: `${item.ui_status} · ${item.priority}`, tone: "consultation" as const }))].sort((a, b) => b.at.localeCompare(a.at)), [studies, analyses, consultations]);
 
-  function selectPatient(nextPatient: Patient) { setSelectedStudyId(null); setError(null); onSelectPatient?.(nextPatient); }
+  function resetConsultationRequestForm() {
+    setConsultationType("RADIOLOGY");
+    setSelectedClinicianId("");
+    setConsultationPriority("ROUTINE");
+    setConsultationReason("");
+    setConsultationRequestError(null);
+  }
+
+  function closeConsultationRequest() {
+    if (consultationSubmitting) return;
+    setIsConsultationRequestOpen(false);
+    resetConsultationRequestForm();
+  }
+
+  useEffect(() => {
+    if (!isConsultationRequestOpen) return;
+
+    let active = true;
+    setSelectedClinicianId("");
+    setConsultationClinicians([]);
+    setConsultationCliniciansLoading(true);
+    setConsultationCliniciansError(null);
+
+    async function loadConsultationClinicians() {
+      try {
+        const hospitalIds = currentUser?.hospital?.id
+          ? [currentUser.hospital.id]
+          : (await getActiveHospitals()).results.map((hospital) => hospital.id);
+        const hospitals = await Promise.all(hospitalIds.map(getHospitalDetail));
+        const department = hospitals
+          .flatMap((hospital) => hospital.departments)
+          .find(
+            (item) => item.code.trim().toUpperCase() === consultationType,
+          );
+
+        if (!department) return;
+
+        const response = await getClinicians(department.id);
+
+        if (active) {
+          setConsultationClinicians(
+            response.clinicians.filter((clinician) => clinician.is_active),
+          );
+        }
+      } catch {
+        if (active) {
+          setConsultationCliniciansError(
+            "의료진 목록을 불러오지 못했습니다.",
+          );
+        }
+      } finally {
+        if (active) setConsultationCliniciansLoading(false);
+      }
+    }
+
+    void loadConsultationClinicians();
+    return () => {
+      active = false;
+    };
+  }, [consultationType, currentUser?.hospital?.id, isConsultationRequestOpen]);
+
+  async function handleConsultationRequest(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+
+    if (!patient || !encounterId || !encounter) {
+      setConsultationRequestError("현재 활성 Encounter가 없습니다.");
+      return;
+    }
+
+    if (!selectedClinicianId) {
+      setConsultationRequestError("협진 의료진을 선택해 주세요.");
+      return;
+    }
+
+    const reason = consultationReason.trim();
+    if (!reason) {
+      setConsultationRequestError("요청 사유를 입력해 주세요.");
+      return;
+    }
+
+    try {
+      setConsultationSubmitting(true);
+      setConsultationRequestError(null);
+
+      await createConsultation({
+        encounter_id: encounterId,
+        consultation_type: consultationType,
+        assigned_to_id: selectedClinicianId,
+        priority: consultationPriority,
+        reason,
+      });
+
+      const refreshed = await getConsultations();
+
+      setData((current) => ({
+        ...current,
+        consultations: refreshed.results,
+      }));
+
+      setIsConsultationRequestOpen(false);
+      resetConsultationRequestForm();
+    } catch {
+      setConsultationRequestError("협진 요청을 보내지 못했습니다.");
+    } finally {
+      setConsultationSubmitting(false);
+    }
+  }
+
+  function selectPatient(nextPatient: Patient) { setSelectedStudyId(null); setError(null); setActiveTab("summary"); onSelectPatient?.(nextPatient); }
   return <section className="patient-context-dashboard">
     <div className="patient-workspace">
       <PatientRail selectedId={patient?.id ?? null} patients={patientList.length ? patientList : patients} onSelect={selectPatient} />
       {displayPatient && <PatientHeader patient={displayPatient} care={encounter ? { arrivedAt: encounter.arrived_at, endedAt: encounter.ended_at, encounterStatus: encounter.status, encounterType: encounter.encounter_type } : undefined} />}
-      {patient ? <main className="patient-context-main">
+      {patient ? <main className={`patient-context-main${activeTab === "clinical" ? " is-clinical" : ""}`}>
+        <nav className="patient-chart-tabs" aria-label="환자 정보 탭"><button type="button" className={activeTab === "summary" ? "is-active" : ""} onClick={() => setActiveTab("summary")}>요약</button><button type="button" className={activeTab === "clinical" ? "is-active" : ""} onClick={() => setActiveTab("clinical")}>진료정보</button></nav>
+        {activeTab === "clinical" && <section className="patient-clinical-info"><h2>진료정보</h2><dl><div><dt>내원일시</dt><dd>{encounter?.arrived_at ?? "-"}</dd></div><div><dt>Encounter 상태</dt><dd>{encounter?.status ?? "-"}</dd></div></dl></section>}
         {encounterLoading ? <div className="patient-encounter-state">Encounter 정보를 불러오는 중입니다.</div> : !encounterId ? <div className="patient-encounter-state is-empty">현재 활성 Encounter가 없습니다.</div> : encounterError ? <div className="patient-encounter-state is-empty">{encounterError}</div> : null}
         {error && <div className="patient-data-warning">{error}</div>}
-        <SummaryCards studies={studies} consultations={consultations} onNavigate={onNavigate} />
+        <SummaryCards
+          studies={studies}
+          consultations={consultations}
+          onNavigate={onNavigate}
+          canRequestConsultation={canRequestConsultation}
+          consultationRequestDisabled={consultationRequestDisabled}
+          onRequestConsultation={() => {
+            setConsultationRequestError(null);
+            setIsConsultationRequestOpen(true);
+          }}
+        />
         <div className="patient-clinical-focus">{loading ? <div className="patient-chart-loading">환자 임상 데이터를 불러오는 중입니다.</div> : <><Viewer studies={studies} selected={selectedStudy} onSelect={setSelectedStudyId} onOpen={() => onNavigate?.("imaging")} /><Analysis item={selectedAnalysis} result={selectedAnalysisResult} loading={analysisLoading} error={analysisError} onOpen={() => onNavigate?.("ai-results")} /></>}</div>
       </main> : <main className="patient-context-main patient-context-main--empty"><div className="patient-selection-empty"><strong>선택된 환자가 없습니다.</strong><span>왼쪽 환자 목록에서 환자를 선택해 주세요.</span></div></main>}
     </div>
     <aside className="patient-context-aside"><Prescriptions onOpen={() => isNurse ? setIsPermissionModalOpen(true) : onNavigate?.("prescriptions")} /><Timeline events={patient ? events : []} /></aside>
+    {isConsultationRequestOpen && (
+      <div className="consultation-request-backdrop" role="presentation">
+        <section
+          className="consultation-request-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="consultation-request-title"
+        >
+          <header className="consultation-request-modal__header">
+            <h2 id="consultation-request-title">협진 요청</h2>
+            <button
+              type="button"
+              aria-label="닫기"
+              disabled={consultationSubmitting}
+              onClick={closeConsultationRequest}
+            >
+              ×
+            </button>
+          </header>
+
+          <form
+            className="consultation-request-form"
+            onSubmit={handleConsultationRequest}
+          >
+            <div className="consultation-request-form__row">
+              <label>
+                <span>협진 대상 *</span>
+                <select
+                  value={consultationType}
+                  disabled={consultationSubmitting}
+                  onChange={(event) => {
+                    setConsultationType(
+                      event.target.value as ConsultationType,
+                    );
+                    setSelectedClinicianId("");
+                  }}
+                >
+                  <option value="RADIOLOGY">영상의학과</option>
+                  <option value="NEUROSURGERY">신경외과</option>
+                </select>
+              </label>
+
+              <label>
+                <span>협진 의료진 *</span>
+                <select
+                  value={selectedClinicianId}
+                  disabled={consultationSubmitting || consultationCliniciansLoading}
+                  onChange={(event) =>
+                    setSelectedClinicianId(event.target.value)
+                  }
+                >
+                  <option value="">
+                    {consultationCliniciansLoading
+                      ? "의료진을 불러오는 중..."
+                      : "의료진을 선택하세요"}
+                  </option>
+                  {!consultationCliniciansLoading && consultationClinicians.map(
+                    (clinician) => (
+                      <option key={clinician.id} value={clinician.user_id}>
+                        {clinician.name}
+                      </option>
+                    ),
+                  )}
+                  {!consultationCliniciansLoading &&
+                    !consultationCliniciansError &&
+                    consultationClinicians.length === 0 && (
+                      <option value="" disabled>
+                        선택 가능한 의료진이 없습니다.
+                      </option>
+                    )}
+                </select>
+              </label>
+            </div>
+
+            {consultationCliniciansError && (
+              <p className="consultation-request-error">
+                {consultationCliniciansError}
+              </p>
+            )}
+
+            <label>
+              <span>우선순위 *</span>
+              <select
+                value={consultationPriority}
+                disabled={consultationSubmitting}
+                onChange={(event) =>
+                  setConsultationPriority(
+                    event.target.value as ConsultationPriority,
+                  )
+                }
+              >
+                <option value="ROUTINE">일반</option>
+                <option value="URGENT">응급</option>
+                <option value="STAT">긴급</option>
+              </select>
+            </label>
+
+            <label>
+              <span>요청 사유 *</span>
+              <textarea
+                value={consultationReason}
+                disabled={consultationSubmitting}
+                placeholder="협진이 필요한 사유를 입력하세요."
+                onChange={(event) => setConsultationReason(event.target.value)}
+              />
+            </label>
+
+            {consultationRequestError && (
+              <p className="consultation-request-error">
+                {consultationRequestError}
+              </p>
+            )}
+
+            <footer className="consultation-request-form__actions">
+              <button
+                type="button"
+                disabled={consultationSubmitting}
+                onClick={closeConsultationRequest}
+              >
+                취소
+              </button>
+
+              <button
+                type="submit"
+                className="is-primary"
+                disabled={
+                  consultationSubmitting ||
+                  consultationRequestDisabled ||
+                  !selectedClinicianId
+                }
+              >
+                {consultationSubmitting ? "요청 중" : "협진 요청"}
+              </button>
+            </footer>
+          </form>
+        </section>
+      </div>
+    )}
     {isPermissionModalOpen && <div className="permission-modal-backdrop" role="presentation"><section className="permission-modal" role="dialog" aria-modal="true" aria-labelledby="permission-modal-title"><div className="permission-modal__image" aria-hidden="true" /><h2 id="permission-modal-title">처방 / DUR 접근권한이 없습니다</h2><p>관리자에게 문의하세요</p><button type="button" onClick={() => setIsPermissionModalOpen(false)}>확인</button></section></div>}
   </section>;
 }

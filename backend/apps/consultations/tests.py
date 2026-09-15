@@ -88,3 +88,235 @@ class ConsultationListResponseTests(APITestCase):
         self.assertEqual(payload["assigned_to"]["department"], "신경외과")
         self.assertEqual(payload["viewer_relation"], "REQUESTED_BY")
         self.assertEqual(payload["ui_status"], "검토 중")
+
+    def test_neurologist_can_create_consultation(self):
+        now = timezone.now()
+        encounter = Encounter.objects.create(
+            patient=self.consultation.encounter.patient,
+            encounter_no="E-002",
+            encounter_type="EMERGENCY",
+            status="IN_PROGRESS",
+            arrived_at=now,
+            created_at=now,
+            updated_at=now,
+        )
+        self.client.force_authenticate(self.requester)
+
+        response = self.client.post(
+            reverse("api_con_001_api_con_002"),
+            {
+                "encounter_id": str(encounter.id),
+                "consultation_type": "NEUROSURGERY",
+                "assigned_to_id": str(self.assignee.id),
+                "priority": "URGENT",
+                "reason": "Urgent radiology consultation requested.",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()["status"], "REQUESTED")
+        self.assertEqual(
+            response.json()["assigned_to_id"],
+            str(self.assignee.id),
+        )
+        self.assertTrue(
+            Consultation.objects.filter(
+                encounter=encounter,
+                consultation_type="NEUROSURGERY",
+                requested_by=self.requester,
+                assigned_to=self.assignee,
+                status="REQUESTED",
+            ).exists()
+        )
+        list_response = self.client.get(reverse("api_con_001_api_con_002"))
+        created = next(
+            item
+            for item in list_response.json()["results"]
+            if item["encounter_id"] == str(encounter.id)
+        )
+        self.assertEqual(created["assigned_to"]["id"], str(self.assignee.id))
+
+    def test_create_requires_assigned_clinician(self):
+        now = timezone.now()
+        encounter = Encounter.objects.create(
+            patient=self.consultation.encounter.patient,
+            encounter_no="E-003",
+            encounter_type="EMERGENCY",
+            status="IN_PROGRESS",
+            arrived_at=now,
+            created_at=now,
+            updated_at=now,
+        )
+        self.client.force_authenticate(self.requester)
+
+        response = self.client.post(
+            reverse("api_con_001_api_con_002"),
+            {
+                "encounter_id": str(encounter.id),
+                "consultation_type": "NEUROSURGERY",
+                "priority": "URGENT",
+                "reason": "Assigned clinician is required.",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(
+            "assigned_to_id",
+            response.json()["error"]["details"],
+        )
+
+    def test_create_rejects_assignee_from_different_department(self):
+        radiology_role = Role.objects.create(
+            code="RADIOLOGY",
+            name="Radiology",
+        )
+        radiologist = User.objects.create_user(
+            "radiologist",
+            "password",
+            name="Radiologist",
+            role=radiology_role,
+        )
+        hospital = Clinician.objects.get(user=self.assignee).department.hospital
+        radiology = Department.objects.create(
+            hospital=hospital,
+            code="RADIOLOGY",
+            name="Radiology",
+        )
+        Clinician.objects.create(user=radiologist, department=radiology)
+        now = timezone.now()
+        encounter = Encounter.objects.create(
+            patient=self.consultation.encounter.patient,
+            encounter_no="E-004",
+            encounter_type="EMERGENCY",
+            status="IN_PROGRESS",
+            arrived_at=now,
+            created_at=now,
+            updated_at=now,
+        )
+        self.client.force_authenticate(self.requester)
+
+        response = self.client.post(
+            reverse("api_con_001_api_con_002"),
+            {
+                "encounter_id": str(encounter.id),
+                "consultation_type": "NEUROSURGERY",
+                "assigned_to_id": str(radiologist.id),
+                "priority": "URGENT",
+                "reason": "Department must match consultation type.",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(
+            "assigned_to_id",
+            response.json()["error"]["details"],
+        )
+
+    def test_neurologist_can_create_assigned_radiology_consultation(self):
+        radiology_role = Role.objects.create(
+            code="RADIOLOGY",
+            name="Radiology",
+        )
+        radiologist = User.objects.create_user(
+            "radiologist",
+            "password",
+            name="Radiologist",
+            role=radiology_role,
+        )
+        hospital = Clinician.objects.get(user=self.assignee).department.hospital
+        radiology = Department.objects.create(
+            hospital=hospital,
+            code="RADIOLOGY",
+            name="Radiology",
+        )
+        Clinician.objects.create(user=radiologist, department=radiology)
+        now = timezone.now()
+        encounter = Encounter.objects.create(
+            patient=self.consultation.encounter.patient,
+            encounter_no="E-005",
+            encounter_type="EMERGENCY",
+            status="REGISTERED",
+            arrived_at=now,
+            created_at=now,
+            updated_at=now,
+        )
+        self.client.force_authenticate(self.requester)
+
+        response = self.client.post(
+            reverse("api_con_001_api_con_002"),
+            {
+                "encounter_id": str(encounter.id),
+                "consultation_type": "RADIOLOGY",
+                "assigned_to_id": str(radiologist.id),
+                "priority": "ROUTINE",
+                "reason": "Radiology consultation requested.",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()["assigned_to_id"], str(radiologist.id))
+
+    def test_create_rejects_active_duplicate_for_same_assignee(self):
+        now = timezone.now()
+        encounter = Encounter.objects.create(
+            patient=self.consultation.encounter.patient,
+            encounter_no="E-006",
+            encounter_type="EMERGENCY",
+            status="IN_PROGRESS",
+            arrived_at=now,
+            created_at=now,
+            updated_at=now,
+        )
+        payload = {
+            "encounter_id": str(encounter.id),
+            "consultation_type": "NEUROSURGERY",
+            "assigned_to_id": str(self.assignee.id),
+            "priority": "URGENT",
+            "reason": "Duplicate consultation check.",
+        }
+        self.client.force_authenticate(self.requester)
+        self.client.post(
+            reverse("api_con_001_api_con_002"),
+            payload,
+            format="json",
+        )
+
+        response = self.client.post(
+            reverse("api_con_001_api_con_002"),
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 409)
+
+    def test_create_rejects_inactive_encounter(self):
+        now = timezone.now()
+        encounter = Encounter.objects.create(
+            patient=self.consultation.encounter.patient,
+            encounter_no="E-007",
+            encounter_type="EMERGENCY",
+            status="COMPLETED",
+            arrived_at=now,
+            ended_at=now,
+            created_at=now,
+            updated_at=now,
+        )
+        self.client.force_authenticate(self.requester)
+
+        response = self.client.post(
+            reverse("api_con_001_api_con_002"),
+            {
+                "encounter_id": str(encounter.id),
+                "consultation_type": "NEUROSURGERY",
+                "assigned_to_id": str(self.assignee.id),
+                "priority": "URGENT",
+                "reason": "Inactive encounter must be rejected.",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)

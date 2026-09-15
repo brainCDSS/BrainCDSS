@@ -20,7 +20,7 @@ class PatientMainShell extends StatefulWidget {
 
   final ApiClient apiClient;
   final AuthSession session;
-  final VoidCallback onLogout;
+  final Future<void> Function() onLogout;
 
   @override
   State<PatientMainShell> createState() =>
@@ -197,7 +197,7 @@ class _PatientDrawer extends StatelessWidget {
   final ValueChanged<int> onSelectTab;
   final ValueChanged<void Function(BuildContext)> onOpenPage;
   final ValueChanged<bool> onShowAppointmentSection;
-  final VoidCallback onLogout;
+  final Future<void> Function() onLogout;
 
   static const _primaryDark = Color(0xFF5665B8);
   static const _primarySoft = Color(0xFFE5E8FF);
@@ -368,6 +368,6 @@ class _PatientDrawer extends StatelessWidget {
         ],
       ),
     );
-    if (confirmed == true) onLogout();
+    if (confirmed == true) await onLogout();
   }
 }

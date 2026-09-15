@@ -27,15 +27,10 @@ function xaiPercentileWindow(volume: Niivue["volumes"][number]): [number, number
   return maximum > minimum ? [minimum, maximum] : null;
 }
 
-function readVoxel(volume: Niivue["volumes"][number] | undefined, voxel: [number, number, number]): number | null {
-  if (!volume?.dimsRAS) return null;
-  const image = volume.img as unknown as ArrayLike<number> | undefined;
-  if (!image) return null;
-  const [x, y, z] = voxel; const width = Number(volume.dimsRAS[1]); const height = Number(volume.dimsRAS[2]);
-  if (x < 0 || y < 0 || z < 0 || x >= width || y >= height || z >= Number(volume.dimsRAS[3])) return null;
-  const value = Number(image[x + y * width + z * width * height]);
-  return Number.isFinite(value) ? value : null;
-}
+type NiivueLocation = {
+  vox?: ArrayLike<number>;
+  values?: Array<{ value?: number; vox?: ArrayLike<number> }>;
+};
 
 export default function NiftiViewer({ analysisId, focusSlice, onProbe }: { analysisId: string; focusSlice?: number | null; onProbe?: (probe: NiftiProbe | null) => void }) {
   const shellRef = useRef<HTMLElement>(null);
@@ -253,15 +248,23 @@ export default function NiftiViewer({ analysisId, focusSlice, onProbe }: { analy
       viewer.scene.crosshairPos = retained?.crosshair ?? [0.5, 0.5, 0.5];
       viewer.setPan2Dxyzmm(retained?.pan ?? [0, 0, 0, 1]);
       retainedViewerStateRef.current = null;
-      const emitProbe = () => {
+      const emitProbe = (location: NiivueLocation) => {
         const dimensions = viewer.volumes[0]?.dimsRAS;
         if (!dimensions) return;
-        const voxel = [0, 1, 2].map((axis) => Math.round(viewer.scene.crosshairPos[axis] * (Number(dimensions[axis + 1]) - 1))) as [number, number, number];
-        const componentValue = readVoxel(componentIndex === null ? undefined : viewer.volumes[componentIndex], voxel);
-        onProbe?.({ voxel, slice: Math.round(viewer.scene.crosshairPos[2] * (Number(dimensions[3]) - 1)) + 1, sourceRole: source.role, sourceValue: readVoxel(viewer.volumes[0], voxel), probability: readVoxel(probabilityIndex === null ? undefined : viewer.volumes[probabilityIndex], voxel), maskValue: readVoxel(maskIndex === null ? undefined : viewer.volumes[maskIndex], voxel), xaiValue: readVoxel(xaiIndex === null ? undefined : viewer.volumes[xaiIndex], voxel), componentId: componentValue == null ? null : Math.round(componentValue) });
+        // Niivue calculates each volume's voxel using its own affine before
+        // reporting `values`. Re-indexing raw arrays with the source volume's
+        // coordinates is wrong for reoriented DWI/ADC and overlay NIfTIs.
+        const valueAt = (index: number | null) => {
+          if (index === null) return null;
+          const value = Number(location.values?.[index]?.value);
+          return Number.isFinite(value) ? value : null;
+        };
+        const sourceVoxel = location.values?.[0]?.vox ?? location.vox ?? viewer.frac2vox(viewer.scene.crosshairPos);
+        const voxel = [0, 1, 2].map((axis) => Math.round(Number(sourceVoxel[axis]))) as [number, number, number];
+        const componentValue = valueAt(componentIndex);
+        onProbe?.({ voxel, slice: Math.round(viewer.scene.crosshairPos[2] * (Number(dimensions[3]) - 1)) + 1, sourceRole: source.role, sourceValue: valueAt(0), probability: valueAt(probabilityIndex), maskValue: valueAt(maskIndex), xaiValue: valueAt(xaiIndex), componentId: componentValue == null ? null : Math.round(componentValue) });
       };
-      viewer.onLocationChange = () => { updateSlice(viewer); };
-      canvas.addEventListener("click", emitProbe);
+      viewer.onLocationChange = (location) => { updateSlice(viewer); emitProbe(location as NiivueLocation); };
       viewer.onIntensityChange = (volume) => syncWindowing(volume);
       syncWindowing(viewer.volumes[0]);
       requestAnimationFrame(() => { viewer.resizeListener(); viewer.drawScene(); updateSlice(viewer); });

@@ -12,6 +12,9 @@ from rest_framework.response import Response
 from apps.clinical_records.models import Encounter
 from apps.consultations.models import Consultation, ConsultationHistory
 from apps.common.remaining149_runtime import ContractError, check_access
+from apps.notifications.services.consultations import (
+    create_assigned_consultation_notification,
+)
 
 LIST_SPEC = next(spec for spec in SPECS if spec["api_id"] == "API-CON-002")
 
@@ -43,8 +46,10 @@ def _allowed_actions(consultation, user):
     )
     if not is_target_role:
         return []
-    if consultation.status == "REQUESTED" and consultation.assigned_to_id is None:
-        return ["ACCEPT", "REJECT"]
+    if consultation.status == "REQUESTED":
+        if consultation.assigned_to_id is None or consultation.assigned_to_id == user.id:
+            return ["ACCEPT", "REJECT"]
+        return []
     if consultation.assigned_to_id != user.id:
         return []
     if consultation.status == "ACCEPTED":
@@ -102,12 +107,12 @@ class ConsultationListCreateView(ContractView000):
 
         if not Clinician.objects.filter(
             user=request.user,
-            department__code="NEUROLOGY",
             is_active=True,
+            user__is_active=True,
         ).exists():
             raise ContractError({
                 "code": "VALIDATION_ERROR",
-                "detail": "The requester must be an active neurology clinician.",
+                "detail": "The requester must be an active clinician.",
             })
 
         try:
@@ -184,6 +189,9 @@ class ConsultationListCreateView(ContractView000):
         }
         _audit(request, create_spec, consultation, None, payload)
         _outbox(create_spec, consultation, payload)
+        create_assigned_consultation_notification(
+            consultation=consultation,
+        )
         return Response(payload, status=201)
 
     def get(self, request, *args, **kwargs):

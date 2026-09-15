@@ -37,6 +37,26 @@ function encounterBadge(encounter?: { status?: string | null; endedAt?: string |
 }
 function dateTime(value?: string | null) { if (!value) return "-"; const date = new Date(value); return Number.isNaN(date.getTime()) ? value : date.toLocaleString("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }); }
 function analysisName(value: string) { const key = value.toUpperCase(); if (key.includes("ISCHEM")) return "허혈성 뇌졸중"; if (key.includes("HEMORRH")) return "출혈성 뇌졸중"; if (key.includes("ANEURYSM")) return "뇌동맥류"; return value; }
+function consultationStatusLabel(value?: string | null) {
+  const labels: Record<string, string> = {
+    REQUESTED: "요청됨",
+    ACCEPTED: "수락됨",
+    IN_PROGRESS: "검토 중",
+    REJECTED: "거절됨",
+    COMPLETED: "회신 완료",
+    RESPONDED: "회신 완료",
+    CANCELLED: "취소됨",
+  };
+  return labels[value ?? ""] ?? "-";
+}
+function consultationPriorityLabel(value?: string | null) {
+  const labels: Record<string, string> = { ROUTINE: "일반", URGENT: "응급", STAT: "긴급" };
+  return labels[value ?? ""] ?? "-";
+}
+function consultationTypeLabel(value?: string | null) {
+  const labels: Record<string, string> = { RADIOLOGY: "영상의학과", NEUROSURGERY: "신경외과", NEUROLOGY: "신경과" };
+  return labels[value ?? ""] ?? "-";
+}
 
 export function PatientRail({ selectedId, patients, onSelect }: { selectedId: string | null; patients: Patient[]; onSelect?: (patient: Patient) => void }) {
   const [search, setSearch] = useState(""); const [page, setPage] = useState(1); const [encounterBadges, setEncounterBadges] = useState<Record<string, { label: string; tone: string }>>({});
@@ -172,7 +192,7 @@ function SummaryCards({
       <article className="patient-summary-card">
         <header>
           <span>♧</span>
-          <h3>협진 상태</h3>
+          <h3>협진 현황</h3>
 
           <div className="patient-consultation-actions">
             {canRequestConsultation && (
@@ -199,15 +219,15 @@ function SummaryCards({
           <dl>
             <div>
               <dt>협진 대상</dt>
-              <dd>{consultation.type}</dd>
+              <dd>{consultationTypeLabel(consultation.type)}</dd>
             </div>
             <div>
-              <dt>상태</dt>
-              <dd>{consultation.ui_status}</dd>
+              <dt>현재 상태</dt>
+              <dd>{consultationStatusLabel(consultation.status)}</dd>
             </div>
             <div>
               <dt>우선순위</dt>
-              <dd>{consultation.priority}</dd>
+              <dd>{consultationPriorityLabel(consultation.priority)}</dd>
             </div>
           </dl>
         ) : (
@@ -325,7 +345,7 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
   const studyIds = useMemo(() => new Set(studies.map((item) => item.id)), [studies]); const analyses = useMemo(() => data.analyses.filter((item) => studyIds.has(item.study_id)).sort((a, b) => b.requested_at.localeCompare(a.requested_at)), [data.analyses, studyIds]); const consultations = useMemo(() => patient ? data.consultations.filter((item) => item.patient_summary?.id === patient.id).sort((a, b) => b.requested_at.localeCompare(a.requested_at)) : [], [data.consultations, patient]);
   const selectedStudy = studies.find((item) => item.id === selectedStudyId) ?? studies[0] ?? null; const selectedAnalysis = analyses[0] ?? null; const selectedAnalysisResult = selectedAnalysis ? analysisResults[selectedAnalysis.analysis_id] ?? null : null;
   useEffect(() => { const id = ++analysisRequestId.current; if (!selectedAnalysis || selectedAnalysis.status !== "COMPLETED" || analysisResults[selectedAnalysis.analysis_id]) { setAnalysisLoading(false); return; } setAnalysisLoading(true); setAnalysisError(null); getAIAnalysisResult(selectedAnalysis.analysis_id).then((value) => { if (analysisRequestId.current === id) setAnalysisResults((current) => ({ ...current, [value.analysis_id]: value })); }).catch(() => { if (analysisRequestId.current === id) setAnalysisError("AI 상세 결과를 불러오지 못했습니다."); }).finally(() => { if (analysisRequestId.current === id) setAnalysisLoading(false); }); }, [selectedAnalysis?.analysis_id, selectedAnalysis?.status, analysisResults]);
-  const events = useMemo<TimelineEvent[]>(() => [...studies.map((item) => ({ id: `study-${item.id}`, at: item.study_at ?? "", title: `${item.modality} 영상검사`, detail: `${item.series} · ${item.status}`, tone: "imaging" as const })), ...analyses.map((item) => ({ id: `ai-${item.analysis_id}`, at: item.requested_at, title: `${analysisName(item.analysis_type)} AI 분석`, detail: `${item.status} · ${item.stage}`, tone: "ai" as const })), ...consultations.map((item) => ({ id: `consult-${item.consultation_id}`, at: item.requested_at, title: `${item.type} 협진 요청`, detail: `${item.ui_status} · ${item.priority}`, tone: "consultation" as const }))].sort((a, b) => b.at.localeCompare(a.at)), [studies, analyses, consultations]);
+  const events = useMemo<TimelineEvent[]>(() => [...studies.map((item) => ({ id: `study-${item.id}`, at: item.study_at ?? "", title: `${item.modality} 영상검사`, detail: `${item.series} · ${item.status}`, tone: "imaging" as const })), ...analyses.map((item) => ({ id: `ai-${item.analysis_id}`, at: item.requested_at, title: `${analysisName(item.analysis_type)} AI 분석`, detail: `${item.status} · ${item.stage}`, tone: "ai" as const })), ...consultations.map((item) => ({ id: `consult-${item.consultation_id}`, at: item.requested_at, title: `${consultationTypeLabel(item.type)} 협진 요청`, detail: `${consultationStatusLabel(item.status)} · ${consultationPriorityLabel(item.priority)}`, tone: "consultation" as const }))].sort((a, b) => b.at.localeCompare(a.at)), [studies, analyses, consultations]);
 
   function resetConsultationRequestForm() {
     setConsultationType("RADIOLOGY");
@@ -430,8 +450,15 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
 
       setIsConsultationRequestOpen(false);
       resetConsultationRequestForm();
-    } catch {
-      setConsultationRequestError("협진 요청을 보내지 못했습니다.");
+    } catch (error) {
+      const isActiveDuplicate =
+        error instanceof Error &&
+        error.message.includes("CONSULTATION_ACTIVE_DUPLICATE");
+      setConsultationRequestError(
+        isActiveDuplicate
+          ? "이미 동일 의료진에게 진행 중인 협진이 있습니다."
+          : "협진 요청을 보내지 못했습니다.",
+      );
     } finally {
       setConsultationSubmitting(false);
     }

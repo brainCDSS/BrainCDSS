@@ -97,127 +97,6 @@ const TYPE_LABEL: Record<
 
 
 /* =========================================================
-   협진 진행 단계
-   ========================================================= */
-
-const CONSULTATION_PROGRESS_STEPS = [
-  {
-    key: "REQUESTED",
-    label: "협진 요청",
-  },
-  {
-    key: "ACCEPTED",
-    label: "수락",
-  },
-  {
-    key: "IN_PROGRESS",
-    label: "검토 중",
-  },
-  {
-    key: "RESPONDED",
-    label: "회신 완료",
-  },
-] as const;
-
-
-/* =========================================================
-   현재 진행 단계
-   ========================================================= */
-
-function getConsultationProgressIndex(
-  status: ConsultationStatus,
-): number {
-
-  if (status === "REQUESTED") {
-    return 0;
-  }
-
-  if (status === "ACCEPTED") {
-    return 1;
-  }
-
-  if (status === "IN_PROGRESS") {
-    return 2;
-  }
-
-  if (
-    status === "RESPONDED" ||
-    status === "CLOSED"
-  ) {
-    return 3;
-  }
-
-  return -1;
-}
-
-
-/* =========================================================
-   날짜 표시
-   ========================================================= */
-
-function formatProgressTime(
-  value: string | null,
-): string {
-
-  if (!value) {
-    return "";
-  }
-
-
-  const date =
-    new Date(value);
-
-
-  if (
-    Number.isNaN(
-      date.getTime(),
-    )
-  ) {
-    return value;
-  }
-
-
-  const month =
-    String(
-      date.getMonth() + 1,
-    ).padStart(
-      2,
-      "0",
-    );
-
-
-  const day =
-    String(
-      date.getDate(),
-    ).padStart(
-      2,
-      "0",
-    );
-
-
-  const hour =
-    String(
-      date.getHours(),
-    ).padStart(
-      2,
-      "0",
-    );
-
-
-  const minute =
-    String(
-      date.getMinutes(),
-    ).padStart(
-      2,
-      "0",
-    );
-
-
-  return `${month}.${day} ${hour}:${minute}`;
-}
-
-
-/* =========================================================
    성별 표시
    ========================================================= */
 
@@ -283,9 +162,10 @@ export default function ConsultationPatientReview({
   );
 
   const [actionBusy, setActionBusy] = useState(false);
-  const [respondComplete, setRespondComplete] = useState(false);
-  const [respondUnavailable, setRespondUnavailable] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [isReplyPanelOpen, setIsReplyPanelOpen] = useState(false);
+  const [finalOpinion, setFinalOpinion] = useState("");
+  const [treatmentPlan, setTreatmentPlan] = useState("");
   const [studies, setStudies] = useState<ImagingStudy[]>([]);
   const [analyses, setAnalyses] = useState<AIAnalysisItem[]>([]);
   const [analysisResults, setAnalysisResults] = useState<AIAnalysisResult[]>([]);
@@ -305,16 +185,47 @@ export default function ConsultationPatientReview({
         if (!reason) return;
         if (action === "REJECT") await rejectConsultation(consultation.consultation_id, reason);
         else await cancelConsultation(consultation.consultation_id, reason);
-      } else if (action === "RESPOND") {
-        const finalOpinion = globalThis.prompt("최종 소견을 입력해 주세요.")?.trim();
-        if (!finalOpinion) return;
-        const treatmentPlan = globalThis.prompt("치료 계획을 입력해 주세요. (선택)")?.trim();
-        await respondConsultation(consultation.consultation_id, { final_opinion: finalOpinion, ...(treatmentPlan ? { treatment_plan: treatmentPlan } : {}) });
-        setRespondComplete(true);
       }
       setConsultation(await getConsultationDetail(consultation.consultation_id));
     } catch { setActionError("협진 상태 변경에 실패했습니다."); }
     finally { setActionBusy(false); }
+  }
+
+  function closeReplyPanel() {
+    if (actionBusy) return;
+    setIsReplyPanelOpen(false);
+    setActionError(null);
+  }
+
+  async function submitConsultationResponse() {
+    if (!consultation || actionBusy) return;
+
+    const opinion = finalOpinion.trim();
+    const plan = treatmentPlan.trim();
+    if (!opinion) {
+      setActionError("협진 소견을 입력해 주세요.");
+      return;
+    }
+
+    setActionBusy(true);
+    setActionError(null);
+    try {
+      const updatedConsultation = await respondConsultation(
+        consultation.consultation_id,
+        {
+          final_opinion: opinion,
+          ...(plan ? { treatment_plan: plan } : {}),
+        },
+      );
+      setConsultation(updatedConsultation);
+      setFinalOpinion("");
+      setTreatmentPlan("");
+      setIsReplyPanelOpen(false);
+    } catch {
+      setActionError("협진 회신 저장에 실패했습니다.");
+    } finally {
+      setActionBusy(false);
+    }
   }
 
 
@@ -325,6 +236,11 @@ export default function ConsultationPatientReview({
   useEffect(() => {
 
     let cancelled = false;
+
+    setIsReplyPanelOpen(false);
+    setFinalOpinion("");
+    setTreatmentPlan("");
+    setActionError(null);
 
 
     async function loadConsultation() {
@@ -504,28 +420,6 @@ export default function ConsultationPatientReview({
 
   const patient =
     consultation.patient_summary;
-
-
-  const progressIndex =
-    getConsultationProgressIndex(
-      consultation.status,
-    );
-
-
-  const isExceptionalStatus =
-    consultation.status === "REJECTED" ||
-    consultation.status === "CANCELLED" ||
-    consultation.status === "EXPIRED";
-
-
-  const progressTimes: Array<
-    string | null
-  > = [
-    consultation.requested_at,
-    consultation.accepted_at,
-    consultation.started_at,
-    consultation.completed_at,
-  ];
 
 
   /* ========================================================
@@ -979,13 +873,6 @@ export default function ConsultationPatientReview({
 
           </div>
 
-
-          <span className="consultation-review__consultation-id">
-            {
-              consultation.consultation_id
-            }
-          </span>
-
         </div>
 
 
@@ -1005,6 +892,12 @@ export default function ConsultationPatientReview({
             "
           >
 
+            <span className="consultation-review__requester-label">
+              요청 의료진
+            </span>
+
+            <div className="consultation-review__requester-person">
+
             <div className="consultation-review__clinician-avatar">
 
               <span className="consultation-review__avatar-head" />
@@ -1016,248 +909,65 @@ export default function ConsultationPatientReview({
 
             <div className="consultation-review__clinician">
 
-            <span>
-                요청 의료진
-            </span>
-
             <div className="consultation-review__clinician-main">
 
                 <strong>
-                {consultation.requested_by.name}
+                {`${consultation.requested_by.department} ${consultation.requested_by.name}`}
                 </strong>
 
-                <span className="consultation-review__clinician-divider">
-                |
-                </span>
+                </div>
 
                 <small>
                 {consultation.requested_by.department}
                 </small>
+            </div>
 
-                </div>
             </div>
 
           </div>
 
+          <div className="consultation-review__reason">
 
-          {/* =================================================
-              진행 상태
-              ================================================= */}
-
-          <div className="consultation-review__progress">
-
-            <div className="consultation-review__progress-header">
+            <div className="consultation-review__reason-title">
 
               <strong>
-                진행 상태
+                협진 요청 사유
               </strong>
 
-
-              {isExceptionalStatus && (
-
-                <span className="consultation-review__progress-exception">
-                  {
-                    STATUS_LABEL[
-                      consultation.status
-                    ]
-                  }
-                </span>
-
-              )}
-
             </div>
 
 
-            {!isExceptionalStatus && (
+            <div className="consultation-review__reason-content">
+              {(consultation as ConsultationListItem & { reason?: string | null }).reason || "-"}
+            </div>
 
-              <div className="consultation-review__progress-steps">
-
-                {CONSULTATION_PROGRESS_STEPS.map(
-                  (
-                    step,
-                    index,
-                  ) => {
-
-                    const completed =
-                      index < progressIndex;
-
-                    const current =
-                      index === progressIndex;
-
-                    const stepTime =
-                      progressTimes[
-                        index
-                      ];
+          </div>
 
 
-                    return (
-
-                      <div
-                        key={
-                          step.key
-                        }
-                        className={
-                          [
-                            "consultation-review__progress-step",
-
-                            completed
-                              ? "completed"
-                              : "",
-
-                            current
-                              ? "current"
-                              : "",
-                          ]
-                            .filter(Boolean)
-                            .join(" ")
-                        }
-                      >
-
-                        <div className="consultation-review__progress-track">
-
-                          <span className="consultation-review__progress-number">
-                            {
-                              index + 1
-                            }
-                          </span>
-
-
-                          {
-                            index <
-                            CONSULTATION_PROGRESS_STEPS.length - 1 && (
-
-                              <span className="consultation-review__progress-line" />
-
-                            )
-                          }
-
-                        </div>
-
-
-                        <div className="consultation-review__progress-label">
-
-                          <div className="consultation-review__progress-name">
-
-                            <strong>
-                              {
-                                step.label
-                              }
-                            </strong>
-
-
-                            {current && (
-
-                              <span>
-                                현재
-                              </span>
-
-                            )}
-
-                          </div>
-
-
-                          {stepTime && (
-
-                            <small className="consultation-review__progress-time">
-                              {
-                                formatProgressTime(
-                                  stepTime,
-                                )
-                              }
-                            </small>
-
-                          )}
-
-                        </div>
-
-                      </div>
-
-                    );
-
-                  },
-                )}
-
-              </div>
-
+          <div className="consultation-review__request-actions">
+            {consultation.allowed_actions.includes("ACCEPT") && (
+              <button
+                className="clinical-action"
+                disabled={actionBusy}
+                onClick={() => void runAction("ACCEPT")}
+                type="button"
+              >
+                수락
+              </button>
             )}
 
+            {consultation.allowed_actions.includes("REJECT") && (
+              <button
+                className="consultation-review__reject-action"
+                disabled={actionBusy}
+                onClick={() => void runAction("REJECT")}
+                type="button"
+              >
+                거절
+              </button>
+            )}
           </div>
 
-
-          {/* 배정 의료진 */}
-
-          <div
-            className="
-              consultation-review__clinician-card
-              consultation-review__clinician-card--assignee
-            "
-          >
-
-            <div className="consultation-review__clinician-avatar">
-
-              <span className="consultation-review__avatar-head" />
-
-              <span className="consultation-review__avatar-body" />
-
-            </div>
-
-
-            <div className="
-                consultation-review__clinician
-                consultation-review__clinician--assignee
-            "
-            >
-
-            <span>
-                배정 의료진
-            </span>
-
-            <div className="consultation-review__clinician-main">
-
-                <strong>
-                {
-                    consultation.assigned_to?.name ||
-                    "미배정"
-                }
-                </strong>
-
-                <span className="consultation-review__clinician-divider">
-                |
-                </span>
-
-                <small>
-                {
-                    consultation.assigned_to?.department ||
-                    "—"
-                }
-                </small>
-
-            </div>
-
-            </div>
-
-          </div>
-
-        {/* ===================================================
-            협진 요청 사유
-            =================================================== */}
-
-        <div className="consultation-review__reason">
-
-          <div className="consultation-review__reason-title">
-
-            <strong>
-              협진 요청 사유
-            </strong>
-
-          </div>
-
-
-          <div className="consultation-review__reason-content">
-            {(consultation as ConsultationListItem & { reason?: string | null }).reason || "-"}
-          </div>
-
-        </div>
 
         </div>
 
@@ -1268,7 +978,13 @@ export default function ConsultationPatientReview({
           LOWER WORKSPACE
           ===================================================== */}
 
-      <div className="consultation-review__workspace">
+      <div
+        className={
+          isReplyPanelOpen
+            ? "consultation-review__workspace consultation-review__workspace--reply-open"
+            : "consultation-review__workspace"
+        }
+      >
 
 
         {/* ===================================================
@@ -1455,6 +1171,81 @@ export default function ConsultationPatientReview({
 
         </section>
 
+        {isReplyPanelOpen && (
+          <aside
+            className="consultation-review__reply-panel"
+            aria-labelledby="consultation-reply-title"
+          >
+            <div className="consultation-review__reply-header">
+              <div>
+                <h2 id="consultation-reply-title">협진 회신 작성</h2>
+                <p>
+                  환자 데이터와 실시간 메시지를 참고해 최종 협진 의견을 작성합니다.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="consultation-review__reply-close"
+                aria-label="협진 회신 작성 닫기"
+                disabled={actionBusy}
+                onClick={closeReplyPanel}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="consultation-review__reply-body">
+              <label className="consultation-review__reply-field">
+                <span>협진 소견 *</span>
+                <textarea
+                  value={finalOpinion}
+                  disabled={actionBusy}
+                  placeholder="환자 상태와 검사 결과에 대한 최종 소견을 입력하세요."
+                  onChange={(event) => setFinalOpinion(event.target.value)}
+                />
+              </label>
+
+              <label className="consultation-review__reply-field">
+                <span>권고사항 / 계획</span>
+                <textarea
+                  value={treatmentPlan}
+                  disabled={actionBusy}
+                  placeholder="권고 치료, 추가 검사, 추후 계획 등을 입력하세요."
+                  onChange={(event) => setTreatmentPlan(event.target.value)}
+                />
+              </label>
+
+              {actionError && (
+                <div className="consultation-review__reply-error" role="alert">
+                  {actionError}
+                </div>
+              )}
+
+              <p className="consultation-review__reply-note">
+                실시간 메시지는 협의 과정이며, 이 회신은 최종 공식 협진 의견으로 저장됩니다.
+              </p>
+            </div>
+
+            <div className="consultation-review__reply-actions">
+              <button
+                type="button"
+                disabled={actionBusy}
+                onClick={closeReplyPanel}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                className="consultation-review__reply-submit"
+                disabled={actionBusy || !finalOpinion.trim()}
+                onClick={() => void submitConsultationResponse()}
+              >
+                {actionBusy ? "저장 중..." : "회신 완료"}
+              </button>
+            </div>
+          </aside>
+        )}
+
       </div>
 
 
@@ -1463,12 +1254,11 @@ export default function ConsultationPatientReview({
           ===================================================== */}
 
       <div className="clinical-action-bar">
+        {consultation.allowed_actions.includes("START") && <button className="clinical-action" disabled={actionBusy} onClick={() => void runAction("START")} type="button">협진 시작</button>}
         {consultation.allowed_actions.includes("CANCEL") && <button className="clinical-action" disabled={actionBusy} onClick={() => void runAction("CANCEL")} type="button">협진 취소</button>}
-        <button className="clinical-action" disabled={actionBusy} onClick={() => consultation.allowed_actions.includes("RESPOND") ? void runAction("RESPOND") : setRespondUnavailable(true)} type="button">협진 회신 작성</button>
+        {consultation.allowed_actions.includes("RESPOND") && !isReplyPanelOpen && <button className="clinical-action" disabled={actionBusy} onClick={() => { setActionError(null); setIsReplyPanelOpen(true); }} type="button">협진 회신 작성</button>}
       </div>
-      {actionError && <div className="clinical-state clinical-state--error" role="alert">{actionError}</div>}
-      {respondUnavailable && <div className="consultation-review__completion-modal-backdrop" role="presentation"><section className="consultation-review__completion-modal" role="dialog" aria-modal="true"><h2>협진 회신을 작성할 수 없습니다.</h2><p>검토 중 상태의 배정 의료진만 회신할 수 있습니다.</p><div><button type="button" onClick={() => setRespondUnavailable(false)}>확인</button></div></section></div>}
-      {respondComplete && <div className="consultation-review__completion-modal-backdrop" role="presentation"><section className="consultation-review__completion-modal" role="dialog" aria-modal="true"><h2>협진 회신이 완료되었습니다.</h2><p>수술·시술 플래닝 화면으로 이동하시겠습니까?</p><div><button type="button" onClick={() => setRespondComplete(false)}>나중에</button><button type="button" onClick={() => setRespondComplete(false)}>플래닝으로 이동</button></div></section></div>}
+      {actionError && !isReplyPanelOpen && <div className="clinical-state clinical-state--error" role="alert">{actionError}</div>}
 
     </section>
   );

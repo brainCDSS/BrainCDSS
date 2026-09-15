@@ -5,6 +5,7 @@ from rest_framework.test import APITestCase
 from apps.accounts.models import Role, User
 from apps.clinical_records.models import Encounter
 from apps.consultations.models import Consultation
+from apps.notifications.models import Notification
 from apps.organizations.models import Clinician, Department, Hospital
 from apps.patients.models import Patient
 
@@ -88,6 +89,53 @@ class ConsultationListResponseTests(APITestCase):
         self.assertEqual(payload["assigned_to"]["department"], "신경외과")
         self.assertEqual(payload["viewer_relation"], "REQUESTED_BY")
         self.assertEqual(payload["ui_status"], "검토 중")
+
+    def test_requested_assignee_can_accept_or_reject(self):
+        self.consultation.status = "REQUESTED"
+        self.consultation.accepted_at = None
+        self.consultation.started_at = None
+        self.consultation.save(update_fields=["status", "accepted_at", "started_at"])
+        self.client.force_authenticate(self.assignee)
+
+        response = self.client.get(reverse("api_con_003", args=[self.consultation.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["allowed_actions"], ["ACCEPT", "REJECT"])
+
+    def test_requested_requester_keeps_cancel_action(self):
+        self.consultation.status = "REQUESTED"
+        self.consultation.accepted_at = None
+        self.consultation.started_at = None
+        self.consultation.save(update_fields=["status", "accepted_at", "started_at"])
+        self.client.force_authenticate(self.requester)
+
+        response = self.client.get(reverse("api_con_003", args=[self.consultation.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["allowed_actions"], ["CANCEL"])
+
+    def test_requested_unrelated_clinician_cannot_accept_or_reject(self):
+        unrelated = User.objects.create_user(
+            "unrelated",
+            "password",
+            name="다른 담당의",
+            role=self.assignee.role,
+        )
+        Clinician.objects.create(
+            user=unrelated,
+            department=Clinician.objects.get(user=self.assignee).department,
+        )
+        self.consultation.status = "REQUESTED"
+        self.consultation.accepted_at = None
+        self.consultation.started_at = None
+        self.consultation.save(update_fields=["status", "accepted_at", "started_at"])
+        self.client.force_authenticate(unrelated)
+
+        response = self.client.get(reverse("api_con_003", args=[self.consultation.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("ACCEPT", response.json()["allowed_actions"])
+        self.assertNotIn("REJECT", response.json()["allowed_actions"])
 
     def test_neurologist_can_create_consultation(self):
         now = timezone.now()
@@ -320,3 +368,52 @@ class ConsultationListResponseTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, 400)
+
+    def test_create_notifies_only_assigned_clinician(self):
+        other_surgeon = User.objects.create_user(
+            "other-surgeon",
+            "password",
+            name="Other Surgeon",
+            role=self.assignee.role,
+        )
+        surgery = Clinician.objects.get(user=self.assignee).department
+        Clinician.objects.create(user=other_surgeon, department=surgery)
+        now = timezone.now()
+        encounter = Encounter.objects.create(
+            patient=self.consultation.encounter.patient,
+            encounter_no="E-008",
+            encounter_type="EMERGENCY",
+            status="IN_PROGRESS",
+            arrived_at=now,
+            created_at=now,
+            updated_at=now,
+        )
+        self.client.force_authenticate(self.requester)
+
+        response = self.client.post(
+            reverse("api_con_001_api_con_002"),
+            {
+                "encounter_id": str(encounter.id),
+                "consultation_type": "NEUROSURGERY",
+                "assigned_to_id": str(self.assignee.id),
+                "priority": "URGENT",
+                "reason": "Assigned clinician notification.",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        notification = Notification.objects.get(
+            recipient_user=self.assignee,
+        )
+        self.assertEqual(notification.category, "CONSULTATION")
+        self.assertEqual(notification.severity, "WARNING")
+        self.assertEqual(
+            notification.data_json["consultation_id"],
+            response.json()["consultation_id"],
+        )
+        self.assertFalse(
+            Notification.objects.filter(
+                recipient_user=other_surgeon,
+            ).exists()
+        )

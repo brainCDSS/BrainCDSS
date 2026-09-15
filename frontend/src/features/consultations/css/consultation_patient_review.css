@@ -283,27 +283,13 @@
   font-weight: 800;
 }
 
-.consultation-review__consultation-id {
-  display: inline-flex;
-  min-height: 30px;
-  align-items: center;
-  justify-content: center;
-  padding: 0 12px;
-  border-radius: 8px;
-  background: rgba(79, 130, 189, 0.1);
-  color: var(--primary);
-  font-size: 11px;
-  font-weight: 800;
-  white-space: nowrap;
-}
-
 /* =========================================================
    CONSULTATION REQUEST CARD
    ========================================================= */
 
 .consultation-review__request-card {
   margin-bottom: 8px;
-  padding: 8px 12px;
+  padding: 10px 16px 14px;
   border: 1px solid var(--border-color);
   border-radius: 12px;
   background: var(--bg-surface);
@@ -312,16 +298,15 @@
 
 /* =========================================================
    REQUEST OVERVIEW
-   Requester | Progress | Assignee
+   Requester | Reason | Actions
    ========================================================= */
 
 .consultation-review__request-overview {
-  display:grid;
-  grid-template-columns:1fr 1.6fr 1fr 1.15fr;
-  align-items:center;
-  min-height:56px;
-  gap:16px;
-  margin-top:6px;
+  display: grid;
+  grid-template-columns: minmax(170px, 18%) minmax(0, 1fr) 230px;
+  align-items: center;
+  gap: 18px;
+  margin-top: 8px;
 }
 
 /* =========================================================
@@ -330,11 +315,13 @@
 
 .consultation-review__clinician-card {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 7px;
   min-width: 0;
-  min-height: 56px;
-  padding: 7px 9px;
+  min-height: 72px;
+  padding: 10px 12px;
+  flex-direction: column;
+  justify-content: center;
   border-radius: 10px;
 }
 
@@ -351,13 +338,26 @@
 .consultation-review__clinician-avatar {
   position: relative;
   display: flex;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   align-items: center;
   justify-content: center;
-  flex: 0 0 36px;
+  flex: 0 0 32px;
   border-radius: 50%;
   background: rgba(79, 130, 189, 0.11);
+}
+
+.consultation-review__requester-label {
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.consultation-review__requester-person {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
 }
 
 .consultation-review__clinician-card--assignee
@@ -397,7 +397,7 @@
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   text-align: left;
 }
 
@@ -423,7 +423,7 @@
 .consultation-review__clinician-main > strong {
   overflow: hidden;
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 800;
   line-height: 1.2;
   text-overflow: ellipsis;
@@ -441,155 +441,10 @@
   font-weight: 500;
 }
 
-/* =========================================================
-   PROGRESS
-   ========================================================= */
-
-.consultation-review__progress {
-  display: flex;
-  width: 100%;
-  min-width: 0;
-  max-width: 620px;
-  margin: 0 auto;
-  padding: 0 8px;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.consultation-review__progress-header {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-
-.consultation-review__progress-header > strong {
-  color: var(--text-primary);
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.consultation-review__progress-exception {
-  display: inline-flex;
-  min-height: 22px;
-  align-items: center;
-  padding: 0 8px;
-  border-radius: 999px;
-  background: #fde8e8;
-  color: #c73d3d;
-  font-size: 9px;
-  font-weight: 800;
-}
-
-.consultation-review__progress-steps {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  width: 100%;
-}
-
-.consultation-review__progress-step {
-  min-width: 0;
-}
-
-.consultation-review__progress-track {
-  display: flex;
-  align-items: center;
-  width: 100%;
-}
-
-.consultation-review__progress-number {
-  display: inline-flex;
-  width: 27px;
-  height: 27px;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 27px;
-  border: 1px solid #d6e0e9;
-  border-radius: 50%;
-  background: #edf2f6;
-  color: #8796a8;
-  font-size: 11px;
-  font-weight: 800;
-}
-
-.consultation-review__progress-line {
-  display: block;
-  width: 100%;
-  height: 2px;
-  margin: 0 7px;
-  border-radius: 999px;
-  background: #dbe3eb;
-}
-
-.consultation-review__progress-step.completed
-  .consultation-review__progress-number {
-  border-color: var(--primary);
-  background: var(--primary);
-  color: #fff;
-}
-
-.consultation-review__progress-step.completed
-  .consultation-review__progress-line {
-  background: var(--primary);
-}
-
-.consultation-review__progress-step.current
-  .consultation-review__progress-number {
-  border-color: var(--primary);
-  background: rgba(79, 130, 189, 0.1);
-  color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(79, 130, 189, 0.05);
-}
-
-.consultation-review__progress-label {
-  min-height: 20px;
-  margin-top: 3px;
-}
-
-.consultation-review__progress-name {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  min-width: 0;
-}
-
-.consultation-review__progress-name > strong {
-  overflow: hidden;
+.consultation-review__clinician > small {
   color: var(--text-secondary);
   font-size: 11px;
-  font-weight: 700;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.consultation-review__progress-step.current
-  .consultation-review__progress-name > strong,
-.consultation-review__progress-step.completed
-  .consultation-review__progress-name > strong {
-  color: var(--text-primary);
-}
-
-.consultation-review__progress-name > span {
-  display: inline-flex;
-  min-height: 18px;
-  align-items: center;
-  justify-content: center;
-  padding: 0 6px;
-  border-radius: 999px;
-  background: rgba(79, 130, 189, 0.11);
-  color: var(--primary);
-  font-size: 8px;
-  font-weight: 800;
-  white-space: nowrap;
-}
-
-.consultation-review__progress-time {
-  display: block;
-  margin-top: 1px;
-  color: var(--text-secondary);
-  font-size: 8px;
-  white-space: nowrap;
+  font-weight: 500;
 }
 
 /* =========================================================
@@ -600,10 +455,11 @@
   display:flex;
   min-width:0;
   flex-direction:column;
-  justify-content:center;
-  gap:6px;
+  justify-content: center;
+  gap: 7px;
   margin:0;
-  padding:7px 9px;
+  min-height: 72px;
+  padding: 10px 16px;
   border: 1px solid rgba(79, 130, 189, 0.16);
   border-radius: 9px;
   background: rgba(79, 130, 189, 0.03);
@@ -619,13 +475,45 @@
   flex:1;
   min-height: 0;
   margin-top: 0;
-  color: var(--text-secondary);
-  font-size: 12px;
-  line-height: 1.35;
-  display:-webkit-box;
-  overflow:hidden;
-  -webkit-box-orient:vertical;
-  -webkit-line-clamp:2;
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.55;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.consultation-review__request-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-left: 18px;
+  border-left: 1px solid var(--border-color);
+}
+
+.consultation-review__request-actions .clinical-action,
+.consultation-review__reject-action {
+  min-width: 104px;
+  height: 38px;
+}
+
+.consultation-review__reject-action {
+  height: 38px;
+  padding: 0 14px;
+  border: 1px solid #e66b73;
+  border-radius: 7px;
+  background: var(--bg-surface);
+  color: #c2414f;
+  font-size: 11px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.consultation-review__reject-action:disabled {
+  cursor: not-allowed;
+  opacity: .45;
 }
 
 .consultation-review__request-card .consultation-review__panel-title h2 { font-size:15px; }
@@ -644,6 +532,161 @@
   flex:1 1 auto;
   align-items: stretch;
   margin-bottom: 8px;
+}
+
+.consultation-review__workspace--reply-open {
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr) minmax(420px, 460px);
+}
+
+.consultation-review__reply-panel {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(79, 130, 189, 0.38);
+  border-radius: 12px;
+  background: var(--bg-surface);
+  box-shadow: -8px 0 22px rgba(48, 87, 130, 0.08);
+}
+
+.consultation-review__reply-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border-color);
+  background: rgba(79, 130, 189, 0.045);
+}
+
+.consultation-review__reply-header h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.consultation-review__reply-header p {
+  margin: 5px 0 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.consultation-review__reply-close {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 32px;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.consultation-review__reply-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+}
+
+.consultation-review__reply-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.consultation-review__reply-field > span {
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.consultation-review__reply-field textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 105px;
+  resize: vertical;
+  padding: 11px;
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+  outline: none;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.consultation-review__reply-field textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(79, 130, 189, 0.1);
+}
+
+.consultation-review__reply-field textarea:disabled,
+.consultation-review__reply-close:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.consultation-review__reply-error {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(200, 77, 77, 0.22);
+  border-radius: 9px;
+  background: rgba(200, 77, 77, 0.06);
+  color: #c84d4d;
+  font-size: 11px;
+}
+
+.consultation-review__reply-note {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+  background: rgba(79, 130, 189, 0.035);
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.consultation-review__reply-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.consultation-review__reply-actions button {
+  height: 38px;
+  padding: 0 18px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.consultation-review__reply-actions .consultation-review__reply-submit {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #fff;
+}
+
+.consultation-review__reply-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 /* =========================================================
@@ -980,7 +1023,6 @@
    ========================================================= */
 
 [data-theme="dark"] .consultation-review__patient-name > span,
-[data-theme="dark"] .consultation-review__consultation-id,
 [data-theme="dark"] .consultation-review__panel-icon,
 [data-theme="dark"] .consultation-review__data-title > span,
 [data-theme="dark"] .consultation-review__connection-status {
@@ -1003,16 +1045,6 @@
   background: rgba(107, 157, 213, 0.04);
 }
 
-[data-theme="dark"] .consultation-review__progress-number {
-  border-color: #465568;
-  background: #263444;
-  color: #91a0b2;
-}
-
-[data-theme="dark"] .consultation-review__progress-line {
-  background: #3b495a;
-}
-
 [data-theme="dark"] .consultation-review__pending,
 [data-theme="dark"] .consultation-review__chat-body {
   background: rgba(107, 157, 213, 0.02);
@@ -1028,17 +1060,16 @@
 
 @media (max-width: 1220px) {
   .consultation-review__request-overview {
-    grid-template-columns: minmax(200px, 0.75fr) minmax(380px, 1.5fr)
-      minmax(200px, 0.75fr);
-    gap: 18px;
+    grid-template-columns: minmax(160px, 18%) minmax(0, 1fr) 220px;
+    gap: 14px;
   }
 
   .consultation-review__clinician-card {
-    padding: 14px;
+    padding: 8px;
   }
 
   .consultation-review__clinician-main > strong {
-    font-size: 17px;
+    font-size: 13px;
   }
 
   .consultation-review__patient-field {
@@ -1064,15 +1095,6 @@
   .consultation-review__patient-priority {
     padding-left: 0;
     justify-content: flex-start;
-  }
-
-  .consultation-review__request-overview {
-    grid-template-columns: 1fr;
-  }
-
-  .consultation-review__progress {
-    max-width: none;
-    padding: 14px 0;
   }
 
   .consultation-review__workspace {
@@ -1111,29 +1133,21 @@
     border-left: 0;
   }
 
+  .consultation-review__request-overview {
+    grid-template-columns: 1fr;
+  }
+
+  .consultation-review__request-actions {
+    padding-top: 10px;
+    padding-left: 0;
+    border-top: 1px solid var(--border-color);
+    border-left: 0;
+  }
+
   .consultation-review__tabs {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .consultation-review__progress-steps {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
-  .consultation-review__progress-line {
-    display: none;
-  }
-
-  .consultation-review__progress-step {
-    display: grid;
-    grid-template-columns: 36px minmax(0, 1fr);
-    align-items: center;
-  }
-
-  .consultation-review__progress-label {
-    min-height: 0;
-    margin-top: 0;
-  }
 }
 .consultation-review__completion-modal-backdrop{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:rgba(28,45,75,.28)}
 .consultation-review__completion-modal{width:min(420px,calc(100% - 32px));padding:28px;border-radius:12px;background:#fff;box-shadow:0 18px 50px rgba(28,45,75,.2);text-align:center}

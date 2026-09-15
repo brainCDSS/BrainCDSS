@@ -277,6 +277,21 @@ function getPriorityLabel(
 }
 
 
+function getEncounterTypeLabel(
+  encounterType: string | null | undefined,
+) {
+  if (encounterType === "EMERGENCY") {
+    return "응급실";
+  }
+
+  if (encounterType === "OUTPATIENT") {
+    return "외래";
+  }
+
+  return encounterType ?? "-";
+}
+
+
 function formatTime(
   value:
     string | null | undefined,
@@ -1008,7 +1023,7 @@ export default function NurseDashboard({
 
             <div>
               <span>
-                오늘 환자
+                오늘 내원 환자
               </span>
 
               <strong>
@@ -1088,7 +1103,7 @@ export default function NurseDashboard({
             <header>
               <div>
                 <h2>
-                  오늘 환자
+                  오늘 내원 환자
                 </h2>
 
                 <p>
@@ -1107,7 +1122,7 @@ export default function NurseDashboard({
                     )
                   }
                 >
-                  초기평가 화면 ›
+                  접수·내원관리 전체보기 ›
                 </button>
               )}
             </header>
@@ -1149,7 +1164,7 @@ export default function NurseDashboard({
                   )
                 }
               >
-                대기 (
+                접수 대기 (
                 {pendingCount})
               </button>
 
@@ -1167,7 +1182,7 @@ export default function NurseDashboard({
                   )
                 }
               >
-                진행 (
+                평가중 (
                 {progressCount})
               </button>
 
@@ -1197,6 +1212,7 @@ export default function NurseDashboard({
                   <tr>
                     <th>시간</th>
                     <th>환자</th>
+                    <th>내원유형</th>
                     <th>
                       현재 단계
                     </th>
@@ -1278,6 +1294,12 @@ export default function NurseDashboard({
                                 sex,
                               )}
                             </small>
+                          </td>
+
+                          <td>
+                            {getEncounterTypeLabel(
+                              item.encounter_type,
+                            )}
                           </td>
 
                           <td>

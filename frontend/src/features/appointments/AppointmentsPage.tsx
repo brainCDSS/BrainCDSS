@@ -6,13 +6,22 @@ import {
 } from "react";
 
 import type { LoginUser } from "../auth/types";
+import {
+  getClinicians,
+} from "../assessments/api";
+import type {
+  Clinician,
+} from "../assessments/types";
 
 import {
   acceptAppointment,
   completeAppointment,
+  correctAppointment,
   getAppointmentDetail,
   getAppointmentRequests,
+  getActiveHospitals,
   getClinicianSchedule,
+  getHospitalDetail,
   getStaffAppointments,
   rejectAppointment,
   saveClinicianSchedule,
@@ -41,7 +50,10 @@ interface AppointmentSummaryCounts {
 }
 
 
-const APPOINTMENTS_PER_PAGE = 8;
+const APPOINTMENTS_PER_PAGE = 5;
+const CALENDAR_START_HOUR = 8;
+const CALENDAR_END_HOUR = 18;
+const CALENDAR_SLOT_MINUTES = 30;
 
 
 /* =========================================================
@@ -78,6 +90,23 @@ function statusLabel(status?: string) {
 }
 
 
+function requestTypeLabel(requestType?: string | null) {
+  if (!requestType) {
+    return "-";
+  }
+
+  if (requestType === "NEW") {
+    return "초진";
+  }
+
+  if (requestType === "RESCHEDULE") {
+    return "예약 변경";
+  }
+
+  return requestType;
+}
+
+
 const WEEKDAYS = [
   "월",
   "화",
@@ -104,6 +133,36 @@ function todayValue() {
 }
 
 
+function dateValue(value: Date) {
+  return [
+    value.getFullYear(),
+    String(value.getMonth() + 1).padStart(2, "0"),
+    String(value.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+
+function addDays(value: string, days: number) {
+  const date = new Date(`${value}T12:00:00`);
+  date.setDate(date.getDate() + days);
+  return dateValue(date);
+}
+
+
+function startOfWeek(value: string) {
+  const date = new Date(`${value}T12:00:00`);
+  const day = date.getDay();
+  date.setDate(date.getDate() - (day === 0 ? 6 : day - 1));
+  return dateValue(date);
+}
+
+
+function minutesFromMidnight(value: string) {
+  const [hour, minute] = value.split(":").map(Number);
+  return hour * 60 + minute;
+}
+
+
 function appointmentId(
   item: StaffAppointment & {
     id?: string;
@@ -120,9 +179,18 @@ function appointmentId(
 function appointmentStart(
   item: StaffAppointment,
 ) {
+  const requestItem =
+    item as StaffAppointment & {
+      current_slot?: {
+        start_at?: string | null;
+      } | null;
+    };
+
   return (
     item.start_at ??
     item.slot?.start_at ??
+    item.requested_slot?.start_at ??
+    requestItem.current_slot?.start_at ??
     null
   );
 }
@@ -214,12 +282,324 @@ function appointmentCount(
 }
 
 
+function patientSupplement(
+  item: StaffAppointment,
+) {
+  const patient =
+    item.patient as
+      | (
+          NonNullable<
+            StaffAppointment["patient"]
+          > & {
+            sex?: string | null;
+            gender?: string | null;
+            birth_date?: string | null;
+            age?: number | null;
+          }
+        )
+      | undefined;
+
+  if (!patient) {
+    return "";
+  }
+
+  const values: string[] = [];
+
+  const sex =
+    patient.sex ??
+    patient.gender;
+
+  if (sex) {
+    const normalized =
+      String(sex).toUpperCase();
+
+    values.push(
+      normalized === "M"
+        ? "남"
+        : normalized === "F"
+          ? "여"
+          : String(sex),
+    );
+  }
+
+  let age =
+    patient.age ?? null;
+
+  if (
+    age === null &&
+    patient.birth_date
+  ) {
+    const birth =
+      new Date(
+        patient.birth_date,
+      );
+
+    if (
+      !Number.isNaN(
+        birth.getTime(),
+      )
+    ) {
+      const now =
+        new Date();
+
+      age =
+        now.getFullYear() -
+        birth.getFullYear();
+
+      const beforeBirthday =
+        now.getMonth() <
+          birth.getMonth() ||
+        (
+          now.getMonth() ===
+            birth.getMonth() &&
+          now.getDate() <
+            birth.getDate()
+        );
+
+      if (beforeBirthday) {
+        age -= 1;
+      }
+    }
+  }
+
+  if (age !== null) {
+    values.push(
+      `${age}세`,
+    );
+  }
+
+  if (patient.birth_date) {
+    values.push(
+      patient.birth_date.replaceAll(
+        "-",
+        ".",
+      ),
+    );
+  }
+
+  return values.join("  |  ");
+}
+
+
+function appointmentRequestReason(
+  item: StaffAppointment,
+) {
+  const extended =
+    item as StaffAppointment & {
+      request_reason?: string | null;
+      reason?: string | null;
+      memo?: string | null;
+      note?: string | null;
+    };
+
+  return (
+    extended.request_reason ??
+    extended.reason ??
+    extended.memo ??
+    extended.note ??
+    null
+  );
+}
+
+
+function hasPendingAppointmentRequest(
+  item: StaffAppointment,
+) {
+  return (
+    item.status === "REQUESTED" ||
+    Boolean(
+      item.requested_slot_id ||
+        item.requested_slot,
+    )
+  );
+}
+
+
+/* =========================================================
+ * 예약 상태 정정
+ * ---------------------------------------------------------
+ * [API 정합성 확인 필요]
+ *
+ * 프론트 1차 범위는 간호사가 잘못 승인/거절한 예약을
+ * 다시 승인 대기(REQUESTED) 상태로 돌리는 경우만 준비한다.
+ * 최종 허용 전이는 백엔드 계약에서 반드시 검증한다.
+ * ======================================================= */
+
+function correctionTargetStatus(
+  item: StaffAppointment,
+) {
+  if (
+    item.status === "CONFIRMED" ||
+    item.status === "REJECTED"
+  ) {
+    return "REQUESTED";
+  }
+
+  return null;
+}
+
+
 function can(
   user: LoginUser,
   permission: string,
 ) {
   return user.permissions.includes(
     permission,
+  );
+}
+
+
+function WeeklyScheduleCalendar({
+  weekStart,
+  onWeekChange,
+  schedule,
+  appointments,
+}: {
+  weekStart: string;
+  onWeekChange: (value: string) => void;
+  schedule: ScheduleRule[];
+  appointments: StaffAppointment[];
+}) {
+  const dates = Array.from(
+    { length: 7 },
+    (_, index) => addDays(weekStart, index),
+  );
+  const slots = Array.from(
+    {
+      length:
+        ((CALENDAR_END_HOUR - CALENDAR_START_HOUR) * 60) /
+          CALENDAR_SLOT_MINUTES +
+        1,
+    },
+    (_, index) => {
+      const minutes =
+        CALENDAR_START_HOUR * 60 + index * CALENDAR_SLOT_MINUTES;
+      return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(
+        minutes % 60,
+      ).padStart(2, "0")}`;
+    },
+  );
+  const calendarMinutes =
+    (CALENDAR_END_HOUR - CALENDAR_START_HOUR) * 60;
+  const today = todayValue();
+
+  return (
+    <section className="weekly-schedule-card">
+      <header className="weekly-schedule-heading">
+        <div>
+          <h3>내 진료 스케줄</h3>
+          <p>확정된 진료 스케줄과 예약 환자를 주간 단위로 확인합니다.</p>
+        </div>
+        <div className="weekly-schedule-navigation">
+          <button type="button" onClick={() => onWeekChange(addDays(weekStart, -7))}>
+            이전 주
+          </button>
+          <strong>
+            {weekStart.replaceAll("-", ".")} ~ {addDays(weekStart, 6).replaceAll("-", ".")}
+          </strong>
+          <button type="button" onClick={() => onWeekChange(addDays(weekStart, 7))}>
+            다음 주
+          </button>
+          <button type="button" onClick={() => onWeekChange(startOfWeek(todayValue()))}>
+            오늘
+          </button>
+        </div>
+      </header>
+
+      <div className="weekly-calendar-scroll">
+        <div className="weekly-calendar">
+          <div className="weekly-calendar-corner">시간</div>
+          {dates.map((day, index) => (
+            <div
+              className={`weekly-calendar-day${day === today ? " is-today" : ""}${index === 6 ? " is-sunday" : ""}`}
+              key={day}
+            >
+              {`${WEEKDAYS[index]} ${Number(day.slice(5, 7))}.${Number(day.slice(8, 10))}`}
+            </div>
+          ))}
+
+          <div className="weekly-calendar-times">
+            {slots.map((slot) => <span key={slot}>{slot}</span>)}
+          </div>
+
+          {dates.map((day, dayIndex) => {
+            const rules = schedule.filter(
+              (rule) =>
+                rule.is_active &&
+                rule.weekday === dayIndex &&
+                rule.effective_from <= day &&
+                (!rule.effective_to || rule.effective_to >= day),
+            );
+            const dayAppointments = appointments.filter((item) => {
+              const start = appointmentStart(item);
+              return start ? dateValue(new Date(start)) === day : false;
+            });
+
+            return (
+              <div className="weekly-calendar-column" key={day}>
+                {slots.slice(0, -1).map((slot) => (
+                  <span className="weekly-calendar-line" key={slot} />
+                ))}
+                {rules.map((rule) => {
+                  const start = Math.max(
+                    minutesFromMidnight(rule.start_time),
+                    CALENDAR_START_HOUR * 60,
+                  );
+                  const end = Math.min(
+                    minutesFromMidnight(rule.end_time),
+                    CALENDAR_END_HOUR * 60,
+                  );
+                  return end > start ? (
+                    <span
+                      className="weekly-calendar-availability"
+                      key={rule.id ?? `${rule.weekday}-${rule.start_time}`}
+                      style={{
+                        top: `${((start - CALENDAR_START_HOUR * 60) / calendarMinutes) * 100}%`,
+                        height: `${((end - start) / calendarMinutes) * 100}%`,
+                      }}
+                    />
+                  ) : null;
+                })}
+                {dayAppointments.map((item) => {
+                  const startValue = appointmentStart(item);
+                  if (!startValue) return null;
+                  const startDate = new Date(startValue);
+                  const start = startDate.getHours() * 60 + startDate.getMinutes();
+                  const endValue = item.end_at ?? item.slot?.end_at;
+                  const endDate = endValue ? new Date(endValue) : null;
+                  const end = endDate && !Number.isNaN(endDate.getTime())
+                    ? endDate.getHours() * 60 + endDate.getMinutes()
+                    : start + CALENDAR_SLOT_MINUTES;
+                  const supplement = patientSupplement(item);
+
+                  return (
+                    <article
+                      className={`weekly-appointment is-${item.status.toLowerCase()}`}
+                      key={appointmentId(item)}
+                      style={{
+                        top: `${((start - CALENDAR_START_HOUR * 60) / calendarMinutes) * 100}%`,
+                        height: `${Math.max(((end - start) / calendarMinutes) * 100, 5)}%`,
+                      }}
+                    >
+                      <strong>{item.patient?.name ?? "환자명 미제공"}</strong>
+                      {supplement && <span>{supplement}</span>}
+                      <span>{requestTypeLabel(item.request_type)}</span>
+                    </article>
+                  );
+                })}
+              </div>
+            );
+          })}
+
+          {schedule.filter((rule) => rule.is_active).length === 0 &&
+            appointments.length === 0 && (
+              <div className="weekly-calendar-empty">
+                등록된 스케줄이 없습니다.
+              </div>
+            )}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -263,6 +643,11 @@ export default function AppointmentsPage({
   ] = useState("");
 
   const [
+    clinicians,
+    setClinicians,
+  ] = useState<Clinician[]>([]);
+
+  const [
     appointments,
     setAppointments,
   ] = useState<
@@ -289,6 +674,15 @@ export default function AppointmentsPage({
   ] = useState<
     ScheduleRule[]
   >([]);
+
+  const [weekStart, setWeekStart] = useState(
+    () => startOfWeek(todayValue()),
+  );
+
+  const [
+    weeklyAppointments,
+    setWeeklyAppointments,
+  ] = useState<StaffAppointment[]>([]);
 
   const [
     draftRule,
@@ -363,6 +757,50 @@ export default function AppointmentsPage({
     setSummaryLoading,
   ] = useState(false);
 
+  const [
+    rejectTarget,
+    setRejectTarget,
+  ] = useState<StaffAppointment | null>(
+    null,
+  );
+
+  const [
+    rejectReason,
+    setRejectReason,
+  ] = useState("");
+
+  const [
+    rejectSubmitting,
+    setRejectSubmitting,
+  ] = useState(false);
+
+  const [
+    rejectError,
+    setRejectError,
+  ] = useState<string | null>(null);
+
+  const [
+    correctionTarget,
+    setCorrectionTarget,
+  ] = useState<StaffAppointment | null>(
+    null,
+  );
+
+  const [
+    correctionReason,
+    setCorrectionReason,
+  ] = useState("");
+
+  const [
+    correctionSubmitting,
+    setCorrectionSubmitting,
+  ] = useState(false);
+
+  const [
+    correctionError,
+    setCorrectionError,
+  ] = useState<string | null>(null);
+
 
   /* =========================================================
    * 권한
@@ -409,6 +847,48 @@ export default function AppointmentsPage({
         setError(null);
 
         try {
+          if (status === "REQUESTED") {
+            const response =
+              await getAppointmentRequests({
+                date,
+                clinicianId:
+                  clinicianId ||
+                  undefined,
+                page,
+                pageSize:
+                  APPOINTMENTS_PER_PAGE,
+              });
+
+            const items =
+              normalize(
+                response.results ??
+                  [],
+              );
+
+            setAppointments(
+              items,
+            );
+
+            setUsesApiPagination(
+              true,
+            );
+
+            setTotalCount(
+              response.count ??
+                items.length,
+            );
+
+            setHasNextPage(
+              response.next != null,
+            );
+
+            setHasPreviousPage(
+              response.previous != null,
+            );
+
+            return;
+          }
+
           const response =
             await getStaffAppointments(
               {
@@ -465,7 +945,9 @@ export default function AppointmentsPage({
           );
         } catch {
           setError(
-            "예약 일정을 불러오지 못했습니다. 현재 계정의 역할과 권한을 확인해 주세요.",
+            status === "REQUESTED"
+              ? "승인 대기 예약 목록을 불러오지 못했습니다."
+              : "예약 일정을 불러오지 못했습니다. 현재 계정의 역할과 권한을 확인해 주세요.",
           );
         } finally {
           setLoading(false);
@@ -490,36 +972,82 @@ export default function AppointmentsPage({
    * 의료진 목록
    * ======================================================= */
 
-  const clinicianOptions =
-    useMemo(() => {
-      const values =
-        new Map<
-          string,
-          string
-        >();
+  useEffect(() => {
+    let active = true;
 
-      appointments.forEach(
-        (item) => {
-          const id =
-            item.clinician
-              ?.id ??
-            item.clinician_id;
-
-          if (id) {
-            values.set(
-              id,
-              item.clinician
-                ?.name ??
-                id,
+    const loadClinicians = async () => {
+      try {
+        const hospitalIds = currentUser.hospital?.id
+          ? [currentUser.hospital.id]
+          : (await getActiveHospitals()).results.map(
+              (hospital) => hospital.id,
             );
-          }
-        },
-      );
+        const hospitals = await Promise.all(
+          hospitalIds.map(getHospitalDetail),
+        );
+        const departmentIds = hospitals.flatMap(
+          (hospital) => hospital.departments.map(
+            (department) => department.id,
+          ),
+        );
+        const responses = await Promise.all(
+          departmentIds.map(getClinicians),
+        );
+        const values = new Map<string, Clinician>();
+        responses.forEach((response) => {
+          response.clinicians.forEach((clinician) => {
+            if (clinician.is_active) {
+              values.set(clinician.id, clinician);
+            }
+          });
+        });
+        if (active) {
+          const nextClinicians = [...values.values()].sort(
+            (left, right) =>
+              left.name.localeCompare(right.name, "ko"),
+          );
 
-      return [
-        ...values.entries(),
-      ];
-    }, [appointments]);
+          setClinicians(nextClinicians);
+          setClinicianId((currentClinicianId) => {
+            if (isDoctor) {
+              return nextClinicians.find(
+                (clinician) =>
+                  clinician.user_id === currentUser.id,
+              )?.id ?? "";
+            }
+
+            if (
+              currentClinicianId &&
+              nextClinicians.some(
+                (clinician) =>
+                  clinician.id === currentClinicianId,
+              )
+            ) {
+              return currentClinicianId;
+            }
+
+            return nextClinicians[0]?.id ?? "";
+          });
+        }
+      } catch {
+        if (active) {
+          setClinicians([]);
+        }
+      }
+    };
+
+    void loadClinicians();
+    return () => {
+      active = false;
+    };
+  }, [currentUser.hospital?.id, currentUser.id, isDoctor]);
+
+  const clinicianOptions = useMemo(
+    () => clinicians.map(
+      (clinician) => [clinician.id, clinician.name] as const,
+    ),
+    [clinicians],
+  );
 
 
   /* =========================================================
@@ -643,15 +1171,15 @@ export default function AppointmentsPage({
             inProgressResponse,
             completedResponse,
           ] = await Promise.all([
-            getStaffAppointments({
+            getAppointmentRequests({
               date,
               clinicianId:
                 clinicianId ||
                 undefined,
-              status: "REQUESTED",
               page: 1,
               pageSize: 1,
             }),
+
             getStaffAppointments({
               date,
               clinicianId:
@@ -661,6 +1189,7 @@ export default function AppointmentsPage({
               page: 1,
               pageSize: 1,
             }),
+
             getStaffAppointments({
               date,
               clinicianId:
@@ -670,6 +1199,7 @@ export default function AppointmentsPage({
               page: 1,
               pageSize: 1,
             }),
+
             getStaffAppointments({
               date,
               clinicianId:
@@ -683,17 +1213,19 @@ export default function AppointmentsPage({
 
           setSummaryCounts({
             requested:
-              appointmentCount(
-                requestedResponse,
-              ),
+              requestedResponse.count ??
+              requestedResponse.results.length,
+
             confirmed:
               appointmentCount(
                 confirmedResponse,
               ),
+
             inProgress:
               appointmentCount(
                 inProgressResponse,
               ),
+
             completed:
               appointmentCount(
                 completedResponse,
@@ -760,7 +1292,14 @@ export default function AppointmentsPage({
    * ======================================================= */
 
   async function handleComplete() {
-    if (!selected) {
+    if (
+      !selected ||
+      !isDoctor ||
+      !can(
+        currentUser,
+        "appointment.complete",
+      )
+    ) {
       return;
     }
 
@@ -789,87 +1328,268 @@ export default function AppointmentsPage({
    * 예약 요청
    * ======================================================= */
 
-  async function loadRequests() {
-    if (
-      !isNurse ||
-      !mayReadStaff
-    ) {
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response =
-        await getAppointmentRequests(
-          {
-            date,
-            clinicianId:
-              clinicianId ||
-              undefined,
-          },
-        );
-
-      setRequests(
-        normalize(
-          response.results,
-        ),
-      );
-    } catch {
-      setError(
-        "예약 요청을 불러오지 못했습니다.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
-
-
-  async function processRequest(
-    id: string,
-    action:
-      | "accept"
-      | "reject",
-  ) {
-    setActionError(null);
-
-    try {
-      if (
-        action === "accept"
-      ) {
-        await acceptAppointment(
-          id,
-        );
-      } else {
-        const reason =
-          window.prompt(
-            "거절 사유를 입력해 주세요.",
-          );
-
+  const loadRequests =
+    useCallback(
+      async () => {
         if (
-          !reason?.trim()
+          !isNurse ||
+          !mayReadStaff
         ) {
           return;
         }
 
-        await rejectAppointment(
-          id,
-          reason.trim(),
-        );
-      }
+        setLoading(true);
+        setError(null);
+
+        try {
+          const response =
+            await getAppointmentRequests(
+              {
+                date,
+                clinicianId:
+                  clinicianId ||
+                  undefined,
+              },
+            );
+
+          setRequests(
+            normalize(
+              response.results,
+            ),
+          );
+        } catch {
+          setError(
+            "예약 요청을 불러오지 못했습니다.",
+          );
+        } finally {
+          setLoading(false);
+        }
+      },
+      [
+        clinicianId,
+        date,
+        isNurse,
+        mayReadStaff,
+      ],
+    );
+
+
+  useEffect(() => {
+    if (activeTab !== "requests") {
+      return;
+    }
+
+    void loadRequests();
+  }, [
+    activeTab,
+    loadRequests,
+  ]);
+
+
+  function openRejectModal(
+    item: StaffAppointment,
+  ) {
+    setActionError(null);
+    setRejectError(null);
+    setRejectReason("");
+    setRejectTarget(item);
+  }
+
+
+  function closeRejectModal() {
+    if (rejectSubmitting) {
+      return;
+    }
+
+    setRejectTarget(null);
+    setRejectReason("");
+    setRejectError(null);
+  }
+
+
+  async function processRequest(
+    item: StaffAppointment,
+    action:
+      | "accept"
+      | "reject",
+  ) {
+    if (!isNurse) {
+      return;
+    }
+
+    setActionError(null);
+
+    if (action === "reject") {
+      openRejectModal(item);
+      return;
+    }
+
+    try {
+      await acceptAppointment(
+        item.appointment_id,
+      );
 
       await Promise.all([
         loadRequests(),
         loadAppointments(),
         loadSummaryCounts(),
       ]);
+
+      setSelected(null);
     } catch {
       setActionError(
-        action === "accept"
-          ? "예약 승인에 실패했습니다."
-          : "예약 거절에 실패했습니다.",
+        "예약 승인에 실패했습니다.",
       );
+    }
+  }
+
+
+  async function submitReject() {
+    if (!rejectTarget || !isNurse) {
+      return;
+    }
+
+    const reason =
+      rejectReason.trim();
+
+    if (!reason) {
+      setRejectError(
+        "거절 사유를 입력해 주세요.",
+      );
+      return;
+    }
+
+    setRejectSubmitting(true);
+    setRejectError(null);
+    setActionError(null);
+
+    try {
+      await rejectAppointment(
+        rejectTarget.appointment_id,
+        reason,
+      );
+
+      await Promise.all([
+        loadRequests(),
+        loadAppointments(),
+        loadSummaryCounts(),
+      ]);
+
+      if (
+        selected?.appointment_id ===
+        rejectTarget.appointment_id
+      ) {
+        setSelected(null);
+      }
+
+      setRejectTarget(null);
+      setRejectReason("");
+    } catch {
+      setRejectError(
+        "예약 거절 처리에 실패했습니다.",
+      );
+    } finally {
+      setRejectSubmitting(false);
+    }
+  }
+
+
+  /* =========================================================
+   * 예약 상태 정정
+   * ======================================================= */
+
+  function openCorrectionModal(
+    item: StaffAppointment,
+  ) {
+    if (
+      !isNurse ||
+      !correctionTargetStatus(item)
+    ) {
+      return;
+    }
+
+    setActionError(null);
+    setCorrectionError(null);
+    setCorrectionReason("");
+    setCorrectionTarget(item);
+  }
+
+
+  function closeCorrectionModal() {
+    if (correctionSubmitting) {
+      return;
+    }
+
+    setCorrectionTarget(null);
+    setCorrectionReason("");
+    setCorrectionError(null);
+  }
+
+
+  async function submitCorrection() {
+    if (
+      !correctionTarget ||
+      !isNurse
+    ) {
+      return;
+    }
+
+    const targetStatus =
+      correctionTargetStatus(
+        correctionTarget,
+      );
+
+    if (!targetStatus) {
+      setCorrectionError(
+        "현재 상태는 정정 대상으로 처리할 수 없습니다.",
+      );
+      return;
+    }
+
+    const reason =
+      correctionReason.trim();
+
+    if (!reason) {
+      setCorrectionError(
+        "상태 정정 사유를 입력해 주세요.",
+      );
+      return;
+    }
+
+    setCorrectionSubmitting(true);
+    setCorrectionError(null);
+    setActionError(null);
+
+    try {
+      await correctAppointment(
+        correctionTarget.appointment_id,
+        {
+          target_status: targetStatus,
+          reason,
+        },
+      );
+
+      await Promise.all([
+        loadRequests(),
+        loadAppointments(),
+        loadSummaryCounts(),
+      ]);
+
+      if (
+        selected?.appointment_id ===
+        correctionTarget.appointment_id
+      ) {
+        setSelected(null);
+      }
+
+      setCorrectionTarget(null);
+      setCorrectionReason("");
+    } catch {
+      setCorrectionError(
+        "예약 상태 정정에 실패했습니다.",
+      );
+    } finally {
+      setCorrectionSubmitting(false);
     }
   }
 
@@ -878,7 +1598,7 @@ export default function AppointmentsPage({
    * 스케줄
    * ======================================================= */
 
-  async function loadSchedule() {
+  const loadSchedule = useCallback(async () => {
     if (!clinicianId) {
       return;
     }
@@ -887,11 +1607,15 @@ export default function AppointmentsPage({
     setError(null);
 
     try {
+      const scheduleFrom =
+        activeTab === "manage" ? weekStart : date;
+      const scheduleTo =
+        activeTab === "manage" ? addDays(weekStart, 6) : date;
       const response =
         await getClinicianSchedule(
           clinicianId,
-          date,
-          date,
+          scheduleFrom,
+          scheduleTo,
         );
 
       setSchedule(
@@ -901,9 +1625,11 @@ export default function AppointmentsPage({
           []
         ).filter(
           (rule) =>
-            !rule.clinician_id ||
-            rule.clinician_id ===
-              clinicianId,
+            (
+              !rule.clinician_id ||
+              rule.clinician_id === clinicianId
+            ) &&
+            (!isDoctor || rule.is_active),
         ),
       );
     } catch {
@@ -913,7 +1639,61 @@ export default function AppointmentsPage({
     } finally {
       setLoading(false);
     }
-  }
+  }, [activeTab, clinicianId, date, isDoctor, weekStart]);
+
+
+  useEffect(() => {
+    if (
+      clinicianId &&
+      (
+        activeTab === "schedule" ||
+        activeTab === "manage"
+      )
+    ) {
+      void loadSchedule();
+    }
+  }, [activeTab, clinicianId, loadSchedule]);
+
+
+  useEffect(() => {
+    if (activeTab !== "manage" || !clinicianId) {
+      return;
+    }
+
+    let active = true;
+
+    const loadWeeklyAppointments = async () => {
+      try {
+        const response = await getStaffAppointments({
+          from: weekStart,
+          to: addDays(weekStart, 6),
+          clinicianId,
+          page: 1,
+          pageSize: 100,
+        });
+        const items = normalize(
+          response.results ?? response.appointments ?? [],
+        ).filter((item) =>
+          ["CONFIRMED", "IN_PROGRESS", "COMPLETED"].includes(
+            item.status,
+          ),
+        );
+
+        if (active) {
+          setWeeklyAppointments(items);
+        }
+      } catch {
+        if (active) {
+          setWeeklyAppointments([]);
+        }
+      }
+    };
+
+    void loadWeeklyAppointments();
+    return () => {
+      active = false;
+    };
+  }, [activeTab, clinicianId, weekStart]);
 
 
   async function saveSchedule() {
@@ -957,21 +1737,17 @@ export default function AppointmentsPage({
     setError(null);
     setActionError(null);
 
-    if (
-      tab === "requests"
-    ) {
-      void loadRequests();
+    /*
+     * 진료 일정은 예약 상태별 업무 목록이 아니라
+     * 선택한 날짜의 전체 일정을 보는 탭이므로,
+     * 예약 목록에서 사용하던 숨은 status 필터를 제거한다.
+     */
+    if (tab === "schedule") {
+      setStatus("");
+      setPage(1);
+      setSelected(null);
     }
 
-    if (
-      (
-        tab === "schedule" ||
-        tab === "manage"
-      ) &&
-      clinicianId
-    ) {
-      void loadSchedule();
-    }
   }
 
 
@@ -992,32 +1768,18 @@ export default function AppointmentsPage({
             예약 및 진료 일정
           </span>
 
-          <h2>
-            예약 · 일정
-          </h2>
+          <div className="appointment-heading__title-row">
+            <h2>
+              예약 · 일정
+            </h2>
 
-          <p>
-            예약 및 의료진 일정을
-            조회하고 관리합니다.
-          </p>
+            <p>
+              예약 및 의료진 일정을
+              조회하고 관리합니다.
+            </p>
+          </div>
         </div>
 
-        <label>
-          조회 날짜
-
-          <input
-            type="date"
-            value={date}
-            onChange={(
-              event,
-            ) =>
-              setDate(
-                event.target
-                  .value,
-              )
-            }
-          />
-        </label>
       </header>
 
 
@@ -1343,14 +2105,17 @@ export default function AppointmentsPage({
             </div>
 
 
-            {/* 총 건수 */}
+            {/* 목록 메타 */}
 
             <div className="appointment-list-meta">
               <strong>
-                총{" "}
-                {visibleTotal}
-                건
+                총 {visibleTotal}건
+                {" "}
+                <span>
+                  ({page}/{pageCount} 페이지)
+                </span>
               </strong>
+
             </div>
 
 
@@ -1406,10 +2171,6 @@ export default function AppointmentsPage({
                       <th>
                         예약 유형
                       </th>
-
-                      <th>
-                        작업
-                      </th>
                     </tr>
                   </thead>
 
@@ -1421,6 +2182,12 @@ export default function AppointmentsPage({
                         <tr
                           key={
                             item.appointment_id
+                          }
+                          className={
+                            selected?.appointment_id ===
+                            item.appointment_id
+                              ? "is-selected"
+                              : ""
                           }
                           onClick={() =>
                             void selectAppointment(
@@ -1454,19 +2221,23 @@ export default function AppointmentsPage({
                           </td>
 
                           <td>
-                            {item
-                              .department
-                              ?.name ??
-                              item.department_id ??
-                              "-"}
+                            <span className="appointment-department-label">
+                              {item
+                                .department
+                                ?.name ??
+                                item.department_id ??
+                                "-"}
+                            </span>
                           </td>
 
                           <td>
-                            {item
-                              .clinician
-                              ?.name ??
-                              item.clinician_id ??
-                              "-"}
+                            <span className="appointment-clinician-name">
+                              {item
+                                .clinician
+                                ?.name ??
+                                item.clinician_id ??
+                                "-"}
+                            </span>
                           </td>
 
                           <td>
@@ -1480,17 +2251,13 @@ export default function AppointmentsPage({
                           </td>
 
                           <td>
-                            {item.request_type ??
-                              "-"}
+                            <span className="appointment-type-label">
+                              {requestTypeLabel(
+                                item.request_type,
+                              )}
+                            </span>
                           </td>
 
-                          <td>
-                            <button
-                              type="button"
-                            >
-                              상세
-                            </button>
-                          </td>
                         </tr>
                       ),
                     )}
@@ -1583,163 +2350,295 @@ export default function AppointmentsPage({
            * =============================================== */}
 
           <aside className="appointment-detail-card">
-            <header>
-              <span>
-                예약 상세 정보
-              </span>
+            <header className="appointment-detail-heading">
+              <div>
+                <span>
+                  예약 상세 정보
+                </span>
 
-              <h3>
-                예약 상세
-              </h3>
+                <h3>
+                  환자 예약 상세
+                </h3>
+              </div>
             </header>
 
             {selected ? (
-              <>
-                <dl>
-                  <div>
-                    <dt>
-                      예약 ID
-                    </dt>
-
-                    <dd>
-                      {
-                        selected.appointment_id
-                      }
-                    </dd>
+              <div className="appointment-detail-content">
+                <section className="appointment-patient-summary">
+                  <div className="appointment-patient-avatar">
+                    {(
+                      selected.patient?.name ??
+                      "?"
+                    ).slice(0, 1)}
                   </div>
 
-
-                  <div>
-                    <dt>
-                      환자
-                    </dt>
-
-                    <dd>
-                      {selected
-                        .patient
-                        ?.name ??
+                  <div className="appointment-patient-main">
+                    <h4>
+                      {selected.patient?.name ??
                         selected.patient_id ??
-                        "-"}
-                    </dd>
-                  </div>
+                        "환자 정보 없음"}
+                    </h4>
 
-
-                  <div>
-                    <dt>
-                      일정
-                    </dt>
-
-                    <dd>
-                      {formatDateTime(
-                        appointmentStart(
+                    {patientSupplement(
+                      selected,
+                    ) && (
+                      <p className="appointment-patient-demographic">
+                        {patientSupplement(
                           selected,
-                        ),
-                      )}
-                    </dd>
+                        )}
+                      </p>
+                    )}
+
+                    <p className="appointment-patient-number">
+                      환자번호
+                      <span aria-hidden="true">
+                        |
+                      </span>
+                      {selected.patient?.patient_no ??
+                        "정보 없음"}
+                    </p>
                   </div>
 
-
-                  <div>
-                    <dt>
-                      진료과
-                    </dt>
-
-                    <dd>
-                      {selected
-                        .department
-                        ?.name ??
-                        selected.department_id ??
-                        "-"}
-                    </dd>
-                  </div>
-
-
-                  <div>
-                    <dt>
-                      담당의
-                    </dt>
-
-                    <dd>
-                      {selected
-                        .clinician
-                        ?.name ??
-                        selected.clinician_id ??
-                        "-"}
-                    </dd>
-                  </div>
-
-
-                  <div>
-                    <dt>
-                      상태
-                    </dt>
-
-                    <dd>
+                  <div className="appointment-patient-state">
+                    <span
+                      className={`appointment-status is-${selected.status.toLowerCase()}`}
+                    >
                       {statusLabel(
                         selected.status,
                       )}
-                    </dd>
+                    </span>
+
+                    {selected.status ===
+                      "REQUESTED" && (
+                      <small>
+                        신규 예약 요청
+                      </small>
+                    )}
                   </div>
+                </section>
 
-
-                  <div>
-                    <dt>
-                      예약 유형
-                    </dt>
-
-                    <dd>
-                      {selected.request_type ??
-                        "-"}
-                    </dd>
+                {selected.requested_slot && (
+                  <div className="appointment-request-notice">
+                    일정 변경 승인 대기 요청이 있습니다.
                   </div>
+                )}
 
+                <section className="appointment-detail-section">
+                  <h4>
+                    예약 정보
+                  </h4>
 
-                  <div>
-                    <dt>
-                      요청 시각
-                    </dt>
+                  <dl>
+                    <div>
+                      <dt>예약 일시</dt>
+                      <dd>
+                        {formatDateTime(
+                          appointmentStart(
+                            selected,
+                          ),
+                        )}
+                      </dd>
+                    </div>
 
-                    <dd>
-                      {formatDateTime(
-                        selected.requested_at,
+                    <div>
+                      <dt>진료과</dt>
+                      <dd>
+                        {selected.department?.name ??
+                          selected.department_id ??
+                          "-"}
+                      </dd>
+                    </div>
+
+                    <div>
+                      <dt>담당의</dt>
+                      <dd>
+                        {selected.clinician?.name ??
+                          selected.clinician_id ??
+                          "-"}
+                      </dd>
+                    </div>
+
+                    <div>
+                      <dt>예약 유형</dt>
+                      <dd>
+                        {requestTypeLabel(
+                          selected.request_type,
+                        )}
+                      </dd>
+                    </div>
+                  </dl>
+                </section>
+
+                <section className="appointment-detail-section">
+                  <h4>
+                    요청 정보
+                  </h4>
+
+                  <dl>
+                    <div>
+                      <dt>요청 시각</dt>
+                      <dd>
+                        {formatDateTime(
+                          selected.requested_at,
+                        )}
+                      </dd>
+                    </div>
+
+                    <div
+                      className={`is-request-reason ${
+                        appointmentRequestReason(selected)
+                          ? ""
+                          : "is-empty"
+                      }`}
+                    >
+                      <dt>
+                        요청 사유
+                      </dt>
+                      <dd>
+                        {appointmentRequestReason(
+                          selected,
+                        ) ?? "등록된 요청 사유 없음"}
+                      </dd>
+                    </div>
+
+                    {selected.reschedule_requested_at && (
+                      <div>
+                        <dt>변경 요청 시각</dt>
+                        <dd>
+                          {formatDateTime(
+                            selected.reschedule_requested_at,
+                          )}
+                        </dd>
+                      </div>
+                    )}
+
+                    {selected.requested_slot && (
+                      <div>
+                        <dt>변경 희망 일정</dt>
+                        <dd>
+                          {formatDateTime(
+                            selected.requested_slot.start_at,
+                          )}
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
+                </section>
+
+                {(
+                  selected.confirmed_at ||
+                  selected.completed_at ||
+                  selected.rejection_reason ||
+                  selected.cancel_reason ||
+                  selected.handled_by
+                ) && (
+                  <section className="appointment-detail-section">
+                    <h4>
+                      처리 정보
+                    </h4>
+
+                    <dl>
+                      {selected.confirmed_at && (
+                        <div>
+                          <dt>확정 시각</dt>
+                          <dd>
+                            {formatDateTime(
+                              selected.confirmed_at,
+                            )}
+                          </dd>
+                        </div>
                       )}
-                    </dd>
-                  </div>
 
+                      {selected.completed_at && (
+                        <div>
+                          <dt>완료 시각</dt>
+                          <dd>
+                            {formatDateTime(
+                              selected.completed_at,
+                            )}
+                          </dd>
+                        </div>
+                      )}
 
-                  {selected.rejection_reason && (
-                    <div>
-                      <dt>
-                        거절 사유
-                      </dt>
+                      {selected.handled_by && (
+                        <div>
+                          <dt>처리 담당자</dt>
+                          <dd>
+                            {selected.handled_by.name ??
+                              selected.handled_by.id}
+                          </dd>
+                        </div>
+                      )}
 
-                      <dd>
-                        {
-                          selected.rejection_reason
+                      {selected.rejection_reason && (
+                        <div className="is-reason">
+                          <dt>거절 사유</dt>
+                          <dd>
+                            {selected.rejection_reason}
+                          </dd>
+                        </div>
+                      )}
+
+                      {selected.cancel_reason && (
+                        <div className="is-reason">
+                          <dt>취소 사유</dt>
+                          <dd>
+                            {selected.cancel_reason}
+                          </dd>
+                        </div>
+                      )}
+                    </dl>
+                  </section>
+                )}
+
+                {hasPendingAppointmentRequest(
+                  selected,
+                ) &&
+                  isNurse && (
+                    <div className="appointment-actions appointment-request-actions">
+                      <button
+                        type="button"
+                        className="is-primary"
+                        disabled={
+                          !can(
+                            currentUser,
+                            "appointment.accept",
+                          )
                         }
-                      </dd>
+                        onClick={() =>
+                          void processRequest(
+                            selected,
+                            "accept",
+                          )
+                        }
+                      >
+                        예약 승인
+                      </button>
+
+                      <button
+                        type="button"
+                        className="is-danger"
+                        disabled={
+                          !can(
+                            currentUser,
+                            "appointment.reject",
+                          )
+                        }
+                        onClick={() =>
+                          void processRequest(
+                            selected,
+                            "reject",
+                          )
+                        }
+                      >
+                        예약 거절
+                      </button>
                     </div>
                   )}
-
-
-                  {selected.cancel_reason && (
-                    <div>
-                      <dt>
-                        취소 사유
-                      </dt>
-
-                      <dd>
-                        {
-                          selected.cancel_reason
-                        }
-                      </dd>
-                    </div>
-                  )}
-                </dl>
-
 
                 {selected.status ===
                   "CONFIRMED" &&
+                  isDoctor &&
                   can(
                     currentUser,
                     "appointment.complete",
@@ -1747,6 +2646,7 @@ export default function AppointmentsPage({
                     <div className="appointment-actions">
                       <button
                         type="button"
+                        className="is-primary"
                         onClick={() =>
                           void handleComplete()
                         }
@@ -1755,19 +2655,41 @@ export default function AppointmentsPage({
                       </button>
                     </div>
                   )}
-              </>
+
+                {isNurse &&
+                  correctionTargetStatus(
+                    selected,
+                  ) && (
+                    <div className="appointment-actions">
+                      <button
+                        type="button"
+                        className="is-secondary"
+                        onClick={() =>
+                          openCorrectionModal(
+                            selected,
+                          )
+                        }
+                      >
+                        상태 정정
+                      </button>
+                    </div>
+                  )}
+
+                {actionError && (
+                  <p className="appointment-action-error">
+                    {actionError}
+                  </p>
+                )}
+              </div>
             ) : (
               <div className="appointment-empty is-detail-empty">
-                예약을 선택하면
-                상세 정보가
-                표시됩니다.
+                <strong>
+                  예약을 선택해 주세요.
+                </strong>
+                <span>
+                  환자를 선택하면 예약 정보와 처리 기능이 표시됩니다.
+                </span>
               </div>
-            )}
-
-            {actionError && (
-              <p className="appointment-action-error">
-                {actionError}
-              </p>
             )}
           </aside>
         </div>
@@ -1825,8 +2747,9 @@ export default function AppointmentsPage({
                           item.requested_at,
                         )}
                         {" · "}
-                        {item.request_type ??
-                          "-"}
+                        {requestTypeLabel(
+                          item.request_type,
+                        )}
                       </span>
                     </div>
 
@@ -1847,7 +2770,7 @@ export default function AppointmentsPage({
                         }
                         onClick={() =>
                           void processRequest(
-                            item.appointment_id,
+                            item,
                             "accept",
                           )
                         }
@@ -1865,7 +2788,7 @@ export default function AppointmentsPage({
                         }
                         onClick={() =>
                           void processRequest(
-                            item.appointment_id,
+                            item,
                             "reject",
                           )
                         }
@@ -1892,7 +2815,46 @@ export default function AppointmentsPage({
        * 스케줄 관리
        * =================================================== */}
 
-      {activeTab ===
+      {activeTab === "manage" && (
+        <>
+          <div className="weekly-schedule-clinician">
+            <span>담당 의료진</span>
+            {isDoctor ? (
+              <strong>
+                {clinicians.find((clinician) => clinician.id === clinicianId)?.name ?? currentUser.name}
+              </strong>
+            ) : (
+              <select
+                value={clinicianId}
+                onChange={(event) => setClinicianId(event.target.value)}
+              >
+                <option value="">담당 의료진 선택</option>
+                {clinicianOptions.map(([id, name]) => (
+                  <option value={id} key={id}>{name}</option>
+                ))}
+              </select>
+            )}
+          </div>
+          {clinicianId ? (
+            <WeeklyScheduleCalendar
+              weekStart={weekStart}
+              onWeekChange={setWeekStart}
+              schedule={schedule}
+              appointments={weeklyAppointments}
+            />
+          ) : (
+            <section className="weekly-schedule-card">
+              <div className="appointment-empty">
+                {isDoctor
+                  ? "로그인 사용자와 연결된 의료진 정보를 확인할 수 없습니다."
+                  : "담당 의료진을 선택해 주세요."}
+              </div>
+            </section>
+          )}
+        </>
+      )}
+
+      {isDoctor && isNurse && activeTab ===
         "manage" && (
         <section className="appointment-schedule-card">
 
@@ -1908,67 +2870,56 @@ export default function AppointmentsPage({
               </h3>
             </div>
 
-            <div>
-              <select
-                value={
-                  clinicianId
-                }
-                onChange={(
-                  event,
-                ) =>
-                  setClinicianId(
-                    event.target
-                      .value,
-                  )
-                }
-              >
-                <option value="">
-                  담당 의료진
-                  선택
-                </option>
+            {isDoctor ? (
+              <div>
+                <strong>
+                  {clinicians.find(
+                    (clinician) =>
+                      clinician.id === clinicianId,
+                  )?.name ?? currentUser.name}
+                </strong>
+              </div>
+            ) : (
+              <div>
+                <select
+                  value={clinicianId}
+                  onChange={(event) =>
+                    setClinicianId(event.target.value)
+                  }
+                >
+                  <option value="">
+                    담당 의료진 선택
+                  </option>
 
-                {clinicianOptions.map(
-                  ([
-                    id,
-                    name,
-                  ]) => (
-                    <option
-                      value={id}
-                      key={id}
-                    >
+                  {clinicianOptions.map(([id, name]) => (
+                    <option value={id} key={id}>
                       {name}
                     </option>
-                  ),
-                )}
-              </select>
+                  ))}
+                </select>
 
-              <button
-                type="button"
-                disabled={
-                  !clinicianId
-                }
-                onClick={() =>
-                  void loadSchedule()
-                }
-              >
-                조회
-              </button>
-            </div>
+                <button
+                  type="button"
+                  disabled={!clinicianId}
+                  onClick={() => void loadSchedule()}
+                >
+                  조회
+                </button>
+              </div>
+            )}
           </header>
 
 
           {!clinicianId ? (
             <div className="appointment-empty">
-              현재 예약 응답에서
-              확인된 담당 의료진을
-              선택해 주세요.
-              로그인 응답에는
-              clinician_id가
-              제공되지 않습니다.
+              {isDoctor
+                ? "로그인 사용자와 연결된 의료진 정보를 확인할 수 없습니다."
+                : "담당 의료진을 선택해 주세요."}
             </div>
           ) : (
             <>
-              <div className="schedule-rule-editor">
+              {!isDoctor && (
+                <div className="schedule-rule-editor">
 
                 <label>
                   요일
@@ -2144,7 +3095,8 @@ export default function AppointmentsPage({
                 >
                   규칙 추가
                 </button>
-              </div>
+                </div>
+              )}
 
 
               {schedule.length ===
@@ -2200,41 +3152,30 @@ export default function AppointmentsPage({
                             "계속"}
                         </span>
 
-                        <label>
-                          <input
-                            type="checkbox"
-                            checked={
-                              rule.is_active
-                            }
-                            onChange={(
-                              event,
-                            ) =>
-                              setSchedule(
-                                (
-                                  previous,
-                                ) =>
-                                  previous.map(
-                                    (
-                                      item,
-                                      itemIndex,
-                                    ) =>
-                                      itemIndex ===
-                                      index
-                                        ? {
-                                            ...item,
-                                            is_active:
-                                              event
-                                                .target
-                                                .checked,
-                                          }
-                                        : item,
+                        {isDoctor ? (
+                          <span>확정</span>
+                        ) : (
+                          <label>
+                            <input
+                              type="checkbox"
+                              checked={rule.is_active}
+                              onChange={(event) =>
+                                setSchedule((previous) =>
+                                  previous.map((item, itemIndex) =>
+                                    itemIndex === index
+                                      ? {
+                                          ...item,
+                                          is_active: event.target.checked,
+                                        }
+                                      : item,
                                   ),
-                              )
-                            }
-                          />
+                                )
+                              }
+                            />
 
-                          활성
-                        </label>
+                            활성
+                          </label>
+                        )}
                       </div>
                     ),
                   )}
@@ -2244,22 +3185,21 @@ export default function AppointmentsPage({
           )}
 
 
-          <footer>
-            <button
-              type="button"
-              disabled={
-                !clinicianId ||
-                !mayManageSchedule ||
-                schedule.length ===
-                  0
-              }
-              onClick={() =>
-                void saveSchedule()
-              }
-            >
-              스케줄 저장
-            </button>
-          </footer>
+          {!isDoctor && (
+            <footer>
+              <button
+                type="button"
+                disabled={
+                  !clinicianId ||
+                  !mayManageSchedule ||
+                  schedule.length === 0
+                }
+                onClick={() => void saveSchedule()}
+              >
+                스케줄 저장
+              </button>
+            </footer>
+          )}
 
 
           {actionError && (
@@ -2269,6 +3209,346 @@ export default function AppointmentsPage({
           )}
         </section>
       )}
+      {rejectTarget && (
+        <div
+          className="appointment-modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (
+              event.target ===
+              event.currentTarget
+            ) {
+              closeRejectModal();
+            }
+          }}
+        >
+          <section
+            className="appointment-reject-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="appointment-reject-modal-title"
+          >
+            <header>
+              <div>
+                <span>
+                  예약 요청 처리
+                </span>
+
+                <h3
+                  id="appointment-reject-modal-title"
+                >
+                  예약 거절
+                </h3>
+              </div>
+
+              <button
+                type="button"
+                className="appointment-modal-close"
+                aria-label="닫기"
+                disabled={rejectSubmitting}
+                onClick={closeRejectModal}
+              >
+                ×
+              </button>
+            </header>
+
+            <div className="appointment-reject-modal-body">
+              <div className="appointment-reject-patient">
+                <div className="appointment-reject-avatar">
+                  {(
+                    rejectTarget.patient?.name ??
+                    "환"
+                  ).slice(0, 1)}
+                </div>
+
+                <div>
+                  <strong>
+                    {rejectTarget.patient?.name ??
+                      rejectTarget.patient_id ??
+                      "환자 정보 없음"}
+                  </strong>
+
+                  <span>
+                    {rejectTarget.patient?.patient_no ??
+                      ""}
+                  </span>
+                </div>
+
+                <span className="appointment-status is-requested">
+                  {statusLabel(
+                    rejectTarget.status,
+                  )}
+                </span>
+              </div>
+
+              <div className="appointment-reject-context">
+                <div>
+                  <span>예약 일정</span>
+                  <strong>
+                    {formatDateTime(
+                      appointmentStart(
+                        rejectTarget,
+                      ),
+                    )}
+                  </strong>
+                </div>
+
+                <div>
+                  <span>진료과</span>
+                  <strong>
+                    {rejectTarget.department?.name ??
+                      rejectTarget.department_id ??
+                      "-"}
+                  </strong>
+                </div>
+
+                <div>
+                  <span>담당의</span>
+                  <strong>
+                    {rejectTarget.clinician?.name ??
+                      rejectTarget.clinician_id ??
+                      "-"}
+                  </strong>
+                </div>
+              </div>
+
+              <label className="appointment-reject-reason">
+                <span>
+                  거절 사유
+                  <strong>*</strong>
+                </span>
+
+                <textarea
+                  autoFocus
+                  maxLength={255}
+                  rows={5}
+                  value={rejectReason}
+                  placeholder="환자에게 안내할 예약 거절 사유를 입력해 주세요."
+                  onChange={(event) => {
+                    setRejectReason(
+                      event.target.value,
+                    );
+
+                    if (rejectError) {
+                      setRejectError(null);
+                    }
+                  }}
+                />
+
+                <small>
+                  {rejectReason.length}/255
+                </small>
+              </label>
+
+              {rejectError && (
+                <p className="appointment-reject-error">
+                  {rejectError}
+                </p>
+              )}
+            </div>
+
+            <footer>
+              <button
+                type="button"
+                className="is-secondary"
+                disabled={rejectSubmitting}
+                onClick={closeRejectModal}
+              >
+                취소
+              </button>
+
+              <button
+                type="button"
+                className="is-danger"
+                disabled={
+                  rejectSubmitting ||
+                  !rejectReason.trim()
+                }
+                onClick={() =>
+                  void submitReject()
+                }
+              >
+                {rejectSubmitting
+                  ? "처리 중..."
+                  : "예약 거절"}
+              </button>
+            </footer>
+          </section>
+        </div>
+      )}
+
+      {correctionTarget && (
+        <div
+          className="appointment-modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (
+              event.target ===
+              event.currentTarget
+            ) {
+              closeCorrectionModal();
+            }
+          }}
+        >
+          <section
+            className="appointment-reject-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="appointment-correction-modal-title"
+          >
+            <header>
+              <div>
+                <span>
+                  예약 상태 관리
+                </span>
+
+                <h3
+                  id="appointment-correction-modal-title"
+                >
+                  예약 상태 정정
+                </h3>
+              </div>
+
+              <button
+                type="button"
+                className="appointment-modal-close"
+                aria-label="닫기"
+                disabled={correctionSubmitting}
+                onClick={closeCorrectionModal}
+              >
+                ×
+              </button>
+            </header>
+
+            <div className="appointment-reject-modal-body">
+              <div className="appointment-reject-patient">
+                <div className="appointment-reject-avatar">
+                  {(
+                    correctionTarget.patient?.name ??
+                    "환"
+                  ).slice(0, 1)}
+                </div>
+
+                <div>
+                  <strong>
+                    {correctionTarget.patient?.name ??
+                      correctionTarget.patient_id ??
+                      "환자 정보 없음"}
+                  </strong>
+
+                  <span>
+                    {correctionTarget.patient?.patient_no ??
+                      ""}
+                  </span>
+                </div>
+
+                <span
+                  className={`appointment-status is-${correctionTarget.status.toLowerCase()}`}
+                >
+                  {statusLabel(
+                    correctionTarget.status,
+                  )}
+                </span>
+              </div>
+
+              <div className="appointment-reject-context">
+                <div>
+                  <span>예약 일정</span>
+                  <strong>
+                    {formatDateTime(
+                      appointmentStart(
+                        correctionTarget,
+                      ),
+                    )}
+                  </strong>
+                </div>
+
+                <div>
+                  <span>현재 상태</span>
+                  <strong>
+                    {statusLabel(
+                      correctionTarget.status,
+                    )}
+                  </strong>
+                </div>
+
+                <div>
+                  <span>정정 후 상태</span>
+                  <strong>
+                    {statusLabel(
+                      correctionTargetStatus(
+                        correctionTarget,
+                      ) ?? undefined,
+                    )}
+                  </strong>
+                </div>
+              </div>
+
+              <label className="appointment-reject-reason">
+                <span>
+                  정정 사유
+                  <strong>*</strong>
+                </span>
+
+                <textarea
+                  autoFocus
+                  maxLength={255}
+                  rows={5}
+                  value={correctionReason}
+                  placeholder="잘못 처리된 예약 상태를 정정하는 사유를 입력해 주세요."
+                  onChange={(event) => {
+                    setCorrectionReason(
+                      event.target.value,
+                    );
+
+                    if (correctionError) {
+                      setCorrectionError(null);
+                    }
+                  }}
+                />
+
+                <small>
+                  {correctionReason.length}/255
+                </small>
+              </label>
+
+              {correctionError && (
+                <p className="appointment-reject-error">
+                  {correctionError}
+                </p>
+              )}
+            </div>
+
+            <footer>
+              <button
+                type="button"
+                className="is-secondary"
+                disabled={correctionSubmitting}
+                onClick={closeCorrectionModal}
+              >
+                취소
+              </button>
+
+              <button
+                type="button"
+                className="is-primary"
+                disabled={
+                  correctionSubmitting ||
+                  !correctionReason.trim()
+                }
+                onClick={() =>
+                  void submitCorrection()
+                }
+              >
+                {correctionSubmitting
+                  ? "정정 중..."
+                  : "상태 정정"}
+              </button>
+            </footer>
+          </section>
+        </div>
+      )}
+
     </section>
   );
 }

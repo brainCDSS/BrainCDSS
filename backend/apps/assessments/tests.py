@@ -3,7 +3,8 @@ from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from apps.accounts.models import Role, RoleCode, User
-from apps.assessments.models import InitialAssessment
+from apps.assessments.models import AssessmentItem, EmergencyEvent, InitialAssessment
+from apps.audit.models import AuditLog
 from apps.clinical_records.models import Encounter
 from apps.organizations.models import Department, Hospital
 from apps.patients.models import Patient
@@ -111,3 +112,244 @@ class AssessmentWorklistAPITests(APITestCase):
         )
 
         self.assertNotEqual(response.status_code, 405)
+
+
+class EmergencyWorklistAPITests(APITestCase):
+    def setUp(self):
+        self.neurologist_role = Role.objects.create(
+            code=RoleCode.NEUROLOGIST,
+            name="Neurologist",
+        )
+        self.nurse_role = Role.objects.create(
+            code=RoleCode.NURSE,
+            name="Nurse",
+        )
+        self.neurologist = User.objects.create_user(
+            login_id="emergency-neurologist",
+            password="test-password",
+            name="Assigned neurologist",
+            role=self.neurologist_role,
+        )
+        self.other_neurologist = User.objects.create_user(
+            login_id="other-neurologist",
+            password="test-password",
+            name="Other neurologist",
+            role=self.neurologist_role,
+        )
+        self.nurse = User.objects.create_user(
+            login_id="emergency-nurse",
+            password="test-password",
+            name="Assessment nurse",
+            role=self.nurse_role,
+        )
+        self.patient = Patient.objects.create(
+            patient_no="EMERGENCY-001",
+            name="Emergency patient",
+            estimated_age=68,
+            sex="M",
+            created_by=self.nurse,
+        )
+        now = timezone.now()
+        self.encounter = Encounter.objects.create(
+            patient=self.patient,
+            encounter_no="ENC-EMERGENCY-001",
+            encounter_type="EMERGENCY",
+            status="IN_PROGRESS",
+            arrived_at=now,
+            created_at=now,
+            updated_at=now,
+        )
+        self.assessment = InitialAssessment.objects.create(
+            encounter=self.encounter,
+            assessor=self.nurse,
+            assigned_neurologist=self.neurologist,
+            status="COMPLETED",
+            total_score=12,
+            triage_priority="EMERGENCY",
+            lkw_at=now,
+            completed_at=now,
+            created_at=now,
+            updated_at=now,
+        )
+        self.event = EmergencyEvent.objects.create(
+            assessment=self.assessment,
+            encounter=self.encounter,
+            assigned_neurologist=self.neurologist,
+            event_type="EMERGENCY_DETECTED",
+            priority="EMERGENCY",
+            status="NOTIFIED",
+            occurred_at=now,
+            notified_at=now,
+            created_at=now,
+        )
+        self.worklist_url = reverse("api-asm-006-real")
+        self.acknowledge_url = reverse("api-evt-001-real", args=[self.event.id])
+
+    def test_assigned_neurologist_receives_emergency_worklist(self):
+        self.client.force_authenticate(self.neurologist)
+
+        response = self.client.get(self.worklist_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 1)
+        item = response.data["results"][0]
+        self.assertEqual(item["assessment_id"], str(self.assessment.id))
+        self.assertEqual(item["encounter_id"], str(self.encounter.id))
+        self.assertEqual(item["patient_summary"]["patient_no"], "EMERGENCY-001")
+        self.assertEqual(item["triage_priority"], "EMERGENCY")
+        self.assertEqual(item["event"]["id"], str(self.event.id))
+
+    def test_other_neurologist_does_not_receive_assigned_event(self):
+        self.client.force_authenticate(self.other_neurologist)
+
+        response = self.client.get(self.worklist_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 0)
+
+    def test_nurse_cannot_access_emergency_worklist(self):
+        self.client.force_authenticate(self.nurse)
+
+        response = self.client.get(self.worklist_url)
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_assigned_neurologist_can_acknowledge_event(self):
+        self.client.force_authenticate(self.neurologist)
+
+        response = self.client.post(self.acknowledge_url, {}, format="json")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], "ACKNOWLEDGED")
+        self.assertEqual(response.data["acknowledged_by"], str(self.neurologist.id))
+        self.event.refresh_from_db()
+        self.assertEqual(self.event.status, "ACKNOWLEDGED")
+        self.assertEqual(self.event.acknowledged_by_id, self.neurologist.id)
+        self.assertIsNotNone(self.event.acknowledged_at)
+        self.assertTrue(
+            AuditLog.objects.filter(
+                action="ACKNOWLEDGE_EMERGENCY_EVENT",
+                resource=str(self.event.id),
+                outcome="SUCCESS",
+            ).exists()
+        )
+
+    def test_event_cannot_be_acknowledged_twice(self):
+        self.client.force_authenticate(self.neurologist)
+        self.client.post(self.acknowledge_url, {}, format="json")
+
+        response = self.client.post(self.acknowledge_url, {}, format="json")
+
+        self.assertEqual(response.status_code, 409)
+
+    def test_other_neurologist_cannot_acknowledge_event(self):
+        self.client.force_authenticate(self.other_neurologist)
+
+        response = self.client.post(self.acknowledge_url, {}, format="json")
+
+        self.assertEqual(response.status_code, 403)
+
+
+class AssessmentEncounterListAPITests(APITestCase):
+    def setUp(self):
+        self.neurologist_role = Role.objects.create(
+            code=RoleCode.NEUROLOGIST,
+            name="Neurologist",
+        )
+        self.nurse_role = Role.objects.create(
+            code=RoleCode.NURSE,
+            name="Nurse",
+        )
+        self.patient_role = Role.objects.create(
+            code=RoleCode.PATIENT,
+            name="Patient",
+        )
+        self.neurologist = User.objects.create_user(
+            login_id="assessment-list-neurologist",
+            password="test-password",
+            name="Assessment neurologist",
+            role=self.neurologist_role,
+        )
+        self.nurse = User.objects.create_user(
+            login_id="assessment-list-nurse",
+            password="test-password",
+            name="Assessment nurse",
+            role=self.nurse_role,
+        )
+        self.patient_user = User.objects.create_user(
+            login_id="assessment-list-patient",
+            password="test-password",
+            name="Assessment patient",
+            role=self.patient_role,
+        )
+        self.patient = Patient.objects.create(
+            patient_no="ASSESSMENT-LIST-001",
+            name="Assessment List Patient",
+            created_by=self.nurse,
+        )
+        self.encounter = Encounter.objects.create(
+            patient=self.patient,
+            encounter_no="ENC-ASSESSMENT-LIST-001",
+            encounter_type="EMERGENCY",
+            status="IN_PROGRESS",
+            arrived_at=timezone.now(),
+            created_at=timezone.now(),
+            updated_at=timezone.now(),
+        )
+        self.url = reverse("api-asm-assessment-list-by-encounter")
+
+    def _create_assessment(self, **kwargs):
+        now = timezone.now()
+        return InitialAssessment.objects.create(
+            encounter=self.encounter,
+            assessor=self.nurse,
+            status="COMPLETED",
+            created_at=now,
+            updated_at=now,
+            **kwargs,
+        )
+
+    def test_neurologist_reads_assessment_by_encounter_with_items(self):
+        assessment = self._create_assessment(
+            total_score=7,
+            triage_priority="EMERGENCY",
+            symptom_note="Assessment symptom",
+            assigned_neurologist=self.neurologist,
+        )
+        AssessmentItem.objects.create(
+            assessment=assessment,
+            item_group="FAST",
+            item_code="FAST_FACE",
+            value_text="ABNORMAL",
+            is_red_flag=True,
+            recorded_at=timezone.now(),
+        )
+
+        self.client.force_authenticate(self.neurologist)
+        response = self.client.get(self.url, {"encounter_id": self.encounter.id})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 1)
+        item = response.data["results"][0]
+        self.assertEqual(item["assessment_id"], str(assessment.id))
+        self.assertEqual(item["encounter_id"], str(self.encounter.id))
+        self.assertEqual(item["total_score"], 7)
+        self.assertEqual(item["items"][0]["item_code"], "FAST_FACE")
+
+    def test_returns_empty_results_when_encounter_has_no_assessment(self):
+        self.client.force_authenticate(self.neurologist)
+
+        response = self.client.get(self.url, {"encounter_id": self.encounter.id})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data, {"count": 0, "results": []})
+
+    def test_rejects_unknown_encounter_and_non_clinical_role(self):
+        self.client.force_authenticate(self.neurologist)
+        missing = self.client.get(self.url, {"encounter_id": "00000000-0000-0000-0000-000000000000"})
+
+        self.client.force_authenticate(self.patient_user)
+        forbidden = self.client.get(self.url, {"encounter_id": self.encounter.id})
+
+        self.assertEqual(missing.status_code, 404)
+        self.assertEqual(forbidden.status_code, 403)

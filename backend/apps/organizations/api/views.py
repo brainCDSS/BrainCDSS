@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 
 from apps.organizations.api.errors import DomainAPIException
 from apps.organizations.api.permissions import (
+    IsPatientNurseOrDoctorRole,
     IsPatientOrNurseRole,
     IsPatientRole,
 )
@@ -231,7 +232,7 @@ class HospitalDepartmentListView(APIView):
 class DepartmentClinicianListView(APIView):
     permission_classes = [
         IsAuthenticated,
-        IsPatientOrNurseRole,
+        IsPatientNurseOrDoctorRole,
     ]
 
     @extend_schema(

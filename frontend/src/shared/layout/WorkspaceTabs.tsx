@@ -42,6 +42,7 @@ const NEW_WORK_GROUPS: Array<{
       { key: "patients", icon: "○" },
       { key: "worklist", icon: "✓" },
       { key: "triage", icon: "✓" },
+      { key: "clinical-notes", icon: "S" },
       { key: "appointments", icon: "□" },
     ],
   },

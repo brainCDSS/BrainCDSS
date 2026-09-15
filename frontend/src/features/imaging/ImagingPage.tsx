@@ -8,7 +8,7 @@ import "./imaging.css";
 const LABELS: Record<string, string> = { HEMORRHAGIC_STROKE_CT: "뇌출혈 병변 분할", ISCHEMIC_STROKE_DWI_ADC: "허혈성 뇌졸중 병변 분할", CEREBRAL_ANEURYSM_MRA: "뇌동맥류 병변 분할" };
 const MODELS: Record<string, string> = { HEMORRHAGIC_STROKE_CT: "H-N00 (Hemorrhage)", ISCHEMIC_STROKE_DWI_ADC: "I-N00 (Ischemia)", CEREBRAL_ANEURYSM_MRA: "A-N00 (Aneurysm)" };
 const modalityOf = (study: ImagingStudy) => study.modality === "MRI" ? "MRI" : study.modality;
-const formatDate = (value?: string) => value ? new Date(value).toLocaleString("ko-KR") : "—";
+const formatDate = (value?: string | null) => value ? new Date(value).toLocaleString("ko-KR") : "—";
 const formatSize = (bytes: number) => bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.ceil(bytes / 1024)} KB`;
 
 interface ImagingPageProps {

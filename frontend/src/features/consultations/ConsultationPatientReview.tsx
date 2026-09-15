@@ -1,7 +1,15 @@
 import {
   useEffect,
+  useMemo,
   useState,
 } from "react";
+
+import { getAIAnalyses, getAIAnalysisResult } from "../ai-analysis/api";
+import type { AIAnalysisItem, AIAnalysisResult } from "../ai-analysis/types";
+import { getImagingStudies } from "../imaging/api";
+import type { ImagingStudy } from "../imaging/types";
+import { getRadiologyReport } from "../radiology/api";
+import type { RadiologyReport } from "../radiology/types";
 
 import {
   acceptConsultation,
@@ -276,6 +284,12 @@ export default function ConsultationPatientReview({
 
   const [actionBusy, setActionBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [studies, setStudies] = useState<ImagingStudy[]>([]);
+  const [analyses, setAnalyses] = useState<AIAnalysisItem[]>([]);
+  const [analysisResults, setAnalysisResults] = useState<AIAnalysisResult[]>([]);
+  const [reports, setReports] = useState<RadiologyReport[]>([]);
+  const [clinicalDataLoading, setClinicalDataLoading] = useState(false);
+  const [clinicalDataError, setClinicalDataError] = useState<string | null>(null);
 
   async function runAction(action: string) {
     if (!consultation || actionBusy) return;
@@ -367,6 +381,73 @@ export default function ConsultationPatientReview({
   }, [
     consultationId,
   ]);
+
+  useEffect(() => {
+    if (!consultation) return;
+    let cancelled = false;
+
+    async function loadPatientData() {
+      setClinicalDataLoading(true);
+      setClinicalDataError(null);
+      try {
+        const patientStudies = await getImagingStudies({
+          patientId: consultation!.patient_summary.id,
+        });
+        const studyIds = new Set(patientStudies.map((study) => study.id));
+        const analysisResponse = await getAIAnalyses();
+        const patientAnalyses = analysisResponse.results.filter((item) =>
+          studyIds.has(item.study_id),
+        );
+        const completedResults = await Promise.allSettled(
+          patientAnalyses
+            .filter((item) => item.status === "COMPLETED")
+            .map((item) => getAIAnalysisResult(item.analysis_id)),
+        );
+        const reportResults = await Promise.allSettled(
+          patientStudies
+            .map((study) =>
+              study.current_report &&
+              ["FINAL", "AMENDED"].includes(study.current_report.status)
+                ? study.current_report.report_id
+                : null,
+            )
+            .filter((id): id is string => Boolean(id))
+            .map(getRadiologyReport),
+        );
+        if (cancelled) return;
+        setStudies(patientStudies);
+        setAnalyses(patientAnalyses);
+        setAnalysisResults(
+          completedResults.flatMap((result) =>
+            result.status === "fulfilled" ? [result.value] : [],
+          ),
+        );
+        setReports(
+          reportResults.flatMap((result) =>
+            result.status === "fulfilled" ? [result.value] : [],
+          ),
+        );
+      } catch {
+        if (!cancelled) {
+          setClinicalDataError("환자 영상·분석 데이터를 불러오지 못했습니다.");
+          setStudies([]);
+          setAnalyses([]);
+          setAnalysisResults([]);
+          setReports([]);
+        }
+      } finally {
+        if (!cancelled) setClinicalDataLoading(false);
+      }
+    }
+
+    void loadPatientData();
+    return () => { cancelled = true; };
+  }, [consultation]);
+
+  const analysisResultById = useMemo(
+    () => new Map(analysisResults.map((result) => [result.analysis_id, result])),
+    [analysisResults],
+  );
 
 
   /* ========================================================
@@ -525,11 +606,19 @@ export default function ConsultationPatientReview({
           <div className="consultation-review__pending">
 
             <strong>
-              Imaging API 연동 예정
+              {clinicalDataLoading
+                ? "영상검사를 불러오는 중입니다."
+                : clinicalDataError
+                  ? clinicalDataError
+                  : studies.length
+                    ? `${studies.length}건의 영상검사`
+                    : "연결된 영상검사가 없습니다."}
             </strong>
 
             <span>
-              원본 영상 및 PACS Viewer 연결 영역입니다.
+              {studies.length
+                ? studies.map((study) => `${study.modality || "-"} · ${study.status}`).join(" / ")
+                : "환자 ID 기준 Imaging Study 조회 결과입니다."}
             </span>
 
           </div>
@@ -569,12 +658,25 @@ export default function ConsultationPatientReview({
           <div className="consultation-review__pending">
 
             <strong>
-              AI 분석 API 연동 예정
+              {clinicalDataLoading
+                ? "AI 분석 결과를 불러오는 중입니다."
+                : clinicalDataError
+                  ? clinicalDataError
+                  : analyses.length
+                    ? `${analyses.length}건의 AI 분석`
+                    : "AI 분석 결과가 없습니다."}
             </strong>
 
             <span>
-              AI 분석 결과 및 XAI 근거 정보가
-              이 영역에 표시됩니다.
+              {analyses.length
+                ? analyses.map((analysis) => {
+                    const result = analysisResultById.get(analysis.analysis_id);
+                    const confidence = result?.confidence == null
+                      ? ""
+                      : ` · 신뢰도 ${Math.round(result.confidence * 100)}%`;
+                    return `${analysis.analysis_type} · ${analysis.status}${confidence}`;
+                  }).join(" / ")
+                : "환자의 영상검사와 연결된 AI 분석만 표시합니다."}
             </span>
 
           </div>
@@ -614,12 +716,21 @@ export default function ConsultationPatientReview({
           <div className="consultation-review__pending">
 
             <strong>
-              판독 API 연동 예정
+              {clinicalDataLoading
+                ? "최종 판독을 불러오는 중입니다."
+                : clinicalDataError
+                  ? clinicalDataError
+                  : reports.length
+                    ? `${reports.length}건의 판독문`
+                    : "조회 가능한 판독문이 없습니다."}
             </strong>
 
             <span>
-              영상의학과 Final 판독 결과가
-              이 영역에 표시됩니다.
+              {reports.length
+                ? reports.map((report) =>
+                    `${report.status} · ${report.impression || report.findings || "판독 내용 없음"}`,
+                  ).join(" / ")
+                : "Imaging Study의 현재 판독문을 기준으로 조회합니다."}
             </span>
 
           </div>

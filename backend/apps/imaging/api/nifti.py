@@ -1,11 +1,14 @@
-from django.http import Http404
+from django.http import Http404, HttpResponseRedirect
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.ai_analysis.models import AIAnalysis
 from apps.imaging.models import ImagingStudy, NiftiArtifact, SeriesReference
-from apps.imaging.services.nifti import open_gcs_artifact, study_input_bundles
+from apps.imaging.services.nifti import (
+    create_signed_gcs_artifact_uri,
+    study_input_bundles,
+)
 
 
 CLINICAL_ROLES = {"NEUROLOGIST", "NEUROSURGEON", "RADIOLOGY"}
@@ -127,4 +130,6 @@ class NiftiArtifactContentView(ClinicalNiftiView):
         artifact = NiftiArtifact.objects.filter(pk=artifact_id).first()
         if artifact is None:
             raise Http404
-        return open_gcs_artifact(artifact)
+        return HttpResponseRedirect(
+            create_signed_gcs_artifact_uri(artifact)
+        )

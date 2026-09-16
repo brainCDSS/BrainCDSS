@@ -2,6 +2,7 @@ from django.core.paginator import (
     EmptyPage,
     Paginator,
 )
+from django.db.models import Exists, OuterRef
 from drf_spectacular.utils import extend_schema
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -27,7 +28,7 @@ from apps.imaging.api.imaging_study_serializers import (
     KeyImageListSerializer,
     KeyImageSerializer,
 )
-from apps.imaging.models import ImagingStudy
+from apps.imaging.models import ImagingStudy, NiftiArtifact
 from apps.imaging.selectors.imaging_studies import (
     filter_imaging_studies,
     get_scoped_imaging_study,
@@ -72,6 +73,9 @@ def _current_report(study):
 
 
 def _scan_type(study):
+    if getattr(study, "has_mra_input", False):
+        return "MRA"
+
     order = study.imaging_order
 
     if order is None:
@@ -192,6 +196,14 @@ class ImagingStudyListView(APIView):
         queryset = filter_imaging_studies(
             queryset,
             params,
+        )
+        queryset = queryset.annotate(
+            has_mra_input=Exists(
+                NiftiArtifact.objects.filter(
+                    series__study_id=OuterRef("pk"),
+                    role="MRA",
+                )
+            )
         )
 
         paginator = Paginator(

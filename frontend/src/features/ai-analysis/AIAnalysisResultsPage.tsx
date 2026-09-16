@@ -73,9 +73,6 @@ export default function AIAnalysisResultsPage({ initialAnalysisId }: Props) {
       });
     });
     return () => { active = false; };
-  // Refresh metadata when the analysis list changes. Failed study lookups stay
-  // unlinked until the next explicit list refresh instead of retrying in a loop.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items]);
   useEffect(() => {
     if (!selected || TERMINAL.has(selected.status)) return;

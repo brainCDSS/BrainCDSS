@@ -167,7 +167,7 @@ class _PatientAppState extends State<PatientApp> {
         ),
         navigationBarTheme: NavigationBarThemeData(
           backgroundColor: surface,
-          indicatorColor: primary.withOpacity(0.20),
+          indicatorColor: primary.withValues(alpha: 0.20),
           labelTextStyle: WidgetStateProperty.resolveWith(
             (states) {
               if (states.contains(

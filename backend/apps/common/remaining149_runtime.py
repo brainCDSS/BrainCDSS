@@ -1011,7 +1011,14 @@ def _generic_action(request, spec, kwargs):
             if name in fields:
                 setattr(obj, name, timezone.now())
 
-    for key, value in _write_data(model, request).items():
+    write_data = _write_data(model, request)
+    if model._meta.label_lower == "consultations.consultation":
+        # Consultation state actions must never replace the original requester
+        # or explicitly assigned clinician with the action actor/body values.
+        write_data.pop("requested_by_id", None)
+        write_data.pop("assigned_to_id", None)
+
+    for key, value in write_data.items():
         setattr(obj, key, value)
 
     if "updated_at" in fields:

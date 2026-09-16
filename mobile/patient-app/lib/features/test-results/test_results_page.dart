@@ -73,7 +73,7 @@ class _ResultDetailPage extends StatelessWidget {
     title: '검사 결과 상세',
     icon: Icons.biotech_outlined,
     emptyTitle: '등록된 검사 결과가 없습니다.',
-    description: '환자용 검사 결과 API가 연결되면 상세 결과가 표시됩니다.',
+    description: '검사 결과가 등록되면 이곳에서 확인할 수 있습니다.',
   );
 }
 
@@ -84,7 +84,7 @@ class _VisitDetailPage extends StatelessWidget {
     title: '진료 내역 상세',
     icon: Icons.medical_information_outlined,
     emptyTitle: '등록된 진료 내역이 없습니다.',
-    description: '환자용 진료 내역 API가 연결되면 상세 기록이 표시됩니다.',
+    description: '진료 기록이 등록되면 이곳에서 확인할 수 있습니다.',
   );
 }
 
@@ -95,7 +95,7 @@ class _PrescriptionDetailPage extends StatelessWidget {
     title: '처방 정보',
     icon: Icons.receipt_long_outlined,
     emptyTitle: '등록된 처방 정보가 없습니다.',
-    description: '환자 본인 범위가 보장되는 처방 목록 API 연결이 필요합니다.',
+    description: '처방 정보가 등록되면 이곳에서 확인할 수 있습니다.',
   );
 }
 

@@ -137,6 +137,55 @@ class ConsultationListResponseTests(APITestCase):
         self.assertNotIn("ACCEPT", response.json()["allowed_actions"])
         self.assertNotIn("REJECT", response.json()["allowed_actions"])
 
+    def test_start_preserves_requester_and_assignee(self):
+        self.consultation.status = "ACCEPTED"
+        self.consultation.started_at = None
+        self.consultation.save(update_fields=["status", "started_at"])
+        self.client.force_authenticate(self.assignee)
+
+        response = self.client.post(
+            reverse("api_con_005", args=[self.consultation.id]),
+            {},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.consultation.refresh_from_db()
+        self.assertEqual(self.consultation.status, "IN_PROGRESS")
+        self.assertEqual(self.consultation.requested_by_id, self.requester.id)
+        self.assertEqual(self.consultation.assigned_to_id, self.assignee.id)
+
+    def test_accept_and_respond_preserve_requester_and_assignee(self):
+        self.consultation.status = "REQUESTED"
+        self.consultation.accepted_at = None
+        self.consultation.started_at = None
+        self.consultation.save(update_fields=["status", "accepted_at", "started_at"])
+        self.client.force_authenticate(self.assignee)
+
+        accept_response = self.client.post(
+            reverse("api_con_004", args=[self.consultation.id]),
+            {},
+            format="json",
+        )
+
+        self.assertEqual(accept_response.status_code, 200)
+        self.consultation.refresh_from_db()
+        self.assertEqual(self.consultation.requested_by_id, self.requester.id)
+        self.assertEqual(self.consultation.assigned_to_id, self.assignee.id)
+
+        self.consultation.status = "IN_PROGRESS"
+        self.consultation.save(update_fields=["status"])
+        respond_response = self.client.post(
+            reverse("api_con_006", args=[self.consultation.id]),
+            {"final_opinion": "Consultation response."},
+            format="json",
+        )
+
+        self.assertEqual(respond_response.status_code, 200)
+        self.consultation.refresh_from_db()
+        self.assertEqual(self.consultation.requested_by_id, self.requester.id)
+        self.assertEqual(self.consultation.assigned_to_id, self.assignee.id)
+
     def test_neurologist_can_create_consultation(self):
         now = timezone.now()
         encounter = Encounter.objects.create(

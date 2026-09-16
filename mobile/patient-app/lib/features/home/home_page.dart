@@ -11,17 +11,22 @@ class HomePage extends StatefulWidget {
     super.key,
     required this.apiClient,
     required this.session,
+    required this.onOpenAppointments,
+    required this.onOpenAppointmentDetail,
+    required this.onOpenNotifications,
   });
 
   final ApiClient apiClient;
   final AuthSession session;
+  final VoidCallback onOpenAppointments;
+  final ValueChanged<HomeAppointment> onOpenAppointmentDetail;
+  final VoidCallback onOpenNotifications;
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<HomePage> createState() => HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
-  static const Color _primary = Color(0xFF8B96E8);
+class HomePageState extends State<HomePage> {
   static const Color _primaryDark = Color(0xFF5665B8);
   static const Color _primarySoft = Color(0xFFE5E8FF);
   static const Color _surface = Color(0xFFFFFFFF);
@@ -92,6 +97,10 @@ class _HomePageState extends State<HomePage> {
       });
     }
   }
+
+  Future<void> refreshAppointments() => _loadAppointments();
+
+  Future<void> refreshNotifications() => _loadNotifications();
 
   List<HomeAppointment> get _todayAppointments {
     final now = DateTime.now();
@@ -191,7 +200,11 @@ class _HomePageState extends State<HomePage> {
           ) else ..._notifications.take(3).map((item) => Card(child: ListTile(
             leading: Icon(Icons.notifications_active_outlined, color: item.severity == 'CRITICAL' ? _emergency : _primaryDark),
             title: Text(item.title), subtitle: Text(item.body),
-            onTap: () async { await _notificationsApi.markRead(item.id); await _loadNotifications(); },
+            onTap: () async {
+              await _notificationsApi.markRead(item.id);
+              await _loadNotifications();
+              widget.onOpenNotifications();
+            },
           ))),
           const SizedBox(height: 28),
           _buildSectionTitle(
@@ -301,6 +314,7 @@ class _HomePageState extends State<HomePage> {
           child: _SummaryCard(
             icon: Icons.calendar_month_outlined,
             label: '예약',
+            onTap: widget.onOpenAppointments,
             value: _isLoadingAppointments
                 ? '확인 중'
                 : _appointmentError != null
@@ -396,6 +410,7 @@ class _HomePageState extends State<HomePage> {
               ),
               child: _AppointmentCard(
                 appointment: appointment,
+                onTap: () => widget.onOpenAppointmentDetail(appointment),
               ),
             ),
           )
@@ -506,65 +521,73 @@ class _SummaryCard extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
+    this.onTap,
   });
 
   final IconData icon;
   final String label;
   final String value;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(
-        minHeight: 120,
-      ),
-      padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 16,
-      ),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFFFFF),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: const Color(0xFFCFD7E8),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          minHeight: 120,
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE5E8FF),
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: Icon(
-              icon,
-              size: 20,
-              color: const Color(0xFF5665B8),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 16,
+          ),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFFFFF),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: const Color(0xFFCFD7E8),
             ),
           ),
-          const SizedBox(height: 14),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Color(0xFF65758D),
-              fontSize: 12,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE5E8FF),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Icon(
+                  icon,
+                  size: 20,
+                  color: const Color(0xFF5665B8),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Color(0xFF65758D),
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF263A5A),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF263A5A),
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -573,9 +596,11 @@ class _SummaryCard extends StatelessWidget {
 class _AppointmentCard extends StatelessWidget {
   const _AppointmentCard({
     required this.appointment,
+    required this.onTap,
   });
 
   final HomeAppointment appointment;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -587,7 +612,10 @@ class _AppointmentCard extends StatelessWidget {
       if (appointment.clinicianName.isNotEmpty) appointment.clinicianName,
     ];
 
-    return Container(
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Ink(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: const Color(0xFFFFFFFF),
@@ -659,6 +687,7 @@ class _AppointmentCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }

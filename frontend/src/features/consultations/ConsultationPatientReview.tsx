@@ -6,6 +6,8 @@ import {
 
 import { getAIAnalyses, getAIAnalysisResult } from "../ai-analysis/api";
 import type { AIAnalysisItem, AIAnalysisResult } from "../ai-analysis/types";
+import { getInitialAssessmentsByEncounter } from "../clinical-notes/api";
+import type { InitialAssessment } from "../clinical-notes/types";
 import { getImagingStudies } from "../imaging/api";
 import type { ImagingStudy } from "../imaging/types";
 import { getRadiologyReport } from "../radiology/api";
@@ -20,6 +22,7 @@ import {
   respondConsultation,
   startConsultation,
 } from "./api";
+import ConsultationReasonModal from "./ConsultationReasonModal";
 
 import type {
   ConsultationListItem,
@@ -39,10 +42,6 @@ interface ConsultationPatientReviewProps {
   consultationId: string;
 
   onBack?: () => void;
-
-  onOpenDetail?: (
-    consultationId: string,
-  ) => void;
 }
 
 
@@ -124,7 +123,6 @@ function formatSex(
 export default function ConsultationPatientReview({
   consultationId,
   onBack,
-  onOpenDetail,
 }: ConsultationPatientReviewProps) {
 
 
@@ -163,6 +161,7 @@ export default function ConsultationPatientReview({
 
   const [actionBusy, setActionBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [reasonAction, setReasonAction] = useState<"REJECT" | "CANCEL" | null>(null);
   const [isReplyPanelOpen, setIsReplyPanelOpen] = useState(false);
   const [finalOpinion, setFinalOpinion] = useState("");
   const [treatmentPlan, setTreatmentPlan] = useState("");
@@ -172,16 +171,22 @@ export default function ConsultationPatientReview({
   const [reports, setReports] = useState<RadiologyReport[]>([]);
   const [clinicalDataLoading, setClinicalDataLoading] = useState(false);
   const [clinicalDataError, setClinicalDataError] = useState<string | null>(null);
+  const [initialAssessments, setInitialAssessments] = useState<InitialAssessment[]>([]);
+  const [initialAssessmentsLoading, setInitialAssessmentsLoading] = useState(false);
+  const [initialAssessmentsError, setInitialAssessmentsError] = useState<string | null>(null);
 
-  async function runAction(action: string) {
+  async function runAction(action: string, reason?: string) {
     if (!consultation || actionBusy) return;
+    if ((action === "REJECT" || action === "CANCEL") && reason === undefined) {
+      setReasonAction(action);
+      return;
+    }
     setActionBusy(true); setActionError(null);
     try {
       if (action === "ACCEPT") await acceptConsultation(consultation.consultation_id);
       else if (action === "START") await startConsultation(consultation.consultation_id);
       else if (action === "VIEW_RESPONSE") await markConsultationResponseViewed(consultation.consultation_id);
       else if (action === "REJECT" || action === "CANCEL") {
-        const reason = globalThis.prompt("사유를 입력해 주세요.")?.trim();
         if (!reason) return;
         if (action === "REJECT") await rejectConsultation(consultation.consultation_id, reason);
         else await cancelConsultation(consultation.consultation_id, reason);
@@ -210,14 +215,25 @@ export default function ConsultationPatientReview({
     setActionBusy(true);
     setActionError(null);
     try {
-      const updatedConsultation = await respondConsultation(
+      await respondConsultation(
         consultation.consultation_id,
         {
           final_opinion: opinion,
           ...(plan ? { treatment_plan: plan } : {}),
         },
       );
-      setConsultation(updatedConsultation);
+
+      let refreshedConsultation: ConsultationListItem;
+      try {
+        refreshedConsultation = await getConsultationDetail(
+          consultation.consultation_id,
+        );
+      } catch {
+        setActionError("협진 상세 정보를 다시 불러오지 못했습니다.");
+        return;
+      }
+
+      setConsultation(refreshedConsultation);
       setFinalOpinion("");
       setTreatmentPlan("");
       setIsReplyPanelOpen(false);
@@ -363,6 +379,39 @@ export default function ConsultationPatientReview({
     return () => { cancelled = true; };
   }, [consultation]);
 
+  useEffect(() => {
+    const encounterId = consultation?.encounter_id;
+    if (!encounterId) {
+      setInitialAssessments([]);
+      setInitialAssessmentsLoading(false);
+      setInitialAssessmentsError(null);
+      return;
+    }
+
+    const assessmentEncounterId = encounterId;
+
+    let cancelled = false;
+
+    async function loadInitialAssessments() {
+      setInitialAssessmentsLoading(true);
+      setInitialAssessmentsError(null);
+      try {
+        const response = await getInitialAssessmentsByEncounter(assessmentEncounterId);
+        if (!cancelled) setInitialAssessments(response.results);
+      } catch {
+        if (!cancelled) {
+          setInitialAssessments([]);
+          setInitialAssessmentsError("초기평가 정보를 불러오지 못했습니다.");
+        }
+      } finally {
+        if (!cancelled) setInitialAssessmentsLoading(false);
+      }
+    }
+
+    void loadInitialAssessments();
+    return () => { cancelled = true; };
+  }, [consultation?.encounter_id]);
+
   const analysisResultById = useMemo(
     () => new Map(analysisResults.map((result) => [result.analysis_id, result])),
     [analysisResults],
@@ -430,6 +479,165 @@ export default function ConsultationPatientReview({
 
 
     if (activeTab === "clinical") {
+
+      const assessment = initialAssessments[0] ?? null;
+
+      if (assessment && !initialAssessmentsLoading && !initialAssessmentsError) {
+        const hasValue = (value: unknown) => (
+          value !== null && value !== undefined && value !== ""
+        );
+        const symptomNote = "";
+        const overviewFields = [
+          { label: "상태", value: assessment.status },
+          { label: "총점", value: assessment.total_score },
+          { label: "Triage", value: assessment.triage_priority },
+          { label: "증상 시작", value: assessment.onset_at },
+          { label: "마지막 정상 시각", value: assessment.lkw_at },
+          { label: "담당 신경과", value: assessment.assigned_neurologist?.name },
+        ].filter((field) => hasValue(field.value));
+        const formatDateTime = (
+          value: string | number | null | undefined,
+        ): string | number | null | undefined => {
+          if (typeof value !== "string") return value;
+          const date = new Date(value);
+          return Number.isNaN(date.getTime())
+            ? value
+            : date.toLocaleString("ko-KR", {
+              dateStyle: "short",
+              timeStyle: "short",
+            });
+        };
+        const summaryFields = overviewFields.map((field) => ({
+          ...field,
+          value: field.value === assessment.onset_at || field.value === assessment.lkw_at
+            ? formatDateTime(field.value)
+            : field.value,
+        }));
+        type AssessmentItemDisplayField = {
+          label: string;
+          value: string;
+          kind: "value" | "unit" | "score" | "flag" | "note";
+        };
+        const displayItemRows = assessment.items.map((item) => {
+          const value = item.value_text ?? item.value_numeric ?? item.value;
+          const fields = [
+            hasValue(value) ? { label: "값", value: String(value), kind: "value" as const } : null,
+            item.unit?.trim() ? { label: "단위", value: item.unit.trim(), kind: "unit" as const } : null,
+            hasValue(item.score) ? { label: "점수", value: String(item.score), kind: "score" as const } : null,
+            item.is_red_flag ? { label: "Red flag", value: "Y", kind: "flag" as const } : null,
+            item.note?.trim() ? { label: "메모", value: item.note.trim(), kind: "note" as const } : null,
+          ].filter((field): field is AssessmentItemDisplayField => field !== null);
+
+          return { itemCode: item.item_code, fields, isRedFlag: Boolean(item.is_red_flag) };
+        }).filter((item) => item.fields.length > 0);
+        const hasAssessmentDetail = (
+          summaryFields.length > 1 ||
+          displayItemRows.length > 0
+        );
+
+        return (
+          <div className="consultation-review__data-content consultation-review__clinical-content">
+            <section className="consultation-review__assessment-section">
+              <h3>초기평가</h3>
+              {hasAssessmentDetail ? (
+                <>
+                  <dl className="consultation-review__assessment-summary">
+                    {summaryFields.map((field) => (
+                      <div key={field.label}>
+                        <dt>{field.label}</dt>
+                        <dd>{field.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+
+                  {symptomNote && (
+                    <div className="consultation-review__assessment-note">
+                      <strong>증상 메모</strong>
+                      <p>{symptomNote}</p>
+                    </div>
+                  )}
+
+                  {displayItemRows.length > 0 && (
+                    <section className="consultation-review__assessment-items">
+                      <h4>평가 항목</h4>
+                      <div>
+                        {displayItemRows.map((item) => (
+                          <article
+                            key={item.itemCode}
+                            className={item.isRedFlag ? "is-red-flag" : undefined}
+                          >
+                            <strong>{item.itemCode}</strong>
+                            <dl>
+                              {item.fields.map((field) => (
+                                <div key={field.label}>
+                                  <dt>{field.label}</dt>
+                                  <dd className={field.kind === "note" ? "consultation-review__assessment-item-note" : undefined}>{field.value}</dd>
+                                </div>
+                              ))}
+                            </dl>
+                          </article>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+                </>
+              ) : (
+                <p className="consultation-review__assessment-empty-detail">
+                  초기평가 정보는 존재하지만 등록된 상세 정보가 없습니다.
+                </p>
+              )}
+            </section>
+          </div>
+        );
+      }
+
+      return (
+        <div className="consultation-review__data-content consultation-review__clinical-content">
+          <div className="consultation-review__data-title">
+            <span>+</span>
+            <div>
+              <strong>임상 정보</strong>
+              <small>Triage · 초기평가</small>
+            </div>
+          </div>
+
+          {initialAssessmentsLoading ? (
+            <div className="consultation-review__pending">
+              <strong>초기평가 정보를 불러오는 중입니다.</strong>
+            </div>
+          ) : initialAssessmentsError ? (
+            <div className="consultation-review__pending">
+              <strong>{initialAssessmentsError}</strong>
+            </div>
+          ) : !assessment ? (
+            <div className="consultation-review__pending">
+              <strong>초기평가 정보가 없습니다.</strong>
+            </div>
+          ) : (
+            <>
+              <div className="consultation-review__pending">
+                <strong>초기평가</strong>
+                <span>
+                  평가 ID: {assessment.assessment_id} · 상태: {assessment.status} · 총점: {assessment.total_score ?? "-"} · Triage: {assessment.triage_priority ?? "-"}
+                </span>
+                <span>
+                  증상 시작: {assessment.onset_at ?? "-"} · 마지막 정상 시각: {assessment.lkw_at ?? "-"} · 담당 신경과: {assessment.assigned_neurologist?.name ?? "-"}
+                </span>
+                <span>증상 메모: {assessment.symptom_note ?? "-"}</span>
+              </div>
+
+              <div className="consultation-review__pending">
+                <strong>평가 항목</strong>
+                {assessment.items.length ? assessment.items.map((item) => (
+                  <span key={item.item_code}>
+                    {item.item_code}: {item.value_text ?? item.value_numeric ?? item.value ?? "-"}{item.unit ? ` ${item.unit}` : ""} · 점수: {item.score ?? "-"} · Red flag: {item.is_red_flag ? "Y" : "N"} · 메모: {item.note ?? "-"}
+                  </span>
+                )) : <span>등록된 평가 항목이 없습니다.</span>}
+              </div>
+            </>
+          )}
+        </div>
+      );
 
       return (
         <div className="consultation-review__data-content">
@@ -732,64 +940,30 @@ export default function ConsultationPatientReview({
 
       <section className="consultation-review__patient-card">
 
-
         <div className="consultation-review__patient-main">
-
-          <span className="consultation-review__section-label">
-            PATIENT
-          </span>
-
-
-          <div className="consultation-review__patient-name">
-
-            <strong>
-              {
-                patient.name
-              }
-            </strong>
-
-            <span>
-              {
-                patient.patient_no
-              }
-            </span>
-
+          <div className="consultation-review__patient-avatar" aria-hidden="true">
+            {patient.name.trim().slice(0, 1) || "-"}
           </div>
 
+          <div className="consultation-review__patient-identity">
+            <span className="consultation-review__section-label">PATIENT</span>
 
-          <div className="consultation-review__patient-meta">
+            <div className="consultation-review__patient-name">
+              <strong>{patient.name}</strong>
+              <span>
+                {patient.sex ? formatSex(patient.sex) : "성별 정보 없음"}
+                {patient.estimated_age !== null
+                  ? ` / ${patient.estimated_age}세`
+                  : ""}
+              </span>
+            </div>
 
-            <span>
-              {
-                patient.birth_date ||
-                "생년월일 —"
-              }
-            </span>
-
-            <span>
-              {
-                patient.estimated_age !== null
-                  ? `${patient.estimated_age}세`
-                  : "연령 —"
-              }
-            </span>
-
-            <span>
-              {
-                formatSex(
-                  patient.sex,
-                )
-              }
-            </span>
-
-            <span>
-              {
-                consultation.encounter_id
-              }
-            </span>
-
+            <div className="consultation-review__patient-meta">
+              <span>환자번호 {patient.patient_no || "-"}</span>
+              <span>생년월일 {patient.birth_date || "-"}</span>
+              <span>성별 {patient.sex ? formatSex(patient.sex) : "-"}</span>
+            </div>
           </div>
-
         </div>
 
 
@@ -1259,6 +1433,22 @@ export default function ConsultationPatientReview({
         {consultation.allowed_actions.includes("RESPOND") && !isReplyPanelOpen && <button className="clinical-action" disabled={actionBusy} onClick={() => { setActionError(null); setIsReplyPanelOpen(true); }} type="button">협진 회신 작성</button>}
       </div>
       {actionError && !isReplyPanelOpen && <div className="clinical-state clinical-state--error" role="alert">{actionError}</div>}
+
+      {reasonAction && (
+        <ConsultationReasonModal
+          title={reasonAction === "REJECT" ? "협진 거절" : "협진 취소"}
+          description={reasonAction === "REJECT" ? "협진 요청을 거절하는 사유를 입력해 주세요." : "협진 요청을 취소하는 사유를 입력해 주세요."}
+          placeholder={reasonAction === "REJECT" ? "거절 사유를 입력하세요." : "취소 사유를 입력하세요."}
+          confirmLabel={reasonAction === "REJECT" ? "거절" : "취소"}
+          busy={actionBusy}
+          onClose={() => setReasonAction(null)}
+          onConfirm={(reason) => {
+            const action = reasonAction;
+            setReasonAction(null);
+            void runAction(action, reason);
+          }}
+        />
+      )}
 
     </section>
   );

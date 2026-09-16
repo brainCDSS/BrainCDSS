@@ -34,6 +34,8 @@ class AppointmentsPageState extends State<AppointmentsPage> {
   String? _error;
   List<HomeAppointment> _appointments = const [];
 
+  Future<void> reload() => _load();
+
   void showUpcoming() => _showSection(_upcomingKey);
 
   void showPast() => _showSection(_pastKey);
@@ -402,7 +404,7 @@ class _SlotSelectionPageState extends State<_SlotSelectionPage> {
     appBar: AppBar(title: Text(widget.title)),
     body: ListView(padding: const EdgeInsets.all(20), children: [
       if (widget.fixedClinicianId == null) DropdownButtonFormField<String>(
-        value: _clinicianId,
+        initialValue: _clinicianId,
         decoration: const InputDecoration(labelText: '담당 의료진'),
         items: _clinicians.map((item) => DropdownMenuItem(value: item.id, child: Text('${item.name} · ${item.department}'))).toList(),
         onChanged: (value) { setState(() => _clinicianId = value); if (value != null) _loadSlots(); },

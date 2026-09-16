@@ -1,0 +1,62 @@
+logging {
+  level = "info"
+}
+
+discovery.docker "runtime" {
+  host             = "unix:///var/run/docker.sock"
+  refresh_interval = "5s"
+}
+
+discovery.relabel "runtime_logs" {
+  targets = []
+
+  rule {
+    source_labels = [
+      "__meta_docker_container_name",
+    ]
+    regex  = "/brainon-runtime-alloy"
+    action = "drop"
+  }
+
+  rule {
+    source_labels = [
+      "__meta_docker_container_name",
+    ]
+    regex        = "/(.*)"
+    target_label = "container"
+  }
+
+  rule {
+    source_labels = [
+      "__meta_docker_container_image",
+    ]
+    regex        = "(.*)"
+    target_label = "image"
+  }
+}
+
+loki.source.docker "runtime" {
+  host = "unix:///var/run/docker.sock"
+
+  targets = discovery.docker.runtime.targets
+
+  labels = {
+    host        = "braincdss-rabbitmq",
+    environment = "runtime",
+    source      = "docker",
+  }
+
+  relabel_rules = discovery.relabel.runtime_logs.rules
+
+  forward_to = [
+    loki.write.central.receiver,
+  ]
+
+  refresh_interval = "5s"
+}
+
+loki.write "central" {
+  endpoint {
+    url = "http://10.148.0.5:3100/loki/api/v1/push"
+  }
+}

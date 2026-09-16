@@ -1,6 +1,7 @@
 from django.urls import path
 
 from apps.accounts.api.views import (
+    GrafanaAuthView,
     AdminRolePermissionsView,
     AdminRolesView,
     AdminUserDetailView,
@@ -13,6 +14,11 @@ from apps.accounts.api.views import (
 
 
 urlpatterns = [
+    path(
+        "api/v1/admin/grafana/auth",
+        GrafanaAuthView.as_view(),
+        name="api-admin-grafana-auth",
+    ),
     path(
         "api/v1/auth/login",
         LoginView.as_view(),

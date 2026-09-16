@@ -1,2 +1,11 @@
 // Local OTLP receiver; production destinations and PHI filtering are TODO.
-otelcol.receiver.otlp "default" { grpc {} output { metrics = [] logs = [] traces = [] } }
+
+otelcol.receiver.otlp "default" {
+  grpc {}
+
+  output {
+    metrics = []
+    logs    = []
+    traces  = []
+  }
+}

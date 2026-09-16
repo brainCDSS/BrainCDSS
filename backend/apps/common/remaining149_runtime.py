@@ -522,7 +522,11 @@ def _audit(request, spec, resource=None, before=None, after=None, outcome="SUCCE
 
 def _event_type(spec):
     raw = str(spec.get("event") or "").strip()
-    if not raw or raw in {"-", "X"}:
+    if (
+        not raw
+        or raw in {"-", "X"}
+        or "없음" in raw
+    ):
         return None
 
     match = re.search(r"\b([a-z][a-z0-9_.-]+\.v\d+)\b", raw)
@@ -1876,6 +1880,308 @@ def _batchb_prescriber_scope(
         })
 
 
+
+def _batchb_rx_create(
+    request,
+    spec,
+    kwargs,
+):
+    from decimal import (
+        Decimal,
+        InvalidOperation,
+    )
+    from django.utils.dateparse import (
+        parse_date,
+    )
+    from apps.medication_safety.services.medication_safety import (
+        UNIT_ALIASES,
+    )
+
+    del kwargs
+
+    prescription_model = apps.get_model(
+        "prescriptions",
+        "Prescription",
+    )
+
+    item_model = apps.get_model(
+        "prescriptions",
+        "PrescriptionItem",
+    )
+
+    encounter_model = apps.get_model(
+        "clinical_records",
+        "Encounter",
+    )
+
+    if not isinstance(
+        request.data,
+        dict,
+    ):
+        raise ContractError({
+            "code":
+                "PRESCRIPTION_INVALID_ITEM",
+            "detail":
+                "Request body must be an object.",
+        })
+
+    encounter_id = request.data.get(
+        "encounter_id"
+    )
+
+    items = request.data.get(
+        "items"
+    )
+
+    if not encounter_id:
+        raise ContractError({
+            "code":
+                "ENCOUNTER_ID_REQUIRED",
+            "detail":
+                "encounter_id is required.",
+        })
+
+    if (
+        not isinstance(items, list)
+        or not items
+    ):
+        raise ContractError({
+            "code":
+                "PRESCRIPTION_INVALID_ITEM",
+            "detail":
+                "At least one prescription "
+                "item is required.",
+        })
+
+    try:
+        encounter = (
+            encounter_model.objects
+            .get(pk=encounter_id)
+        )
+    except (
+        encounter_model.DoesNotExist,
+        ValueError,
+        TypeError,
+    ) as exc:
+        raise NotFound({
+            "code":
+                "ENCOUNTER_NOT_FOUND",
+        }) from exc
+
+    now = timezone.now()
+
+    prescription = (
+        prescription_model.objects.create(
+            encounter=encounter,
+            prescribed_by=request.user,
+            status="DRAFT",
+            finalized_at=None,
+            created_at=now,
+            updated_at=now,
+        )
+    )
+
+    required_fields = (
+        "medication_id",
+        "dose",
+        "dose_unit",
+        "frequency_per_day",
+        "start_date",
+        "duration_days",
+    )
+
+    for index, raw_payload in enumerate(
+        items,
+        start=1,
+    ):
+        if not isinstance(
+            raw_payload,
+            dict,
+        ):
+            raise ContractError({
+                "code":
+                    "PRESCRIPTION_INVALID_ITEM",
+                "detail":
+                    f"Item {index} must be "
+                    "an object.",
+            })
+
+        payload = dict(
+            raw_payload
+        )
+
+        missing = [
+            field_name
+            for field_name
+            in required_fields
+            if payload.get(
+                field_name
+            ) in (
+                None,
+                "",
+            )
+        ]
+
+        if missing:
+            raise ContractError({
+                "code":
+                    "PRESCRIPTION_INVALID_ITEM",
+                "detail":
+                    f"Item {index} has "
+                    "missing required fields.",
+                "fields":
+                    missing,
+            })
+
+        raw_dose_unit = str(
+            payload["dose_unit"]
+        ).strip()
+
+        normalized_dose_unit = (
+            UNIT_ALIASES.get(
+                raw_dose_unit.lower()
+            )
+            or UNIT_ALIASES.get(
+                raw_dose_unit
+            )
+        )
+
+        if normalized_dose_unit is None:
+            raise ContractError({
+                "code":
+                    "PRESCRIPTION_INVALID_ITEM",
+                "detail":
+                    "Unsupported dose_unit. "
+                    "Supported units are "
+                    "mg, g, mcg and their "
+                    "configured aliases.",
+            })
+
+        payload["dose_unit"] = (
+            normalized_dose_unit
+        )
+
+        try:
+            dose = Decimal(
+                str(
+                    payload["dose"]
+                )
+            )
+
+            frequency = int(
+                payload[
+                    "frequency_per_day"
+                ]
+            )
+
+            duration = int(
+                payload[
+                    "duration_days"
+                ]
+            )
+
+        except (
+            InvalidOperation,
+            TypeError,
+            ValueError,
+        ) as exc:
+            raise ContractError({
+                "code":
+                    "PRESCRIPTION_INVALID_ITEM",
+                "detail":
+                    f"Item {index} contains "
+                    "invalid numeric values.",
+            }) from exc
+
+        if (
+            dose <= 0
+            or frequency <= 0
+            or duration <= 0
+        ):
+            raise ContractError({
+                "code":
+                    "PRESCRIPTION_INVALID_ITEM",
+                "detail":
+                    "dose, frequency_per_day, "
+                    "and duration_days must "
+                    "be greater than zero.",
+            })
+
+        start_date = payload[
+            "start_date"
+        ]
+
+        if isinstance(
+            start_date,
+            str,
+        ):
+            start_date = parse_date(
+                start_date
+            )
+
+        if start_date is None:
+            raise ContractError({
+                "code":
+                    "PRESCRIPTION_INVALID_ITEM",
+                "detail":
+                    f"Item {index} has an "
+                    "invalid start_date.",
+            })
+
+        medication = (
+            _batchb_active_medication(
+                payload[
+                    "medication_id"
+                ]
+            )
+        )
+
+        payload["dose"] = dose
+        payload[
+            "frequency_per_day"
+        ] = frequency
+        payload[
+            "duration_days"
+        ] = duration
+        payload[
+            "start_date"
+        ] = start_date
+
+        item = item_model(
+            prescription_id=
+                prescription.pk
+        )
+
+        _batchb_apply_item(
+            item,
+            payload,
+            medication,
+        )
+
+        item.created_at = now
+        item.updated_at = now
+
+        item.save()
+
+    response_payload = (
+        _batchb_prescription_payload(
+            prescription
+        )
+    )
+
+    _outbox(
+        spec,
+        prescription,
+        response_payload,
+    )
+
+    return Response(
+        response_payload,
+        status=201,
+    )
+
+
+
 def _batchb_rx_detail(
     request,
     spec,
@@ -3227,7 +3533,261 @@ def _clinical_note_finalize(request, spec, kwargs):
     return Response(payload, status=200)
 
 
+
+# --- Consultation minimal workflow fix ---
+
+def _consultation_action_locked(
+    kwargs,
+):
+    model = apps.get_model(
+        "consultations",
+        "Consultation",
+    )
+
+    consultation_id = kwargs.get(
+        "consultation_id"
+    )
+
+    if consultation_id is None:
+        raise NotFound({
+            "code":
+                "CONSULTATION_NOT_FOUND",
+        })
+
+    try:
+        # IMPORTANT:
+        # Consultation.assigned_to is nullable.
+        # Do not select_related(nullable FK) together
+        # with FOR UPDATE because PostgreSQL rejects
+        # locking the nullable side of an outer join.
+        return (
+            model.objects
+            .select_for_update()
+            .get(
+                pk=consultation_id
+            )
+        )
+
+    except model.DoesNotExist as exc:
+        raise NotFound({
+            "code":
+                "CONSULTATION_NOT_FOUND",
+        }) from exc
+
+
+def _consultation_accept_strict(
+    request,
+    spec,
+    kwargs,
+):
+    consultation = (
+        _consultation_action_locked(
+            kwargs
+        )
+    )
+
+    expected_role = {
+        "NEUROSURGERY":
+            "NEUROSURGEON",
+        "RADIOLOGY":
+            "RADIOLOGY",
+    }.get(
+        consultation.consultation_type
+    )
+
+    if (
+        expected_role is None
+        or _role_code(request.user)
+        != expected_role
+    ):
+        raise PermissionDenied({
+            "code":
+                "CONSULTATION_FORBIDDEN",
+        })
+
+    if (
+        consultation.status
+        != "REQUESTED"
+        or consultation.assigned_to_id
+        is not None
+    ):
+        raise ContractConflict({
+            "code":
+                "CONSULTATION_INVALID_STATE",
+        })
+
+    before = serialize_instance(
+        consultation
+    )
+
+    now = timezone.now()
+
+    consultation.status = "ACCEPTED"
+    consultation.assigned_to_id = (
+        request.user.id
+    )
+    consultation.accepted_at = now
+
+    fields = _field_map(
+        consultation.__class__
+    )
+
+    update_fields = [
+        "status",
+        "assigned_to",
+        "accepted_at",
+    ]
+
+    if "updated_at" in fields:
+        consultation.updated_at = now
+        update_fields.append(
+            "updated_at"
+        )
+
+    consultation.save(
+        update_fields=update_fields
+    )
+
+    _record_history(
+        consultation,
+        "REQUESTED",
+        "ACCEPTED",
+        request,
+    )
+
+    after = serialize_instance(
+        consultation
+    )
+
+    _audit(
+        request,
+        spec,
+        consultation,
+        before,
+        after,
+    )
+
+    return Response(
+        after,
+        status=200,
+    )
+
+
+def _consultation_respond_strict(
+    request,
+    spec,
+    kwargs,
+):
+    consultation = (
+        _consultation_action_locked(
+            kwargs
+        )
+    )
+
+    if (
+        consultation.assigned_to_id
+        != request.user.id
+    ):
+        raise PermissionDenied({
+            "code":
+                "CONSULTATION_FORBIDDEN",
+        })
+
+    if (
+        consultation.status
+        != "IN_PROGRESS"
+    ):
+        raise ContractConflict({
+            "code":
+                "CONSULTATION_INVALID_STATE",
+        })
+
+    final_opinion = str(
+        request.data.get(
+            "final_opinion"
+        )
+        or ""
+    ).strip()
+
+    if not final_opinion:
+        raise ContractError({
+            "code":
+                "FINAL_OPINION_REQUIRED",
+        })
+
+    before = serialize_instance(
+        consultation
+    )
+
+    now = timezone.now()
+
+    consultation.status = "RESPONDED"
+    consultation.final_opinion = (
+        final_opinion
+    )
+    consultation.treatment_plan = (
+        request.data.get(
+            "treatment_plan"
+        )
+    )
+    consultation.completed_at = now
+
+    fields = _field_map(
+        consultation.__class__
+    )
+
+    update_fields = [
+        "status",
+        "final_opinion",
+        "treatment_plan",
+        "completed_at",
+    ]
+
+    if "updated_at" in fields:
+        consultation.updated_at = now
+        update_fields.append(
+            "updated_at"
+        )
+
+    consultation.save(
+        update_fields=update_fields
+    )
+
+    _record_history(
+        consultation,
+        "IN_PROGRESS",
+        "RESPONDED",
+        request,
+    )
+
+    after = serialize_instance(
+        consultation
+    )
+
+    _audit(
+        request,
+        spec,
+        consultation,
+        before,
+        after,
+    )
+
+    _outbox(
+        spec,
+        consultation,
+        after,
+    )
+
+    return Response(
+        after,
+        status=200,
+    )
+
+
 CUSTOM_HANDLERS = {
+    "API-RX-001": _batchb_rx_create,
+    "API-CON-004": _consultation_accept_strict,
+    "API-CON-006": _consultation_respond_strict,
     "API-ALLERGY-003": _batchb_allergy_deactivate,
     "API-RX-002": _batchb_rx_detail,
     "API-RX-003": _batchb_rx_patch,

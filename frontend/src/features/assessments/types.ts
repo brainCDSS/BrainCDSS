@@ -108,6 +108,11 @@ export interface AssessmentDetailResponse {
   items: AssessmentItem[];
 }
 
+export interface AssessmentEncounterListResponse {
+  count: number;
+  results: AssessmentDetailResponse[];
+}
+
 export interface CreateEncounterRequest {
   patient_id: string;
   encounter_type: "OUTPATIENT" | "EMERGENCY";

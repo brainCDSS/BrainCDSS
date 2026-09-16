@@ -1607,6 +1607,26 @@ export default function AppShell({
      25. Layout
      ======================================================== */
 
+  if (!isWorkspaceHydrated) {
+    return (
+      <div className="workspace-loading">
+        <div className="brainon-loading__visual">
+          <img
+            src="/loading-brain.png"
+            alt="Brain On"
+            className="brainon-loading__image"
+          />
+          <div className="brainon-loading__text">페이지를 불러오는 중입니다...</div>
+          <div
+            className="brainon-loading__spinner"
+            role="status"
+            aria-label="화면 로딩 중"
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
 
     <div

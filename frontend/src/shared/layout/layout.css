@@ -2447,3 +2447,64 @@ body,
 .header-search-dropdown {
   z-index: 1100;
 }
+
+/* Workspace state is restored from sessionStorage before any clinical view mounts. 로딩랜더링 */
+.workspace-loading {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 24px;
+  background: #fff;
+  color: #29476f;
+}
+
+.brainon-loading__visual {
+  position: relative;
+  width: min(550px, 100vw); /*여기가 화면랜터링 크기*/
+  aspect-ratio: 4 / 3;
+}
+
+.brainon-loading__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.brainon-loading__text { /*문구*/
+  position: absolute;
+  top: 100%; 
+  left: 50%;
+  margin: 0;
+  color: #8a97a8;
+  font-size: 16px;
+  font-weight: 500;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.brainon-loading__spinner {
+  position: absolute;
+  top: 90%; /*위아래(높을수록 아래로 내려감)*/
+  left: 50%; /*좌우*/
+  width: 42px;
+  height: 42px;
+  border: 4px solid #e4ebf3;
+  border-top-color: #4f8fe8;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: brainon-spin 0.8s linear infinite;
+}
+
+@keyframes brainon-spin {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}

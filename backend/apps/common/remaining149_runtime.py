@@ -5,6 +5,7 @@ import re
 import uuid
 from contextlib import nullcontext
 from datetime import date, datetime, timedelta
+from decimal import Decimal, InvalidOperation
 
 from django.apps import apps
 from django.conf import settings
@@ -27,6 +28,17 @@ from apps.common.models import OutboxEvent
 
 
 READ_METHODS = {"GET", "HEAD", "OPTIONS"}
+
+# Notification categories already used by the clinician notification UI.  These
+# are response defaults only; user-specific rows still take precedence.
+DEFAULT_NOTIFICATION_PREFERENCE_CATEGORIES = (
+    "EMERGENCY",
+    "CONSULTATION",
+    "IMAGING",
+    "AI_ANALYSIS",
+    "APPOINTMENT",
+    "SYSTEM",
+)
 
 ACTION_STATUS = {
     "accept": "ACCEPTED",
@@ -1137,6 +1149,13 @@ def _appointment_create(request, spec, kwargs):
     after = _appointment_payload(obj)
     _audit(request, spec, obj, None, after)
     _outbox(spec, obj, after)
+    _create_appointment_notification(
+        appointment=obj,
+        recipient_user=obj.clinician.user,
+        request=request,
+        title="New appointment request",
+        body="A new appointment request requires review.",
+    )
     return Response(after, status=201)
 
 
@@ -1209,6 +1228,25 @@ def _appointment_refresh(appointment):
             "slot", "requested_slot", "handled_by",
         )
         .get(pk=appointment.pk)
+    )
+
+
+def _create_appointment_notification(*, appointment, recipient_user, request, title, body):
+    """Notify only a concrete appointment owner; never infer a role-wide recipient."""
+    from apps.notifications.services.notifications import create_notification_for_user
+
+    return create_notification_for_user(
+        recipient_user=recipient_user,
+        category="APPOINTMENT",
+        severity="INFO",
+        title=title,
+        body=body,
+        data_json={
+            "patient_id": str(appointment.patient_id),
+            "resource_type": "Appointment",
+            "resource_id": str(appointment.id),
+            "actor_user_id": str(request.user.id),
+        },
     )
 
 
@@ -1396,6 +1434,13 @@ def _appointment_cancel(request, spec, kwargs):
     after["released_slots"] = released_slots
     _audit(request, spec, appointment, before, after)
     _outbox(spec, appointment, after)
+    _create_appointment_notification(
+        appointment=appointment,
+        recipient_user=appointment.handled_by or appointment.clinician.user,
+        request=request,
+        title="Appointment cancelled",
+        body="An appointment has been cancelled.",
+    )
     return Response(after, status=200)
 
 
@@ -1493,6 +1538,13 @@ def _appointment_reschedule(request, spec, kwargs):
     after = _appointment_payload(appointment)
     _audit(request, spec, appointment, before, after)
     _outbox(spec, appointment, after)
+    _create_appointment_notification(
+        appointment=appointment,
+        recipient_user=appointment.handled_by or appointment.clinician.user,
+        request=request,
+        title="Appointment change requested",
+        body="An appointment change request requires review.",
+    )
     return Response(after, status=200)
 
 
@@ -1608,8 +1660,24 @@ def _notification_preferences_get(request, spec, kwargs):
     pref_model = apps.get_model("notifications", "NotificationCategoryPreference")
 
     setting = setting_model.objects.filter(user=request.user).first()
-    prefs = pref_model.objects.filter(user=request.user).order_by("category")
+    preferences_by_category = {
+        preference.category: preference
+        for preference in pref_model.objects.filter(user=request.user)
+    }
+    def preference_payload(category, preference=None):
+        required = str(category).upper() == "CRITICAL"
+        return {
+            "category": category,
+            "enabled": True if required else (
+                preference.enabled if preference is not None else True
+            ),
+            "required": required,
+        }
 
+    categories = []
+    for category in DEFAULT_NOTIFICATION_PREFERENCE_CATEGORIES:
+        preference = preferences_by_category.pop(category, None)
+        categories.append(preference_payload(category, preference))
     return Response({
         "dnd": serialize_instance(setting) if setting else {
             "dnd_enabled": False,
@@ -1617,7 +1685,7 @@ def _notification_preferences_get(request, spec, kwargs):
             "dnd_end": None,
             "timezone": "Asia/Seoul",
         },
-        "categories": [serialize_instance(x) for x in prefs],
+        "categories": categories,
     }, status=200)
 
 
@@ -1639,6 +1707,8 @@ def _notification_preferences_patch(request, spec, kwargs):
     categories = request.data.get("categories") or {}
     if isinstance(categories, dict):
         for category, enabled in categories.items():
+            if category not in DEFAULT_NOTIFICATION_PREFERENCE_CATEGORIES:
+                continue
             required = str(category).upper() == "CRITICAL"
             pref_model.objects.update_or_create(
                 user=request.user,
@@ -1647,6 +1717,237 @@ def _notification_preferences_patch(request, spec, kwargs):
             )
 
     return _notification_preferences_get(request, spec, kwargs)
+
+
+INITIAL_SCREENING_ITEM_CODES = (
+    "BALANCE",
+    "EYES",
+    "FACE",
+    "ARM",
+    "SPEECH",
+    "CONSCIOUSNESS",
+)
+
+
+def _assessment_item_group(item_code):
+    if item_code in INITIAL_SCREENING_ITEM_CODES:
+        return "INITIAL_SCREENING"
+    if item_code.startswith("FAST_"):
+        return "FAST"
+    if item_code in {"BP_SYS", "BP_DIA", "HEART_RATE", "RESP_RATE", "BODY_TEMP"}:
+        return "VITAL"
+    return "ASSESSMENT"
+
+
+def _assessment_item_payload(item):
+    return {
+        "item_code": item.item_code,
+        "value_text": item.value_text,
+        "value_numeric": item.value_numeric,
+        "unit": item.unit,
+        "score": item.score,
+        "is_red_flag": item.is_red_flag,
+        "note": item.note,
+    }
+
+
+def _initial_screening_score(value, item_code):
+    if isinstance(value, bool) or value is None:
+        raise ContractError({item_code: "value_numeric must be an integer from 1 to 5."})
+    try:
+        decimal_value = Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError) as exc:
+        raise ContractError({item_code: "value_numeric must be an integer from 1 to 5."}) from exc
+
+    if decimal_value != decimal_value.to_integral_value() or not 1 <= decimal_value <= 5:
+        raise ContractError({item_code: "value_numeric must be an integer from 1 to 5."})
+    return int(decimal_value)
+
+
+def _assessment_detail_payload(assessment):
+    item_model = apps.get_model("assessments", "AssessmentItem")
+    items = item_model.objects.filter(assessment=assessment).order_by("recorded_at", "id")
+    return {
+        "assessment_id": str(assessment.id),
+        "encounter_id": str(assessment.encounter_id),
+        "status": assessment.status,
+        "total_score": assessment.total_score,
+        "triage_priority": assessment.triage_priority,
+        "onset_at": assessment.onset_at,
+        "lkw_at": assessment.lkw_at,
+        "symptom_note": assessment.symptom_note,
+        "assigned_neurologist": (
+            {"id": str(assessment.assigned_neurologist_id), "name": assessment.assigned_neurologist.name}
+            if assessment.assigned_neurologist_id else None
+        ),
+        "items": [_assessment_item_payload(item) for item in items],
+        "created_at": assessment.created_at,
+        "updated_at": assessment.updated_at,
+    }
+
+
+def _assessment_detail(request, spec, kwargs):
+    del spec
+    assessment_model = apps.get_model("assessments", "InitialAssessment")
+    assessment = _get_instance(assessment_model, request, kwargs)
+    return Response(_assessment_detail_payload(assessment), status=200)
+
+
+def _assessment_patch(request, spec, kwargs):
+    assessment_model = apps.get_model("assessments", "InitialAssessment")
+    item_model = apps.get_model("assessments", "AssessmentItem")
+    assessment = _get_instance(assessment_model, request, kwargs, for_update=True)
+
+    if assessment.status != "DRAFT":
+        raise ContractConflict({
+            "code": "ASSESSMENT_INVALID_STATE",
+            "detail": "Only DRAFT assessments can be updated.",
+        })
+    if not isinstance(request.data, dict):
+        raise ContractError({"detail": "A JSON object is required."})
+
+    before = serialize_instance(assessment)
+    for field_name in ("onset_at", "lkw_at", "symptom_note"):
+        if field_name in request.data:
+            setattr(assessment, field_name, request.data[field_name])
+
+    items = request.data.get("items", [])
+    if not isinstance(items, list):
+        raise ContractError({"items": "must be a list."})
+
+    now = timezone.now()
+    for payload in items:
+        if not isinstance(payload, dict):
+            raise ContractError({"items": "each item must be an object."})
+        item_code = payload.get("item_code")
+        if not isinstance(item_code, str) or not item_code:
+            raise ContractError({"item_code": "is required."})
+
+        existing = item_model.objects.filter(
+            assessment=assessment,
+            item_code=item_code,
+        ).order_by("id").first()
+        if existing is None:
+            existing = item_model(
+                assessment=assessment,
+                item_code=item_code,
+                item_group=_assessment_item_group(item_code),
+                is_red_flag=False,
+                recorded_at=now,
+            )
+
+        if item_code in INITIAL_SCREENING_ITEM_CODES:
+            score = _initial_screening_score(payload.get("value_numeric"), item_code)
+            existing.item_group = "INITIAL_SCREENING"
+            existing.value_numeric = score
+            existing.score = score
+        else:
+            for field_name in ("value_text", "value_numeric", "unit", "score", "is_red_flag", "note"):
+                if field_name in payload:
+                    setattr(existing, field_name, payload[field_name])
+            if not existing.item_group:
+                existing.item_group = _assessment_item_group(item_code)
+
+        existing.recorded_at = now
+        existing.save()
+
+    assessment.updated_at = now
+    assessment.save(update_fields=["onset_at", "lkw_at", "symptom_note", "updated_at"])
+    after = _assessment_detail_payload(assessment)
+    _audit(request, spec, assessment, before, after)
+    _outbox(spec, assessment, after)
+    if (
+        assessment.encounter.encounter_type == "EMERGENCY"
+        and assessment.assigned_neurologist_id
+    ):
+        from apps.notifications.services.notifications import create_notification_for_user
+
+        create_notification_for_user(
+            recipient_user=assessment.assigned_neurologist,
+            category="EMERGENCY",
+            severity=(
+                "CRITICAL"
+                if assessment.triage_priority == "EMERGENCY"
+                else "WARNING"
+            ),
+            title="Emergency assessment completed",
+            body="An assigned emergency encounter assessment has been completed.",
+            data_json={
+                "patient_id": str(assessment.encounter.patient_id),
+                "encounter_id": str(assessment.encounter_id),
+                "resource_type": "InitialAssessment",
+                "resource_id": str(assessment.id),
+                "actor_user_id": str(request.user.id),
+            },
+        )
+    return Response({
+        "assessment_id": str(assessment.id),
+        "status": assessment.status,
+        "updated_at": assessment.updated_at,
+        "items": after["items"],
+    }, status=200)
+
+
+def _assessment_complete(request, spec, kwargs):
+    assessment_model = apps.get_model("assessments", "InitialAssessment")
+    item_model = apps.get_model("assessments", "AssessmentItem")
+    assessment = _get_instance(assessment_model, request, kwargs, for_update=True)
+
+    if assessment.status != "DRAFT":
+        raise ContractConflict({
+            "code": "ASSESSMENT_INVALID_STATE",
+            "detail": "Only DRAFT assessments can be completed.",
+        })
+
+    screening_items = {
+        item.item_code: item
+        for item in item_model.objects.filter(
+            assessment=assessment,
+            item_group="INITIAL_SCREENING",
+            item_code__in=INITIAL_SCREENING_ITEM_CODES,
+        )
+    }
+    missing = [code for code in INITIAL_SCREENING_ITEM_CODES if code not in screening_items]
+    if missing:
+        raise ContractError({
+            "code": "ASSESSMENT_INCOMPLETE",
+            "items": missing,
+        })
+
+    total_score = sum(
+        _initial_screening_score(screening_items[code].value_numeric, code)
+        for code in INITIAL_SCREENING_ITEM_CODES
+    )
+    if not 6 <= total_score <= 30:
+        raise ContractError({"total_score": "must be between 6 and 30."})
+
+    before = serialize_instance(assessment)
+    assigned_neurologist_id = request.data.get("assigned_neurologist_id") if isinstance(request.data, dict) else None
+    if assigned_neurologist_id:
+        assessment.assigned_neurologist_id = assigned_neurologist_id
+    assessment.total_score = total_score
+    assessment.status = "COMPLETED"
+    assessment.completed_at = timezone.now()
+    assessment.updated_at = assessment.completed_at
+    assessment.save(update_fields=[
+        "assigned_neurologist",
+        "total_score",
+        "status",
+        "completed_at",
+        "updated_at",
+    ])
+    after = _assessment_detail_payload(assessment)
+    _audit(request, spec, assessment, before, after)
+    _outbox(spec, assessment, after)
+    return Response({
+        "assessment_id": str(assessment.id),
+        "status": assessment.status,
+        "total_score": assessment.total_score,
+        "triage_priority": assessment.triage_priority,
+        "assigned_neurologist_id": str(assessment.assigned_neurologist_id) if assessment.assigned_neurologist_id else None,
+        "emergency_event_id": None,
+        "completed_at": assessment.completed_at,
+    }, status=200)
 
 
 def _fcm_create(request, spec, kwargs):
@@ -3817,6 +4118,9 @@ CUSTOM_HANDLERS = {
     "API-APP-011": _appointment_correct,
     "API-NOTI-003": _notification_preferences_get,
     "API-NOTI-004": _notification_preferences_patch,
+    "API-ASM-003": _assessment_detail,
+    "API-ASM-004": _assessment_patch,
+    "API-ASM-005": _assessment_complete,
     "API-FCM-001": _fcm_create,
     "API-MEDSAFE-001": _medication_safety_check,
     "API-CDS-001": _cds_discovery,
@@ -4804,6 +5108,36 @@ def _batchc_rad_preliminary(
 
 
 # ============================================================
+# Radiology notification recipient
+# ============================================================
+
+def _batchc_rad_notify_order_requester(report, request, *, title, body):
+    """Notify the concrete ImagingOrder requester after a final report change."""
+    study = report.study
+    order = getattr(study, "imaging_order", None)
+    recipient = getattr(order, "requested_by", None)
+    if order is None or recipient is None:
+        return None
+
+    from apps.notifications.services.notifications import create_notification_for_user
+
+    return create_notification_for_user(
+        recipient_user=recipient,
+        category="IMAGING",
+        severity="CRITICAL" if report.critical_finding else "INFO",
+        title=title,
+        body=body,
+        data_json={
+            "patient_id": str(order.patient_id),
+            "encounter_id": str(order.encounter_id),
+            "resource_type": "RadiologyReport",
+            "resource_id": str(report.id),
+            "actor_user_id": str(request.user.id),
+        },
+    )
+
+
+# ============================================================
 # RAD-006 : Finalize
 # ============================================================
 
@@ -4931,6 +5265,13 @@ def _batchc_rad_finalize(
         spec,
         report,
         after,
+    )
+
+    _batchc_rad_notify_order_requester(
+        report,
+        request,
+        title="Final imaging report available",
+        body="The final imaging report is available.",
     )
 
     return Response(
@@ -5151,6 +5492,13 @@ def _batchc_rad_amend(
         spec,
         new,
         new_after,
+    )
+
+    _batchc_rad_notify_order_requester(
+        new,
+        request,
+        title="Imaging report amended",
+        body="A finalized imaging report has been amended.",
     )
 
     return Response(

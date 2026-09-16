@@ -1,3 +1,21 @@
-export interface NotificationItem{id:string;category:string;severity:string;title:string;body:string;data:Record<string,unknown>;is_read:boolean;read_at:string|null;created_at:string}
-export interface NotificationListResponse{count:number;unread_count:number;next?:string|null;previous?:string|null;results:NotificationItem[]}
+export type NotificationType =
+  | "EMERGENCY"
+  | "CONSULTATION"
+  | "IMAGING"
+  | "AI_ANALYSIS"
+  | "APPOINTMENT"
+  | "SYSTEM";
+
+export interface NotificationData extends Record<string, unknown> {
+  requester_name?: string;
+  actor_name?: string;
+  patient_name?: string;
+  encounter_id?: string;
+  related_url?: string;
+  url?: string;
+  path?: string;
+}
+
+export interface NotificationItem{id:string;category:NotificationType|string;severity:string;title:string;body:string;data:NotificationData;is_read:boolean;read_at:string|null;created_at:string}
+export interface NotificationListResponse{count?:number|null;unread_count?:number|null;next?:string|null;previous?:string|null;results?:NotificationItem[]|null}
 export interface NotificationPreferences { dnd:{enabled:boolean;start:string|null;end:string|null;timezone:string};categories:Array<{category:string;enabled:boolean;required:boolean}>;updated_at?:string }

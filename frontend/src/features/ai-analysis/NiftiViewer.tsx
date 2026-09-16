@@ -193,7 +193,7 @@ export default function NiftiViewer({ analysisId, focusSlice, focusRequest, onPr
       const probabilityIndex = probability ? nextVolumeIndex++ : null;
       const maskIndex = mask ? nextVolumeIndex++ : null;
       const componentIndex = components ? nextVolumeIndex++ : null;
-      const xaiIndex = xai ? nextVolumeIndex++ : null;
+      const xaiIndex = xai ? nextVolumeIndex : null;
       const probabilityGeometry = probabilityIndex === null ? undefined : geometryOf(viewer.volumes[probabilityIndex]);
       const probabilityAligned = !probabilityGeometry || sameGeometry(sourceGeometry, probabilityGeometry);
       probabilityIndexRef.current = probabilityIndex !== null && probabilityAligned ? probabilityIndex : null;

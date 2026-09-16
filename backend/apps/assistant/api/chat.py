@@ -15,7 +15,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.patients.models import Patient
-
+from apps.audit.services.audit_event import record_audit_event
 
 CLINICIAN_ROLES = {
     "NURSE",
@@ -224,33 +224,96 @@ class AssistantMessageView(APIView):
             "patient_id"
         )
 
-        # 현재 assistant-service는 patient-specific
-        # clinical context를 필수로 요구한다.
-        if patient_id is None:
+        scope = str(
+            context.get(
+                "scope",
+                "",
+            )
+        ).strip().upper()
+
+
+        # ======================================================
+        # Assistant Context 정책
+        # ======================================================
+        #
+        # TODAY
+        #   → 특정 환자를 선택하지 않은 상태를 허용한다.
+        #
+        # PATIENT / ENCOUNTER
+        #   → 특정 환자 Context가 필요하다.
+        #
+        # 즉 모든 질문에서 patient_id를 강제하는 것이 아니라
+        # 요청 Context 종류에 따라 환자 필요 여부를 결정한다.
+        # ======================================================
+
+        requires_patient = (
+            scope
+            in {
+                "PATIENT",
+                "ENCOUNTER",
+            }
+        )
+
+
+        if (
+            requires_patient
+            and patient_id is None
+        ):
             return Response(
                 {
                     "code":
                         "PATIENT_CONTEXT_REQUIRED",
+
                     "detail":
-                        "환자를 선택한 후 다시 요청하세요.",
+                        (
+                            "환자 기반 질문은 "
+                            "환자를 선택한 후 요청하세요."
+                        ),
                 },
-                status=status.HTTP_400_BAD_REQUEST,
+                status=(
+                    status
+                    .HTTP_400_BAD_REQUEST
+                ),
             )
 
-        patient = (
-            Patient.objects
-            .filter(id=patient_id)
-            .first()
-        )
 
-        if patient is None:
-            return Response(
-                {
-                    "code":
-                        "PATIENT_NOT_FOUND",
-                },
-                status=status.HTTP_404_NOT_FOUND,
+        # ======================================================
+        # 실제 Patient 확인
+        # ======================================================
+        #
+        # patient_id가 있을 때만 Patient DB를 조회한다.
+        #
+        # TODAY / Global / 일반 질문
+        #   patient_id 없음
+        #   → patient = None
+        #
+        # PATIENT / ENCOUNTER
+        #   patient_id 있음
+        #   → 실제 Patient 존재 여부 확인
+        # ======================================================
+
+        patient = None
+
+        if patient_id is not None:
+            patient = (
+                Patient.objects
+                .filter(
+                    id=patient_id
+                )
+                .first()
             )
+
+            if patient is None:
+                return Response(
+                    {
+                        "code":
+                            "PATIENT_NOT_FOUND",
+                    },
+                    status=(
+                        status
+                        .HTTP_404_NOT_FOUND
+                    ),
+                )
 
         role_code = _role_code(
             request.user
@@ -301,14 +364,33 @@ class AssistantMessageView(APIView):
             "role":
                 assistant_role,
 
+            # 특정 환자가 선택된 경우에만
+            # 실제 patient UUID를 전달한다.
+            #
+            # TODAY / Global / 일반 질문:
+            # None
             "patient_id":
-                str(patient.id),
+                (
+                    str(patient.id)
+                    if patient is not None
+                    else None
+                ),
 
-            # 브라우저 값을 신뢰하지 않고
-            # Django가 직접 scope를 만든다.
-            "patient_scope": [
-                str(patient.id),
-            ],
+            # Browser가 보낸 patient scope를 신뢰하지 않는다.
+            #
+            # Patient Context:
+            #   [patient UUID]
+            #
+            # Global / TODAY Context:
+            #   []
+            "patient_scope":
+                (
+                    [
+                        str(patient.id),
+                    ]
+                    if patient is not None
+                    else []
+                ),
 
             "message":
                 data["message"],
@@ -327,6 +409,7 @@ class AssistantMessageView(APIView):
 
         except HTTPError as exc:
             upstream_code = None
+            upstream_detail = None
 
             try:
                 error_body = json.loads(
@@ -340,21 +423,103 @@ class AssistantMessageView(APIView):
                     )
                 )
 
+                upstream_detail = (
+                    error_body.get(
+                        "detail"
+                    )
+                )
+
             except Exception:
                 pass
+
+
+            # ==================================================
+            # 정상적인 Client Context 오류 전달
+            # ==================================================
+            #
+            # Assistant Service가 판단한
+            # "환자 Context 부족"은 시스템 장애가 아니다.
+            #
+            # 따라서 502로 변환하지 않고
+            # 원래 의미인 HTTP 400을 유지한다.
+            # ==================================================
+
+            if (
+                exc.code
+                == status.HTTP_400_BAD_REQUEST
+                and upstream_code
+                == "PATIENT_CONTEXT_REQUIRED"
+            ):
+                return Response(
+                    {
+                        "code":
+                            "PATIENT_CONTEXT_REQUIRED",
+
+                        "detail":
+                            (
+                                upstream_detail
+                                or
+                                "환자 기반 질문은 "
+                                "환자를 선택한 후 요청하세요."
+                            ),
+
+                        "trace_id":
+                            trace_id,
+                    },
+                    status=(
+                        status
+                        .HTTP_400_BAD_REQUEST
+                    ),
+                )
+
+
+            # ==================================================
+            # Patient Scope 권한 오류 전달
+            # ==================================================
+
+            if (
+                exc.code
+                == status.HTTP_403_FORBIDDEN
+                and upstream_code
+                == "PATIENT_SCOPE_FORBIDDEN"
+            ):
+                return Response(
+                    {
+                        "code":
+                            "PATIENT_SCOPE_FORBIDDEN",
+
+                        "trace_id":
+                            trace_id,
+                    },
+                    status=(
+                        status
+                        .HTTP_403_FORBIDDEN
+                    ),
+                )
+
+
+            # ==================================================
+            # 그 외 실제 Upstream 장애
+            # ==================================================
 
             return Response(
                 {
                     "code":
                         "ASSISTANT_UPSTREAM_ERROR",
+
                     "upstream_status":
                         exc.code,
+
                     "upstream_code":
                         upstream_code,
+
                     "trace_id":
                         trace_id,
                 },
-                status=status.HTTP_502_BAD_GATEWAY,
+                status=(
+                    status
+                    .HTTP_502_BAD_GATEWAY
+                ),
             )
 
         except (
@@ -409,6 +574,72 @@ class AssistantMessageView(APIView):
                 "conversation_id"
             )
             or uuid4()
+        )
+
+        # ======================================================
+        # Assistant Audit
+        # ======================================================
+        #
+        # CorrelationIdMiddleware가 만든 canonical request_id를
+        # 그대로 AuditLog.request_id에 저장한다.
+        #
+        # 사용자 질문 원문은 PHI가 포함될 수 있으므로
+        # AuditLog에 저장하지 않는다.
+        # ======================================================
+
+        record_audit_event(
+            source_service=
+                "backend.assistant",
+
+            action=
+                "ASSISTANT_MESSAGE",
+
+            resource_type=
+                "AssistantConversation",
+
+            outcome=
+                "SUCCESS",
+
+            request=
+                request,
+
+            resource_id=
+                conversation_id,
+
+            patient_id=(
+                patient.id
+                if patient is not None
+                else None
+            ),
+
+            after_json={
+                "scope":
+                    str(
+                        context.get(
+                            "scope",
+                            "",
+                        )
+                    ),
+
+                "context_sources":
+                    result.get(
+                        "context_sources",
+                        [],
+                    ),
+
+                "provider":
+                    result.get(
+                        "provider"
+                    ),
+
+                "model":
+                    result.get(
+                        "model"
+                    ),
+
+                "trace_id":
+                    trace_id,
+            },
         )
 
         return Response(

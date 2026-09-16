@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { cancelAIAnalysis, createAIResultReview, getAIAnalyses, getAIAnalysis, getAIAnalysisResult } from "./api";
+import { createAIResultReview, getAIAnalyses, getAIAnalysis, getAIAnalysisResult } from "./api";
 import { getImagingStudy } from "../imaging/api";
 import type { ImagingStudyDetail } from "../imaging/types";
 import type { AIAnalysisItem, AIAnalysisResult, NiftiProbe } from "./types";

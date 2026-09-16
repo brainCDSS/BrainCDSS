@@ -25,6 +25,7 @@ from apps.imaging.api.nifti import NiftiArtifactContentView, StudyAIInputsView
 # ============================================================
 
 urlpatterns = [
+    path("api/v1/", include("apps.clinical_evidence.api.urls")),
     # Real AI analysis and NIfTI routes must precede generated fallbacks.
     path("api/v1/ai-analyses", AnalysisCollectionView.as_view()),
     path("api/v1/ai-analyses/<uuid:analysis_id>", AnalysisDetailView.as_view()),

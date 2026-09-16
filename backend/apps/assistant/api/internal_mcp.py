@@ -11,7 +11,7 @@ from rest_framework.views import APIView
 
 from apps.ai_analysis.models import AIAnalysisResult
 from apps.appointments.models import Appointment
-from apps.assessments.models import InitialAssessment
+from apps.assessments.models import (EmergencyEvent, InitialAssessment,)
 from apps.clinical_records.models import ClinicalNote, Encounter
 from apps.medication_safety.services.medication_safety import (
     MedicationSafetyError,
@@ -19,7 +19,7 @@ from apps.medication_safety.services.medication_safety import (
 )
 from apps.patients.models import Patient
 from apps.prescriptions.models import PrescriptionItem
-
+from apps.consultations.models import Consultation
 from .permissions import MCPBackendTokenPermission
 
 
@@ -183,6 +183,369 @@ class AppointmentsInternalView(MCPReadOnlyView):
             }
         )
 
+# ============================================================
+# 2-1. 오늘 전체 예약 현황: MCP 응답 기능 보완
+# ============================================================
+
+class TodayAppointmentsInternalView(MCPReadOnlyView):
+    """오늘 예약된 전체 환자 현황을 조회한다."""
+
+    @extend_schema(exclude=True)
+    def get(self, request):
+        today = timezone.localdate()
+
+        appointments = (
+            Appointment.objects
+            .filter(
+                slot__start_at__date=today,
+            )
+            .select_related(
+                "patient",
+                "hospital",
+                "department",
+                "clinician__user",
+                "slot",
+            )
+            .order_by(
+                "slot__start_at",
+            )[:200]
+        )
+
+        items = []
+        status_counts = {}
+
+        for appointment in appointments:
+            status_code = str(
+                appointment.status or ""
+            )
+
+            status_counts[status_code] = (
+                status_counts.get(
+                    status_code,
+                    0,
+                )
+                + 1
+            )
+
+            items.append(
+                {
+                    "id": str(
+                        appointment.id
+                    ),
+                    "patient_id": str(
+                        appointment.patient_id
+                    ),
+                    "patient_no": (
+                        appointment.patient.patient_no
+                    ),
+                    "patient_name": (
+                        appointment.patient.name
+                    ),
+                    "status": (
+                        appointment.status
+                    ),
+                    "request_type": (
+                        appointment.request_type
+                    ),
+                    "hospital": (
+                        appointment.hospital.name
+                    ),
+                    "department": (
+                        appointment.department.name
+                    ),
+                    "clinician": (
+                        appointment.clinician.user.name
+                    ),
+                    "specialty": (
+                        appointment.clinician.specialty
+                    ),
+                    "start_at": (
+                        appointment.slot.start_at
+                    ),
+                    "end_at": (
+                        appointment.slot.end_at
+                    ),
+                }
+            )
+
+        return self.ok(
+            {
+                "date": today,
+                "count": len(items),
+                "status_counts": (
+                    status_counts
+                ),
+                "items": items,
+            }
+        )
+
+# ============================================================
+# Global 2. 현재 응급환자 Worklist
+# ============================================================
+
+class EmergencyWorklistInternalView(
+    MCPReadOnlyView
+):
+    """
+    현재 종료되지 않은 Encounter에 연결된
+    EmergencyEvent를 조회한다.
+
+    MCP Server가 DB를 직접 조회하지 않고
+    이 Django Internal API를 통해서만 조회한다.
+
+    EmergencyEvent.status의 종료 상태값을
+    임의로 새로 정의하지 않는다.
+
+    현재 진행 중인 임상 흐름이라는 명확한 기준으로
+    Encounter.ended_at이 없는 건만 조회한다.
+    """
+
+    @extend_schema(exclude=True)
+    def get(self, request):
+        events = (
+            EmergencyEvent.objects
+            .filter(
+                encounter__ended_at__isnull=True,
+            )
+            .select_related(
+                "assessment",
+                "encounter",
+                "encounter__patient",
+                "assigned_neurologist",
+                "acknowledged_by",
+            )
+            .order_by(
+                "-occurred_at",
+            )[:200]
+        )
+
+        items = []
+        status_counts = {}
+        patient_ids = set()
+
+        for event in events:
+            patient = (
+                event.encounter.patient
+            )
+
+            status_code = str(
+                event.status or ""
+            )
+
+            status_counts[status_code] = (
+                status_counts.get(
+                    status_code,
+                    0,
+                )
+                + 1
+            )
+
+            patient_ids.add(
+                str(patient.id)
+            )
+
+            items.append(
+                {
+                    "event_id": str(
+                        event.id
+                    ),
+                    "patient_id": str(
+                        patient.id
+                    ),
+                    "patient_no": (
+                        patient.patient_no
+                    ),
+                    "patient_name": (
+                        patient.name
+                    ),
+                    "encounter_id": str(
+                        event.encounter_id
+                    ),
+                    "encounter_no": (
+                        event.encounter.encounter_no
+                    ),
+                    "encounter_status": (
+                        event.encounter.status
+                    ),
+                    "event_type": (
+                        event.event_type
+                    ),
+                    "priority": (
+                        event.priority
+                    ),
+                    "status": (
+                        event.status
+                    ),
+                    "assigned_neurologist": (
+                        event
+                        .assigned_neurologist
+                        .name
+                    ),
+                    "occurred_at": (
+                        event.occurred_at
+                    ),
+                    "acknowledged": (
+                        event.acknowledged_at
+                        is not None
+                    ),
+                    "acknowledged_at": (
+                        event.acknowledged_at
+                    ),
+                }
+            )
+
+        return self.ok(
+            {
+                "event_count": len(items),
+                "patient_count": (
+                    len(patient_ids)
+                ),
+                "status_counts": (
+                    status_counts
+                ),
+                "items": items,
+            }
+        )
+
+# ============================================================
+# Global 3. 처리 대기 중 협진 Worklist
+# ============================================================
+
+class PendingConsultationsInternalView(
+    MCPReadOnlyView
+):
+    """
+    아직 회신 완료 전 단계에 있는 협진을 조회한다.
+
+    BrainOn 협진 상태 정책 중:
+
+    REQUESTED
+    ACCEPTED
+    IN_PROGRESS
+
+    세 상태를 처리 대기/진행 중인 협진으로 본다.
+
+    RESPONDED는 이미 회신이 생성된 상태이므로
+    pending worklist에서는 제외한다.
+    """
+
+    PENDING_STATUSES = (
+        "REQUESTED",
+        "ACCEPTED",
+        "IN_PROGRESS",
+    )
+
+    @extend_schema(exclude=True)
+    def get(self, request):
+        consultations = (
+            Consultation.objects
+            .filter(
+                status__in=(
+                    self.PENDING_STATUSES
+                )
+            )
+            .select_related(
+                "encounter",
+                "encounter__patient",
+                "requested_by",
+                "assigned_to",
+            )
+            .order_by(
+                "requested_at",
+            )[:200]
+        )
+
+        items = []
+        status_counts = {}
+
+        for consultation in consultations:
+            patient = (
+                consultation
+                .encounter
+                .patient
+            )
+
+            status_code = str(
+                consultation.status
+                or ""
+            )
+
+            status_counts[status_code] = (
+                status_counts.get(
+                    status_code,
+                    0,
+                )
+                + 1
+            )
+
+            items.append(
+                {
+                    "consultation_id": str(
+                        consultation.id
+                    ),
+                    "patient_id": str(
+                        patient.id
+                    ),
+                    "patient_no": (
+                        patient.patient_no
+                    ),
+                    "patient_name": (
+                        patient.name
+                    ),
+                    "encounter_id": str(
+                        consultation.encounter_id
+                    ),
+                    "encounter_no": (
+                        consultation
+                        .encounter
+                        .encounter_no
+                    ),
+                    "consultation_type": (
+                        consultation
+                        .consultation_type
+                    ),
+                    "priority": (
+                        consultation.priority
+                    ),
+                    "status": (
+                        consultation.status
+                    ),
+                    "requested_by": (
+                        consultation
+                        .requested_by
+                        .name
+                    ),
+                    "assigned_to": (
+                        consultation
+                        .assigned_to
+                        .name
+                        if consultation.assigned_to
+                        else None
+                    ),
+                    "requested_at": (
+                        consultation.requested_at
+                    ),
+                    "accepted_at": (
+                        consultation.accepted_at
+                    ),
+                    "started_at": (
+                        consultation.started_at
+                    ),
+                }
+            )
+
+        return self.ok(
+            {
+                "count": len(items),
+                "pending_statuses": list(
+                    self.PENDING_STATUSES
+                ),
+                "status_counts": (
+                    status_counts
+                ),
+                "items": items,
+            }
+        )
 
 # ============================================================
 # Current Medication 공통 조회

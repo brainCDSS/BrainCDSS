@@ -3,6 +3,7 @@
 import os
 from pathlib import Path
 from datetime import timedelta
+from celery.schedules import crontab
 from dotenv import load_dotenv
 from corsheaders.defaults import default_headers
 
@@ -235,6 +236,33 @@ CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_CONTROL_QUEUE_EXCLUSIVE = True
 CELERY_EVENT_QUEUE_EXCLUSIVE = True
 
+# ---------------------------------------------------------------------
+# Celery Beat
+# ---------------------------------------------------------------------
+# 1) Outbox: promptly retry PENDING/FAILED domain events.
+# 2) MFDS DUR: refresh all seven reviewed reference-data types daily.
+CELERY_BEAT_SCHEDULE = {
+    "publish-pending-outbox-events": {
+        "task": "apps.common.outbox_tasks.publish_pending_outbox_events",
+        "schedule": crontab(minute="*"),
+        "kwargs": {
+            "limit": 100,
+        },
+    },
+    "sync-mfds-dur-daily": {
+        "task": "medication_safety.sync_mfds_dur_data",
+        "schedule": crontab(
+            hour=3,
+            minute=30,
+        ),
+        "kwargs": {
+            "kind": "ALL",
+            "dry_run": False,
+            "page_size": 100,
+        },
+    },
+}
+
 # Local-only bridge for synthetic inference verification. Disabled by default.
 AI_INFERENCE_DEVELOPMENT_ENABLED = (
     os.getenv("AI_INFERENCE_DEVELOPMENT_ENABLED", "false").lower()
@@ -262,6 +290,12 @@ GCS_NIFTI_ALLOWED_BUCKETS = [
     ).split(",")
     if value.strip()
 ]
+GCS_SIGNED_URL_TTL_SECONDS = int(
+    os.getenv("GCS_SIGNED_URL_TTL_SECONDS", "300")
+)
+GCS_SIGNING_SERVICE_ACCOUNT_EMAIL = os.getenv(
+    "GCS_SIGNING_SERVICE_ACCOUNT_EMAIL", ""
+).strip()
 
 # Orthanc is accessed only by backend/worker code. Browser clients use backend
 # APIs and never receive these credentials.

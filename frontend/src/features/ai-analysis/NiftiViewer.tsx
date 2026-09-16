@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { DRAG_MODE, MULTIPLANAR_TYPE, Niivue, SHOW_RENDER } from "@niivue/niivue";
 import { authenticatedAsset } from "../../api/client";
 import { getNiftiViewerManifest } from "./api";
+import type { NiftiProbe } from "./types";
 
 type ViewMode = "AXIAL" | "CORONAL" | "SAGITTAL" | "MULTIPLANAR";
 type Geometry = { shape: number[]; spacing: number[]; affine: number[] };
+type ViewerState = { crosshair: [number, number, number]; pan: [number, number, number, number]; mode: ViewMode };
 const MODES: Array<[ViewMode, string]> = [["AXIAL", "축상"], ["CORONAL", "관상"], ["SAGITTAL", "시상"], ["MULTIPLANAR", "멀티뷰"]];
 
 function geometryOf(volume: Niivue["volumes"][number]): Geometry {
@@ -15,19 +17,42 @@ function sameGeometry(left: Geometry, right: Geometry) {
   return close(left.shape, right.shape, 0) && close(left.spacing, right.spacing, 0.001) && close(left.affine, right.affine, 0.001);
 }
 
-export default function NiftiViewer({ analysisId, focusSlice }: { analysisId: string; focusSlice?: number | null }) {
+function xaiPercentileWindow(volume: Niivue["volumes"][number]): [number, number] | null {
+  const values = Array.from((volume.img as unknown as ArrayLike<number>) ?? [])
+    .filter((value) => Number.isFinite(value) && value !== 0)
+    .sort((left, right) => left - right);
+  if (values.length < 2) return null;
+  const valueAt = (percentile: number) => values[Math.min(values.length - 1, Math.max(0, Math.round((values.length - 1) * percentile)))];
+  const minimum = valueAt(0.9); const maximum = valueAt(0.995);
+  return maximum > minimum ? [minimum, maximum] : null;
+}
+
+type NiivueLocation = {
+  vox?: ArrayLike<number>;
+  values?: Array<{ value?: number; vox?: ArrayLike<number> }>;
+};
+
+export default function NiftiViewer({ analysisId, focusSlice, onProbe }: { analysisId: string; focusSlice?: number | null; onProbe?: (probe: NiftiProbe | null) => void }) {
   const shellRef = useRef<HTMLElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const viewerRef = useRef<Niivue | null>(null);
+  const probabilityIndexRef = useRef<number | null>(null);
   const maskIndexRef = useRef<number | null>(null);
   const xaiIndexRef = useRef<number | null>(null);
   const modeRef = useRef<ViewMode>("AXIAL");
   const windowFrameRef = useRef<number | null>(null);
+  const retainedViewerStateRef = useRef<ViewerState | null>(null);
+  const componentIndexRef = useRef<number | null>(null);
   const [message, setMessage] = useState("NIfTI 영상을 불러오는 중입니다.");
   const [sourceRole, setSourceRole] = useState("");
+  const [sourceRoles, setSourceRoles] = useState<string[]>([]);
+  const [selectedSourceRole, setSelectedSourceRole] = useState("");
   const [hasMask, setHasMask] = useState(false);
   const [maskVisible, setMaskVisible] = useState(true);
-  const [maskOpacity, setMaskOpacity] = useState(55);
+  const [maskOpacity, setMaskOpacity] = useState(72);
+  const [hasProbability, setHasProbability] = useState(false);
+  const [probabilityVisible, setProbabilityVisible] = useState(false);
+  const [probabilityOpacity, setProbabilityOpacity] = useState(48);
   const [hasXai, setHasXai] = useState(false);
   const [xaiVisible, setXaiVisible] = useState(false);
   const [xaiOpacity, setXaiOpacity] = useState(45);
@@ -45,6 +70,17 @@ export default function NiftiViewer({ analysisId, focusSlice }: { analysisId: st
       setWindowing({ level: (minimum + maximum) / 2, width: maximum - minimum });
       windowFrameRef.current = null;
     });
+  }
+
+  function setSourceWindow(level: number, width: number) {
+    const viewer = viewerRef.current;
+    const source = viewer?.volumes[0];
+    if (!viewer || !source) return;
+    source.cal_min = level - width / 2;
+    source.cal_max = level + width / 2;
+    viewer.updateGLVolume();
+    viewer.drawScene();
+    syncWindowing(source);
   }
 
   function updateSlice(viewer: Niivue, mode = modeRef.current) {
@@ -67,9 +103,12 @@ export default function NiftiViewer({ analysisId, focusSlice }: { analysisId: st
       viewer.setInterpolation(true); viewer.updateInterpolation(0, true);
       const maskIndex = maskIndexRef.current;
       if (maskIndex !== null) viewer.setOpacity(maskIndex, maskVisible ? maskOpacity / 100 : 0);
+      const probabilityIndex = probabilityIndexRef.current;
+      if (probabilityIndex !== null) viewer.setOpacity(probabilityIndex, probabilityVisible ? probabilityOpacity / 100 : 0);
       const xaiIndex = xaiIndexRef.current;
       if (xaiIndex !== null) viewer.setOpacity(xaiIndex, xaiVisible ? xaiOpacity / 100 : 0);
-      syncWindowing(viewer.volumes[0]);
+      if (viewer.volumes[0]?.name.toLowerCase().startsWith("ct")) setSourceWindow(40, 80);
+      else syncWindowing(viewer.volumes[0]);
     }
     requestAnimationFrame(() => { viewer.resizeListener(); viewer.drawScene(); updateSlice(viewer, mode); });
   }
@@ -109,14 +148,20 @@ export default function NiftiViewer({ analysisId, focusSlice }: { analysisId: st
     viewer.setMouseEventConfig({ leftButton: { primary: DRAG_MODE.crosshair }, rightButton: DRAG_MODE.windowing, centerButton: DRAG_MODE.pan });
     viewerRef.current = viewer;
     async function load() {
-      setMessage("NIfTI 영상을 불러오는 중입니다."); setAlignment(null); setHasMask(false); setMaskVisible(true); setHasXai(false); setXaiVisible(false); setSourceRole("");
+      setMessage("NIfTI 영상을 불러오는 중입니다."); setAlignment(null); setHasMask(false); setMaskVisible(true); setHasProbability(false); setProbabilityVisible(false); setHasXai(false); setXaiVisible(false); setSourceRole("");
       const manifest = await getNiftiViewerManifest(analysisId);
       const canvas = canvasRef.current;
       if (!active || !canvas) return;
       if (!canvas.getContext("webgl2")) return setMessage("WebGL2를 사용할 수 없습니다. 브라우저 하드웨어 가속을 확인해 주세요.");
-      const source = manifest.inputs[0]; const mask = manifest.masks[0]; const xai = manifest.xai?.[0];
+      const roles = manifest.inputs.map((item) => item.role);
+      const defaultRole = roles.includes("DWI") ? "DWI" : roles[0];
+      const activeRole = selectedSourceRole || defaultRole;
+      const source = manifest.inputs.find((item) => item.role === activeRole);
+      const probability = manifest.probabilities?.[0]; const mask = manifest.masks[0]; const components = manifest.components?.[0];
+      const xai = manifest.xai?.find((item) => item.role === activeRole) ?? manifest.xai?.find((item) => !item.role);
       if (!source) return setMessage("분석에 사용한 원본 NIfTI가 없습니다.");
-      setSourceRole(source.role);
+      setSourceRole(source.role); setSourceRoles(roles);
+      if (!selectedSourceRole) setSelectedSourceRole(defaultRole);
       await viewer.attachToCanvas(canvas); attached = true;
       if (!active) return;
       updateWindowReadout = (event: MouseEvent) => {
@@ -126,14 +171,16 @@ export default function NiftiViewer({ analysisId, focusSlice }: { analysisId: st
       canvas.addEventListener("mousemove", updateWindowReadout);
       await viewer.loadVolumes([
         { ...authenticatedAsset(source.url), name: `${source.role.toLowerCase()}.nii.gz`, colormap: "gray", opacity: 1 },
-        ...(mask ? [{ ...authenticatedAsset(mask.url), name: "ai-segmentation.nii.gz", colormap: "red", opacity: maskOpacity / 100, ignoreZeroVoxels: true }] : []),
+        ...(probability ? [{ ...authenticatedAsset(probability.url), name: "lesion-probability.nii.gz", colormap: "turbo", opacity: 0, cal_min: 0.15, cal_max: 1, trustCalMinMax: true, ignoreZeroVoxels: true }] : []),
+        ...(mask ? [{ ...authenticatedAsset(mask.url), name: "ai-segmentation.nii.gz", colormap: "red", opacity: maskOpacity / 100, cal_min: 0.5, trustCalMinMax: true, ignoreZeroVoxels: true }] : []),
+        ...(components ? [{ ...authenticatedAsset(components.url), name: "lesion-components.nii.gz", colormap: "gray", opacity: 0, trustCalMinMax: true, ignoreZeroVoxels: true }] : []),
         ...(xai ? [{
           ...authenticatedAsset(xai.url),
-          name: "grad-cam.nii.gz",
-          colormap: "turbo",
+          name: "integrated-gradients.nii.gz",
+          // XAI importance increases from red to yellow/white. This keeps the
+          // lesion-localized heatmap visually distinct from the red mask.
+          colormap: "hot",
           opacity: 0,
-          cal_min: 0.001,
-          cal_max: 1,
           trustCalMinMax: true,
           ignoreZeroVoxels: true,
           // Grad-CAM is normalized to 0..1. Hide background activation instead
@@ -142,43 +189,101 @@ export default function NiftiViewer({ analysisId, focusSlice }: { analysisId: st
       ]);
       if (!active) return;
       const sourceGeometry = geometryOf(viewer.volumes[0]);
-      const maskGeometry = viewer.volumes[1] ? geometryOf(viewer.volumes[1]) : undefined;
+      let nextVolumeIndex = 1;
+      const probabilityIndex = probability ? nextVolumeIndex++ : null;
+      const maskIndex = mask ? nextVolumeIndex++ : null;
+      const componentIndex = components ? nextVolumeIndex++ : null;
+      const xaiIndex = xai ? nextVolumeIndex++ : null;
+      const probabilityGeometry = probabilityIndex === null ? undefined : geometryOf(viewer.volumes[probabilityIndex]);
+      const probabilityAligned = !probabilityGeometry || sameGeometry(sourceGeometry, probabilityGeometry);
+      probabilityIndexRef.current = probabilityIndex !== null && probabilityAligned ? probabilityIndex : null;
+      setHasProbability(probabilityIndex !== null && probabilityAligned);
+      setProbabilityVisible(false);
+      if (probabilityIndex !== null) {
+        const probabilityVolume = viewer.volumes[probabilityIndex];
+        probabilityVolume.cal_min = 0.15;
+        probabilityVolume.cal_max = 1;
+        probabilityVolume.colormapType = 1;
+        viewer.setOpacity(probabilityIndex, 0);
+      }
+      const maskGeometry = maskIndex === null ? undefined : geometryOf(viewer.volumes[maskIndex]);
       const aligned = !maskGeometry || sameGeometry(sourceGeometry, maskGeometry);
-      setAlignment(aligned); maskIndexRef.current = mask && aligned ? 1 : null; setHasMask(Boolean(mask && aligned));
-      if (mask && !aligned) viewer.setOpacity(1, 0);
-      const xaiIndex = xai ? (mask ? 2 : 1) : null;
+      setAlignment(aligned && probabilityAligned); maskIndexRef.current = maskIndex !== null && aligned ? maskIndex : null; setHasMask(maskIndex !== null && aligned);
+      if (maskIndex !== null) {
+        const maskVolume = viewer.volumes[maskIndex];
+        // Binary labels must start at the visible end of the red LUT. Without
+        // this window a label value of 1 can be rendered as near-black.
+        maskVolume.cal_min = 0.5;
+        maskVolume.cal_max = Math.max(1, Number(maskVolume.cal_max) || 1);
+        maskVolume.colormapType = 1;
+        viewer.updateGLVolume();
+      }
+      if (maskIndex !== null && !aligned) viewer.setOpacity(maskIndex, 0);
+      if (probabilityIndex !== null && !probabilityAligned) viewer.setOpacity(probabilityIndex, 0);
+      const componentGeometry = componentIndex === null ? undefined : geometryOf(viewer.volumes[componentIndex]);
+      const componentAligned = !componentGeometry || sameGeometry(sourceGeometry, componentGeometry);
+      componentIndexRef.current = componentIndex !== null && componentAligned ? componentIndex : null;
+      if (componentIndex !== null) viewer.setOpacity(componentIndex, 0);
       const xaiGeometry = xaiIndex === null ? undefined : geometryOf(viewer.volumes[xaiIndex]);
       const xaiAligned = !xaiGeometry || sameGeometry(sourceGeometry, xaiGeometry);
       xaiIndexRef.current = xaiIndex !== null && xaiAligned ? xaiIndex : null;
       setHasXai(xaiIndex !== null && xaiAligned); setXaiVisible(false);
       if (xaiIndex !== null) {
         const xaiVolume = viewer.volumes[xaiIndex];
-        xaiVolume.cal_min = 0.001;
-        xaiVolume.cal_max = 1;
+        const percentile = xaiPercentileWindow(xaiVolume);
+        if (percentile) { xaiVolume.cal_min = percentile[0]; xaiVolume.cal_max = percentile[1]; }
         xaiVolume.colormapType = 1; // transparent below cal_min
+        // Keep the heatmap above both the anatomical image and segmentation.
+        viewer.moveVolumeToTop(xaiVolume);
         viewer.updateGLVolume();
         viewer.setOpacity(xaiIndex, 0);
       }
       viewer.setInterpolation(true); viewer.updateInterpolation(0, true); // linear source, nearest label mask
-      modeRef.current = "AXIAL"; setViewMode("AXIAL"); viewer.setSliceType(viewer.sliceTypeAxial); viewer.setPan2Dxyzmm([0, 0, 0, 1]);
-      viewer.onLocationChange = () => updateSlice(viewer);
+      // Use the conventional non-contrast brain CT display window on first open.
+      if (source.role === "CT") setSourceWindow(40, 80);
+      const retained = retainedViewerStateRef.current;
+      const restoredMode = retained?.mode ?? "AXIAL";
+      modeRef.current = restoredMode; setViewMode(restoredMode);
+      viewer.setSliceType({ AXIAL: viewer.sliceTypeAxial, CORONAL: viewer.sliceTypeCoronal, SAGITTAL: viewer.sliceTypeSagittal, MULTIPLANAR: viewer.sliceTypeMultiplanar }[restoredMode]);
+      viewer.scene.crosshairPos = retained?.crosshair ?? [0.5, 0.5, 0.5];
+      viewer.setPan2Dxyzmm(retained?.pan ?? [0, 0, 0, 1]);
+      retainedViewerStateRef.current = null;
+      const emitProbe = (location: NiivueLocation) => {
+        const dimensions = viewer.volumes[0]?.dimsRAS;
+        if (!dimensions) return;
+        // Niivue calculates each volume's voxel using its own affine before
+        // reporting `values`. Re-indexing raw arrays with the source volume's
+        // coordinates is wrong for reoriented DWI/ADC and overlay NIfTIs.
+        const valueAt = (index: number | null) => {
+          if (index === null) return null;
+          const value = Number(location.values?.[index]?.value);
+          return Number.isFinite(value) ? value : null;
+        };
+        const sourceVoxel = location.values?.[0]?.vox ?? location.vox ?? viewer.frac2vox(viewer.scene.crosshairPos);
+        const voxel = [0, 1, 2].map((axis) => Math.round(Number(sourceVoxel[axis]))) as [number, number, number];
+        const componentValue = valueAt(componentIndex);
+        onProbe?.({ voxel, slice: Math.round(viewer.scene.crosshairPos[2] * (Number(dimensions[3]) - 1)) + 1, sourceRole: source.role, sourceValue: valueAt(0), probability: valueAt(probabilityIndex), maskValue: valueAt(maskIndex), xaiValue: valueAt(xaiIndex), componentId: componentValue == null ? null : Math.round(componentValue) });
+      };
+      viewer.onLocationChange = (location) => { updateSlice(viewer); emitProbe(location as NiivueLocation); };
       viewer.onIntensityChange = (volume) => syncWindowing(volume);
       syncWindowing(viewer.volumes[0]);
       requestAnimationFrame(() => { viewer.resizeListener(); viewer.drawScene(); updateSlice(viewer); });
-      setMessage(mask && !aligned ? "마스크 shape·affine·spacing이 원본과 일치하지 않아 오버레이를 중지했습니다." : "");
+      setMessage((mask && !aligned) || (probability && !probabilityAligned) ? "마스크 또는 병변 가능도 지도의 shape·affine·spacing이 원본과 일치하지 않아 오버레이를 중지했습니다." : "");
     }
     load().catch((error: unknown) => { if (active) setMessage(`NIfTI를 불러오지 못했습니다. ${error instanceof Error ? error.message : String(error)}`); });
     return () => {
       active = false;
       const canvas = canvasRef.current;
       if (canvas && updateWindowReadout) canvas.removeEventListener("mousemove", updateWindowReadout);
-      viewerRef.current = null; maskIndexRef.current = null; xaiIndexRef.current = null;
+      onProbe?.(null);
+      viewerRef.current = null; probabilityIndexRef.current = null; maskIndexRef.current = null; componentIndexRef.current = null; xaiIndexRef.current = null;
       if (windowFrameRef.current !== null) cancelAnimationFrame(windowFrameRef.current);
       if (attached) try { viewer.closeDrawing(); } catch { /* canvas teardown */ }
     };
-  }, [analysisId]);
+  }, [analysisId, selectedSourceRole]);
 
   useEffect(() => { const viewer = viewerRef.current; const index = maskIndexRef.current; if (viewer && index !== null) viewer.setOpacity(index, maskVisible ? maskOpacity / 100 : 0); }, [maskOpacity, maskVisible]);
+  useEffect(() => { const viewer = viewerRef.current; const index = probabilityIndexRef.current; if (viewer && index !== null) viewer.setOpacity(index, probabilityVisible ? probabilityOpacity / 100 : 0); }, [probabilityOpacity, probabilityVisible]);
   useEffect(() => { const viewer = viewerRef.current; const index = xaiIndexRef.current; if (viewer && index !== null) viewer.setOpacity(index, xaiVisible ? xaiOpacity / 100 : 0); }, [xaiOpacity, xaiVisible]);
   useEffect(() => {
     const shell = shellRef.current; if (!shell || typeof ResizeObserver === "undefined") return;
@@ -200,16 +305,26 @@ export default function NiftiViewer({ analysisId, focusSlice }: { analysisId: st
 
   return <section ref={shellRef} className="ai-viewer-card nifti-result-viewer">
     <header className="nifti-toolbar">
-      <div className="nifti-title"><span>NIFTI · NIIVUE</span><h3>{sourceRole ? `${sourceRole} 원본 + AI 분할` : "AI 분석 영상"}</h3></div>
+      <div className="nifti-title"><h3>{sourceRole === "DWI" || sourceRole === "ADC" ? `MRI · ${sourceRole}` : sourceRole ? `${sourceRole} 영상` : "AI 분석 영상"}</h3></div>
       <div className="nifti-viewer-controls">
+        <div className="nifti-primary-controls">
+        {sourceRoles.length > 1 && <div className="nifti-source-selector" aria-label="MRI 영상 선택">{sourceRoles.map((role) => <button type="button" key={role} className={sourceRole === role ? "is-active" : ""} onClick={() => { const viewer = viewerRef.current; if (viewer) retainedViewerStateRef.current = { crosshair: [...viewer.scene.crosshairPos] as [number, number, number], pan: [...viewer.scene.pan2Dxyzmm] as [number, number, number, number], mode: modeRef.current }; setSelectedSourceRole(role); }}>{role}</button>)}</div>}
         <div className="nifti-viewer-modes">{MODES.map(([mode, label]) => <button type="button" key={mode} className={viewMode === mode ? "is-active" : ""} onClick={() => changeView(mode)}>{label}</button>)}</div>
         <button type="button" className={crosshairVisible ? "is-on" : ""} onClick={toggleCrosshair}>십자선</button>
         <output className="nifti-window-value" aria-label="현재 윈도우 레벨과 폭">WL {windowing ? windowing.level.toFixed(1) : "—"} · WW {windowing ? windowing.width.toFixed(1) : "—"}</output>
+        {sourceRole === "CT" && <><button type="button" onClick={() => setSourceWindow(40, 80)}>뇌창</button><button type="button" onClick={() => setSourceWindow(600, 2800)}>뼈창</button></>}
+        </div>
+        <div className="nifti-overlay-controls">
         <label><input type="checkbox" checked={maskVisible} disabled={!hasMask} onChange={(event) => setMaskVisible(event.target.checked)} /> 마스크</label>
         <label>투명도 <input type="range" min="0" max="100" value={maskOpacity} disabled={!hasMask} onChange={(event) => setMaskOpacity(Number(event.target.value))} /><strong>{maskOpacity}%</strong></label>
-        <label><input type="checkbox" checked={xaiVisible} disabled={!hasXai} onChange={(event) => setXaiVisible(event.target.checked)} /> Grad-CAM</label>
+        <label><input type="checkbox" checked={probabilityVisible} disabled={!hasProbability} onChange={(event) => setProbabilityVisible(event.target.checked)} /> 병변 가능도</label>
+        <label>가능도 <input type="range" min="0" max="100" value={probabilityOpacity} disabled={!hasProbability} onChange={(event) => setProbabilityOpacity(Number(event.target.value))} /><strong>{probabilityOpacity}%</strong></label>
+        <label title="Smooth Integrated Gradients"><input type="checkbox" checked={xaiVisible} disabled={!hasXai} onChange={(event) => setXaiVisible(event.target.checked)} /> XAI</label>
         <label>XAI <input type="range" min="0" max="100" value={xaiOpacity} disabled={!hasXai} onChange={(event) => setXaiOpacity(Number(event.target.value))} /><strong>{xaiOpacity}%</strong></label>
+        </div>
+        <div className="nifti-view-actions">
         <button type="button" onClick={() => fit()}>화면 맞춤</button><button type="button" onClick={() => fit(viewMode, true)}>초기화</button><button type="button" onClick={() => void toggleFullscreen()}>전체화면</button>
+        </div>
       </div>
     </header>
     <div className="nifti-viewer"><canvas ref={canvasRef} />{message && <div className={`nifti-viewer__message${alignment === false ? " is-warning" : ""}`}>{message}</div>}</div>

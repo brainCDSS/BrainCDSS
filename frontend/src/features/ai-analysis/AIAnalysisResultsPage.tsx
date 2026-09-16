@@ -1,12 +1,11 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { cancelAIAnalysis, createAIResultReview, getAIAnalyses, getAIAnalysis, getAIAnalysisResult } from "./api";
 import { getImagingStudy } from "../imaging/api";
 import type { ImagingStudyDetail } from "../imaging/types";
-import type { AIAnalysisItem, AIAnalysisResult } from "./types";
+import type { AIAnalysisItem, AIAnalysisResult, NiftiProbe } from "./types";
 import "./ai-analysis.css";
 
 const NiftiViewer = lazy(() => import("./NiftiViewer"));
-type ResultTab = "SUMMARY" | "LESIONS" | "XAI" | "REVIEW";
 const TERMINAL = new Set(["COMPLETED", "FAILED", "CANCELLED"]);
 const STATUS: Record<string, string> = { QUEUED: "분석 대기", PROCESSING: "분석 중", COMPLETED: "분석 완료", FAILED: "분석 실패", RETRYING: "재시도 중", CANCELLED: "분석 취소" };
 const ANALYSIS: Record<string, string> = { HEMORRHAGIC_STROKE_CT: "CT 뇌출혈 분석", ISCHEMIC_STROKE_DWI_ADC: "MRI 허혈성 뇌졸중 분석", CEREBRAL_ANEURYSM_MRA: "MRA 뇌동맥류 분석" };
@@ -19,7 +18,7 @@ function findingLabel(type: string | undefined, positive: boolean | null | undef
 }
 
 interface Props { initialAnalysisId?: string | null }
-interface Lesion { id?: string | number; volume_ml?: number; representative_slice?: number; prediction_score?: number }
+interface Lesion { id?: string | number; volume_ml?: number; representative_slice?: number; prediction_score?: number; relative_volume_pct?: number; location?: string; description?: string; max_diameter_mm?: number }
 
 export default function AIAnalysisResultsPage({ initialAnalysisId }: Props) {
   const [items, setItems] = useState<AIAnalysisItem[]>([]);
@@ -27,7 +26,6 @@ export default function AIAnalysisResultsPage({ initialAnalysisId }: Props) {
   const [result, setResult] = useState<AIAnalysisResult | null>(null);
   const [study, setStudy] = useState<ImagingStudyDetail | null>(null);
   const [patientUnlinked, setPatientUnlinked] = useState(false);
-  const [tab, setTab] = useState<ResultTab>("SUMMARY");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [opinion, setOpinion] = useState("");
@@ -38,6 +36,7 @@ export default function AIAnalysisResultsPage({ initialAnalysisId }: Props) {
   const [studyIndex, setStudyIndex] = useState<Record<string, ImagingStudyDetail>>({});
   const [patientQuery, setPatientQuery] = useState("");
   const [listCollapsed, setListCollapsed] = useState(false);
+  const [probe, setProbe] = useState<NiftiProbe | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -89,18 +88,25 @@ export default function AIAnalysisResultsPage({ initialAnalysisId }: Props) {
 
   useEffect(() => {
     let active = true;
-    setResult(null); setStudy(null); setPatientUnlinked(false); setTab("SUMMARY"); setReviewMessage(null); setSelectedLesion(null);
+    setResult(null); setStudy(null); setPatientUnlinked(false); setReviewMessage(null); setSelectedLesion(null); setProbe(null);
     if (!selected) return () => { active = false; };
     void getImagingStudy(selected.study_id).then((data) => { if (active) { setStudy(data); setPatientUnlinked(!data.patient); } }).catch(() => { if (active) setPatientUnlinked(true); });
     if (selected.status === "COMPLETED") void getAIAnalysisResult(selected.analysis_id).then((data) => { if (active) setResult(data); }).catch(() => { if (active) setError("완료된 분석 결과를 불러오지 못했습니다."); });
     return () => { active = false; };
   }, [selected?.analysis_id, selected?.status]);
 
-  const rawLesions = result?.structured_findings?.lesions;
+  const findings = result?.structured_findings as { lesions?: unknown; metrics?: { lesions?: unknown } } | undefined;
+  const rawLesions = findings?.lesions ?? findings?.metrics?.lesions;
   const lesions: Lesion[] = Array.isArray(rawLesions) ? rawLesions.filter((item): item is Lesion => typeof item === "object" && item !== null) : [];
-  const xaiArtifacts = result?.artifacts.filter((item) => ["GRAD_CAM_NIFTI", "ATTENTION_MAP_NIFTI", "ATTENTION_MAP", "SALIENCY_MAP", "UNCERTAINTY_MAP"].includes(item.type)) ?? [];
-  const xaiLabel = (type: string) => type === "GRAD_CAM_NIFTI" || type === "ATTENTION_MAP_NIFTI" ? "Grad-CAM" : type;
   const findingText = findingLabel(selected?.analysis_type, result?.is_positive);
+  const largestLesionIndex = useMemo(() => {
+    let largest = -1;
+    lesions.forEach((lesion, index) => {
+      if (lesion.representative_slice == null) return;
+      if (largest < 0 || (lesion.volume_ml ?? -1) > (lesions[largest].volume_ml ?? -1)) largest = index;
+    });
+    return largest;
+  }, [lesions]);
 
   async function saveReview() {
     if (!result || !opinion.trim()) return;
@@ -148,19 +154,20 @@ export default function AIAnalysisResultsPage({ initialAnalysisId }: Props) {
       </aside>
       {listCollapsed && <button type="button" className="ai-result-list-opener" onClick={() => setListCollapsed(false)}>환자 결과 <span>{items.length}</span> ›</button>}
       <div className="ai-workspace-body">
-      <main className="ai-workspace-primary">{selected?.status === "COMPLETED" ? <Suspense fallback={<div className="nifti-viewer__message">뷰어 준비 중</div>}><NiftiViewer key={selected.analysis_id} analysisId={selected.analysis_id} focusSlice={selectedLesion == null ? null : lesions[selectedLesion]?.representative_slice}/></Suspense> : <section className="ai-viewer-card ai-viewer-empty"><strong>{selected ? "분석 결과를 기다리는 중입니다." : "분석을 선택하세요."}</strong></section>}</main>
-      <aside className="ai-workspace-secondary clinical-result-panel">
-        <nav className="result-tabs">{([['SUMMARY','요약'],['LESIONS','병변'],['XAI','XAI'],['REVIEW','검토']] as Array<[ResultTab,string]>).map(([id,label]) => <button type="button" key={id} className={tab === id ? "is-active" : ""} onClick={() => setTab(id)}>{label}</button>)}</nav>
-        <div className="result-tab-body">
-          {tab === "SUMMARY" && <section className="clinical-summary">
+      <main className="ai-workspace-primary">{selected?.status === "COMPLETED" ? <Suspense fallback={<div className="nifti-viewer__message">뷰어 준비 중</div>}><NiftiViewer key={selected.analysis_id} analysisId={selected.analysis_id} focusSlice={selectedLesion == null ? null : lesions[selectedLesion]?.representative_slice} onProbe={(nextProbe) => { setProbe(nextProbe); if (nextProbe?.componentId && nextProbe.componentId > 0) { const index = lesions.findIndex((lesion) => Number(lesion.id) === nextProbe.componentId); setSelectedLesion(index >= 0 ? index : null); } else if (nextProbe) setSelectedLesion(null); }}/></Suspense> : <section className="ai-viewer-card ai-viewer-empty"><strong>{selected ? "분석 결과를 기다리는 중입니다." : "분석을 선택하세요."}</strong></section>}</main>
+      <aside className="ai-workspace-secondary clinical-result-panel clinical-result-overview">
+        <div className="result-overview-body">
+          <section className="clinical-summary">
             <div className="summary-status"><div><span>AI 분석 소견</span><strong>{result ? findingText : selected ? STATUS[selected.status] : "분석 없음"}</strong></div><span className={`ai-status-badge is-${(selected?.status ?? "unknown").toLowerCase()}`}>{selected ? STATUS[selected.status] : "미확인"}</span></div>
             <dl><div><dt>분석 유형</dt><dd>{selected ? ANALYSIS[selected.analysis_type] ?? selected.analysis_type : "미확인"}</dd></div><div><dt>총 병변 부피</dt><dd>{volume(result?.total_volume_ml)}</dd></div><div><dt>예측 점수</dt><dd>{result?.confidence == null ? "미산출" : result.confidence}</dd></div><div><dt>검사일시</dt><dd>{formatDate(study?.study_datetime)}</dd></div><div><dt>분석 완료</dt><dd>{formatDate(selected?.completed_at)}</dd></div><div><dt>모델 버전</dt><dd>{selected?.model ? `${selected.model.code} ${selected.model.version}` : "미확인"}</dd></div></dl>
-            {result && <details className="technical-details"><summary>기술 상세</summary><pre>{JSON.stringify(result.structured_findings, null, 2)}</pre></details>}
-          </section>}
-          {tab === "LESIONS" && <section className="lesion-panel">{lesions.length ? lesions.map((lesion,index) => <button type="button" key={String(lesion.id ?? index)} className={selectedLesion === index ? "is-selected" : ""} disabled={lesion.representative_slice == null} onClick={() => setSelectedLesion(index)}><strong>병변 {index + 1}</strong><span>부피 {volume(lesion.volume_ml)}</span><span>대표 슬라이스 {lesion.representative_slice ?? "미산출"}</span><span>예측 점수 {lesion.prediction_score ?? "미산출"}</span></button>) : <div className="tab-empty"><strong>병변별 데이터 미생성</strong><span>{result?.total_volume_ml == null ? "병변별·총부피 정보가 없습니다." : `현재 결과에는 총부피 ${volume(result.total_volume_ml)}만 있습니다.`}</span></div>}</section>}
-          {tab === "XAI" && <section className="xai-panel">{xaiArtifacts.length ? xaiArtifacts.map((artifact) => <div key={artifact.artifact_id ?? artifact.type}><strong>{xaiLabel(artifact.type)}</strong><span>생성 완료</span></div>) : <div className="tab-empty"><strong>XAI 미생성</strong><span>분할 마스크는 표시 중이지만 XAI 결과로 간주하지 않습니다.</span></div>}</section>}
-          {tab === "REVIEW" && <section className="review-panel"><div className="review-state"><span>현재 검토 상태</span><strong>{result?.latest_review?.decision ?? "미검토"}</strong></div><label>검토 결정<select value={reviewDecision} onChange={(e) => setReviewDecision(e.target.value as typeof reviewDecision)}><option value="ACCEPT">수용</option><option value="MODIFY">수정 필요</option><option value="REJECT">거절</option></select></label><label>의료진 소견<textarea value={opinion} onChange={(e) => setOpinion(e.target.value)} placeholder="AI 결과에 대한 소견을 입력하세요." /></label>{reviewMessage && <p>{reviewMessage}</p>}<div className="review-actions"><button type="button" disabled={actionBusy || !result || !opinion.trim()} onClick={() => void saveReview()}>검토 저장</button><button type="button" disabled title="판독 API 미연결">판독 작성</button><button type="button" disabled title="협진 API 미연결">협진 공유</button>{selected?.status === "QUEUED" && <button type="button" onClick={() => void cancelAIAnalysis(selected.analysis_id, "사용자 취소")}>분석 취소</button>}</div></section>}
+          </section>
+          <section className="voxel-probe"><header>선택 위치 정보</header>{probe ? <dl><div><dt>Voxel</dt><dd>{probe.voxel.join(", ")}</dd></div><div><dt>슬라이스</dt><dd>{probe.slice}</dd></div><div><dt>{probe.sourceRole}</dt><dd>{probe.sourceValue == null ? "미산출" : probe.sourceRole === "CT" ? `${probe.sourceValue.toFixed(1)} HU` : probe.sourceValue.toFixed(3)}</dd></div>{probe.dwiValue != null && <div><dt>DWI</dt><dd>{probe.dwiValue.toFixed(3)}</dd></div>}{probe.adcValue != null && <div><dt>ADC</dt><dd>{probe.adcValue.toFixed(3)}</dd></div>}<div><dt>AI 병변 가능도</dt><dd>{probe.probability == null ? "미산출" : `${(probe.probability * 100).toFixed(1)} %`}</dd></div><div><dt>AI 분할</dt><dd>{probe.maskValue == null ? "미산출" : probe.maskValue > 0 ? "병변" : "배경"}</dd></div><div><dt>XAI</dt><dd>{probe.xaiValue == null ? "미생성" : probe.xaiValue.toFixed(3)}</dd></div></dl> : <p>영상에서 위치를 클릭하면 AI 분석 값을 확인할 수 있습니다.</p>}</section>
+          <section className="lesion-overview">
+            <header><div><span>병변 설명</span><strong>{lesions.length ? `병변 ${lesions.length}개` : "병변별 정보 미생성"}</strong></div>{largestLesionIndex >= 0 && <button type="button" onClick={() => setSelectedLesion(largestLesionIndex)}>최대 병변으로 이동</button>}</header>
+            {lesions.length ? <div className="lesion-list">{lesions.map((lesion,index) => <button type="button" key={String(lesion.id ?? index)} className={selectedLesion === index ? "is-selected" : ""} disabled={lesion.representative_slice == null} onClick={() => setSelectedLesion(index)}><strong>병변 {index + 1}{index === largestLesionIndex ? " · 최대" : ""}</strong>{lesion.description && <em>{lesion.description}</em>}{lesion.location && <span>위치 {lesion.location}</span>}<span>부피 {volume(lesion.volume_ml)}</span><span>총 병변의 {lesion.relative_volume_pct == null ? "미산출" : `${Number(lesion.relative_volume_pct).toFixed(1)}%`}</span><span>대표 슬라이스 {lesion.representative_slice ?? "미산출"}</span><span>예측 점수 {lesion.prediction_score == null ? "미산출" : lesion.prediction_score}</span>{lesion.max_diameter_mm != null && <span>최대 직경 {Number(lesion.max_diameter_mm).toFixed(1)} mm</span>}</button>)}</div> : <div className="lesion-explanation"><strong>{findingText}</strong><p>{result?.total_volume_ml == null ? "병변의 개수, 위치, 대표 슬라이스 정보가 아직 산출되지 않았습니다." : `AI 분할 결과의 총 병변 부피는 ${volume(result.total_volume_ml)}입니다. 병변별 위치와 대표 슬라이스는 새 분석부터 표시합니다.`}</p><small>빨간 마스크는 AI가 분할한 의심 영역이며, 최종 판단은 의료진 검토가 필요합니다.</small></div>}
+          </section>
         </div>
+        <section className="review-panel review-panel-embedded"><div className="review-state"><span>검토 상태</span><strong>{result?.latest_review?.decision ?? "미검토"}</strong></div><label>의료진 소견<textarea value={opinion} onChange={(e) => setOpinion(e.target.value)} placeholder="AI 결과에 대한 소견을 입력하세요." /></label><label>검토 결정<select value={reviewDecision} onChange={(e) => setReviewDecision(e.target.value as typeof reviewDecision)}><option value="ACCEPT">수용</option><option value="MODIFY">수정 필요</option><option value="REJECT">거절</option></select></label>{reviewMessage && <p>{reviewMessage}</p>}<div className="review-actions"><button type="button" disabled={actionBusy || !result || !opinion.trim()} onClick={() => void saveReview()}>소견 저장</button><button type="button" disabled title="판독 API 미연결">판독 작성</button><button type="button" disabled title="협진 API 미연결">협진 공유</button></div></section>
       </aside>
       </div>
     </div>

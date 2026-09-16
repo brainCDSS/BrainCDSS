@@ -490,3 +490,64 @@ class AdminRolePermissionsView(APIView):
             result,
             status=status.HTTP_200_OK,
         )
+
+
+class GrafanaAuthView(APIView):
+    """
+    Grafana Auth Proxy 전용 인증 endpoint.
+
+    Browser가 직접 호출하는 endpoint가 아니라
+    Frontend Nginx auth_request가 호출한다.
+
+    BrainOn SYSTEM_ADMIN 인증 성공 시에만
+    Grafana가 신뢰할 인증 헤더를 반환한다.
+    """
+
+    permission_classes = [
+        SystemAdminPermission
+    ]
+
+    @extend_schema(
+        operation_id=(
+            "api_admin_grafana_auth"
+        ),
+        summary=(
+            "Grafana Auth Proxy 인증"
+        ),
+        responses={
+            204: OpenApiResponse(
+                description=(
+                    "SYSTEM_ADMIN authenticated"
+                )
+            ),
+            401: OpenApiResponse(
+                description=(
+                    "Authentication required"
+                )
+            ),
+            403: OpenApiResponse(
+                description=(
+                    "SYSTEM_ADMIN required"
+                )
+            ),
+        },
+        tags=["accounts"],
+    )
+    def get(self, request):
+        response = Response(
+            status=status.HTTP_204_NO_CONTENT
+        )
+
+        response[
+            "X-Grafana-User"
+        ] = request.user.login_id
+
+        response[
+            "X-Grafana-Role"
+        ] = "Admin"
+
+        response[
+            "Cache-Control"
+        ] = "no-store"
+
+        return response

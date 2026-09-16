@@ -1,0 +1,9 @@
+services:
+
+  loki:
+    ports:
+      - "127.0.0.1:3100:3100"
+
+  prometheus:
+    ports:
+      - "127.0.0.1:9090:9090"

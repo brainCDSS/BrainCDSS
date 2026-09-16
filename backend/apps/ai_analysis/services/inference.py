@@ -167,6 +167,7 @@ def store_inference_result(analysis, response):
             "structured_findings": {
                 "model": response.get("model"),
                 "metrics": metrics,
+                "lesions": metrics.get("lesions") or [],
                 "timing_ms": response.get("timing_ms") or {},
                 "trace_id": response.get("trace_id"),
                 "outputs": outputs,

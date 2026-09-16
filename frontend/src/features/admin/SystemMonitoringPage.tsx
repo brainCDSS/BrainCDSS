@@ -1,7 +1,218 @@
-import { useEffect, useState } from "react";
-import { getBackendHealth } from "./api";
-import { AI_ANALYSIS_STATUS, CORE_SERVICE_STATUS, INTEGRATION_SERVICE_STATUS } from "./data";
-import type { ServiceStatusItem } from "./types";
+import {
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
+
+import {
+  getAccessToken,
+} from "../auth/session";
+
 import "./admin.css";
-export default function SystemMonitoringPage(){const [statuses,setStatuses]=useState(CORE_SERVICE_STATUS);useEffect(()=>{let live=true;getBackendHealth().then(h=>{if(live)setStatuses(rows=>rows.map(row=>row.service==="Backend"?{...row,status:h.status==="ok"?"정상":"확인 실패",checkedAt:new Date().toLocaleString(),message:`${h.service} 응답`}:row));}).catch(()=>{if(live)setStatuses(rows=>rows.map(row=>row.service==="Backend"?{...row,status:"확인 실패",checkedAt:new Date().toLocaleString(),message:"Backend health 응답을 확인하지 못했습니다."}:row));});return()=>{live=false;};},[]);return <section className="clinical-page admin-page"><header className="clinical-page__heading"><h2>시스템 모니터링</h2><p>서비스와 외부 연동 상태를 한 화면에서 확인합니다.</p></header><div className="admin-section-stack"><Status title="서비스 상태" rows={statuses}/><Status title="외부 연동" rows={INTEGRATION_SERVICE_STATUS}/><section className="clinical-card"><div className="clinical-card__title"><h3>AI 분석 현황</h3></div><div className="clinical-table-wrap"><table className="clinical-table"><thead><tr><th>분석 유형</th><th>완료</th><th>실행 중</th><th>실패</th></tr></thead><tbody>{AI_ANALYSIS_STATUS.map(i=><tr key={i.type}><td>{i.type}</td><td>-</td><td>-</td><td>-</td></tr>)}</tbody></table></div></section></div></section>}
-function Status({title,rows}:{title:string;rows:ServiceStatusItem[]}){return <section className="clinical-card"><div className="clinical-card__title"><h3>{title}</h3></div><div className="clinical-table-wrap"><table className="clinical-table"><thead><tr><th>서비스</th><th>상태</th><th>최근 확인</th><th>메시지</th></tr></thead><tbody>{rows.map(i=><tr key={i.service}><td>{i.service}</td><td>{i.status}</td><td>{i.checkedAt}</td><td>{i.message}</td></tr>)}</tbody></table></div></section>}
+
+
+const GRAFANA_LOGIN =
+  "/grafana/login";
+
+const GRAFANA_DASHBOARD =
+  (
+    "/grafana/d/"
+    + "brainon-admin-overview/"
+    + "brainon-admin-system-monitoring"
+    + "?orgId=1&kiosk"
+  );
+
+
+export default function SystemMonitoringPage() {
+  const [
+    grafanaReady,
+    setGrafanaReady,
+  ] = useState(false);
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
+
+  const [
+    error,
+    setError,
+  ] = useState("");
+
+
+  const connectGrafana =
+    useCallback(
+      async () => {
+        const accessToken =
+          getAccessToken();
+
+        if (!accessToken) {
+          setGrafanaReady(false);
+          setLoading(false);
+
+          setError(
+            "BrainOn 로그인 정보가 없습니다.",
+          );
+
+          return;
+        }
+
+
+        setLoading(true);
+        setError("");
+
+
+        try {
+          const response =
+            await fetch(
+              GRAFANA_LOGIN,
+              {
+                method: "GET",
+
+                headers: {
+                  Authorization:
+                    `Bearer ${accessToken}`,
+                },
+
+                credentials:
+                  "same-origin",
+
+                cache:
+                  "no-store",
+              },
+            );
+
+
+          if (!response.ok) {
+            throw new Error(
+              (
+                "GRAFANA_SSO_FAILED:"
+                + response.status
+              ),
+            );
+          }
+
+
+          setGrafanaReady(
+            true,
+          );
+
+        } catch (requestError) {
+
+          setGrafanaReady(
+            false,
+          );
+
+          setError(
+            requestError
+              instanceof Error
+              ? requestError.message
+              : (
+                  "Grafana 연결에 "
+                  + "실패했습니다."
+                ),
+          );
+
+        } finally {
+          setLoading(
+            false,
+          );
+        }
+      },
+      [],
+    );
+
+
+  useEffect(
+    () => {
+      void connectGrafana();
+    },
+    [
+      connectGrafana,
+    ],
+  );
+
+
+  return (
+    <section
+      className="
+        clinical-page
+        admin-page
+        admin-monitoring-page
+      "
+    >
+      <header
+        className="clinical-page__heading"
+      >
+        <div>
+          <h2>
+            시스템 모니터링
+          </h2>
+
+          <p>
+            시스템 상태·DB·감사 로그·
+            Runtime 로그·request_id를
+            통합 추적합니다.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          className="
+            admin-action
+            admin-action--primary
+          "
+          disabled={loading}
+          onClick={
+            () =>
+              void connectGrafana()
+          }
+        >
+          {loading
+            ? "연결 중..."
+            : "모니터링 재연결"}
+        </button>
+      </header>
+
+
+      {error && (
+        <div
+          className="
+            admin-message
+            admin-message--error
+          "
+        >
+          {error}
+        </div>
+      )}
+
+
+      {!error
+        && loading
+        && (
+          <div className="clinical-card">
+            <div className="clinical-state">
+              Grafana 관리자 세션을
+              연결하고 있습니다.
+            </div>
+          </div>
+        )}
+
+
+      {grafanaReady && (
+        <section
+          className="
+            clinical-card
+            admin-grafana-card
+          "
+        >
+          <iframe
+            title="BrainOn System Monitoring"
+            className="admin-grafana-frame"
+            src={GRAFANA_DASHBOARD}
+          />
+        </section>
+      )}
+    </section>
+  );
+}

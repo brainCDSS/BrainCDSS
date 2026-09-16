@@ -11,12 +11,7 @@ from .gradcam import GradCam3D, find_last_conv3d
 
 
 def generate_nnunet_gradcam(predictor, input_paths: list[Path], reference_path: Path, output_path: Path) -> dict:
-    """Run patch-level Grad-CAM and reverse nnU-Net spatial preprocessing.
-
-    A representative patch is selected using the highest foreground top-voxel
-    probability. This avoids labeling the segmentation mask itself as XAI and
-    keeps the attribution tied to an actual differentiable network forward pass.
-    """
+    """Run full sliding-window Grad-CAM and reverse nnU-Net preprocessing."""
     import nibabel as nib
     import torch
 
@@ -36,14 +31,16 @@ def generate_nnunet_gradcam(predictor, input_paths: list[Path], reference_path: 
     network.eval()
 
     slicers = predictor._internal_get_sliding_window_slicers(tensor.shape[1:])
-    selected, selected_score = _select_foreground_patch(network, tensor, slicers, predictor.device)
-    patch = tensor[selected][None].to(predictor.device, memory_format=torch.contiguous_format)
+    predicted_roi = _predicted_lesion_roi(predictor, tensor)
     target_layer = find_last_conv3d(network)
-    attribution = GradCam3D(network, target_layer=target_layer).attribute(patch)[0, 0].cpu().numpy()
-
-    heatmap = np.zeros(tensor.shape[1:], dtype=np.float32)
-    spatial_slices = selected[1:]
-    heatmap[spatial_slices] = np.maximum(heatmap[spatial_slices], attribution)
+    heatmap, patch_count, attributed_patch_count = _aggregate_sliding_window_gradcam(
+        network,
+        tensor,
+        slicers,
+        predictor.device,
+        GradCam3D(network, target_layer=target_layer),
+        predicted_roi,
+    )
     heatmap = heatmap[crop]
     reference = nib.load(str(reference_path))
     original_space = _restore_original_space(heatmap, predictor, properties)
@@ -52,36 +49,105 @@ def generate_nnunet_gradcam(predictor, input_paths: list[Path], reference_path: 
         raise ValueError(
             f"Grad-CAM shape {original_space.shape} does not match source shape {reference.shape[:3]}"
         )
+    original_space = _global_normalize(original_space)
     header = reference.header.copy()
     header.set_data_dtype(np.float32)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     nib.save(nib.Nifti1Image(original_space.astype(np.float32), reference.affine, header), str(output_path))
     return {
         "method": "CAPTUM_LAYER_GRAD_CAM_3D",
-        "target": "FOREGROUND_TOP_0_1_PERCENT_MEAN",
+        "target": "PREDICTED_LESION_ROI_MEAN_FOREGROUND_LOGIT",
         "target_layer": _module_name(network, target_layer),
-        "representative_patch_score": float(selected_score),
-        "normalization": "RELU_MIN_MAX_0_1",
+        "patch_count": patch_count,
+        "attributed_patch_count": attributed_patch_count,
+        "skipped_background_patch_count": patch_count - attributed_patch_count,
+        "roi_source": "NNUNET_PREDICTED_SEGMENTATION",
+        "segmentation_decision": "LABEL_MANAGER_CONVERT_LOGITS_TO_SEGMENTATION",
+        "aggregation": "GAUSSIAN_WEIGHTED_MEAN",
+        "normalization": "GLOBAL_RELU_MIN_MAX_0_1",
     }
 
 
-def _select_foreground_patch(network, tensor, slicers, device):
+def _gaussian_importance_map(patch_size: tuple[int, ...], sigma_scale: float = 1 / 8) -> np.ndarray:
+    """Create a strictly positive, center-normalized 3-D Gaussian map."""
+    axes = []
+    for size in patch_size:
+        coordinates = np.arange(size, dtype=np.float32) - (size - 1) / 2
+        sigma = max(float(size) * sigma_scale, np.finfo(np.float32).eps)
+        axes.append(np.exp(-0.5 * (coordinates / sigma) ** 2))
+    gaussian = axes[0][:, None, None] * axes[1][None, :, None] * axes[2][None, None, :]
+    gaussian /= float(gaussian.max())
+    return np.maximum(gaussian, np.finfo(np.float32).tiny).astype(np.float32)
+
+
+def _predicted_lesion_roi(predictor, tensor) -> np.ndarray:
+    """Re-use nnU-Net's production segmentation decision for the XAI ROI."""
     import torch
 
-    best_slice = slicers[0]
-    best_score = float("-inf")
     with torch.inference_mode():
-        for slicer in slicers:
-            output = network(tensor[slicer][None].to(device, memory_format=torch.contiguous_format))
-            if isinstance(output, (tuple, list)):
-                output = output[0]
-            foreground = torch.sigmoid(output[:, 0]) if output.shape[1] == 1 else torch.softmax(output, dim=1)[:, 1]
-            flat = foreground.flatten()
-            top_count = max(1, int(flat.numel() * 0.001))
-            score = float(flat.topk(top_count).values.mean().item())
-            if score > best_score:
-                best_slice, best_score = slicer, score
-    return best_slice, best_score
+        predicted_logits = predictor.predict_logits_from_preprocessed_data(tensor)
+        segmentation = predictor.label_manager.convert_logits_to_segmentation(
+            predicted_logits,
+        )
+    if isinstance(segmentation, torch.Tensor):
+        segmentation = segmentation.cpu().numpy()
+    return np.isin(
+        np.asarray(segmentation),
+        predictor.label_manager.foreground_labels,
+    )
+
+
+def _aggregate_sliding_window_gradcam(
+    network,
+    tensor,
+    slicers,
+    device,
+    gradcam,
+    predicted_roi,
+):
+    import torch
+
+    spatial_shape = tuple(int(value) for value in tensor.shape[1:])
+    heatmap_sum = np.zeros(spatial_shape, dtype=np.float32)
+    weight_sum = np.zeros(spatial_shape, dtype=np.float32)
+    patch_count = 0
+    attributed_patch_count = 0
+    gaussian = None
+    for slicer in slicers:
+        patch_count += 1
+        spatial_slices = slicer[1:]
+        roi_mask = predicted_roi[spatial_slices]
+        if not roi_mask.any():
+            continue
+
+        network.zero_grad(set_to_none=True)
+        patch = tensor[slicer][None].to(device, memory_format=torch.contiguous_format)
+        attribution = gradcam.attribute(
+            patch,
+            roi_mask=roi_mask,
+            normalize=False,
+        )[0, 0].cpu().numpy().astype(np.float32)
+        if gaussian is None or gaussian.shape != attribution.shape:
+            gaussian = _gaussian_importance_map(tuple(attribution.shape))
+        heatmap_sum[spatial_slices] += attribution * gaussian
+        weight_sum[spatial_slices] += gaussian
+        attributed_patch_count += 1
+    if patch_count == 0:
+        raise ValueError("nnU-Net returned no sliding-window slicers")
+    heatmap = np.zeros_like(heatmap_sum)
+    np.divide(heatmap_sum, weight_sum, out=heatmap, where=weight_sum > 0)
+    return heatmap, patch_count, attributed_patch_count
+
+
+def _global_normalize(volume: np.ndarray) -> np.ndarray:
+    """Apply ReLU and one global min-max normalization without fixed epsilon."""
+    positive = np.maximum(np.asarray(volume, dtype=np.float32), 0)
+    minimum = float(positive.min())
+    maximum = float(positive.max())
+    value_range = maximum - minimum
+    if value_range <= 0:
+        return np.zeros_like(positive, dtype=np.float32)
+    return ((positive - minimum) / value_range).astype(np.float32)
 
 
 def _pad_to_patch(data: np.ndarray, patch_size: tuple[int, ...]):

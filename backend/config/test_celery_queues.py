@@ -19,7 +19,8 @@ class CeleryQueueRoutingTests(SimpleTestCase):
             "apps.ai_analysis.tasks.future_task": INFERENCE_QUEUE,
             "apps.notifications.tasks.send_notification": NOTIFICATIONS_QUEUE,
             "apps.common.outbox_tasks.publish_outbox_event": INTEGRATIONS_QUEUE,
-            "apps.common.tasks.broker_ping": INTEGRATIONS_QUEUE,
+            "medication_safety.sync_mfds_dur_data": INTEGRATIONS_QUEUE,
+            "common.broker_ping": DEFAULT_QUEUE,
             "apps.appointments.tasks.future_task": DEFAULT_QUEUE,
         }
 

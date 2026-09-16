@@ -75,7 +75,7 @@ class ModelInfo(StrictModel):
 
 
 class OutputObject(StrictModel):
-    type: Literal["NIFTI_MASK", "RESULT_JSON", "GRAD_CAM_NIFTI"]
+    type: Literal["NIFTI_MASK", "RESULT_JSON", "LESION_PROBABILITY_NIFTI", "LESION_COMPONENT_MAP_NIFTI", "GRAD_CAM_NIFTI", "INTEGRATED_GRADIENTS_NIFTI", "INTEGRATED_GRADIENTS_DWI_NIFTI", "INTEGRATED_GRADIENTS_ADC_NIFTI"]
     uri: str = Field(pattern=r"^gs://")
     size_bytes: int = Field(gt=0)
     sha256: str = Field(pattern=r"^[a-f0-9]{64}$")

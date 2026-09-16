@@ -46,5 +46,5 @@ TASK_ROUTES = {
     "apps.ai_analysis.run_*": {"queue": INFERENCE_QUEUE},
     "apps.notifications.tasks.*": {"queue": NOTIFICATIONS_QUEUE},
     "apps.common.outbox_tasks.*": {"queue": INTEGRATIONS_QUEUE},
-    "apps.common.tasks.broker_ping": {"queue": INTEGRATIONS_QUEUE},
+    "medication_safety.sync_mfds_dur_data": {"queue": INTEGRATIONS_QUEUE},
 }

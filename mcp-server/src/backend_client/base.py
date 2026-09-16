@@ -12,5 +12,8 @@ class BackendClient(ABC):
         path: str,
         trace_id: str,
         params: dict[str, Any] | None = None,
+        *,
+        actor_id: str,
+        actor_role: str,
     ) -> dict:
         ...

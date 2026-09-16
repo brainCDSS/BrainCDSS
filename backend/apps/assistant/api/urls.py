@@ -8,10 +8,13 @@ from .internal_mcp import (
     AppointmentsInternalView,
     ClinicalRecordSummaryInternalView,
     CurrentMedicationsInternalView,
+    EmergencyWorklistInternalView,
     ImagingAnalysisResultInternalView,
     MedicationSafetyResultInternalView,
     PatientSummaryInternalView,
+    PendingConsultationsInternalView,
     RecentTestResultsInternalView,
+    TodayAppointmentsInternalView,
 )
 
 
@@ -31,6 +34,28 @@ urlpatterns = [
         AppointmentsInternalView.as_view(),
         name="internal-mcp-appointments",
     ),
+
+    # MCP 응답 구조 보완 =========================
+    path(
+    "internal/v1/mcp/get_today_appointments/",
+    TodayAppointmentsInternalView.as_view(),
+    name="internal-mcp-today-appointments",
+    ),
+
+    path(
+    "internal/v1/mcp/get_emergency_worklist/",
+    EmergencyWorklistInternalView.as_view(),
+    name="internal-mcp-emergency-worklist",
+    ),
+
+    path(
+        "internal/v1/mcp/get_pending_consultations/",
+        PendingConsultationsInternalView.as_view(),
+        name="internal-mcp-pending-consultations",
+    ),
+
+    # =========================================
+
     path(
         "internal/v1/mcp/get_current_medications/",
         CurrentMedicationsInternalView.as_view(),

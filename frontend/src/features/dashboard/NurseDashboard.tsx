@@ -11,6 +11,7 @@ import type {
 import {
   getPatients,
 } from "../patients/api";
+import { getPatientEncounters } from "../medication-safety/api";
 
 import type {
   Patient,
@@ -534,6 +535,26 @@ export default function NurseDashboard({
     useState<string | null>(
       null,
     );
+  const [encounterBadges, setEncounterBadges] = useState<Record<string, { label: string; tone: string }>>({});
+
+  useEffect(() => {
+    let active = true;
+    if (!patients.length) { setEncounterBadges({}); return () => { active = false; }; }
+    void Promise.allSettled(patients.map(async (patient) => ({ patientId: patient.id, encounters: await getPatientEncounters(patient.id) }))).then((results) => {
+      if (!active) return;
+      const next: Record<string, { label: string; tone: string }> = {};
+      results.forEach((result) => {
+        if (result.status !== "fulfilled") return;
+        const latest = [...result.value.encounters].sort((a, b) => (b.arrived_at ?? "").localeCompare(a.arrived_at ?? ""))[0];
+        if (!latest) return;
+        if (latest.ended_at) next[result.value.patientId] = { label: "완료", tone: "completed" };
+        else if (latest.status === "IN_PROGRESS") next[result.value.patientId] = { label: "진료중", tone: "in-progress" };
+        else if (latest.status === "REGISTERED") next[result.value.patientId] = { label: "진료대기", tone: "registered" };
+      });
+      setEncounterBadges(next);
+    });
+    return () => { active = false; };
+  }, [patients]);
 
 
   useEffect(() => {
@@ -875,7 +896,7 @@ export default function NurseDashboard({
 
             <strong>{patient.name}</strong>
 
-            <em>{patient.status}</em>
+            {encounterBadges[patient.id] && <em className={`patient-mini-status is-${encounterBadges[patient.id].tone}`}>{encounterBadges[patient.id].label}</em>}
           </span>
 
           <small>

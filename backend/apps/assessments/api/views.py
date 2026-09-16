@@ -25,10 +25,15 @@ from apps.organizations.models import Department
 
 def _require_assessment_read_role(request):
     role_code = getattr(getattr(request.user, "role", None), "code", None)
-    if role_code not in {"NEUROLOGIST", "NURSE"}:
+    if role_code not in {
+        "NEUROLOGIST",
+        "NEUROSURGEON",
+        "RADIOLOGY",
+        "NURSE",
+    }:
         raise PermissionDenied({
             "code": "FORBIDDEN_ROLE",
-            "detail": "Only neurologists and nurses may read assessments.",
+            "detail": "Only authorized clinical roles may read assessments.",
         })
 
 

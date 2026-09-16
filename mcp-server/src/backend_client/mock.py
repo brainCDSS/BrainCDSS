@@ -12,11 +12,16 @@ class MockBackendClient(BackendClient):
         path: str,
         trace_id: str,
         params: dict[str, Any] | None = None,
+        *,
+        actor_id: str,
+        actor_role: str,
     ) -> dict:
         return {
             "is_mock": True,
             "status": "NOT_IMPLEMENTED",
             "path": path,
             "trace_id": trace_id,
+            "actor_id": actor_id,
+            "actor_role": actor_role,
             "params": params or {},
         }

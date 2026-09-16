@@ -35,7 +35,7 @@ export function getConsultationDetail(
 }
 
 const consultationAction = (consultationId: string, action: string, payload?: unknown) => apiRequest<ConsultationListItem>(`/api/v1/consultations/${encodeURIComponent(consultationId)}/${action}`, { method: "POST", headers: payload === undefined ? undefined : { "Content-Type": "application/json" }, body: payload === undefined ? undefined : JSON.stringify(payload) });
-export function createConsultation(payload: { encounter_id: string; consultation_type: "RADIOLOGY" | "NEUROSURGERY"; priority: "ROUTINE" | "URGENT" | "STAT"; reason: string }) { return apiRequest<ConsultationListItem>("/api/v1/consultations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); }
+export function createConsultation(payload: { encounter_id: string; consultation_type: "RADIOLOGY" | "NEUROSURGERY"; assigned_to_id: string; priority: "ROUTINE" | "URGENT" | "STAT"; reason: string }) { return apiRequest<ConsultationListItem>("/api/v1/consultations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); }
 export function acceptConsultation(id: string) { return consultationAction(id, "accept"); }
 export function rejectConsultation(id: string, reason: string) { return consultationAction(id, "reject", { reason }); }
 export function startConsultation(id: string) { return consultationAction(id, "start"); }

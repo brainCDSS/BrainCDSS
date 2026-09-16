@@ -35,4 +35,29 @@ class AuthApi {
 
     return session;
   }
+
+  Future<String> refresh(String refreshToken) async {
+    final response = await apiClient.post(
+      '/api/v1/auth/refresh',
+      body: {'refresh': refreshToken},
+      retryOnUnauthorized: false,
+    );
+    final accessToken = response['access']?.toString() ?? '';
+    if (accessToken.isEmpty) {
+      throw const ApiException(
+        statusCode: 401,
+        message: '인증 정보를 갱신하지 못했습니다.',
+      );
+    }
+    apiClient.setAccessToken(accessToken);
+    return accessToken;
+  }
+
+  Future<void> logout(String refreshToken) async {
+    await apiClient.post(
+      '/api/v1/auth/logout',
+      body: {'refresh': refreshToken},
+      retryOnUnauthorized: false,
+    );
+  }
 }

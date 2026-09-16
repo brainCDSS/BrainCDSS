@@ -3,7 +3,7 @@ from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from apps.accounts.models import Role, RoleCode, User
-from apps.assessments.models import EmergencyEvent, InitialAssessment
+from apps.assessments.models import AssessmentItem, EmergencyEvent, InitialAssessment
 from apps.audit.models import AuditLog
 from apps.clinical_records.models import Encounter
 from apps.organizations.models import Department, Hospital
@@ -248,3 +248,108 @@ class EmergencyWorklistAPITests(APITestCase):
         response = self.client.post(self.acknowledge_url, {}, format="json")
 
         self.assertEqual(response.status_code, 403)
+
+
+class AssessmentEncounterListAPITests(APITestCase):
+    def setUp(self):
+        self.neurologist_role = Role.objects.create(
+            code=RoleCode.NEUROLOGIST,
+            name="Neurologist",
+        )
+        self.nurse_role = Role.objects.create(
+            code=RoleCode.NURSE,
+            name="Nurse",
+        )
+        self.patient_role = Role.objects.create(
+            code=RoleCode.PATIENT,
+            name="Patient",
+        )
+        self.neurologist = User.objects.create_user(
+            login_id="assessment-list-neurologist",
+            password="test-password",
+            name="Assessment neurologist",
+            role=self.neurologist_role,
+        )
+        self.nurse = User.objects.create_user(
+            login_id="assessment-list-nurse",
+            password="test-password",
+            name="Assessment nurse",
+            role=self.nurse_role,
+        )
+        self.patient_user = User.objects.create_user(
+            login_id="assessment-list-patient",
+            password="test-password",
+            name="Assessment patient",
+            role=self.patient_role,
+        )
+        self.patient = Patient.objects.create(
+            patient_no="ASSESSMENT-LIST-001",
+            name="Assessment List Patient",
+            created_by=self.nurse,
+        )
+        self.encounter = Encounter.objects.create(
+            patient=self.patient,
+            encounter_no="ENC-ASSESSMENT-LIST-001",
+            encounter_type="EMERGENCY",
+            status="IN_PROGRESS",
+            arrived_at=timezone.now(),
+            created_at=timezone.now(),
+            updated_at=timezone.now(),
+        )
+        self.url = reverse("api-asm-assessment-list-by-encounter")
+
+    def _create_assessment(self, **kwargs):
+        now = timezone.now()
+        return InitialAssessment.objects.create(
+            encounter=self.encounter,
+            assessor=self.nurse,
+            status="COMPLETED",
+            created_at=now,
+            updated_at=now,
+            **kwargs,
+        )
+
+    def test_neurologist_reads_assessment_by_encounter_with_items(self):
+        assessment = self._create_assessment(
+            total_score=7,
+            triage_priority="EMERGENCY",
+            symptom_note="Assessment symptom",
+            assigned_neurologist=self.neurologist,
+        )
+        AssessmentItem.objects.create(
+            assessment=assessment,
+            item_group="FAST",
+            item_code="FAST_FACE",
+            value_text="ABNORMAL",
+            is_red_flag=True,
+            recorded_at=timezone.now(),
+        )
+
+        self.client.force_authenticate(self.neurologist)
+        response = self.client.get(self.url, {"encounter_id": self.encounter.id})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 1)
+        item = response.data["results"][0]
+        self.assertEqual(item["assessment_id"], str(assessment.id))
+        self.assertEqual(item["encounter_id"], str(self.encounter.id))
+        self.assertEqual(item["total_score"], 7)
+        self.assertEqual(item["items"][0]["item_code"], "FAST_FACE")
+
+    def test_returns_empty_results_when_encounter_has_no_assessment(self):
+        self.client.force_authenticate(self.neurologist)
+
+        response = self.client.get(self.url, {"encounter_id": self.encounter.id})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data, {"count": 0, "results": []})
+
+    def test_rejects_unknown_encounter_and_non_clinical_role(self):
+        self.client.force_authenticate(self.neurologist)
+        missing = self.client.get(self.url, {"encounter_id": "00000000-0000-0000-0000-000000000000"})
+
+        self.client.force_authenticate(self.patient_user)
+        forbidden = self.client.get(self.url, {"encounter_id": self.encounter.id})
+
+        self.assertEqual(missing.status_code, 404)
+        self.assertEqual(forbidden.status_code, 403)

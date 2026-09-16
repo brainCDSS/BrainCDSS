@@ -30,6 +30,44 @@ class AssessmentNeurologyDepartmentSerializer(serializers.Serializer):
     neurology_department_id = serializers.UUIDField(allow_null=True)
 
 
+class AssessmentEncounterQuerySerializer(serializers.Serializer):
+    encounter_id = serializers.UUIDField(required=True)
+
+
+class AssessmentDetailItemSerializer(serializers.Serializer):
+    item_code = serializers.CharField()
+    value_text = serializers.CharField(allow_null=True)
+    value_numeric = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        allow_null=True,
+    )
+    unit = serializers.CharField(allow_null=True)
+    score = serializers.IntegerField(allow_null=True)
+    is_red_flag = serializers.BooleanField()
+    note = serializers.CharField(allow_null=True)
+
+
+class AssessmentEncounterListItemSerializer(serializers.Serializer):
+    assessment_id = serializers.UUIDField()
+    encounter_id = serializers.UUIDField()
+    status = serializers.CharField()
+    total_score = serializers.IntegerField(allow_null=True)
+    triage_priority = serializers.CharField(allow_null=True)
+    onset_at = serializers.DateTimeField(allow_null=True)
+    lkw_at = serializers.DateTimeField(allow_null=True)
+    symptom_note = serializers.CharField(allow_null=True)
+    assigned_neurologist = serializers.DictField(allow_null=True)
+    items = AssessmentDetailItemSerializer(many=True)
+    created_at = serializers.DateTimeField()
+    updated_at = serializers.DateTimeField()
+
+
+class AssessmentEncounterListResponseSerializer(serializers.Serializer):
+    count = serializers.IntegerField()
+    results = AssessmentEncounterListItemSerializer(many=True)
+
+
 class EmergencyWorklistPatientSerializer(serializers.Serializer):
     patient_id = serializers.UUIDField()
     patient_no = serializers.CharField()

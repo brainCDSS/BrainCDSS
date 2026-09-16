@@ -8,6 +8,7 @@ import { getImagingStudies } from "../imaging/api";
 import type { ImagingStudy } from "../imaging/types";
 import { getPatientEncounters } from "../medication-safety/api";
 import type { EncounterListItem } from "../medication-safety/types";
+import { loadAuthSession } from "../auth/session";
 import { getPatient, getPatients } from "./api";
 import type { Patient, PatientDetail } from "./types";
 import "./css/patient_chart.css";
@@ -20,18 +21,43 @@ const PAGE_SIZE = 6;
 
 function sex(value: string | null) { return value === "M" || value === "MALE" ? "남" : value === "F" || value === "FEMALE" ? "여" : value || "-"; }
 function age(patient: Patient) { return patient.estimated_age === null ? "-" : `${patient.estimated_age}세`; }
+function encounterBadge(encounter?: { status?: string | null; endedAt?: string | null }) {
+  if (encounter?.endedAt) return { label: "완료", tone: "completed" };
+  if (encounter?.status === "IN_PROGRESS") return { label: "진료중", tone: "in-progress" };
+  if (encounter?.status === "REGISTERED") return { label: "진료대기", tone: "registered" };
+  return null;
+}
 function dateTime(value?: string | null) { if (!value) return "-"; const date = new Date(value); return Number.isNaN(date.getTime()) ? value : date.toLocaleString("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }); }
 function analysisName(value: string) { const key = value.toUpperCase(); if (key.includes("ISCHEM")) return "허혈성 뇌졸중"; if (key.includes("HEMORRH")) return "출혈성 뇌졸중"; if (key.includes("ANEURYSM")) return "뇌동맥류"; return value; }
 
 export function PatientRail({ selectedId, patients, onSelect }: { selectedId: string | null; patients: Patient[]; onSelect?: (patient: Patient) => void }) {
-  const [search, setSearch] = useState(""); const [page, setPage] = useState(1);
+  const [search, setSearch] = useState(""); const [page, setPage] = useState(1); const [encounterBadges, setEncounterBadges] = useState<Record<string, { label: string; tone: string }>>({});
   const filtered = useMemo(() => { const query = search.trim().toLowerCase(); return query ? patients.filter((item) => item.name.toLowerCase().includes(query) || item.patient_no.toLowerCase().includes(query)) : patients; }, [patients, search]);
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)); const current = Math.min(page, pages); const rows = filtered.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
   useEffect(() => setPage(1), [search]);
-  return <aside className="patient-context-rail"><header className="patient-context-rail__header"><div><span>PATIENT LIST</span><strong>환자 목록</strong></div><small>{patients.length}명</small></header><label className="patient-context-search"><span aria-hidden="true">⌕</span><input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="이름 또는 등록번호 검색" /></label><div className="patient-context-list">{rows.map((item) => { const demographics = [sex(item.sex), age(item)].filter((value) => value !== "-").join(" · "); return <button key={item.id} type="button" className={`patient-context-item${item.id === selectedId ? " is-selected" : ""}`} onClick={() => onSelect?.(item)} aria-current={item.id === selectedId ? "true" : undefined}><span className="patient-context-item__avatar" aria-hidden="true">{item.name.slice(0, 1)}</span><span className="patient-context-item__topline"><strong>{item.name}</strong><span className={`patient-mini-status is-${item.status.toLowerCase()}`}>{item.status}</span></span>{demographics && <span className="patient-context-item__demographics">{demographics}</span>}<span className="patient-context-item__meta">환자번호 {item.patient_no}</span></button>; })}{rows.length === 0 && <div className="patient-context-empty">검색 결과가 없습니다.</div>}</div><nav className="patient-context-pagination"><button type="button" disabled={current === 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>‹</button><span><strong>{current}</strong> / {pages}</span><button type="button" disabled={current === pages} onClick={() => setPage((value) => Math.min(pages, value + 1))}>›</button></nav></aside>;
+  useEffect(() => {
+    let active = true;
+    if (patients.length === 0) { setEncounterBadges({}); return; }
+    void Promise.allSettled(patients.map(async (patient) => ({ patientId: patient.id, encounters: await getPatientEncounters(patient.id) }))).then((results) => {
+      if (!active) return;
+      const next: Record<string, { label: string; tone: string }> = {};
+      results.forEach((result) => {
+        if (result.status !== "fulfilled") return;
+        const latest = [...result.value.encounters].sort((left, right) => (right.arrived_at ?? "").localeCompare(left.arrived_at ?? ""))[0];
+        if (!latest) return;
+        if (latest.ended_at) next[result.value.patientId] = { label: "완료", tone: "completed" };
+        else if (latest.status === "IN_PROGRESS") next[result.value.patientId] = { label: "진료중", tone: "in-progress" };
+        else if (latest.status === "REGISTERED") next[result.value.patientId] = { label: "진료대기", tone: "registered" };
+      });
+      setEncounterBadges(next);
+    });
+    return () => { active = false; };
+  }, [patients]);
+  return <aside className="patient-context-rail"><header className="patient-context-rail__header"><div><span>PATIENT LIST</span><strong>환자 목록</strong></div><small>{patients.length}명</small></header><label className="patient-context-search"><span aria-hidden="true">⌕</span><input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="이름 또는 등록번호 검색" /></label><div className="patient-context-list">{rows.map((item) => { const demographics = [sex(item.sex), age(item)].filter((value) => value !== "-").join(" · "); const badge = encounterBadges[item.id]; return <button key={item.id} type="button" className={`patient-context-item${item.id === selectedId ? " is-selected" : ""}`} onClick={() => onSelect?.(item)} aria-current={item.id === selectedId ? "true" : undefined}><span className="patient-context-item__avatar" aria-hidden="true">{item.name.slice(0, 1)}</span><span className="patient-context-item__topline"><strong>{item.name}</strong>{badge && <span className={`patient-mini-status is-${badge.tone}`}>{badge.label}</span>}</span>{demographics && <span className="patient-context-item__demographics">{demographics}</span>}<span className="patient-context-item__meta">환자번호 {item.patient_no}</span></button>; })}{rows.length === 0 && <div className="patient-context-empty">검색 결과가 없습니다.</div>}</div><nav className="patient-context-pagination"><button type="button" disabled={current === 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>‹</button><span><strong>{current}</strong> / {pages}</span><button type="button" disabled={current === pages} onClick={() => setPage((value) => Math.min(pages, value + 1))}>›</button></nav></aside>;
 }
 
 export function PatientHeader({ patient, care, onOpenDetails }: { patient: Patient; care?: { department?: string | null; clinician?: string | null; latestVisit?: string | null; diagnosis?: string | null; encounterStatus?: string | null; encounterType?: string | null; arrivedAt?: string | null; endedAt?: string | null }; onOpenDetails?: () => void }) {
+  const badge = encounterBadge({ status: care?.encounterStatus, endedAt: care?.endedAt });
   return <header className="patient-context-header patient-context-header--compact">
     <div className="patient-context-header__identity">
       <div className="patient-avatar" aria-hidden="true">{patient.name.slice(0, 1)}</div>
@@ -39,7 +65,7 @@ export function PatientHeader({ patient, care, onOpenDetails }: { patient: Patie
         <div className="patient-context-title">
           <h1>{patient.name}</h1>
           <strong>({sex(patient.sex)} / {age(patient)})</strong>
-          <span className={`patient-status is-${patient.status.toLowerCase()}`}>{patient.status}</span>
+          {badge && <span className={`patient-status is-${badge.tone}`}>{badge.label}</span>}
         </div>
         <div className="patient-context-demographics">
           <span>등록번호 <b>{patient.patient_no}</b></span>
@@ -90,9 +116,11 @@ function Prescriptions({ onOpen }: { onOpen?: () => void }) { return <section cl
 
 export default function PatientChart({ patient, encounterId, patients = [], onSelectPatient, onNavigate, canViewAIAnalyses = false, canViewConsultations = false }: Props) {
   const [patientList, setPatientList] = useState<Patient[]>(patients); const [data, setData] = useState<ChartData>({ studies: [], analyses: [], consultations: [] });
+  const [isPermissionModalOpen, setIsPermissionModalOpen] = useState(false);
   const [patientDetail, setPatientDetail] = useState<PatientDetail | null>(null); const [loading, setLoading] = useState(false); const [error, setError] = useState<string | null>(null); const [selectedStudyId, setSelectedStudyId] = useState<string | null>(null); const [analysisResults, setAnalysisResults] = useState<Record<string, AIAnalysisResult>>({}); const [analysisLoading, setAnalysisLoading] = useState(false); const [analysisError, setAnalysisError] = useState<string | null>(null); const clinicalRequestId = useRef(0); const analysisRequestId = useRef(0);
   const [encounter, setEncounter] = useState<EncounterListItem | null>(null); const [encounterLoading, setEncounterLoading] = useState(false); const [encounterError, setEncounterError] = useState<string | null>(null); const encounterRequestId = useRef(0);
   const automaticPatientId = useRef<string | null>(null);
+  const isNurse = loadAuthSession()?.user.role.code === "NURSE";
 
   useEffect(() => {
     let active = true;
@@ -154,7 +182,7 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
 
   const displayPatient = patientDetail?.id === patient?.id ? patientDetail : patient;
   const studies = useMemo(() => patient ? data.studies.filter((item) => item.patient_id === patient.id).sort((a, b) => (b.study_at ?? "").localeCompare(a.study_at ?? "")) : [], [data.studies, patient]);
-  const studyIds = useMemo(() => new Set(studies.map((item) => item.id)), [studies]); const analyses = useMemo(() => data.analyses.filter((item) => studyIds.has(item.study_id)).sort((a, b) => b.requested_at.localeCompare(a.requested_at)), [data.analyses, studyIds]); const consultations = useMemo(() => patient ? data.consultations.filter((item) => item.patient_summary.id === patient.id).sort((a, b) => b.requested_at.localeCompare(a.requested_at)) : [], [data.consultations, patient]);
+  const studyIds = useMemo(() => new Set(studies.map((item) => item.id)), [studies]); const analyses = useMemo(() => data.analyses.filter((item) => studyIds.has(item.study_id)).sort((a, b) => b.requested_at.localeCompare(a.requested_at)), [data.analyses, studyIds]); const consultations = useMemo(() => patient ? data.consultations.filter((item) => item.patient_summary?.id === patient.id).sort((a, b) => b.requested_at.localeCompare(a.requested_at)) : [], [data.consultations, patient]);
   const selectedStudy = studies.find((item) => item.id === selectedStudyId) ?? studies[0] ?? null; const selectedAnalysis = analyses[0] ?? null; const selectedAnalysisResult = selectedAnalysis ? analysisResults[selectedAnalysis.analysis_id] ?? null : null;
   useEffect(() => { const id = ++analysisRequestId.current; if (!selectedAnalysis || selectedAnalysis.status !== "COMPLETED" || analysisResults[selectedAnalysis.analysis_id]) { setAnalysisLoading(false); return; } setAnalysisLoading(true); setAnalysisError(null); getAIAnalysisResult(selectedAnalysis.analysis_id).then((value) => { if (analysisRequestId.current === id) setAnalysisResults((current) => ({ ...current, [value.analysis_id]: value })); }).catch(() => { if (analysisRequestId.current === id) setAnalysisError("AI 상세 결과를 불러오지 못했습니다."); }).finally(() => { if (analysisRequestId.current === id) setAnalysisLoading(false); }); }, [selectedAnalysis?.analysis_id, selectedAnalysis?.status, analysisResults]);
   const events = useMemo<TimelineEvent[]>(() => [...studies.map((item) => ({ id: `study-${item.id}`, at: item.study_at ?? "", title: `${item.modality} 영상검사`, detail: `${item.series} · ${item.status}`, tone: "imaging" as const })), ...analyses.map((item) => ({ id: `ai-${item.analysis_id}`, at: item.requested_at, title: `${analysisName(item.analysis_type)} AI 분석`, detail: `${item.status} · ${item.stage}`, tone: "ai" as const })), ...consultations.map((item) => ({ id: `consult-${item.consultation_id}`, at: item.requested_at, title: `${item.type} 협진 요청`, detail: `${item.ui_status} · ${item.priority}`, tone: "consultation" as const }))].sort((a, b) => b.at.localeCompare(a.at)), [studies, analyses, consultations]);
@@ -171,6 +199,7 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
         <div className="patient-clinical-focus">{loading ? <div className="patient-chart-loading">환자 임상 데이터를 불러오는 중입니다.</div> : <><Viewer studies={studies} selected={selectedStudy} onSelect={setSelectedStudyId} onOpen={() => onNavigate?.("imaging")} /><Analysis item={selectedAnalysis} result={selectedAnalysisResult} loading={analysisLoading} error={analysisError} onOpen={() => onNavigate?.("ai-results")} /></>}</div>
       </main> : <main className="patient-context-main patient-context-main--empty"><div className="patient-selection-empty"><strong>선택된 환자가 없습니다.</strong><span>왼쪽 환자 목록에서 환자를 선택해 주세요.</span></div></main>}
     </div>
-    <aside className="patient-context-aside"><Prescriptions onOpen={() => onNavigate?.("prescriptions")} /><Timeline events={patient ? events : []} /></aside>
+    <aside className="patient-context-aside"><Prescriptions onOpen={() => isNurse ? setIsPermissionModalOpen(true) : onNavigate?.("prescriptions")} /><Timeline events={patient ? events : []} /></aside>
+    {isPermissionModalOpen && <div className="permission-modal-backdrop" role="presentation"><section className="permission-modal" role="dialog" aria-modal="true" aria-labelledby="permission-modal-title"><div className="permission-modal__image" aria-hidden="true" /><h2 id="permission-modal-title">처방 / DUR 접근권한이 없습니다</h2><p>관리자에게 문의하세요</p><button type="button" onClick={() => setIsPermissionModalOpen(false)}>확인</button></section></div>}
   </section>;
 }

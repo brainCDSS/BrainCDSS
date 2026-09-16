@@ -27,6 +27,12 @@
    ========================================================= */
 
 .consultation-list__header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, auto);
+  grid-template-areas:
+    "eyebrow eyebrow"
+    "title description";
+  align-items: center;
   margin-bottom: 24px;
 }
 
@@ -34,6 +40,7 @@
 /* CONSULTATION */
 
 .consultation-list__eyebrow {
+  grid-area: eyebrow;
   display: block;
 
   margin-bottom: 7px;
@@ -50,6 +57,7 @@
 /* 협진 목록 + 건수 */
 
 .consultation-list__title-row {
+  grid-area: title;
   display: flex;
   align-items: center;
 
@@ -104,17 +112,22 @@
 /* 설명 */
 
 .consultation-list__header p {
-  margin:
-    9px
-    0
-    0;
+  grid-area: description;
+  margin: 0;
+  padding-left: 24px;
+  text-align: right;
 
   color: var(--text-secondary);
 
-  font-size: 13px;
+  font-size: 0;
   font-weight: 500;
 
   line-height: 1.5;
+}
+
+.consultation-list__header p::after {
+  content: "협진 요청·배정 현황과 우선순위, 진행 상태를 확인합니다.";
+  font-size: 13px;
 }
 
 
@@ -1011,6 +1024,16 @@
 
   .consultation-list__header h1 {
     font-size: 27px;
+  }
+
+  .consultation-list__header {
+    display: block;
+  }
+
+  .consultation-list__header p {
+    margin-top: 9px;
+    padding-left: 0;
+    text-align: left;
   }
 
 

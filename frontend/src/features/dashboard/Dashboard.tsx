@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 
-import { getAssessmentWorklist } from "../assessments/api";
 import type { AssessmentWorklistItem } from "../assessments/types";
 import { getAIAnalyses } from "../ai-analysis/api";
 import type { AIAnalysisItem } from "../ai-analysis/types";
@@ -298,9 +297,23 @@ function DashboardPatientList({
                     {patient.name}
                   </strong>
 
-                  <em>
-                    {patient.status}
-                  </em>
+                  {encounter && (
+                    <em
+                      className={
+                        encounter.status === "IN_PROGRESS"
+                          ? "is-in-progress"
+                          : encounter.status === "REGISTERED"
+                            ? "is-registered"
+                            : "is-default"
+                      }
+                    >
+                      {encounter.status === "IN_PROGRESS"
+                        ? "진료중"
+                        : encounter.status === "REGISTERED"
+                          ? "접수"
+                          : encounter.status}
+                    </em>
+                  )}
                 </span>
 
                 <small>
@@ -866,9 +879,23 @@ function PatientQuickView({
         <div>
           <h4>
             {patient.name}{" "}
-            <em>
-              {patient.status}
-            </em>
+            {encounter && (
+              <em
+                className={
+                  encounter.status === "IN_PROGRESS"
+                    ? "is-in-progress"
+                    : encounter.status === "REGISTERED"
+                      ? "is-registered"
+                      : "is-default"
+                }
+              >
+                {encounter.status === "IN_PROGRESS"
+                  ? "진료중"
+                  : encounter.status === "REGISTERED"
+                    ? "접수"
+                    : encounter.status}
+              </em>
+            )}
           </h4>
 
           <p>
@@ -1016,14 +1043,12 @@ export default function Dashboard({
       getImagingStudies(),
       getAIAnalyses(),
       getConsultations(),
-      getAssessmentWorklist(),
     ]).then(
       ([
         patients,
         studies,
         analyses,
         consultations,
-        assessments,
       ]) => {
         if (!active) {
           return;
@@ -1058,11 +1083,7 @@ export default function Dashboard({
               : [],
 
           assessments:
-            assessments.status ===
-            "fulfilled"
-              ? assessments.value
-                  .results
-              : [],
+            [],
           encounters: [],
         };
 
@@ -1091,7 +1112,6 @@ export default function Dashboard({
             studies,
             analyses,
             consultations,
-            assessments,
           ].some(
             (result) =>
               result.status ===

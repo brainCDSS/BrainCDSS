@@ -205,11 +205,11 @@ function ConsultationItem({
         <div className="consultation-list-item__patient-main">
 
           <strong>
-            {item.patient_summary.name}
+            {item.patient_summary?.name ?? "환자 정보 없음"}
           </strong>
 
           <span className="consultation-list-item__patient-no">
-            {item.patient_summary.patient_no}
+            {item.patient_summary?.patient_no ?? "-"}
           </span>
 
         </div>
@@ -221,13 +221,6 @@ function ConsultationItem({
             {TYPE_LABEL[item.type]}
           </span>
 
-          <span>
-            {item.consultation_id}
-          </span>
-
-          <span>
-            {item.encounter_id}
-          </span>
 
         </div>
 
@@ -278,7 +271,6 @@ function ConsultationItem({
 
         <span className="consultation-status">
           {
-            item.ui_status ||
             STATUS_LABEL[item.status]
           }
         </span>
@@ -528,14 +520,22 @@ export default function ConsultationList({
                  환자
                  ------------------------------- */
 
+              const patientName =
+                item.patient_summary?.name ??
+                "";
+
+              const patientNo =
+                item.patient_summary?.patient_no ??
+                "";
+
               const patientMatches =
                 patientKeyword.length === 0 ||
-                item.patient_summary.name
+                patientName
                   .toLowerCase()
                   .includes(
                     patientKeyword,
                   ) ||
-                item.patient_summary.patient_no
+                patientNo
                   .toLowerCase()
                   .includes(
                     patientKeyword,
@@ -1051,7 +1051,7 @@ export default function ConsultationList({
 
                     <ConsultationItem
                       key={
-                        item.consultation_id
+                        `${item.consultation_id || item.encounter_id || "consultation"}-${index}`
                       }
                       item={
                         item

@@ -1,15 +1,17 @@
 from django.urls import path
 from apps.consultations.api import generated_real_149 as views
+from apps.consultations.api.consultation_list_view import ConsultationListCreateView
+from apps.consultations.api.consultation_detail_view import ConsultationDetailView
 
 urlpatterns = [
     path(
         'api/v1/consultations',
-        views.ContractView000.as_view(),
+        ConsultationListCreateView.as_view(),
         name='api_con_001_api_con_002',
     ),
     path(
         'api/v1/consultations/<uuid:consultation_id>',
-        views.ContractView001.as_view(),
+        ConsultationDetailView.as_view(),
         name='api_con_003',
     ),
     path(
@@ -43,4 +45,3 @@ urlpatterns = [
         name='api_con_007',
     ),
 ]
-

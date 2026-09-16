@@ -45,3 +45,50 @@ export interface ClinicalNoteApiListResponse {
   previous?: string | number | null;
   results?: ClinicalNoteApiItem[];
 }
+
+export interface ClinicalNoteDraftFields {
+  subjective: string;
+  objective: string;
+  assessment: string;
+  plan: string;
+  clinicalOpinion: string;
+}
+
+export interface CreateClinicalNoteRequest {
+  encounterId: string;
+  subjective?: string;
+  objective?: string;
+  assessment?: string;
+  plan?: string;
+}
+
+export interface InitialAssessmentItem {
+  item_code: string;
+  value_text?: string | null;
+  value_numeric?: number | string | null;
+  value?: boolean | number | string;
+  unit?: string | null;
+  score?: number | null;
+  is_red_flag?: boolean;
+  note?: string | null;
+}
+
+export interface InitialAssessment {
+  assessment_id: string;
+  encounter_id: string;
+  status: string;
+  total_score: number | null;
+  triage_priority: string | null;
+  onset_at?: string | null;
+  lkw_at?: string | null;
+  symptom_note?: string | null;
+  assigned_neurologist?: { id: string; name: string } | null;
+  items: InitialAssessmentItem[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InitialAssessmentEncounterResponse {
+  count: number;
+  results: InitialAssessment[];
+}

@@ -1,7 +1,7 @@
 """Authenticated API for creating and reading real AI analyses."""
 
 from django.db import transaction
-from django.http import Http404
+from django.http import Http404, HttpResponseRedirect
 from django.utils import timezone
 from kombu.exceptions import OperationalError
 from rest_framework import serializers, status
@@ -18,7 +18,7 @@ from apps.ai_analysis.api.generated_real_149 import ContractView000
 from apps.ai_analysis.services.inference import create_queued_analysis, transition_analysis
 from apps.ai_analysis.tasks.inference import ROLE_ORDER, run_analysis_inference
 from apps.imaging.models import ImagingStudy, NiftiArtifact
-from apps.imaging.services.nifti import open_gcs_uri
+from apps.imaging.services.nifti import create_signed_gcs_uri
 
 
 CLINICAL_AI_ROLES = {"NEUROLOGIST", "NEUROSURGEON", "RADIOLOGY"}
@@ -388,7 +388,7 @@ class ResultArtifactContentView(APIView):
         artifact = AIResultArtifact.objects.select_related("result__analysis").filter(pk=artifact_id).first()
         if artifact is None or not _can_read_analysis(request, artifact.result.analysis):
             raise Http404
-        return open_gcs_uri(artifact.uri)
+        return HttpResponseRedirect(create_signed_gcs_uri(artifact.uri))
 
 
 class AIResultReviewCollectionView(APIView):

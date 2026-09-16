@@ -32,7 +32,7 @@ type NiivueLocation = {
   values?: Array<{ value?: number; vox?: ArrayLike<number> }>;
 };
 
-export default function NiftiViewer({ analysisId, focusSlice, onProbe }: { analysisId: string; focusSlice?: number | null; onProbe?: (probe: NiftiProbe | null) => void }) {
+export default function NiftiViewer({ analysisId, focusSlice, focusRequest, onProbe }: { analysisId: string; focusSlice?: number | null; focusRequest?: number; onProbe?: (probe: NiftiProbe | null) => void }) {
   const shellRef = useRef<HTMLElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const viewerRef = useRef<Niivue | null>(null);
@@ -296,7 +296,7 @@ export default function NiftiViewer({ analysisId, focusSlice, onProbe }: { analy
     modeRef.current = "AXIAL"; setViewMode("AXIAL"); viewer.setSliceType(viewer.sliceTypeAxial);
     viewer.scene.crosshairPos[2] = Math.min(1, Math.max(0, (focusSlice - 1) / Math.max(1, total - 1)));
     viewer.drawScene(); updateSlice(viewer, "AXIAL");
-  }, [focusSlice]);
+  }, [focusSlice, focusRequest]);
   useEffect(() => {
     const resize = () => requestAnimationFrame(() => viewerRef.current?.resizeListener());
     document.addEventListener("fullscreenchange", resize);

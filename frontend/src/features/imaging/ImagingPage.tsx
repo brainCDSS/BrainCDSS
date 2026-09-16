@@ -17,7 +17,7 @@ export default function ImagingPage({ onAnalysisStarted }: ImagingPageProps) {
   const [studies, setStudies] = useState<ImagingStudy[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<ImagingStudyDetail | null>(null);
-  const [series, setSeries] = useState<ImagingSeries[]>([]);
+  const [, setSeries] = useState<ImagingSeries[]>([]);
   const [bundles, setBundles] = useState<AIInputBundle[]>([]);
   const [analysisType, setAnalysisType] = useState("");
   const [tab, setTab] = useState<"ALL" | "CT" | "MRI" | "MRA">("ALL");

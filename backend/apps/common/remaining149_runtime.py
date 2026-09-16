@@ -3615,8 +3615,12 @@ def _consultation_accept_strict(
     if (
         consultation.status
         != "REQUESTED"
-        or consultation.assigned_to_id
-        is not None
+        or (
+            consultation.assigned_to_id
+            is not None
+            and consultation.assigned_to_id
+            != request.user.id
+        )
     ):
         raise ContractConflict({
             "code":

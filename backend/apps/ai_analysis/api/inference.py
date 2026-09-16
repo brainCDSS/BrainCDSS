@@ -327,7 +327,7 @@ class AnalysisNiftiViewerView(APIView):
         inputs = [
             {
                 "role": item.role,
-                "url": f"/api/v1/nifti-artifacts/{item.id}/content",
+                "url": create_signed_gcs_uri(item.uri),
             }
             for item in sorted(NiftiArtifact.objects.filter(series_id__in=series_ids), key=lambda value: role_order.get(value.role, 99))
         ]
@@ -336,7 +336,7 @@ class AnalysisNiftiViewerView(APIView):
             {
                 "artifact_id": str(item.id),
                 "type": item.artifact_type,
-                "url": f"/api/v1/ai-result-artifacts/{item.id}/content",
+                "url": create_signed_gcs_uri(item.uri),
             }
             for item in AIResultArtifact.objects.filter(result=result, artifact_type="NIFTI_MASK")
         ]
@@ -344,7 +344,7 @@ class AnalysisNiftiViewerView(APIView):
             {
                 "artifact_id": str(item.id),
                 "type": item.artifact_type,
-                "url": f"/api/v1/ai-result-artifacts/{item.id}/content",
+                "url": create_signed_gcs_uri(item.uri),
             }
             for item in AIResultArtifact.objects.filter(
                 result=result,
@@ -355,7 +355,7 @@ class AnalysisNiftiViewerView(APIView):
             {
                 "artifact_id": str(item.id),
                 "type": item.artifact_type,
-                "url": f"/api/v1/ai-result-artifacts/{item.id}/content",
+                "url": create_signed_gcs_uri(item.uri),
             }
             for item in AIResultArtifact.objects.filter(
                 result=result,
@@ -371,7 +371,7 @@ class AnalysisNiftiViewerView(APIView):
                 "artifact_id": str(item.id),
                 "type": item.artifact_type,
                 "role": xai_roles.get(item.artifact_type),
-                "url": f"/api/v1/ai-result-artifacts/{item.id}/content",
+                "url": create_signed_gcs_uri(item.uri),
             }
             for item in AIResultArtifact.objects.filter(
                 result=result,

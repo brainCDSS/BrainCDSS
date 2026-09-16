@@ -4,6 +4,9 @@ import { getAccessToken } from "../features/auth/session";
 const baseUrl = import.meta.env.VITE_BACKEND_URL ?? "http://localhost:8080";
 
 export function authenticatedAsset(path: string) {
+  if (/^https?:\/\//i.test(path)) {
+    return { url: path, headers: {} };
+  }
   const accessToken = getAccessToken();
   const headers: Record<string, string> = {};
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;

@@ -35,6 +35,18 @@ class AuthUser {
           const [],
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'login_id': loginId,
+        'name': name,
+        'email': email,
+        'role': {
+          'code': roleCode,
+          'name': roleName,
+        },
+        'permissions': permissions,
+      };
 }
 
 class AuthSession {

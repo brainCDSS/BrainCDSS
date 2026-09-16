@@ -449,9 +449,9 @@
   flex: 1 1 auto;
 
   grid-template-columns:
-    minmax(190px, 18fr)
-    minmax(0, 56fr)
-    minmax(300px, 26fr);
+    minmax(230px, 25fr)
+    minmax(0, 45fr)
+    minmax(320px, 30fr);
 
   gap: 8px;
 
@@ -565,6 +565,7 @@
   color: var(--med-muted);
 
   font-size: 11px;
+  font-weight: 500;
 }
 
 .medication-detail-list dd {
@@ -575,7 +576,7 @@
   color: var(--med-text);
 
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 650;
 
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -590,10 +591,30 @@
   color: var(--med-muted);
 
   font-size: 11px;
+  font-weight: 400;
   line-height: 1.45;
 
   text-align: center;
 }
+
+.medication-current-list {
+  display:grid;
+  gap:6px;
+  margin:0;
+  padding:0;
+  list-style:none;
+}
+
+.medication-current-list li {
+  display:grid;
+  gap:2px;
+  padding:7px 8px;
+  border-radius:6px;
+  background:#f8fafc;
+}
+
+.medication-current-list strong { font-size:12px; font-weight:650; }
+.medication-current-list span { color:var(--med-muted); font-size:11px; font-weight:400; }
 
 
 /* =========================================================
@@ -679,9 +700,9 @@
   display: grid;
 
   grid-template-columns:
-    minmax(180px, 320px)
-    70px
-    92px;
+    minmax(0, 1fr)
+    76px
+    96px;
 
   gap: 8px;
   justify-content: start;
@@ -714,6 +735,17 @@
   color: var(--med-text);
 
   outline: none;
+}
+
+.medication-search input,
+.medication-search input::placeholder {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.medication-search button {
+  min-width: 0;
+  white-space: nowrap;
 }
 
 .medication-search input:focus,
@@ -782,6 +814,7 @@
   overflow: hidden;
 
   font-size: 11px;
+  font-weight: 500;
 
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -847,6 +880,7 @@
 
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-weight: 650;
 }
 
 .medication-search-results td small {
@@ -955,6 +989,7 @@
 
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-weight: 650;
 }
 
 .medication-item__heading
@@ -1059,7 +1094,7 @@
   color: #66768d;
 
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .medication-form-grid__wide {
@@ -1191,9 +1226,9 @@
   align-items: center;
   justify-content: space-between;
 
-  gap: 8px;
+  gap: 10px;
 
-  padding: 6px 8px;
+  padding: 8px 10px;
 
   border-bottom: 1px solid var(--med-border);
 
@@ -1217,14 +1252,19 @@
 
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-weight: 500;
 }
 
 .dur-criteria__item strong {
   flex: 0 0 auto;
 
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #e1f5ea;
   color: #16815d;
 
   font-size: 11px;
+  white-space: nowrap;
 }
 
 .dur-criteria__item--block strong {
@@ -1519,9 +1559,9 @@
 
   .medication-workspace {
     grid-template-columns:
-      minmax(180px, 18fr)
-      minmax(0, 56fr)
-      minmax(285px, 26fr);
+      minmax(230px, 25fr)
+      minmax(0, 45fr)
+      minmax(320px, 30fr);
   }
 
   .medication-context--patient-header

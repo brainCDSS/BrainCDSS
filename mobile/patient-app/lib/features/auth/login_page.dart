@@ -12,7 +12,7 @@ class LoginPage extends StatefulWidget {
   });
 
   final ApiClient apiClient;
-  final ValueChanged<AuthSession> onLoginSuccess;
+  final Future<void> Function(AuthSession) onLoginSuccess;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -59,7 +59,7 @@ class _LoginPageState extends State<LoginPage> {
 
       if (!mounted) return;
 
-      widget.onLoginSuccess(session);
+      await widget.onLoginSuccess(session);
     } on ApiException catch (error) {
       if (!mounted) return;
 

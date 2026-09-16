@@ -6,6 +6,8 @@ import {
 
 import { getAIAnalyses, getAIAnalysisResult } from "../ai-analysis/api";
 import type { AIAnalysisItem, AIAnalysisResult } from "../ai-analysis/types";
+import { getInitialAssessmentsByEncounter } from "../clinical-notes/api";
+import type { InitialAssessment } from "../clinical-notes/types";
 import { getImagingStudies } from "../imaging/api";
 import type { ImagingStudy } from "../imaging/types";
 import { getRadiologyReport } from "../radiology/api";
@@ -20,6 +22,7 @@ import {
   respondConsultation,
   startConsultation,
 } from "./api";
+import ConsultationReasonModal from "./ConsultationReasonModal";
 
 import type {
   ConsultationListItem,
@@ -39,10 +42,6 @@ interface ConsultationPatientReviewProps {
   consultationId: string;
 
   onBack?: () => void;
-
-  onOpenDetail?: (
-    consultationId: string,
-  ) => void;
 }
 
 
@@ -97,127 +96,6 @@ const TYPE_LABEL: Record<
 
 
 /* =========================================================
-   협진 진행 단계
-   ========================================================= */
-
-const CONSULTATION_PROGRESS_STEPS = [
-  {
-    key: "REQUESTED",
-    label: "협진 요청",
-  },
-  {
-    key: "ACCEPTED",
-    label: "수락",
-  },
-  {
-    key: "IN_PROGRESS",
-    label: "검토 중",
-  },
-  {
-    key: "RESPONDED",
-    label: "회신 완료",
-  },
-] as const;
-
-
-/* =========================================================
-   현재 진행 단계
-   ========================================================= */
-
-function getConsultationProgressIndex(
-  status: ConsultationStatus,
-): number {
-
-  if (status === "REQUESTED") {
-    return 0;
-  }
-
-  if (status === "ACCEPTED") {
-    return 1;
-  }
-
-  if (status === "IN_PROGRESS") {
-    return 2;
-  }
-
-  if (
-    status === "RESPONDED" ||
-    status === "CLOSED"
-  ) {
-    return 3;
-  }
-
-  return -1;
-}
-
-
-/* =========================================================
-   날짜 표시
-   ========================================================= */
-
-function formatProgressTime(
-  value: string | null,
-): string {
-
-  if (!value) {
-    return "";
-  }
-
-
-  const date =
-    new Date(value);
-
-
-  if (
-    Number.isNaN(
-      date.getTime(),
-    )
-  ) {
-    return value;
-  }
-
-
-  const month =
-    String(
-      date.getMonth() + 1,
-    ).padStart(
-      2,
-      "0",
-    );
-
-
-  const day =
-    String(
-      date.getDate(),
-    ).padStart(
-      2,
-      "0",
-    );
-
-
-  const hour =
-    String(
-      date.getHours(),
-    ).padStart(
-      2,
-      "0",
-    );
-
-
-  const minute =
-    String(
-      date.getMinutes(),
-    ).padStart(
-      2,
-      "0",
-    );
-
-
-  return `${month}.${day} ${hour}:${minute}`;
-}
-
-
-/* =========================================================
    성별 표시
    ========================================================= */
 
@@ -245,7 +123,6 @@ function formatSex(
 export default function ConsultationPatientReview({
   consultationId,
   onBack,
-  onOpenDetail,
 }: ConsultationPatientReviewProps) {
 
 
@@ -284,34 +161,87 @@ export default function ConsultationPatientReview({
 
   const [actionBusy, setActionBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [reasonAction, setReasonAction] = useState<"REJECT" | "CANCEL" | null>(null);
+  const [isReplyPanelOpen, setIsReplyPanelOpen] = useState(false);
+  const [finalOpinion, setFinalOpinion] = useState("");
+  const [treatmentPlan, setTreatmentPlan] = useState("");
   const [studies, setStudies] = useState<ImagingStudy[]>([]);
   const [analyses, setAnalyses] = useState<AIAnalysisItem[]>([]);
   const [analysisResults, setAnalysisResults] = useState<AIAnalysisResult[]>([]);
   const [reports, setReports] = useState<RadiologyReport[]>([]);
   const [clinicalDataLoading, setClinicalDataLoading] = useState(false);
   const [clinicalDataError, setClinicalDataError] = useState<string | null>(null);
+  const [initialAssessments, setInitialAssessments] = useState<InitialAssessment[]>([]);
+  const [initialAssessmentsLoading, setInitialAssessmentsLoading] = useState(false);
+  const [initialAssessmentsError, setInitialAssessmentsError] = useState<string | null>(null);
 
-  async function runAction(action: string) {
+  async function runAction(action: string, reason?: string) {
     if (!consultation || actionBusy) return;
+    if ((action === "REJECT" || action === "CANCEL") && reason === undefined) {
+      setReasonAction(action);
+      return;
+    }
     setActionBusy(true); setActionError(null);
     try {
       if (action === "ACCEPT") await acceptConsultation(consultation.consultation_id);
       else if (action === "START") await startConsultation(consultation.consultation_id);
       else if (action === "VIEW_RESPONSE") await markConsultationResponseViewed(consultation.consultation_id);
       else if (action === "REJECT" || action === "CANCEL") {
-        const reason = globalThis.prompt("사유를 입력해 주세요.")?.trim();
         if (!reason) return;
         if (action === "REJECT") await rejectConsultation(consultation.consultation_id, reason);
         else await cancelConsultation(consultation.consultation_id, reason);
-      } else if (action === "RESPOND") {
-        const finalOpinion = globalThis.prompt("최종 소견을 입력해 주세요.")?.trim();
-        if (!finalOpinion) return;
-        const treatmentPlan = globalThis.prompt("치료 계획을 입력해 주세요. (선택)")?.trim();
-        await respondConsultation(consultation.consultation_id, { final_opinion: finalOpinion, ...(treatmentPlan ? { treatment_plan: treatmentPlan } : {}) });
       }
       setConsultation(await getConsultationDetail(consultation.consultation_id));
     } catch { setActionError("협진 상태 변경에 실패했습니다."); }
     finally { setActionBusy(false); }
+  }
+
+  function closeReplyPanel() {
+    if (actionBusy) return;
+    setIsReplyPanelOpen(false);
+    setActionError(null);
+  }
+
+  async function submitConsultationResponse() {
+    if (!consultation || actionBusy) return;
+
+    const opinion = finalOpinion.trim();
+    const plan = treatmentPlan.trim();
+    if (!opinion) {
+      setActionError("협진 소견을 입력해 주세요.");
+      return;
+    }
+
+    setActionBusy(true);
+    setActionError(null);
+    try {
+      await respondConsultation(
+        consultation.consultation_id,
+        {
+          final_opinion: opinion,
+          ...(plan ? { treatment_plan: plan } : {}),
+        },
+      );
+
+      let refreshedConsultation: ConsultationListItem;
+      try {
+        refreshedConsultation = await getConsultationDetail(
+          consultation.consultation_id,
+        );
+      } catch {
+        setActionError("협진 상세 정보를 다시 불러오지 못했습니다.");
+        return;
+      }
+
+      setConsultation(refreshedConsultation);
+      setFinalOpinion("");
+      setTreatmentPlan("");
+      setIsReplyPanelOpen(false);
+    } catch {
+      setActionError("협진 회신 저장에 실패했습니다.");
+    } finally {
+      setActionBusy(false);
+    }
   }
 
 
@@ -322,6 +252,11 @@ export default function ConsultationPatientReview({
   useEffect(() => {
 
     let cancelled = false;
+
+    setIsReplyPanelOpen(false);
+    setFinalOpinion("");
+    setTreatmentPlan("");
+    setActionError(null);
 
 
     async function loadConsultation() {
@@ -444,6 +379,39 @@ export default function ConsultationPatientReview({
     return () => { cancelled = true; };
   }, [consultation]);
 
+  useEffect(() => {
+    const encounterId = consultation?.encounter_id;
+    if (!encounterId) {
+      setInitialAssessments([]);
+      setInitialAssessmentsLoading(false);
+      setInitialAssessmentsError(null);
+      return;
+    }
+
+    const assessmentEncounterId = encounterId;
+
+    let cancelled = false;
+
+    async function loadInitialAssessments() {
+      setInitialAssessmentsLoading(true);
+      setInitialAssessmentsError(null);
+      try {
+        const response = await getInitialAssessmentsByEncounter(assessmentEncounterId);
+        if (!cancelled) setInitialAssessments(response.results);
+      } catch {
+        if (!cancelled) {
+          setInitialAssessments([]);
+          setInitialAssessmentsError("초기평가 정보를 불러오지 못했습니다.");
+        }
+      } finally {
+        if (!cancelled) setInitialAssessmentsLoading(false);
+      }
+    }
+
+    void loadInitialAssessments();
+    return () => { cancelled = true; };
+  }, [consultation?.encounter_id]);
+
   const analysisResultById = useMemo(
     () => new Map(analysisResults.map((result) => [result.analysis_id, result])),
     [analysisResults],
@@ -503,28 +471,6 @@ export default function ConsultationPatientReview({
     consultation.patient_summary;
 
 
-  const progressIndex =
-    getConsultationProgressIndex(
-      consultation.status,
-    );
-
-
-  const isExceptionalStatus =
-    consultation.status === "REJECTED" ||
-    consultation.status === "CANCELLED" ||
-    consultation.status === "EXPIRED";
-
-
-  const progressTimes: Array<
-    string | null
-  > = [
-    consultation.requested_at,
-    consultation.accepted_at,
-    consultation.started_at,
-    consultation.completed_at,
-  ];
-
-
   /* ========================================================
      환자 데이터 Tab Content
      ======================================================== */
@@ -533,6 +479,165 @@ export default function ConsultationPatientReview({
 
 
     if (activeTab === "clinical") {
+
+      const assessment = initialAssessments[0] ?? null;
+
+      if (assessment && !initialAssessmentsLoading && !initialAssessmentsError) {
+        const hasValue = (value: unknown) => (
+          value !== null && value !== undefined && value !== ""
+        );
+        const symptomNote = "";
+        const overviewFields = [
+          { label: "상태", value: assessment.status },
+          { label: "총점", value: assessment.total_score },
+          { label: "Triage", value: assessment.triage_priority },
+          { label: "증상 시작", value: assessment.onset_at },
+          { label: "마지막 정상 시각", value: assessment.lkw_at },
+          { label: "담당 신경과", value: assessment.assigned_neurologist?.name },
+        ].filter((field) => hasValue(field.value));
+        const formatDateTime = (
+          value: string | number | null | undefined,
+        ): string | number | null | undefined => {
+          if (typeof value !== "string") return value;
+          const date = new Date(value);
+          return Number.isNaN(date.getTime())
+            ? value
+            : date.toLocaleString("ko-KR", {
+              dateStyle: "short",
+              timeStyle: "short",
+            });
+        };
+        const summaryFields = overviewFields.map((field) => ({
+          ...field,
+          value: field.value === assessment.onset_at || field.value === assessment.lkw_at
+            ? formatDateTime(field.value)
+            : field.value,
+        }));
+        type AssessmentItemDisplayField = {
+          label: string;
+          value: string;
+          kind: "value" | "unit" | "score" | "flag" | "note";
+        };
+        const displayItemRows = assessment.items.map((item) => {
+          const value = item.value_text ?? item.value_numeric ?? item.value;
+          const fields = [
+            hasValue(value) ? { label: "값", value: String(value), kind: "value" as const } : null,
+            item.unit?.trim() ? { label: "단위", value: item.unit.trim(), kind: "unit" as const } : null,
+            hasValue(item.score) ? { label: "점수", value: String(item.score), kind: "score" as const } : null,
+            item.is_red_flag ? { label: "Red flag", value: "Y", kind: "flag" as const } : null,
+            item.note?.trim() ? { label: "메모", value: item.note.trim(), kind: "note" as const } : null,
+          ].filter((field): field is AssessmentItemDisplayField => field !== null);
+
+          return { itemCode: item.item_code, fields, isRedFlag: Boolean(item.is_red_flag) };
+        }).filter((item) => item.fields.length > 0);
+        const hasAssessmentDetail = (
+          summaryFields.length > 1 ||
+          displayItemRows.length > 0
+        );
+
+        return (
+          <div className="consultation-review__data-content consultation-review__clinical-content">
+            <section className="consultation-review__assessment-section">
+              <h3>초기평가</h3>
+              {hasAssessmentDetail ? (
+                <>
+                  <dl className="consultation-review__assessment-summary">
+                    {summaryFields.map((field) => (
+                      <div key={field.label}>
+                        <dt>{field.label}</dt>
+                        <dd>{field.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+
+                  {symptomNote && (
+                    <div className="consultation-review__assessment-note">
+                      <strong>증상 메모</strong>
+                      <p>{symptomNote}</p>
+                    </div>
+                  )}
+
+                  {displayItemRows.length > 0 && (
+                    <section className="consultation-review__assessment-items">
+                      <h4>평가 항목</h4>
+                      <div>
+                        {displayItemRows.map((item) => (
+                          <article
+                            key={item.itemCode}
+                            className={item.isRedFlag ? "is-red-flag" : undefined}
+                          >
+                            <strong>{item.itemCode}</strong>
+                            <dl>
+                              {item.fields.map((field) => (
+                                <div key={field.label}>
+                                  <dt>{field.label}</dt>
+                                  <dd className={field.kind === "note" ? "consultation-review__assessment-item-note" : undefined}>{field.value}</dd>
+                                </div>
+                              ))}
+                            </dl>
+                          </article>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+                </>
+              ) : (
+                <p className="consultation-review__assessment-empty-detail">
+                  초기평가 정보는 존재하지만 등록된 상세 정보가 없습니다.
+                </p>
+              )}
+            </section>
+          </div>
+        );
+      }
+
+      return (
+        <div className="consultation-review__data-content consultation-review__clinical-content">
+          <div className="consultation-review__data-title">
+            <span>+</span>
+            <div>
+              <strong>임상 정보</strong>
+              <small>Triage · 초기평가</small>
+            </div>
+          </div>
+
+          {initialAssessmentsLoading ? (
+            <div className="consultation-review__pending">
+              <strong>초기평가 정보를 불러오는 중입니다.</strong>
+            </div>
+          ) : initialAssessmentsError ? (
+            <div className="consultation-review__pending">
+              <strong>{initialAssessmentsError}</strong>
+            </div>
+          ) : !assessment ? (
+            <div className="consultation-review__pending">
+              <strong>초기평가 정보가 없습니다.</strong>
+            </div>
+          ) : (
+            <>
+              <div className="consultation-review__pending">
+                <strong>초기평가</strong>
+                <span>
+                  평가 ID: {assessment.assessment_id} · 상태: {assessment.status} · 총점: {assessment.total_score ?? "-"} · Triage: {assessment.triage_priority ?? "-"}
+                </span>
+                <span>
+                  증상 시작: {assessment.onset_at ?? "-"} · 마지막 정상 시각: {assessment.lkw_at ?? "-"} · 담당 신경과: {assessment.assigned_neurologist?.name ?? "-"}
+                </span>
+                <span>증상 메모: {assessment.symptom_note ?? "-"}</span>
+              </div>
+
+              <div className="consultation-review__pending">
+                <strong>평가 항목</strong>
+                {assessment.items.length ? assessment.items.map((item) => (
+                  <span key={item.item_code}>
+                    {item.item_code}: {item.value_text ?? item.value_numeric ?? item.value ?? "-"}{item.unit ? ` ${item.unit}` : ""} · 점수: {item.score ?? "-"} · Red flag: {item.is_red_flag ? "Y" : "N"} · 메모: {item.note ?? "-"}
+                  </span>
+                )) : <span>등록된 평가 항목이 없습니다.</span>}
+              </div>
+            </>
+          )}
+        </div>
+      );
 
       return (
         <div className="consultation-review__data-content">
@@ -808,9 +913,6 @@ export default function ConsultationPatientReview({
             협진 Patient Review
           </h1>
 
-          <p>
-            협진 요청과 환자 정보를 함께 검토합니다.
-          </p>
 
         </div>
 
@@ -838,64 +940,30 @@ export default function ConsultationPatientReview({
 
       <section className="consultation-review__patient-card">
 
-
         <div className="consultation-review__patient-main">
-
-          <span className="consultation-review__section-label">
-            PATIENT
-          </span>
-
-
-          <div className="consultation-review__patient-name">
-
-            <strong>
-              {
-                patient.name
-              }
-            </strong>
-
-            <span>
-              {
-                patient.patient_no
-              }
-            </span>
-
+          <div className="consultation-review__patient-avatar" aria-hidden="true">
+            {patient.name.trim().slice(0, 1) || "-"}
           </div>
 
+          <div className="consultation-review__patient-identity">
+            <span className="consultation-review__section-label">PATIENT</span>
 
-          <div className="consultation-review__patient-meta">
+            <div className="consultation-review__patient-name">
+              <strong>{patient.name}</strong>
+              <span>
+                {patient.sex ? formatSex(patient.sex) : "성별 정보 없음"}
+                {patient.estimated_age !== null
+                  ? ` / ${patient.estimated_age}세`
+                  : ""}
+              </span>
+            </div>
 
-            <span>
-              {
-                patient.birth_date ||
-                "생년월일 —"
-              }
-            </span>
-
-            <span>
-              {
-                patient.estimated_age !== null
-                  ? `${patient.estimated_age}세`
-                  : "연령 —"
-              }
-            </span>
-
-            <span>
-              {
-                formatSex(
-                  patient.sex,
-                )
-              }
-            </span>
-
-            <span>
-              {
-                consultation.encounter_id
-              }
-            </span>
-
+            <div className="consultation-review__patient-meta">
+              <span>환자번호 {patient.patient_no || "-"}</span>
+              <span>생년월일 {patient.birth_date || "-"}</span>
+              <span>성별 {patient.sex ? formatSex(patient.sex) : "-"}</span>
+            </div>
           </div>
-
         </div>
 
 
@@ -979,13 +1047,6 @@ export default function ConsultationPatientReview({
 
           </div>
 
-
-          <span className="consultation-review__consultation-id">
-            {
-              consultation.consultation_id
-            }
-          </span>
-
         </div>
 
 
@@ -1005,6 +1066,12 @@ export default function ConsultationPatientReview({
             "
           >
 
+            <span className="consultation-review__requester-label">
+              요청 의료진
+            </span>
+
+            <div className="consultation-review__requester-person">
+
             <div className="consultation-review__clinician-avatar">
 
               <span className="consultation-review__avatar-head" />
@@ -1016,249 +1083,65 @@ export default function ConsultationPatientReview({
 
             <div className="consultation-review__clinician">
 
-            <span>
-                요청 의료진
-            </span>
-
             <div className="consultation-review__clinician-main">
 
                 <strong>
-                {consultation.requested_by.name}
+                {`${consultation.requested_by.department} ${consultation.requested_by.name}`}
                 </strong>
 
-                <span className="consultation-review__clinician-divider">
-                |
-                </span>
+                </div>
 
                 <small>
                 {consultation.requested_by.department}
                 </small>
+            </div>
 
-                </div>
             </div>
 
           </div>
 
+          <div className="consultation-review__reason">
 
-          {/* =================================================
-              진행 상태
-              ================================================= */}
-
-          <div className="consultation-review__progress">
-
-            <div className="consultation-review__progress-header">
+            <div className="consultation-review__reason-title">
 
               <strong>
-                진행 상태
+                협진 요청 사유
               </strong>
 
-
-              {isExceptionalStatus && (
-
-                <span className="consultation-review__progress-exception">
-                  {
-                    STATUS_LABEL[
-                      consultation.status
-                    ]
-                  }
-                </span>
-
-              )}
-
             </div>
 
 
-            {!isExceptionalStatus && (
+            <div className="consultation-review__reason-content">
+              {(consultation as ConsultationListItem & { reason?: string | null }).reason || "-"}
+            </div>
 
-              <div className="consultation-review__progress-steps">
-
-                {CONSULTATION_PROGRESS_STEPS.map(
-                  (
-                    step,
-                    index,
-                  ) => {
-
-                    const completed =
-                      index < progressIndex;
-
-                    const current =
-                      index === progressIndex;
-
-                    const stepTime =
-                      progressTimes[
-                        index
-                      ];
+          </div>
 
 
-                    return (
-
-                      <div
-                        key={
-                          step.key
-                        }
-                        className={
-                          [
-                            "consultation-review__progress-step",
-
-                            completed
-                              ? "completed"
-                              : "",
-
-                            current
-                              ? "current"
-                              : "",
-                          ]
-                            .filter(Boolean)
-                            .join(" ")
-                        }
-                      >
-
-                        <div className="consultation-review__progress-track">
-
-                          <span className="consultation-review__progress-number">
-                            {
-                              index + 1
-                            }
-                          </span>
-
-
-                          {
-                            index <
-                            CONSULTATION_PROGRESS_STEPS.length - 1 && (
-
-                              <span className="consultation-review__progress-line" />
-
-                            )
-                          }
-
-                        </div>
-
-
-                        <div className="consultation-review__progress-label">
-
-                          <div className="consultation-review__progress-name">
-
-                            <strong>
-                              {
-                                step.label
-                              }
-                            </strong>
-
-
-                            {current && (
-
-                              <span>
-                                현재
-                              </span>
-
-                            )}
-
-                          </div>
-
-
-                          {stepTime && (
-
-                            <small className="consultation-review__progress-time">
-                              {
-                                formatProgressTime(
-                                  stepTime,
-                                )
-                              }
-                            </small>
-
-                          )}
-
-                        </div>
-
-                      </div>
-
-                    );
-
-                  },
-                )}
-
-              </div>
-
+          <div className="consultation-review__request-actions">
+            {consultation.allowed_actions.includes("ACCEPT") && (
+              <button
+                className="clinical-action"
+                disabled={actionBusy}
+                onClick={() => void runAction("ACCEPT")}
+                type="button"
+              >
+                수락
+              </button>
             )}
 
+            {consultation.allowed_actions.includes("REJECT") && (
+              <button
+                className="consultation-review__reject-action"
+                disabled={actionBusy}
+                onClick={() => void runAction("REJECT")}
+                type="button"
+              >
+                거절
+              </button>
+            )}
           </div>
 
-
-          {/* 배정 의료진 */}
-
-          <div
-            className="
-              consultation-review__clinician-card
-              consultation-review__clinician-card--assignee
-            "
-          >
-
-            <div className="consultation-review__clinician-avatar">
-
-              <span className="consultation-review__avatar-head" />
-
-              <span className="consultation-review__avatar-body" />
-
-            </div>
-
-
-            <div className="
-                consultation-review__clinician
-                consultation-review__clinician--assignee
-            "
-            >
-
-            <span>
-                배정 의료진
-            </span>
-
-            <div className="consultation-review__clinician-main">
-
-                <strong>
-                {
-                    consultation.assigned_to?.name ||
-                    "미배정"
-                }
-                </strong>
-
-                <span className="consultation-review__clinician-divider">
-                |
-                </span>
-
-                <small>
-                {
-                    consultation.assigned_to?.department ||
-                    "—"
-                }
-                </small>
-
-            </div>
-
-            </div>
-
-          </div>
-
-        </div>
-
-
-        {/* ===================================================
-            협진 요청 사유
-            =================================================== */}
-
-        <div className="consultation-review__reason">
-
-          <div className="consultation-review__reason-title">
-
-            <strong>
-              협진 요청 사유
-            </strong>
-
-          </div>
-
-
-          <div className="consultation-review__reason-content">
-            API 필드 연동 예정
-          </div>
 
         </div>
 
@@ -1269,7 +1152,13 @@ export default function ConsultationPatientReview({
           LOWER WORKSPACE
           ===================================================== */}
 
-      <div className="consultation-review__workspace">
+      <div
+        className={
+          isReplyPanelOpen
+            ? "consultation-review__workspace consultation-review__workspace--reply-open"
+            : "consultation-review__workspace"
+        }
+      >
 
 
         {/* ===================================================
@@ -1456,6 +1345,81 @@ export default function ConsultationPatientReview({
 
         </section>
 
+        {isReplyPanelOpen && (
+          <aside
+            className="consultation-review__reply-panel"
+            aria-labelledby="consultation-reply-title"
+          >
+            <div className="consultation-review__reply-header">
+              <div>
+                <h2 id="consultation-reply-title">협진 회신 작성</h2>
+                <p>
+                  환자 데이터와 실시간 메시지를 참고해 최종 협진 의견을 작성합니다.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="consultation-review__reply-close"
+                aria-label="협진 회신 작성 닫기"
+                disabled={actionBusy}
+                onClick={closeReplyPanel}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="consultation-review__reply-body">
+              <label className="consultation-review__reply-field">
+                <span>협진 소견 *</span>
+                <textarea
+                  value={finalOpinion}
+                  disabled={actionBusy}
+                  placeholder="환자 상태와 검사 결과에 대한 최종 소견을 입력하세요."
+                  onChange={(event) => setFinalOpinion(event.target.value)}
+                />
+              </label>
+
+              <label className="consultation-review__reply-field">
+                <span>권고사항 / 계획</span>
+                <textarea
+                  value={treatmentPlan}
+                  disabled={actionBusy}
+                  placeholder="권고 치료, 추가 검사, 추후 계획 등을 입력하세요."
+                  onChange={(event) => setTreatmentPlan(event.target.value)}
+                />
+              </label>
+
+              {actionError && (
+                <div className="consultation-review__reply-error" role="alert">
+                  {actionError}
+                </div>
+              )}
+
+              <p className="consultation-review__reply-note">
+                실시간 메시지는 협의 과정이며, 이 회신은 최종 공식 협진 의견으로 저장됩니다.
+              </p>
+            </div>
+
+            <div className="consultation-review__reply-actions">
+              <button
+                type="button"
+                disabled={actionBusy}
+                onClick={closeReplyPanel}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                className="consultation-review__reply-submit"
+                disabled={actionBusy || !finalOpinion.trim()}
+                onClick={() => void submitConsultationResponse()}
+              >
+                {actionBusy ? "저장 중..." : "회신 완료"}
+              </button>
+            </div>
+          </aside>
+        )}
+
       </div>
 
 
@@ -1463,32 +1427,28 @@ export default function ConsultationPatientReview({
           CONSULTATION DETAIL
           ===================================================== */}
 
-      {consultation.allowed_actions.length > 0 && <div className="clinical-action-bar">
-        {consultation.allowed_actions.map((action) => <button className="clinical-action" disabled={actionBusy} key={action} onClick={() => void runAction(action)} type="button">{action}</button>)}
-      </div>}
-      {actionError && <div className="clinical-state clinical-state--error" role="alert">{actionError}</div>}
+      <div className="clinical-action-bar">
+        {consultation.allowed_actions.includes("START") && <button className="clinical-action" disabled={actionBusy} onClick={() => void runAction("START")} type="button">협진 시작</button>}
+        {consultation.allowed_actions.includes("CANCEL") && <button className="clinical-action" disabled={actionBusy} onClick={() => void runAction("CANCEL")} type="button">협진 취소</button>}
+        {consultation.allowed_actions.includes("RESPOND") && !isReplyPanelOpen && <button className="clinical-action" disabled={actionBusy} onClick={() => { setActionError(null); setIsReplyPanelOpen(true); }} type="button">협진 회신 작성</button>}
+      </div>
+      {actionError && !isReplyPanelOpen && <div className="clinical-state clinical-state--error" role="alert">{actionError}</div>}
 
-      <button
-        type="button"
-        className="consultation-review__detail-button"
-        disabled={
-          !onOpenDetail
-        }
-        onClick={() => {
-
-          onOpenDetail?.(
-            consultation.consultation_id,
-          );
-
-        }}
-      >
-        협진 상세로 이동
-
-        <span aria-hidden="true">
-          →
-        </span>
-
-      </button>
+      {reasonAction && (
+        <ConsultationReasonModal
+          title={reasonAction === "REJECT" ? "협진 거절" : "협진 취소"}
+          description={reasonAction === "REJECT" ? "협진 요청을 거절하는 사유를 입력해 주세요." : "협진 요청을 취소하는 사유를 입력해 주세요."}
+          placeholder={reasonAction === "REJECT" ? "거절 사유를 입력하세요." : "취소 사유를 입력하세요."}
+          confirmLabel={reasonAction === "REJECT" ? "거절" : "취소"}
+          busy={actionBusy}
+          onClose={() => setReasonAction(null)}
+          onConfirm={(reason) => {
+            const action = reasonAction;
+            setReasonAction(null);
+            void runAction(action, reason);
+          }}
+        />
+      )}
 
     </section>
   );

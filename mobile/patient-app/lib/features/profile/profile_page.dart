@@ -15,7 +15,7 @@ class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key, required this.session, required this.onLogout, required this.apiClient});
 
   final AuthSession session;
-  final VoidCallback onLogout;
+  final Future<void> Function() onLogout;
   final ApiClient apiClient;
 
   static void openMyInfo(BuildContext context, AuthSession session) =>
@@ -78,7 +78,7 @@ class ProfilePage extends StatelessWidget {
         FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('로그아웃')),
       ],
     ));
-    if (confirmed == true) onLogout();
+    if (confirmed == true) await onLogout();
   }
 }
 
@@ -226,12 +226,20 @@ class _EmptySettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: Text(title)),
-    body: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-      Icon(icon, color: const Color(0xFF8B96E8), size: 40),
-      const SizedBox(height: 14),
-      Text(message, style: const TextStyle(color: _text, fontWeight: FontWeight.w700)),
-      const SizedBox(height: 6),
-      const Text('관련 API가 연결되면 이곳에 표시됩니다.', style: TextStyle(color: _muted)),
-    ])),
+    body: Center(child: Padding(
+      padding: const EdgeInsets.all(20),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 42),
+        decoration: BoxDecoration(color: Colors.white, border: Border.all(color: _border), borderRadius: BorderRadius.circular(18)),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, color: const Color(0xFF8B96E8), size: 40),
+          const SizedBox(height: 14),
+          Text(message, textAlign: TextAlign.center, style: const TextStyle(color: _text, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 6),
+          const Text('연결할 서비스가 등록되면 이곳에서 확인할 수 있습니다.', textAlign: TextAlign.center, style: TextStyle(color: _muted)),
+        ]),
+      ),
+    )),
   );
 }

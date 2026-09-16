@@ -2808,3 +2808,290 @@
   font-size: 11px;
   font-weight: 700;
 }
+
+.patient-chart-tabs { display:flex; gap:28px; align-items:flex-end; height:42px; margin-left:15px; margin-bottom:7px; border-bottom:1px solid #e6ebf2; }
+.patient-chart-tabs button { padding:0 2px 10px; border:0; border-bottom:2px solid transparent; background:none; color:#7b8799; font:inherit; font-size:14px; cursor:pointer; }
+.patient-chart-tabs button.is-active { border-bottom-color:#2377e8; color:#2377e8; font-weight:700; }
+.patient-clinical-info { padding:18px 4px; }
+.patient-clinical-info h2 { margin:0 0 14px; font-size:16px; }
+.patient-clinical-info dl { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.patient-clinical-info dl div { padding:12px; border-bottom:1px solid #e6ebf2; }
+.patient-clinical-info dt { color:#7b8799; font-size:12px; }
+.patient-clinical-info dd { margin:5px 0 0; color:#243654; font-size:14px; font-weight:600; }
+.patient-context-main.is-clinical > .patient-summary-grid,
+.patient-context-main.is-clinical > .patient-clinical-focus,
+.patient-context-main.is-clinical > .patient-encounter-state,
+.patient-context-main.is-clinical > .patient-data-warning { display:none; }
+
+/* =========================================================
+   Patient Chart - 협진 요청
+   ---------------------------------------------------------
+   PatientChart.tsx의 신규 협진 요청 UI 전용 스타일
+   기존 환자/영상/AI/처방 스타일은 변경하지 않는다.
+   ========================================================= */
+
+.patient-consultation-actions {
+  display: flex;
+  margin-left: auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.patient-summary-card header .patient-consultation-actions button {
+  margin-left: 0;
+  white-space: nowrap;
+}
+
+.patient-summary-card header .patient-consultation-request {
+  padding: 4px 8px;
+  border-color: #8bb7ed;
+  background: #eef6ff;
+  color: #176fce;
+}
+
+.patient-summary-card header .patient-consultation-request:hover:not(:disabled) {
+  border-color: #4d91e6;
+  background: #e4f1ff;
+  color: #0d63be;
+}
+
+.patient-summary-card header .patient-consultation-request:disabled {
+  border-color: #dbe3ed;
+  background: #f4f6f9;
+  color: #9aa6b6;
+  cursor: not-allowed;
+  opacity: .75;
+}
+
+.consultation-request-backdrop {
+  position: fixed;
+  z-index: 1100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(20, 32, 51, .42);
+  backdrop-filter: blur(1.5px);
+}
+
+.consultation-request-modal {
+  width: min(580px, 100%);
+  overflow: hidden;
+  border: 1px solid #dce5ef;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 22px 56px rgba(20, 35, 58, .22);
+}
+
+.consultation-request-modal__header {
+  display: flex;
+  min-height: 58px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 20px;
+  border-bottom: 1px solid #e8edf4;
+}
+
+.consultation-request-modal__header h2 {
+  margin: 0;
+  color: #1f3150;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -.02em;
+}
+
+.consultation-request-modal__header > button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #75839a;
+  font: inherit;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.consultation-request-modal__header > button:hover:not(:disabled) {
+  background: #f1f5fa;
+  color: #315d91;
+}
+
+.consultation-request-modal__header > button:disabled {
+  cursor: not-allowed;
+  opacity: .45;
+}
+
+.consultation-request-form {
+  display: flex;
+  flex-direction: column;
+  gap: 17px;
+  padding: 20px;
+}
+
+.consultation-request-form > label {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.consultation-request-form > label > span {
+  color: #34445e;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.consultation-request-form > label > span b {
+  margin-left: 3px;
+  color: #e05763;
+  font-weight: 800;
+}
+
+.consultation-request-form__row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.consultation-request-form__row > label {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.consultation-request-form__row > label > span {
+  color: #34445e;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.consultation-request-form select,
+.consultation-request-form textarea {
+  width: 100%;
+  border: 1px solid #dce5ef;
+  border-radius: 9px;
+  outline: 0;
+  background: #fff;
+  color: #263957;
+  font: inherit;
+  font-size: 12px;
+  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+}
+
+.consultation-request-form select {
+  height: 40px;
+  padding: 0 11px;
+}
+
+.consultation-request-form textarea {
+  min-height: 112px;
+  resize: vertical;
+  padding: 11px 12px;
+  line-height: 1.55;
+}
+
+.consultation-request-form select:focus,
+.consultation-request-form textarea:focus {
+  border-color: #76a9f8;
+  box-shadow: 0 0 0 3px rgba(47, 120, 232, .10);
+}
+
+.consultation-request-form select:disabled,
+.consultation-request-form textarea:disabled {
+  background: #f5f7fa;
+  color: #8b97a8;
+  cursor: not-allowed;
+}
+
+.consultation-request-form textarea::placeholder {
+  color: #9aa6b6;
+}
+
+.consultation-request-form > label > small {
+  align-self: flex-end;
+  margin-top: -2px;
+  color: #8a97a8;
+  font-size: 10px;
+}
+
+.consultation-request-error {
+  margin: -3px 0 0;
+  padding: 9px 11px;
+  border: 1px solid #f2cfd3;
+  border-radius: 8px;
+  background: #fff5f6;
+  color: #b84b57;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.consultation-request-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 3px;
+}
+
+.consultation-request-form__actions button {
+  min-width: 88px;
+  height: 38px;
+  padding: 0 15px;
+  border: 1px solid #d7e0eb;
+  border-radius: 8px;
+  background: #fff;
+  color: #53627a;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.consultation-request-form__actions button:hover:not(:disabled) {
+  border-color: #9fbce1;
+  background: #f7faff;
+  color: #245f9f;
+}
+
+.consultation-request-form__actions button.is-primary {
+  border-color: #2479e1;
+  background: #2479e1;
+  color: #fff;
+}
+
+.consultation-request-form__actions button.is-primary:hover:not(:disabled) {
+  border-color: #176dcc;
+  background: #176dcc;
+  color: #fff;
+}
+
+.consultation-request-form__actions button:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+
+@media (max-width: 640px) {
+  .consultation-request-form__row {
+    grid-template-columns: 1fr;
+  }
+
+  .consultation-request-backdrop {
+    padding: 14px;
+  }
+
+  .consultation-request-modal {
+    max-height: calc(100vh - 28px);
+    overflow-y: auto;
+  }
+
+  .consultation-request-form {
+    padding: 17px;
+  }
+}

@@ -3,12 +3,14 @@ import {
   checkPrescriptionSafety,
   createPrescription,
   finalizePrescription,
+  getCurrentMedications,
   searchMedications,
   updatePrescription,
 } from "./api";
 import type {
   DurAlert,
   MedicationItem,
+  CurrentMedicationItem,
   PrescriptionItemInput,
   PrescriptionItemResponse,
   PrescriptionResponse,
@@ -17,6 +19,8 @@ import type {
 import { PatientHeader, PatientRail } from "../patients/PatientChart";
 import { getPatients } from "../patients/api";
 import type { Patient } from "../patients/types";
+import { getInitialAssessmentsByEncounter } from "../clinical-notes/api";
+import type { InitialAssessment, InitialAssessmentItem } from "../clinical-notes/types";
 import "./medication-safety.css";
 
 interface EditableItem extends PrescriptionItemInput {
@@ -74,6 +78,12 @@ function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
+function assessmentItemValue(item: InitialAssessmentItem | undefined) {
+  if (!item) return null;
+  const value = item.value_text ?? item.value_numeric ?? item.value;
+  return value === undefined || value === null || value === "" ? null : `${value}${item.unit ? ` ${item.unit}` : ""}`;
+}
+
 export default function MedicationSafetyPage({ context, onSelectPatient, onOpenPatientChart }: MedicationSafetyPageProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<MedicationItem[]>([]);
@@ -87,6 +97,9 @@ export default function MedicationSafetyPage({ context, onSelectPatient, onOpenP
   const [notice, setNotice] = useState<string | null>(null);
   const [patientList, setPatientList] = useState<Patient[]>(context ? [context.patient] : []);
   const [patientListLoaded, setPatientListLoaded] = useState(false);
+  const [recentAssessment, setRecentAssessment] = useState<InitialAssessment | null>(null);
+  const [vitalLoading, setVitalLoading] = useState(false);
+  const [currentMedications, setCurrentMedications] = useState<CurrentMedicationItem[]>([]);
   const automaticPatientId = useRef<string | null>(null);
   const hasEncounter = Boolean(context?.encounterId);
 
@@ -122,6 +135,32 @@ export default function MedicationSafetyPage({ context, onSelectPatient, onOpenP
     setNotice(null);
   }, [context?.patient.id]);
 
+  useEffect(() => {
+    let active = true;
+    setRecentAssessment(null);
+    if (!context?.encounterId) { setVitalLoading(false); return () => { active = false; }; }
+    setVitalLoading(true);
+    void getInitialAssessmentsByEncounter(context.encounterId).then((response) => {
+      if (!active) return;
+      setRecentAssessment([...response.results].sort((left, right) => (right.created_at ?? "").localeCompare(left.created_at ?? ""))[0] ?? null);
+    }).catch(() => {
+      if (active) setRecentAssessment(null);
+    }).finally(() => {
+      if (active) setVitalLoading(false);
+    });
+    return () => { active = false; };
+  }, [context?.encounterId]);
+
+  useEffect(() => {
+    let active = true;
+    setCurrentMedications([]);
+    if (!context?.patient.id) return () => { active = false; };
+    void getCurrentMedications(context.patient.id).then((response) => {
+      if (active) setCurrentMedications(response.results);
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, [context?.patient.id]);
+
   const locked = prescription?.status === "FINAL";
   const blockingAlerts = useMemo(
     () => safety?.alerts.filter((alert) => alert.severity === "BLOCK" || alert.severity === "MAJOR") ?? [],
@@ -132,6 +171,10 @@ export default function MedicationSafetyPage({ context, onSelectPatient, onOpenP
     MAJOR: safety?.alerts.filter((alert) => alert.severity === "MAJOR").length ?? 0,
     WARNING: safety?.alerts.filter((alert) => alert.severity === "WARNING").length ?? 0,
   }), [safety]);
+  const vitalItems = useMemo(() => {
+    const items = new Map((recentAssessment?.items ?? []).map((item) => [item.item_code, item]));
+    return (["BP_SYS", "HEART_RATE"] as const).map((code) => ({ label: code === "BP_SYS" ? "수축기 혈압" : "심박수", value: assessmentItemValue(items.get(code)) })).filter((item) => item.value !== null);
+  }, [recentAssessment]);
   const safetyCriteria: Array<{ type: DurAlert["alert_type"]; label: string }> = [
     { type: "ALLERGY", label: "알레르기" },
     { type: "DDI", label: "약물 상호작용" },
@@ -339,11 +382,11 @@ export default function MedicationSafetyPage({ context, onSelectPatient, onOpenP
             </section>
             <section className="medication-clinical-section">
               <div className="medication-clinical-section__heading"><strong>활력징후 (최근)</strong></div>
-              <div className="medication-compact-empty">Vital 조회 API가 연결되지 않았습니다.</div>
+              {vitalLoading ? <div className="medication-compact-empty">Vital 정보를 불러오는 중입니다.</div> : vitalItems.length ? <dl className="medication-detail-list medication-vital-list">{vitalItems.map((item) => <div key={item.label}><dt>{item.label}</dt><dd>{item.value}</dd></div>)}</dl> : <div className="medication-compact-empty">조회 가능한 최근 Vital 데이터가 없습니다.</div>}
             </section>
             <section className="medication-clinical-section medication-clinical-section--last">
               <div className="medication-clinical-section__heading"><strong>현재 복용 중인 약물</strong></div>
-              <div className="medication-compact-empty">환자별 복용약 조회 API가 연결되지 않았습니다.</div>
+              {currentMedications.length ? <ul className="medication-current-list">{currentMedications.map((item) => <li key={item.item_id}><strong>{item.medication_name}</strong><span>{item.dose} {item.dose_unit} · 1일 {item.frequency_per_day}회</span></li>)}</ul> : <div className="medication-compact-empty">현재 복용 중인 약물이 없습니다.</div>}
             </section>
           </article>
         </aside>

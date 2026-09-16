@@ -290,6 +290,12 @@ GCS_NIFTI_ALLOWED_BUCKETS = [
     ).split(",")
     if value.strip()
 ]
+GCS_SIGNED_URL_TTL_SECONDS = int(
+    os.getenv("GCS_SIGNED_URL_TTL_SECONDS", "300")
+)
+GCS_SIGNING_SERVICE_ACCOUNT_EMAIL = os.getenv(
+    "GCS_SIGNING_SERVICE_ACCOUNT_EMAIL", ""
+).strip()
 
 # Orthanc is accessed only by backend/worker code. Browser clients use backend
 # APIs and never receive these credentials.

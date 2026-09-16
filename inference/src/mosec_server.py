@@ -22,7 +22,11 @@ class ModelWorker(Worker):
         request = InferenceRequest.model_validate(data)
 
         if request.analysis_type != self.analysis_type:
-            return _failure(request, "MODEL_ROUTE_MISMATCH", False)
+            return _failure(
+                request,
+                "MODEL_ROUTE_MISMATCH",
+                False,
+            )
 
         try:
             return get_service().execute(request).model_dump(mode="json")
@@ -52,6 +56,11 @@ class ModelWorker(Worker):
                 False,
                 message=f"{type(exc).__name__}: {exc}",
             )
+        finally:
+            # Keep only the current request's model on the GPU. Without this,
+            # the three MOSEC workers retain their model caches and leave no
+            # headroom for gradient-based XAI.
+            get_service().release_predictors()
 
 
 class HemorrhageWorker(ModelWorker):
@@ -67,9 +76,18 @@ class AneurysmWorker(ModelWorker):
 
 
 WORKER_ROUTES = {
-    "hemorrhage": (HemorrhageWorker, "/v1/models/hemorrhage"),
-    "ischemia": (IschemiaWorker, "/v1/models/ischemia"),
-    "aneurysm": (AneurysmWorker, "/v1/models/aneurysm"),
+    "hemorrhage": (
+        HemorrhageWorker,
+        "/v1/models/hemorrhage",
+    ),
+    "ischemia": (
+        IschemiaWorker,
+        "/v1/models/ischemia",
+    ),
+    "aneurysm": (
+        AneurysmWorker,
+        "/v1/models/aneurysm",
+    ),
 }
 
 
@@ -84,11 +102,20 @@ def build_server() -> Server:
     }
 
     unknown = enabled - WORKER_ROUTES.keys()
+
     if unknown:
-        raise RuntimeError(f"unknown MOSEC model routes: {sorted(unknown)}")
+        raise RuntimeError(
+            f"unknown MOSEC model routes: {sorted(unknown)}"
+        )
 
     server = Server()
-    timeout = float(os.getenv("MOSEC_WORKER_TIMEOUT_SECONDS", "1800"))
+
+    timeout = float(
+        os.getenv(
+            "MOSEC_WORKER_TIMEOUT_SECONDS",
+            "1800",
+        )
+    )
 
     for name, (worker, route) in WORKER_ROUTES.items():
         if name in enabled:
@@ -104,7 +131,13 @@ def build_server() -> Server:
     return server
 
 
-def _failure(request, code, retryable, message="model worker failed", detail=None):
+def _failure(
+    request,
+    code,
+    retryable,
+    message="model worker failed",
+    detail=None,
+):
     return InferenceResponse(
         analysis_id=request.analysis_id,
         analysis_type=request.analysis_type,

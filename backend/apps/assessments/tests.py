@@ -260,6 +260,14 @@ class AssessmentEncounterListAPITests(APITestCase):
             code=RoleCode.NURSE,
             name="Nurse",
         )
+        self.neurosurgeon_role = Role.objects.create(
+            code=RoleCode.NEUROSURGEON,
+            name="Neurosurgeon",
+        )
+        self.radiology_role = Role.objects.create(
+            code=RoleCode.RADIOLOGY,
+            name="Radiology",
+        )
         self.patient_role = Role.objects.create(
             code=RoleCode.PATIENT,
             name="Patient",
@@ -275,6 +283,18 @@ class AssessmentEncounterListAPITests(APITestCase):
             password="test-password",
             name="Assessment nurse",
             role=self.nurse_role,
+        )
+        self.neurosurgeon = User.objects.create_user(
+            login_id="assessment-list-neurosurgeon",
+            password="test-password",
+            name="Assessment neurosurgeon",
+            role=self.neurosurgeon_role,
+        )
+        self.radiologist = User.objects.create_user(
+            login_id="assessment-list-radiologist",
+            password="test-password",
+            name="Assessment radiologist",
+            role=self.radiology_role,
         )
         self.patient_user = User.objects.create_user(
             login_id="assessment-list-patient",
@@ -343,6 +363,22 @@ class AssessmentEncounterListAPITests(APITestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data, {"count": 0, "results": []})
+
+    def test_all_authorized_clinical_roles_read_assessments_by_encounter(self):
+        for user in (
+            self.neurologist,
+            self.neurosurgeon,
+            self.radiologist,
+            self.nurse,
+        ):
+            with self.subTest(role=user.role.code):
+                self.client.force_authenticate(user)
+                response = self.client.get(
+                    self.url,
+                    {"encounter_id": self.encounter.id},
+                )
+
+                self.assertEqual(response.status_code, 200)
 
     def test_rejects_unknown_encounter_and_non_clinical_role(self):
         self.client.force_authenticate(self.neurologist)

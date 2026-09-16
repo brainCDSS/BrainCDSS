@@ -1,9 +1,13 @@
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIRequestFactory, force_authenticate
+from unittest.mock import patch
 
 from apps.accounts.models import Role, User
-from apps.imaging.api.nifti import ImagingStudyCollectionView
+from apps.imaging.api.nifti import (
+    ImagingStudyCollectionView,
+    NiftiArtifactContentView,
+)
 from apps.imaging.models import ImagingStudy, NiftiArtifact, SeriesReference
 from apps.imaging.services.nifti import study_input_bundles
 
@@ -88,3 +92,18 @@ class NiftiAIInputTests(TestCase):
         self.assertEqual(response.data["results"][0]["study_id"], str(self.study.id))
         self.assertEqual(response.data["results"][0]["series_count"], 2)
         self.assertEqual(response.data["results"][0]["status"], "AVAILABLE")
+
+    @patch("apps.imaging.api.nifti.create_signed_gcs_artifact_uri")
+    def test_artifact_content_redirects_to_signed_gcs_url(self, signed_url):
+        artifact = self.add_artifact("MRA", 1)
+        signed_url.return_value = "https://storage.googleapis.com/signed-object"
+        request = APIRequestFactory().get(
+            f"/api/v1/nifti-artifacts/{artifact.id}/content"
+        )
+        force_authenticate(request, user=self.user)
+
+        response = NiftiArtifactContentView.as_view()(request, artifact.id)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], signed_url.return_value)
+        signed_url.assert_called_once_with(artifact)

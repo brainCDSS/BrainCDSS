@@ -3,11 +3,15 @@ import 'package:flutter/material.dart';
 
 import '../core/api/api_client.dart';
 import '../features/auth/auth_session.dart';
+import '../features/auth/auth_api.dart';
+import '../features/auth/auth_storage.dart';
 import '../features/auth/login_page.dart';
 import 'patient_main_shell.dart';
 
 class PatientApp extends StatefulWidget {
-  const PatientApp({super.key});
+  const PatientApp({super.key, this.authStorage});
+
+  final AuthStorage? authStorage;
 
   @override
   State<PatientApp> createState() => _PatientAppState();
@@ -17,19 +21,86 @@ class _PatientAppState extends State<PatientApp> {
   final ApiClient _apiClient = ApiClient();
 
   AuthSession? _session;
+  late final AuthStorage _authStorage;
+  bool _restoringSession = true;
 
-  void _handleLoginSuccess(AuthSession session) {
+  @override
+  void initState() {
+    super.initState();
+    _authStorage = widget.authStorage ?? SecureAuthStorage();
+    _apiClient.setTokenRefresher(_refreshAccessToken);
+    _restoreSession();
+  }
+
+  Future<void> _handleLoginSuccess(AuthSession session) async {
+    await _authStorage.save(session);
+    if (!mounted) return;
     setState(() {
       _session = session;
     });
   }
 
-  void _logout() {
+  Future<void> _restoreSession() async {
+    try {
+      final stored = await _authStorage.read();
+      if (stored == null) return;
+
+      final accessToken = await AuthApi(_apiClient).refresh(
+        stored.refreshToken,
+      );
+      await _authStorage.updateAccessToken(accessToken);
+      if (!mounted) return;
+      setState(() {
+        _session = AuthSession(
+          accessToken: accessToken,
+          refreshToken: stored.refreshToken,
+          user: stored.user,
+        );
+      });
+    } catch (_) {
+      await _authStorage.clear();
+      _apiClient.setAccessToken(null);
+    } finally {
+      if (mounted) {
+        setState(() => _restoringSession = false);
+      }
+    }
+  }
+
+  Future<String?> _refreshAccessToken() async {
+    try {
+      final stored = await _authStorage.read();
+      if (stored == null) return null;
+      final accessToken = await AuthApi(_apiClient).refresh(
+        stored.refreshToken,
+      );
+      await _authStorage.updateAccessToken(accessToken);
+      return accessToken;
+    } catch (_) {
+      await _clearAuthentication();
+      return null;
+    }
+  }
+
+  Future<void> _logout() async {
+    final stored = await _authStorage.read();
+    if (stored != null) {
+      try {
+        await AuthApi(_apiClient).logout(stored.refreshToken);
+      } catch (_) {
+        // 서버 로그아웃 실패와 무관하게 이 기기의 인증 정보는 제거한다.
+      }
+    }
+    await _clearAuthentication();
+  }
+
+  Future<void> _clearAuthentication() async {
+    await _authStorage.clear();
     _apiClient.setAccessToken(null);
 
-    setState(() {
-      _session = null;
-    });
+    if (mounted) {
+      setState(() => _session = null);
+    }
   }
 
   @override
@@ -96,7 +167,7 @@ class _PatientAppState extends State<PatientApp> {
         ),
         navigationBarTheme: NavigationBarThemeData(
           backgroundColor: surface,
-          indicatorColor: primary.withOpacity(0.20),
+          indicatorColor: primary.withValues(alpha: 0.20),
           labelTextStyle: WidgetStateProperty.resolveWith(
             (states) {
               if (states.contains(
@@ -156,7 +227,11 @@ class _PatientAppState extends State<PatientApp> {
           ),
         ),
       ),
-      home: _session == null
+      home: _restoringSession
+          ? const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            )
+          : _session == null
           ? LoginPage(
               apiClient: _apiClient,
               onLoginSuccess: _handleLoginSuccess,

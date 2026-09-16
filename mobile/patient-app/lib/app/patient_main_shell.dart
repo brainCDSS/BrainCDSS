@@ -5,6 +5,7 @@ import '../features/appointments/appointments_page.dart';
 import '../features/auth/auth_session.dart';
 import '../features/emergency/fast_emergency_page.dart';
 import '../features/home/home_page.dart';
+import '../features/home/home_api.dart';
 import '../features/medications/medications_page.dart';
 import '../features/notifications/notifications_page.dart';
 import '../features/profile/profile_page.dart';
@@ -20,7 +21,7 @@ class PatientMainShell extends StatefulWidget {
 
   final ApiClient apiClient;
   final AuthSession session;
-  final VoidCallback onLogout;
+  final Future<void> Function() onLogout;
 
   @override
   State<PatientMainShell> createState() =>
@@ -30,6 +31,7 @@ class PatientMainShell extends StatefulWidget {
 class _PatientMainShellState
     extends State<PatientMainShell> {
   int _selectedIndex = 0;
+  final _homeKey = GlobalKey<HomePageState>();
   final _appointmentsKey = GlobalKey<AppointmentsPageState>();
 
   late final List<Widget> _pages;
@@ -48,8 +50,12 @@ class _PatientMainShellState
 
     _pages = [
       HomePage(
+        key: _homeKey,
         apiClient: widget.apiClient,
         session: widget.session,
+        onOpenAppointments: () => _selectTab(1),
+        onOpenAppointmentDetail: _openAppointmentDetail,
+        onOpenNotifications: _openNotifications,
       ),
       AppointmentsPage(key: _appointmentsKey, apiClient: widget.apiClient),
       TestResultsPage(apiClient: widget.apiClient),
@@ -60,6 +66,39 @@ class _PatientMainShellState
         apiClient: widget.apiClient,
       ),
     ];
+  }
+
+  void _selectTab(int index) {
+    setState(() => _selectedIndex = index);
+    if (index == 0) {
+      _homeKey.currentState?.refreshAppointments();
+    }
+  }
+
+  void _refreshAppointmentViews() {
+    _appointmentsKey.currentState?.reload();
+    _homeKey.currentState?.refreshAppointments();
+  }
+
+  Future<void> _openAppointmentDetail(HomeAppointment appointment) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => AppointmentDetailPage(
+          appointment: appointment,
+          apiClient: widget.apiClient,
+        ),
+      ),
+    );
+    _refreshAppointmentViews();
+  }
+
+  Future<void> _openNotifications() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => NotificationsPage(apiClient: widget.apiClient),
+      ),
+    );
+    _homeKey.currentState?.refreshNotifications();
   }
 
   @override
@@ -79,7 +118,7 @@ class _PatientMainShellState
         actions: _selectedIndex == 0
             ? [
                 IconButton(
-                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => NotificationsPage(apiClient: widget.apiClient))),
+                  onPressed: _openNotifications,
                   tooltip: '알림센터',
                   icon: const Icon(
                     Icons.notifications_outlined,
@@ -94,7 +133,7 @@ class _PatientMainShellState
         selectedIndex: _selectedIndex,
         onSelectTab: (index) {
           Navigator.of(context).pop();
-          setState(() => _selectedIndex = index);
+          _selectTab(index);
         },
         onOpenPage: (openPage) {
           Navigator.of(context).pop();
@@ -104,7 +143,7 @@ class _PatientMainShellState
         },
         onShowAppointmentSection: (showPast) {
           Navigator.of(context).pop();
-          setState(() => _selectedIndex = 1);
+          _selectTab(1);
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (showPast) {
               _appointmentsKey.currentState?.showPast();
@@ -113,6 +152,7 @@ class _PatientMainShellState
             }
           });
         },
+        onAppointmentsChanged: _refreshAppointmentViews,
         onLogout: widget.onLogout,
       ),
       body: SafeArea(
@@ -124,9 +164,7 @@ class _PatientMainShellState
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
+          _selectTab(index);
         },
         destinations: const [
           NavigationDestination(
@@ -188,6 +226,7 @@ class _PatientDrawer extends StatelessWidget {
     required this.onSelectTab,
     required this.onOpenPage,
     required this.onShowAppointmentSection,
+    required this.onAppointmentsChanged,
     required this.onLogout,
   });
 
@@ -197,7 +236,8 @@ class _PatientDrawer extends StatelessWidget {
   final ValueChanged<int> onSelectTab;
   final ValueChanged<void Function(BuildContext)> onOpenPage;
   final ValueChanged<bool> onShowAppointmentSection;
-  final VoidCallback onLogout;
+  final VoidCallback onAppointmentsChanged;
+  final Future<void> Function() onLogout;
 
   static const _primaryDark = Color(0xFF5665B8);
   static const _primarySoft = Color(0xFFE5E8FF);
@@ -252,7 +292,7 @@ class _PatientDrawer extends StatelessWidget {
                       title: '예약',
                       index: 1,
                       children: [
-                        _subTile('진료 예약하기', () => onOpenPage((context) => AppointmentsPage.openReservation(context, apiClient))),
+                        _subTile('진료 예약하기', () => onOpenPage((context) => AppointmentsPage.openReservation(context, apiClient, onChanged: onAppointmentsChanged))),
                         _subTile('예정된 예약', () => onShowAppointmentSection(false)),
                         _subTile('지난 예약', () => onShowAppointmentSection(true)),
                       ],
@@ -368,6 +408,6 @@ class _PatientDrawer extends StatelessWidget {
         ],
       ),
     );
-    if (confirmed == true) onLogout();
+    if (confirmed == true) await onLogout();
   }
 }

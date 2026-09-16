@@ -1,6 +1,7 @@
 import { apiRequest } from "../../api/client";
 import type {
   CreatePrescriptionRequest,
+  CurrentMedicationListResponse,
   EncounterListItem,
   EncounterListResponse,
   FinalizePrescriptionResponse,
@@ -11,6 +12,12 @@ import type {
   SafetyCheckResponse,
   UpdatePrescriptionRequest,
 } from "./types";
+
+export function getCurrentMedications(patientId: string) {
+  return apiRequest<CurrentMedicationListResponse>(
+    `/api/v1/patients/${encodeURIComponent(patientId)}/current-medications`,
+  );
+}
 
 export async function getPatientEncounters(patientId: string) {
   const params = new URLSearchParams({ patient_id: patientId });

@@ -117,8 +117,8 @@ export function PatientHeader({ patient, care, onOpenDetails }: { patient: Patie
     <dl className="patient-context-care">
       {care?.encounterStatus || care?.encounterType || care?.arrivedAt ? <>
         <div><dt>내원일시</dt><dd>{dateTime(care.arrivedAt)}</dd></div>
-        <div><dt>Encounter 상태</dt><dd>{care.encounterStatus || "-"}</dd></div>
-        <div><dt>내원 형태</dt><dd>{care.encounterType || "-"}</dd></div>
+        <div><dt>진료 상태</dt><dd>{badge?.label ?? "-"}</dd></div>
+        <div><dt>내원 형태</dt><dd>{{ STAT: "긴급", EMERGENCY: "응급", ROUTINE: "일반" }[care.encounterType ?? ""] ?? care.encounterType ?? "-"}</dd></div>
         <div><dt>종료일시</dt><dd>{dateTime(care.endedAt)}</dd></div>
       </> : <>
         <div><dt>진료과</dt><dd>{care?.department || "-"}</dd></div>

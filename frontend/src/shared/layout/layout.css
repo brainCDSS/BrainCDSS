@@ -2474,7 +2474,7 @@ body,
   object-fit: contain;
 }
 
-.brainon-loading__text { /*문구*/
+.brainon-loading__text { /* 로딩 문구 위치*/
   position: absolute;
   top: 100%; 
   left: 50%;

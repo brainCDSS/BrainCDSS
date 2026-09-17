@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 
 import type { AssessmentWorklistItem } from "../assessments/types";
@@ -13,6 +13,7 @@ import { getPatientEncounters } from "../medication-safety/api";
 import type { EncounterListItem } from "../medication-safety/types";
 import { getPatients } from "../patients/api";
 import type { Patient } from "../patients/types";
+import { ClinicalEvidencePanel } from "../clinical-evidence/ClinicalEvidencePanel";
 
 import "./dashboard.css";
 
@@ -992,10 +993,12 @@ function PatientQuickView({
   );
 }
 
+// Kept temporarily to avoid a broad deletion in this dense legacy file; no longer rendered.
+void PatientQuickView;
+
 export default function Dashboard({
   currentUser,
   onOpenPatient,
-  onOpenMenu,
 }: DashboardProps) {
   const [
     data,
@@ -1130,52 +1133,6 @@ export default function Dashboard({
     };
   }, []);
 
-  const selectedStudies =
-    useMemo(
-      () =>
-        selectedPatient
-          ? data.studies.filter(
-              (study) =>
-                study.patient_id ===
-                selectedPatient.id,
-            )
-          : [],
-      [
-        data.studies,
-        selectedPatient,
-      ],
-    );
-
-  const studyIds =
-    useMemo(
-      () =>
-        new Set(
-          selectedStudies.map(
-            (study) =>
-              study.id,
-          ),
-        ),
-      [selectedStudies],
-    );
-
-  const selectedAnalyses =
-    useMemo(
-      () =>
-        data.analyses.filter(
-          (analysis) =>
-            studyIds.has(
-              analysis.study_id,
-            ),
-        ),
-      [
-        data.analyses,
-        studyIds,
-      ],
-    );
-
-  const selectedEncounter = selectedPatient
-    ? data.encounters.find((encounter) => encounter.patient_id === selectedPatient.id) ?? null
-    : null;
   const encountersForDate = data.encounters.filter((encounter) =>
     isToday(encounter.arrived_at, selectedDate),
   );
@@ -1435,29 +1392,7 @@ export default function Dashboard({
             }
           />
 
-          <PatientQuickView
-            patient={
-              selectedPatient
-            }
-            studies={
-              selectedStudies
-            }
-            analyses={
-              selectedAnalyses
-            }
-            encounter={selectedEncounter}
-            onOpenPatient={
-              onOpenPatient
-            }
-            onOpenImaging={
-              onOpenMenu
-                ? () =>
-                    onOpenMenu(
-                      "imaging",
-                    )
-                : undefined
-            }
-          />
+          <ClinicalEvidencePanel />
         </section>
       </main>
     </section>

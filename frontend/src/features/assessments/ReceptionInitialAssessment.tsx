@@ -74,7 +74,9 @@ interface ReceptionInitialAssessmentProps {
   onOpenTriage?: (
     assessmentId: string,
     encounterId: string,
+    readOnly?: boolean,
   ) => void;
+  refreshKey?: number;
 }
 
 
@@ -105,6 +107,7 @@ interface TodayVisitRow {
   ageSex: string;
   encounterType: string;
   status: ReceptionStatus;
+  assessmentStatus?: string | null;
   registeredAt: string | null;
 }
 
@@ -589,6 +592,7 @@ function encounterTypeLabel(
 
 export default function ReceptionInitialAssessment({
   onOpenTriage,
+  refreshKey = 0,
 }: ReceptionInitialAssessmentProps) {
 
   /* =======================================================
@@ -1352,7 +1356,7 @@ export default function ReceptionInitialAssessment({
     () => {
       void loadWorklist();
     },
-    [],
+    [refreshKey],
   );
 
 
@@ -1366,8 +1370,10 @@ export default function ReceptionInitialAssessment({
         worklist
           .filter(
             (item) =>
-              isToday(
-                item.created_at,
+              item.status === "DRAFT" ||
+              (
+                item.status === "WAITING" &&
+                isToday(item.created_at)
               ),
           )
           .map<TodayVisitRow>(
@@ -1398,6 +1404,7 @@ export default function ReceptionInitialAssessment({
                 assessmentStatusToReceptionStatus(
                   item.status,
                 ),
+              assessmentStatus: item.status,
               registeredAt:
                 item.created_at,
             }),
@@ -1501,6 +1508,28 @@ export default function ReceptionInitialAssessment({
       [
         localVisitRows,
         worklistVisitRows,
+      ],
+    );
+
+
+  const selectedPatientWorklistItem =
+    useMemo(
+      () => {
+        if (!selectedPatient) {
+          return null;
+        }
+
+        return worklist.find(
+          (item) =>
+            item.status === "DRAFT" &&
+            Boolean(item.assessment_id) &&
+            worklistValue(item.patient_summary, ["patient_id", "id"]) ===
+              selectedPatient.id,
+        ) ?? null;
+      },
+      [
+        selectedPatient,
+        worklist,
       ],
     );
 
@@ -1933,6 +1962,7 @@ export default function ReceptionInitialAssessment({
       onOpenTriage(
         assessmentId,
         item.encounterId,
+        item.assessmentStatus === "COMPLETED",
       );
     } catch (requestError) {
       setError(
@@ -2186,6 +2216,65 @@ export default function ReceptionInitialAssessment({
     } catch (
       requestError
     ) {
+      const isActiveEncounterConflict =
+        requestError instanceof Error &&
+        requestError.message.includes("BACKEND_REQUEST_FAILED:409");
+
+      if (isActiveEncounterConflict) {
+        try {
+          const latestWorklist = await getAssessmentWorklist();
+          const rows = latestWorklist.results ?? [];
+          setWorklist(rows);
+
+          const matchingRows = rows.filter(
+            (item) =>
+              worklistValue(item.patient_summary, ["patient_id", "id"]) ===
+                selectedPatient.id,
+          );
+
+          const draft = matchingRows.find(
+            (item) =>
+              item.status === "DRAFT" &&
+              Boolean(item.assessment_id),
+          );
+
+          if (draft?.assessment_id) {
+            onOpenTriage?.(
+              draft.assessment_id,
+              draft.encounter_id,
+            );
+            return;
+          }
+
+          /*
+           * 409은 Encounter 중복에서 발생할 수도 있습니다. 이 경우
+           * worklist의 WAITING 행은 Assessment가 아직 없다는 계약상의
+           * 표현이므로, 기존 Encounter에만 Assessment를 시작합니다.
+           */
+          const waiting = matchingRows.find(
+            (item) =>
+              item.status === "WAITING" &&
+              !item.assessment_id,
+          );
+
+          if (waiting) {
+            const started = await startAssessment({
+              encounter_id: waiting.encounter_id,
+            });
+
+            if (started.assessment_id) {
+              onOpenTriage?.(
+                started.assessment_id,
+                started.encounter_id ?? waiting.encounter_id,
+              );
+              return;
+            }
+          }
+        } catch {
+          // Preserve the original conflict error when the recovery read fails.
+        }
+      }
+
       setError(
         apiError(
           requestError,
@@ -2489,12 +2578,17 @@ export default function ReceptionInitialAssessment({
                           {item.ageSex}
                         </span>
 
-                        <span className="reception-today-row__time">
+                        <span
+                          className="reception-today-row__time"
+                          title={formatTime(item.registeredAt)}
+                        >
                           {opening
                             ? "여는 중..."
-                            : formatTime(
-                                item.registeredAt,
-                              )}
+                            : item.assessmentStatus === "DRAFT"
+                              ? "이어서 작성"
+                              : item.assessmentId
+                                ? "초기평가 보기"
+                                : "초기평가 시작"}
                         </span>
 
                       </button>
@@ -3222,7 +3316,29 @@ export default function ReceptionInitialAssessment({
 
               </section>
 
+              {selectedPatientWorklistItem && (
+                <section className="reception-message reception-message--info">
+                  <strong>
+                    진행 중인 초기평가가 있습니다.
+                  </strong>
 
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onOpenTriage?.(
+                        selectedPatientWorklistItem.assessment_id!,
+                        selectedPatientWorklistItem.encounter_id,
+                      );
+                    }}
+                  >
+                    이어서 작성
+                  </button>
+                </section>
+              )}
+
+
+              {!selectedPatientWorklistItem && (
+                <>
               {/* ===========================================
                   내원 정보
                   =========================================== */}
@@ -3757,6 +3873,9 @@ export default function ReceptionInitialAssessment({
                 </button>
 
               </footer>
+
+                </>
+              )}
 
             </div>
           )}

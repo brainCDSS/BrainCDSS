@@ -60,7 +60,9 @@ class HomePageState extends State<HomePage> {
   Future<void> _loadNotifications() async {
     try {
       final response = await _notificationsApi.list(unreadOnly: true);
-      if (mounted) setState(() => _notifications = response.items.where((item) => !item.isRead).toList());
+      if (mounted)
+        setState(() => _notifications =
+            response.items.where((item) => !item.isRead).toList());
     } catch (_) {
       if (mounted) setState(() => _notifications = const []);
     }
@@ -158,7 +160,9 @@ class HomePageState extends State<HomePage> {
     final todayAppointments = _todayAppointments;
 
     return RefreshIndicator(
-      onRefresh: () async { await Future.wait([_loadAppointments(), _loadNotifications()]); },
+      onRefresh: () async {
+        await Future.wait([_loadAppointments(), _loadNotifications()]);
+      },
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(
@@ -193,19 +197,27 @@ class HomePageState extends State<HomePage> {
             subtitle: '확인이 필요한 알림을 확인하세요.',
           ),
           const SizedBox(height: 12),
-          if (_notifications.isEmpty) const _EmptyCard(
-            icon: Icons.notifications_none_rounded,
-            title: '확인할 알림이 없습니다.',
-            description: '새로운 알림이 등록되면 이곳에 표시됩니다.',
-          ) else ..._notifications.take(3).map((item) => Card(child: ListTile(
-            leading: Icon(Icons.notifications_active_outlined, color: item.severity == 'CRITICAL' ? _emergency : _primaryDark),
-            title: Text(item.title), subtitle: Text(item.body),
-            onTap: () async {
-              await _notificationsApi.markRead(item.id);
-              await _loadNotifications();
-              widget.onOpenNotifications();
-            },
-          ))),
+          if (_notifications.isEmpty)
+            const _EmptyCard(
+              icon: Icons.notifications_none_rounded,
+              title: '확인할 알림이 없습니다.',
+              description: '새로운 알림이 등록되면 이곳에 표시됩니다.',
+            )
+          else
+            ..._notifications.take(3).map((item) => Card(
+                    child: ListTile(
+                  leading: Icon(Icons.notifications_active_outlined,
+                      color: item.severity == 'CRITICAL'
+                          ? _emergency
+                          : _primaryDark),
+                  title: Text(item.title),
+                  subtitle: Text(item.body),
+                  onTap: () async {
+                    await _notificationsApi.markRead(item.id);
+                    await _loadNotifications();
+                    widget.onOpenNotifications();
+                  },
+                ))),
           const SizedBox(height: 28),
           _buildSectionTitle(
             title: '오늘 복약',
@@ -224,53 +236,57 @@ class HomePageState extends State<HomePage> {
     );
   }
 
+/*상단 인사말 카드섹션*/
   Widget _buildGreeting() {
     final greeting = _patientName.isEmpty ? '안녕하세요' : '$_patientName님, 안녕하세요';
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20, 20, 12, 3), //카드여백(마지막)
       decoration: BoxDecoration(
         color: _primarySoft,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: _surface,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Icon(
-              Icons.favorite_outline_rounded,
-              color: _primaryDark,
-              size: 28,
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    greeting,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: _textPrimary,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '오늘도 건강한 하루 보내세요.\n호짱이 함께할게요.',
+                    style: TextStyle(
+                      color: _textSecondary,
+                      fontSize: 14,
+                      height: 1.45,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  greeting,
-                  style: const TextStyle(
-                    color: _textPrimary,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  '오늘도 건강 정보를 확인해 보세요.',
-                  style: TextStyle(
-                    color: _textSecondary,
-                    fontSize: 14,
-                    height: 1.4,
-                  ),
-                ),
-              ],
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 110,
+            height: 90, //상단이미지 크기 변경(호짱)
+            child: Image.asset(
+              'assets/images/hojjang_main.png',
+              fit: BoxFit.contain,
+              alignment: Alignment.bottomCenter,
             ),
           ),
         ],
@@ -359,7 +375,6 @@ class HomePageState extends State<HomePage> {
 
     if (_appointmentError != null) {
       return Container(
-        
         padding: const EdgeInsets.all(20),
         decoration: _cardDecoration(),
         child: Column(
@@ -616,78 +631,78 @@ class _AppointmentCard extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(18),
       child: Ink(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFFFFF),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: const Color(0xFFCFD7E8),
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE5E8FF),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(
-              Icons.calendar_today_outlined,
-              color: Color(0xFF5665B8),
-            ),
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFFFFF),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: const Color(0xFFCFD7E8),
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        scheduledAt == null
-                            ? '예약 시간 정보 없음'
-                            : _formatTime(
-                                scheduledAt,
-                              ),
-                        style: const TextStyle(
-                          color: Color(
-                            0xFF263A5A,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE5E8FF),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(
+                Icons.calendar_today_outlined,
+                color: Color(0xFF5665B8),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          scheduledAt == null
+                              ? '예약 시간 정보 없음'
+                              : _formatTime(
+                                  scheduledAt,
+                                ),
+                          style: const TextStyle(
+                            color: Color(
+                              0xFF263A5A,
+                            ),
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
                           ),
-                          fontSize: 17,
-                          fontWeight: FontWeight.w800,
                         ),
                       ),
-                    ),
-                    const SizedBox(
-                      width: 8,
-                    ),
-                    _StatusBadge(
-                      status: appointment.status,
+                      const SizedBox(
+                        width: 8,
+                      ),
+                      _StatusBadge(
+                        status: appointment.status,
+                      ),
+                    ],
+                  ),
+                  if (info.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      info.join(' · '),
+                      style: const TextStyle(
+                        color: Color(
+                          0xFF65758D,
+                        ),
+                        fontSize: 13,
+                        height: 1.4,
+                      ),
                     ),
                   ],
-                ),
-                if (info.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    info.join(' · '),
-                    style: const TextStyle(
-                      color: Color(
-                        0xFF65758D,
-                      ),
-                      fontSize: 13,
-                      height: 1.4,
-                    ),
-                  ),
                 ],
-              ],
+              ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }

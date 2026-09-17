@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "brainon/consultation-messages/v1",
+  "title": "Consultation message collection response",
+  "type": "object",
+  "required": ["results", "next_cursor", "has_more"],
+  "properties": {
+    "results": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/message" },
+      "maxItems": 100
+    },
+    "next_cursor": {
+      "oneOf": [
+        { "type": "string", "format": "uuid" },
+        { "type": "null" }
+      ]
+    },
+    "has_more": { "type": "boolean" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "clinician": {
+      "type": "object",
+      "required": ["id", "name", "department"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "name": { "type": "string" },
+        "department": {
+          "oneOf": [{ "type": "string" }, { "type": "null" }]
+        }
+      },
+      "additionalProperties": false
+    },
+    "message": {
+      "type": "object",
+      "required": [
+        "message_id",
+        "consultation_id",
+        "sender",
+        "content",
+        "created_at",
+        "is_mine"
+      ],
+      "properties": {
+        "message_id": { "type": "string", "format": "uuid" },
+        "consultation_id": { "type": "string", "format": "uuid" },
+        "sender": { "$ref": "#/$defs/clinician" },
+        "content": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "created_at": { "type": "string", "format": "date-time" },
+        "is_mine": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

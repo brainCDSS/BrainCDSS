@@ -114,3 +114,23 @@ export interface ConsultationListResponse {
   count: number;
   results: ConsultationListItem[];
 }
+
+
+/* =========================================================
+   협진 실시간 메시지
+   ========================================================= */
+
+export interface ConsultationMessage {
+  message_id: string;
+  consultation_id: string;
+  sender: ConsultationUserSummary;
+  content: string;
+  created_at: string;
+  is_mine: boolean;
+}
+
+export interface ConsultationMessageListResponse {
+  results: ConsultationMessage[];
+  next_cursor: string | null;
+  has_more: boolean;
+}

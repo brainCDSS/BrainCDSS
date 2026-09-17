@@ -1,6 +1,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -17,15 +18,18 @@ import {
   acceptConsultation,
   cancelConsultation,
   getConsultationDetail,
+  getConsultationMessages,
   markConsultationResponseViewed,
   rejectConsultation,
   respondConsultation,
+  sendConsultationMessage,
   startConsultation,
 } from "./api";
 import ConsultationReasonModal from "./ConsultationReasonModal";
 
 import type {
   ConsultationListItem,
+  ConsultationMessage,
   ConsultationPriority,
   ConsultationStatus,
   ConsultationType,
@@ -174,6 +178,13 @@ export default function ConsultationPatientReview({
   const [initialAssessments, setInitialAssessments] = useState<InitialAssessment[]>([]);
   const [initialAssessmentsLoading, setInitialAssessmentsLoading] = useState(false);
   const [initialAssessmentsError, setInitialAssessmentsError] = useState<string | null>(null);
+  const [chatMessages, setChatMessages] = useState<ConsultationMessage[]>([]);
+  const [chatDraft, setChatDraft] = useState("");
+  const [chatLoading, setChatLoading] = useState(true);
+  const [chatSending, setChatSending] = useState(false);
+  const [chatConnected, setChatConnected] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const chatBodyRef = useRef<HTMLDivElement | null>(null);
 
   async function runAction(action: string, reason?: string) {
     if (!consultation || actionBusy) return;
@@ -412,10 +423,112 @@ export default function ConsultationPatientReview({
     return () => { cancelled = true; };
   }, [consultation?.encounter_id]);
 
+  useEffect(() => {
+    if (!consultation) return;
+    const activeConsultationId: string = consultation.consultation_id;
+
+    let cancelled = false;
+    let cursor: string | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let controller: AbortController | undefined;
+
+    setChatMessages([]);
+    setChatDraft("");
+    setChatLoading(true);
+    setChatConnected(false);
+    setChatError(null);
+
+    const mergeMessages = (incoming: ConsultationMessage[]) => {
+      setChatMessages((current) => {
+        const byId = new Map(current.map((message) => [message.message_id, message]));
+        incoming.forEach((message) => byId.set(message.message_id, message));
+        return [...byId.values()].sort(
+          (left, right) =>
+            new Date(left.created_at).getTime() - new Date(right.created_at).getTime(),
+        );
+      });
+    };
+
+    async function pollMessages() {
+      controller = new AbortController();
+      try {
+        const response = await getConsultationMessages(activeConsultationId, {
+          ...(cursor ? { after: cursor } : {}),
+          signal: controller.signal,
+        });
+        if (cancelled) return;
+        mergeMessages(response.results);
+        if (response.next_cursor) cursor = response.next_cursor;
+        setChatConnected(true);
+        setChatError(null);
+        setChatLoading(false);
+        timer = setTimeout(pollMessages, response.has_more ? 0 : 2000);
+      } catch (pollError) {
+        if (cancelled || (pollError instanceof DOMException && pollError.name === "AbortError")) {
+          return;
+        }
+        setChatConnected(false);
+        setChatError("메시지 연결이 끊겼습니다. 자동으로 다시 연결합니다.");
+        setChatLoading(false);
+        timer = setTimeout(pollMessages, 3000);
+      }
+    }
+
+    void pollMessages();
+    return () => {
+      cancelled = true;
+      controller?.abort();
+      if (timer) clearTimeout(timer);
+    };
+  }, [consultation?.consultation_id]);
+
+  useEffect(() => {
+    const body = chatBodyRef.current;
+    if (body) body.scrollTop = body.scrollHeight;
+  }, [chatMessages.length]);
+
+  async function submitChatMessage() {
+    if (!consultation || chatSending) return;
+    const content = chatDraft.trim();
+    if (!content) return;
+
+    setChatSending(true);
+    setChatError(null);
+    try {
+      const message = await sendConsultationMessage(
+        consultation.consultation_id,
+        content,
+      );
+      setChatMessages((current) =>
+        current.some((item) => item.message_id === message.message_id)
+          ? current
+          : [...current, message],
+      );
+      setChatDraft("");
+      setChatConnected(true);
+    } catch {
+      setChatError("메시지를 전송하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      setChatSending(false);
+    }
+  }
+
   const analysisResultById = useMemo(
     () => new Map(analysisResults.map((result) => [result.analysis_id, result])),
     [analysisResults],
   );
+
+  const canSendChatMessage = consultation
+    ? ["REQUESTED", "ACCEPTED", "IN_PROGRESS"].includes(consultation.status)
+    : false;
+
+  const formatMessageTime = (value: string) =>
+    new Intl.DateTimeFormat("ko-KR", {
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(value));
 
 
   /* ========================================================
@@ -1301,44 +1414,90 @@ export default function ConsultationPatientReview({
             </div>
 
 
-            <span className="consultation-review__connection-status">
-              연동 예정
+            <span
+              className={`consultation-review__connection-status${
+                chatConnected ? " is-connected" : ""
+              }`}
+            >
+              {chatConnected ? "실시간 연결" : "연결 중"}
             </span>
 
           </div>
 
 
-          <div className="consultation-review__chat-body">
-
-            <div className="consultation-review__chat-empty">
-
-              <strong>
-                실시간 메시지 API 연동 예정
-              </strong>
-
-              <span>
-                의료진 간 메시지와 추가 확인 요청이
-                이 영역에 표시됩니다.
-              </span>
-
-            </div>
-
+          <div className="consultation-review__chat-body" ref={chatBodyRef}>
+            {chatLoading && chatMessages.length === 0 ? (
+              <div className="consultation-review__chat-empty">
+                <strong>메시지를 불러오는 중입니다.</strong>
+              </div>
+            ) : chatMessages.length === 0 ? (
+              <div className="consultation-review__chat-empty">
+                <strong>아직 메시지가 없습니다.</strong>
+                <span>협진 내용을 입력하면 상대 의료진에게 실시간으로 표시됩니다.</span>
+              </div>
+            ) : (
+              <div className="consultation-review__chat-list" aria-live="polite">
+                {chatMessages.map((message) => (
+                  <article
+                    className={`consultation-review__chat-message${
+                      message.is_mine ? " is-mine" : ""
+                    }`}
+                    key={message.message_id}
+                  >
+                    <div className="consultation-review__chat-meta">
+                      <strong>{message.is_mine ? "나" : message.sender.name}</strong>
+                      {!message.is_mine && message.sender.department && (
+                        <span>{message.sender.department}</span>
+                      )}
+                      <time dateTime={message.created_at}>
+                        {formatMessageTime(message.created_at)}
+                      </time>
+                    </div>
+                    <p>{message.content}</p>
+                  </article>
+                ))}
+              </div>
+            )}
           </div>
+
+          {chatError && (
+            <div className="consultation-review__chat-error" role="alert">
+              {chatError}
+            </div>
+          )}
 
 
           <div className="consultation-review__chat-input">
 
             <input
               type="text"
-              placeholder="메시지 기능 연동 예정"
-              disabled
+              value={chatDraft}
+              maxLength={2000}
+              placeholder={
+                canSendChatMessage
+                  ? "협진 메시지를 입력하세요"
+                  : "종료된 협진에는 메시지를 보낼 수 없습니다"
+              }
+              disabled={!canSendChatMessage || chatSending}
+              onChange={(event) => setChatDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (
+                  event.key === "Enter" &&
+                  !event.nativeEvent.isComposing &&
+                  chatDraft.trim()
+                ) {
+                  event.preventDefault();
+                  void submitChatMessage();
+                }
+              }}
             />
 
             <button
               type="button"
-              disabled
+              disabled={!canSendChatMessage || chatSending || !chatDraft.trim()}
+              onClick={() => void submitChatMessage()}
             >
-              전송
+              {chatSending ? "전송 중" : "전송"}
             </button>
 
           </div>

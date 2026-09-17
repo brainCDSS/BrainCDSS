@@ -3,6 +3,8 @@ import { apiRequest } from "../../api/client";
 import type {
   ConsultationListItem,
   ConsultationListResponse,
+  ConsultationMessage,
+  ConsultationMessageListResponse,
 } from "./types";
 
 
@@ -42,3 +44,36 @@ export function startConsultation(id: string) { return consultationAction(id, "s
 export function respondConsultation(id: string, payload: { final_opinion: string; treatment_plan?: string }) { return consultationAction(id, "respond", payload); }
 export function cancelConsultation(id: string, reason: string) { return consultationAction(id, "cancel", { reason }); }
 export function markConsultationResponseViewed(id: string) { return consultationAction(id, "view-response"); }
+
+
+/* =========================================================
+   협진 실시간 메시지
+   GET/POST /api/v1/consultations/{consultation_id}/messages
+   ========================================================= */
+
+export function getConsultationMessages(
+  consultationId: string,
+  options: { after?: string; signal?: AbortSignal } = {},
+): Promise<ConsultationMessageListResponse> {
+  const query = options.after
+    ? `?after=${encodeURIComponent(options.after)}`
+    : "";
+  return apiRequest<ConsultationMessageListResponse>(
+    `/api/v1/consultations/${encodeURIComponent(consultationId)}/messages${query}`,
+    { signal: options.signal },
+  );
+}
+
+export function sendConsultationMessage(
+  consultationId: string,
+  content: string,
+): Promise<ConsultationMessage> {
+  return apiRequest<ConsultationMessage>(
+    `/api/v1/consultations/${encodeURIComponent(consultationId)}/messages`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content }),
+    },
+  );
+}

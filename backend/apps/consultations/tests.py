@@ -4,7 +4,7 @@ from rest_framework.test import APITestCase
 
 from apps.accounts.models import Role, User
 from apps.clinical_records.models import Encounter
-from apps.consultations.models import Consultation
+from apps.consultations.models import Consultation, ConsultationMessage
 from apps.notifications.models import Notification
 from apps.organizations.models import Clinician, Department, Hospital
 from apps.patients.models import Patient
@@ -466,3 +466,101 @@ class ConsultationListResponseTests(APITestCase):
                 recipient_user=other_surgeon,
             ).exists()
         )
+
+    def test_consultation_participants_can_exchange_messages(self):
+        self.client.force_authenticate(self.requester)
+        url = reverse("consultation_messages", args=[self.consultation.id])
+
+        create_response = self.client.post(
+            url,
+            {"content": "Please confirm the lesion location."},
+            format="json",
+        )
+
+        self.assertEqual(create_response.status_code, 201)
+        self.assertTrue(create_response.json()["is_mine"])
+        self.assertEqual(create_response.json()["sender"]["name"], self.requester.name)
+        self.assertEqual(
+            ConsultationMessage.objects.get().content,
+            "Please confirm the lesion location.",
+        )
+
+        self.client.force_authenticate(self.assignee)
+        list_response = self.client.get(url)
+
+        self.assertEqual(list_response.status_code, 200)
+        self.assertEqual(len(list_response.json()["results"]), 1)
+        self.assertFalse(list_response.json()["results"][0]["is_mine"])
+
+    def test_consultation_messages_support_incremental_cursor(self):
+        self.client.force_authenticate(self.requester)
+        url = reverse("consultation_messages", args=[self.consultation.id])
+        first = self.client.post(
+            url,
+            {"content": "First message"},
+            format="json",
+        ).json()
+        second = self.client.post(
+            url,
+            {"content": "Second message"},
+            format="json",
+        ).json()
+
+        response = self.client.get(url, {"after": first["message_id"]})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [item["message_id"] for item in response.json()["results"]],
+            [second["message_id"]],
+        )
+        self.assertEqual(response.json()["next_cursor"], second["message_id"])
+
+    def test_unrelated_clinician_cannot_access_consultation_messages(self):
+        unrelated = User.objects.create_user(
+            "chat-outsider",
+            "password",
+            name="Chat Outsider",
+            role=self.assignee.role,
+        )
+        self.client.force_authenticate(unrelated)
+        url = reverse("consultation_messages", args=[self.consultation.id])
+
+        list_response = self.client.get(url)
+        create_response = self.client.post(
+            url,
+            {"content": "This must not be saved."},
+            format="json",
+        )
+
+        self.assertEqual(list_response.status_code, 403)
+        self.assertEqual(create_response.status_code, 403)
+        self.assertFalse(ConsultationMessage.objects.exists())
+
+    def test_closed_consultation_messages_are_read_only(self):
+        self.consultation.status = "CLOSED"
+        self.consultation.save(update_fields=["status"])
+        self.client.force_authenticate(self.requester)
+
+        response = self.client.post(
+            reverse("consultation_messages", args=[self.consultation.id]),
+            {"content": "Too late"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertFalse(ConsultationMessage.objects.exists())
+
+    def test_consultation_message_validates_content(self):
+        self.client.force_authenticate(self.requester)
+        url = reverse("consultation_messages", args=[self.consultation.id])
+
+        empty_response = self.client.post(url, {"content": "   "}, format="json")
+        long_response = self.client.post(
+            url,
+            {"content": "x" * 2001},
+            format="json",
+        )
+
+        self.assertEqual(empty_response.status_code, 400)
+        self.assertEqual(long_response.status_code, 400)
+        self.assertFalse(ConsultationMessage.objects.exists())

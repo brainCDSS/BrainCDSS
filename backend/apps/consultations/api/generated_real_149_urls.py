@@ -2,6 +2,9 @@ from django.urls import path
 from apps.consultations.api import generated_real_149 as views
 from apps.consultations.api.consultation_list_view import ConsultationListCreateView
 from apps.consultations.api.consultation_detail_view import ConsultationDetailView
+from apps.consultations.api.consultation_message_view import (
+    ConsultationMessageCollectionView,
+)
 
 urlpatterns = [
     path(
@@ -13,6 +16,11 @@ urlpatterns = [
         'api/v1/consultations/<uuid:consultation_id>',
         ConsultationDetailView.as_view(),
         name='api_con_003',
+    ),
+    path(
+        'api/v1/consultations/<uuid:consultation_id>/messages',
+        ConsultationMessageCollectionView.as_view(),
+        name='consultation_messages',
     ),
     path(
         'api/v1/consultations/<uuid:consultation_id>/accept',

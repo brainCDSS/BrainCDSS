@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   getAssessmentDetail,
@@ -45,6 +45,37 @@ type AssessmentStep =
   | 1
   | 2
   | 3;
+
+type InitialScreeningCode =
+  | "BALANCE"
+  | "EYES"
+  | "FACE"
+  | "ARM"
+  | "SPEECH"
+  | "CONSCIOUSNESS";
+
+const initialScreeningItems: Array<{
+  code: InitialScreeningCode;
+  label: string;
+}> = [
+  { code: "BALANCE", label: "Balance / 균형" },
+  { code: "EYES", label: "Eyes / 시야" },
+  { code: "FACE", label: "Face / 안면" },
+  { code: "ARM", label: "Arm / 상지" },
+  { code: "SPEECH", label: "Speech / 언어" },
+  { code: "CONSCIOUSNESS", label: "Consciousness / 의식" },
+];
+
+const initialScreeningScoreLabels = ["정상", "경미", "중간", "뚜렷", "심함"];
+
+const emptyInitialScreeningScores = (): Record<InitialScreeningCode, number | null> => ({
+  BALANCE: null,
+  EYES: null,
+  FACE: null,
+  ARM: null,
+  SPEECH: null,
+  CONSCIOUSNESS: null,
+});
 
 
 /* =========================================================
@@ -177,9 +208,15 @@ export default function TriageAssessment({
      ======================================================== */
 
   const [
-    consciousnessState,
-    setConsciousnessState,
-  ] = useState<AssessmentChoice>("");
+    initialScreeningScores,
+    setInitialScreeningScores,
+  ] = useState<Record<InitialScreeningCode, number | null>>(
+    emptyInitialScreeningScores,
+  );
+
+  // Retained only for the legacy control kept in the DOM for layout compatibility.
+  // The visible assessment UI uses initialScreeningScores above.
+  const [consciousnessState, setConsciousnessState] = useState<AssessmentChoice>("");
 
 
   /* ========================================================
@@ -230,6 +267,49 @@ export default function TriageAssessment({
     symptomNote,
     setSymptomNote,
   ] = useState("");
+
+  const initialScreeningTotal = useMemo(
+    () => Object.values(initialScreeningScores).reduce<number>(
+      (total, score) => total + (score ?? 0),
+      0,
+    ),
+    [initialScreeningScores],
+  );
+
+  useEffect(() => {
+    if (!assessmentId) {
+      return;
+    }
+
+    let active = true;
+    void getAssessmentDetail(assessmentId).then((assessment) => {
+      if (!active) {
+        return;
+      }
+
+      const itemsByCode = new Map(
+        assessment.items.map((item) => [item.item_code, item]),
+      );
+      setInitialScreeningScores(() => {
+        const next = emptyInitialScreeningScores();
+        initialScreeningItems.forEach(({ code }) => {
+          const rawValue = itemsByCode.get(code)?.value_numeric
+            ?? itemsByCode.get(code)?.score;
+          const value = typeof rawValue === "number" ? rawValue : Number(rawValue);
+          if (Number.isInteger(value) && value >= 1 && value <= 5) {
+            next[code] = value;
+          }
+        });
+        return next;
+      });
+    }).catch(() => {
+      // Existing draft entry remains usable when its detail cannot be loaded.
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [assessmentId]);
 
 
   /* ========================================================
@@ -380,6 +460,19 @@ export default function TriageAssessment({
       });
 
     }
+
+    initialScreeningItems.forEach(({ code }) => {
+      const score = initialScreeningScores[code];
+      if (score === null) {
+        return;
+      }
+
+      items.push({
+        item_code: code,
+        value_numeric: score,
+        score,
+      });
+    });
 
 
     /* Backend Rule에서 받은 위험 문진 */
@@ -1151,6 +1244,45 @@ export default function TriageAssessment({
 
         {currentStep === 2 && (
           <>
+            <section className="triage-assessment__section">
+              <div className="initial-screening">
+                <div className="initial-screening__summary">
+                  <div>
+                    <h2>Initial Screening Score</h2>
+                    <p>각 항목의 현재 상태를 1점부터 5점까지 선택하세요.</p>
+                  </div>
+                  <strong>{initialScreeningTotal} / 30</strong>
+                </div>
+
+                <div className="initial-screening__list">
+                  {initialScreeningItems.map(({ code, label }) => (
+                    <fieldset className="initial-screening__item" key={code}>
+                      <legend>{label}</legend>
+                      <div className="initial-screening__choices">
+                        {initialScreeningScoreLabels.map((scoreLabel, index) => {
+                          const score = index + 1;
+                          return (
+                            <label key={score}>
+                              <input
+                                type="radio"
+                                name={`initial-screening-${code}`}
+                                checked={initialScreeningScores[code] === score}
+                                onChange={() => setInitialScreeningScores((current) => ({
+                                  ...current,
+                                  [code]: score,
+                                }))}
+                              />
+                              <span>{score}</span>
+                              <small>{scoreLabel}</small>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </fieldset>
+                  ))}
+                </div>
+              </div>
+            </section>
           {/* ===================================================
                     3. 의식 / 신경학적 상태
                     =================================================== */}

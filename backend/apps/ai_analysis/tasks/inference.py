@@ -10,6 +10,10 @@ from apps.ai_analysis.models import AIAnalysis, AIAnalysisAttempt
 from apps.audit.services.audit_event import record_audit_event
 from apps.ai_analysis.services.inference import store_inference_result, transition_analysis
 from apps.ai_analysis.services.inference_client import InferenceClientError, call_inference
+from apps.notifications.services.notifications import (
+    create_notification_for_user,
+    create_notifications_for_role,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -60,6 +64,17 @@ ROLE_ORDER = {
     "ISCHEMIC_STROKE_DWI_ADC": {"DWI": 0, "ADC": 1},
     "CEREBRAL_ANEURYSM_MRA": {"MRA": 0},
 }
+
+
+def _analysis_notification_data(analysis):
+    data = {
+        "actor_user_id": str(analysis.requested_by_id),
+        "resource_type": "AIAnalysis",
+        "resource_id": str(analysis.id),
+    }
+    if analysis.study.patient_id:
+        data["patient_id"] = str(analysis.study.patient_id)
+    return data
 
 @shared_task(
     bind=True,
@@ -165,6 +180,22 @@ def run_analysis_inference(self, analysis_id):
                 outcome="FAILURE",
                 reason=exc.code,
             )
+            create_notification_for_user(
+                recipient_user=locked.requested_by,
+                category="AI_ANALYSIS",
+                severity="WARNING",
+                title="AI 분석 처리 실패",
+                body=f"요청한 AI 분석 처리가 실패했습니다. 오류 코드: {exc.code}",
+                data_json=_analysis_notification_data(locked),
+            )
+            create_notifications_for_role(
+                role_code="SYSTEM_ADMIN",
+                category="SYSTEM",
+                severity="WARNING",
+                title="AI 분석 처리 실패",
+                body=f"AI 분석 처리 실패가 발생했습니다. 오류 코드: {exc.code}",
+                data_json=_analysis_notification_data(locked),
+            )
 
         return
 
@@ -209,6 +240,14 @@ def run_analysis_inference(self, analysis_id):
             locked,
             action="AI_ANALYSIS_COMPLETED",
             outcome="SUCCESS",
+        )
+        create_notification_for_user(
+            recipient_user=locked.requested_by,
+            category="AI_ANALYSIS",
+            severity="INFO",
+            title="AI 분석 완료",
+            body="요청한 AI 분석이 완료되었습니다.",
+            data_json=_analysis_notification_data(locked),
         )
 
 

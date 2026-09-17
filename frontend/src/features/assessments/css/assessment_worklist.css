@@ -69,6 +69,30 @@
   box-shadow: var(--shadow-soft);
 }
 
+.assessment-worklist-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 12px 22px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.assessment-worklist-tabs button {
+  padding: 9px 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.assessment-worklist-tabs button.is-active {
+  border-bottom-color: var(--primary);
+  color: var(--primary);
+}
+
 
 /* =========================================================
    3. 카드 Header

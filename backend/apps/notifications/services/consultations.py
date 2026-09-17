@@ -1,6 +1,6 @@
 """Consultation notification creation service."""
 
-from apps.notifications.models import Notification
+from apps.notifications.services.notifications import create_notification_for_user
 
 
 def create_assigned_consultation_notification(*, consultation):
@@ -10,7 +10,7 @@ def create_assigned_consultation_notification(*, consultation):
     }.get(consultation.priority, "INFO")
     patient = consultation.encounter.patient
 
-    return Notification.objects.create(
+    return create_notification_for_user(
         recipient_user=consultation.assigned_to,
         category="CONSULTATION",
         severity=severity,

@@ -3,8 +3,8 @@ import type { FormEvent } from "react";
 
 import { getAIAnalyses, getAIAnalysisResult } from "../ai-analysis/api";
 import type { AIAnalysisItem, AIAnalysisResult } from "../ai-analysis/types";
-import { getClinicians } from "../assessments/api";
-import type { Clinician } from "../assessments/types";
+import { getAssessmentsByEncounter, getClinicians } from "../assessments/api";
+import type { AssessmentDetailResponse, AssessmentItem, Clinician } from "../assessments/types";
 import { getActiveHospitals, getHospitalDetail } from "../appointments/api";
 import { createConsultation, getConsultations } from "../consultations/api";
 import type {
@@ -14,6 +14,7 @@ import type {
 } from "../consultations/types";
 import { getImagingStudies } from "../imaging/api";
 import type { ImagingStudy } from "../imaging/types";
+import ClinicalNotesReadOnly from "../clinical-notes/ClinicalNotesReadOnly";
 import { getPatientEncounters } from "../medication-safety/api";
 import type { EncounterListItem } from "../medication-safety/types";
 import { loadAuthSession } from "../auth/session";
@@ -29,6 +30,11 @@ const PAGE_SIZE = 6;
 
 function sex(value: string | null) { return value === "M" || value === "MALE" ? "남" : value === "F" || value === "FEMALE" ? "여" : value || "-"; }
 function age(patient: Patient) { return patient.estimated_age === null ? "-" : `${patient.estimated_age}세`; }
+function formatAssessmentItemValue(item: AssessmentItem | undefined) {
+  const value = item?.value_numeric ?? item?.value_text;
+  if (value === null || value === undefined || value === "") return null;
+  return item?.unit ? `${value} ${item.unit}` : String(value);
+}
 function encounterBadge(encounter?: { status?: string | null; endedAt?: string | null }) {
   if (encounter?.endedAt) return { label: "완료", tone: "completed" };
   if (encounter?.status === "IN_PROGRESS") return { label: "진료중", tone: "in-progress" };
@@ -111,8 +117,8 @@ export function PatientHeader({ patient, care, onOpenDetails }: { patient: Patie
     <dl className="patient-context-care">
       {care?.encounterStatus || care?.encounterType || care?.arrivedAt ? <>
         <div><dt>내원일시</dt><dd>{dateTime(care.arrivedAt)}</dd></div>
-        <div><dt>Encounter 상태</dt><dd>{care.encounterStatus || "-"}</dd></div>
-        <div><dt>내원 형태</dt><dd>{care.encounterType || "-"}</dd></div>
+        <div><dt>진료 상태</dt><dd>{badge?.label ?? "-"}</dd></div>
+        <div><dt>내원 형태</dt><dd>{{ STAT: "긴급", EMERGENCY: "응급", ROUTINE: "일반" }[care.encounterType ?? ""] ?? care.encounterType ?? "-"}</dd></div>
         <div><dt>종료일시</dt><dd>{dateTime(care.endedAt)}</dd></div>
       </> : <>
         <div><dt>진료과</dt><dd>{care?.department || "-"}</dd></div>
@@ -132,6 +138,9 @@ function SummaryCards({
   canRequestConsultation,
   consultationRequestDisabled,
   onRequestConsultation,
+  latestAssessment,
+  vitalLoading,
+  vitalError,
 }: {
   studies: ImagingStudy[];
   consultations: ConsultationListItem[];
@@ -139,9 +148,16 @@ function SummaryCards({
   canRequestConsultation: boolean;
   consultationRequestDisabled: boolean;
   onRequestConsultation?: () => void;
+  latestAssessment: AssessmentDetailResponse | null;
+  vitalLoading: boolean;
+  vitalError: boolean;
 }) {
   const latest = studies[0];
   const consultation = consultations[0];
+  const vitalItems = new Map((latestAssessment?.items ?? []).map((item) => [item.item_code, item]));
+  const bloodPressure = formatAssessmentItemValue(vitalItems.get("BP_SYS"));
+  const heartRate = formatAssessmentItemValue(vitalItems.get("HEART_RATE"));
+  const hasVital = bloodPressure !== null || heartRate !== null;
 
   return (
     <section className="patient-summary-grid">
@@ -151,10 +167,7 @@ function SummaryCards({
           <h3>Vital Sign</h3>
         </header>
 
-        <div className="summary-empty">
-          <strong>Vital API 미연결</strong>
-          <span>BP / HR / RR / BT 데이터가 없습니다.</span>
-        </div>
+        {vitalLoading ? <div className="summary-empty"><strong>Vital 정보를 불러오는 중입니다.</strong></div> : vitalError ? <div className="summary-empty"><strong>Vital 정보를 불러오지 못했습니다.</strong></div> : !hasVital ? <div className="summary-empty"><strong>Vital 기록 없음</strong><span>현재 Encounter에 기록된 Vital 정보가 없습니다.</span></div> : <dl><div><dt>BP</dt><dd>{bloodPressure ?? "-"}</dd></div><div><dt>HR</dt><dd>{heartRate ?? "-"}</dd></div><div><dt>RR</dt><dd>-</dd></div><div><dt>BT</dt><dd>-</dd></div></dl>}
       </article>
 
       <article className="patient-summary-card">
@@ -259,6 +272,7 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
   const [isPermissionModalOpen, setIsPermissionModalOpen] = useState(false);
   const [patientDetail, setPatientDetail] = useState<PatientDetail | null>(null); const [loading, setLoading] = useState(false); const [error, setError] = useState<string | null>(null); const [selectedStudyId, setSelectedStudyId] = useState<string | null>(null); const [analysisResults, setAnalysisResults] = useState<Record<string, AIAnalysisResult>>({}); const [analysisLoading, setAnalysisLoading] = useState(false); const [analysisError, setAnalysisError] = useState<string | null>(null); const clinicalRequestId = useRef(0); const analysisRequestId = useRef(0);
   const [encounter, setEncounter] = useState<EncounterListItem | null>(null); const [encounterLoading, setEncounterLoading] = useState(false); const [encounterError, setEncounterError] = useState<string | null>(null); const encounterRequestId = useRef(0);
+  const [latestAssessment, setLatestAssessment] = useState<AssessmentDetailResponse | null>(null); const [vitalLoading, setVitalLoading] = useState(false); const [vitalError, setVitalError] = useState(false); const vitalRequestId = useRef(0);
   const automaticPatientId = useRef<string | null>(null);
   const currentUser = loadAuthSession()?.user;
   const currentRole = currentUser?.role.code;
@@ -325,6 +339,27 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
       if (encounterRequestId.current === requestId) setEncounterLoading(false);
     });
     return () => { if (encounterRequestId.current === requestId) encounterRequestId.current += 1; };
+  }, [encounterId, patient?.id]);
+
+  useEffect(() => {
+    const requestId = ++vitalRequestId.current;
+    setLatestAssessment(null);
+    setVitalError(false);
+    if (!encounterId) {
+      setVitalLoading(false);
+      return;
+    }
+    setVitalLoading(true);
+    void getAssessmentsByEncounter(encounterId).then((response) => {
+      if (vitalRequestId.current !== requestId) return;
+      setLatestAssessment(response.results[0] ?? null);
+    }).catch(() => {
+      if (vitalRequestId.current !== requestId) return;
+      setVitalError(true);
+    }).finally(() => {
+      if (vitalRequestId.current === requestId) setVitalLoading(false);
+    });
+    return () => { if (vitalRequestId.current === requestId) vitalRequestId.current += 1; };
   }, [encounterId, patient?.id]);
 
   useEffect(() => {
@@ -471,12 +506,15 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
       {displayPatient && <PatientHeader patient={displayPatient} care={encounter ? { arrivedAt: encounter.arrived_at, endedAt: encounter.ended_at, encounterStatus: encounter.status, encounterType: encounter.encounter_type } : undefined} />}
       {patient ? <main className={`patient-context-main${activeTab === "clinical" ? " is-clinical" : ""}`}>
         <nav className="patient-chart-tabs" aria-label="환자 정보 탭"><button type="button" className={activeTab === "summary" ? "is-active" : ""} onClick={() => setActiveTab("summary")}>요약</button><button type="button" className={activeTab === "clinical" ? "is-active" : ""} onClick={() => setActiveTab("clinical")}>진료정보</button></nav>
-        {activeTab === "clinical" && <section className="patient-clinical-info"><h2>진료정보</h2><dl><div><dt>내원일시</dt><dd>{encounter?.arrived_at ?? "-"}</dd></div><div><dt>Encounter 상태</dt><dd>{encounter?.status ?? "-"}</dd></div></dl></section>}
+        {activeTab === "clinical" && <ClinicalNotesReadOnly patientId={patient.id} encounterId={encounterId} />}
         {encounterLoading ? <div className="patient-encounter-state">Encounter 정보를 불러오는 중입니다.</div> : !encounterId ? <div className="patient-encounter-state is-empty">현재 활성 Encounter가 없습니다.</div> : encounterError ? <div className="patient-encounter-state is-empty">{encounterError}</div> : null}
         {error && <div className="patient-data-warning">{error}</div>}
         <SummaryCards
           studies={studies}
           consultations={consultations}
+          latestAssessment={latestAssessment}
+          vitalLoading={vitalLoading}
+          vitalError={vitalError}
           onNavigate={onNavigate}
           canRequestConsultation={canRequestConsultation}
           consultationRequestDisabled={consultationRequestDisabled}

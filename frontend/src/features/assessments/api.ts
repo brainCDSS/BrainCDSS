@@ -2,6 +2,7 @@ import { apiRequest } from "../../api/client";
 
 import type {
   AssessmentDetailResponse,
+  AssessmentEncounterListResponse,
   AssessmentWorklistResponse,
   CompleteAssessmentRequest,
   CompleteAssessmentResponse,
@@ -102,6 +103,14 @@ export async function getAssessmentDetail(
     }`,
   );
   return { ...response, assessment_id: response.assessment_id ?? response.id ?? "", items: response.items ?? [] };
+}
+
+export function getAssessmentsByEncounter(
+  encounterId: string,
+): Promise<AssessmentEncounterListResponse> {
+  return apiRequest<AssessmentEncounterListResponse>(
+    `/api/v1/assessments?encounter_id=${encodeURIComponent(encounterId)}`,
+  );
 }
 
 

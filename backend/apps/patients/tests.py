@@ -25,6 +25,6 @@ class PatientCareAssignmentSelectorTests(TestCase):
         self.assertTrue(can_view_patient(self.clinician, self.assigned.id))
         self.assertFalse(can_view_patient(self.clinician, self.other.id))
 
-    def test_clinician_without_assignments_keeps_legacy_patient_list(self):
-        self.assertEqual(set(list_patients(actor=self.other_clinician)), {self.assigned, self.other})
-        self.assertTrue(can_view_patient(self.other_clinician, self.assigned.id))
+    def test_clinician_without_assignments_cannot_access_patients(self):
+        self.assertEqual(list(list_patients(actor=self.other_clinician)), [])
+        self.assertFalse(can_view_patient(self.other_clinician, self.assigned.id))

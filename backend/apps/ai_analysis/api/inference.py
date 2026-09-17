@@ -19,6 +19,7 @@ from apps.ai_analysis.services.inference import create_queued_analysis, transiti
 from apps.ai_analysis.tasks.inference import ROLE_ORDER, run_analysis_inference
 from apps.imaging.models import ImagingStudy, NiftiArtifact
 from apps.imaging.services.nifti import create_signed_gcs_uri
+from apps.patients.selectors.patients import can_view_patient, accessible_patient_ids
 
 
 CLINICAL_AI_ROLES = {"NEUROLOGIST", "NEUROSURGEON", "RADIOLOGY"}
@@ -106,8 +107,13 @@ def analysis_payload(analysis):
 
 def _can_read_analysis(request, analysis):
     role_code = getattr(getattr(request.user, "role", None), "code", None)
-    return role_code in CLINICAL_AI_ROLES and (
-        analysis.requested_by_id == request.user.id or request.user.is_staff
+    if role_code == "SYSTEM_ADMIN":
+        return request.user.is_staff
+    return (
+        role_code in CLINICAL_AI_ROLES
+        and analysis.study_id is not None
+        and analysis.study.patient_id is not None
+        and can_view_patient(request.user, analysis.study.patient_id)
     )
 
 
@@ -121,7 +127,9 @@ class AnalysisCollectionView(ContractView000):
         role_code = getattr(role, "code", None)
 
         if role_code in CLINICAL_AI_ROLES:
-            analyses = AIAnalysis.objects.filter(requested_by=request.user)
+            analyses = AIAnalysis.objects.filter(
+                study__patient_id__in=accessible_patient_ids(request.user),
+            )
         elif role_code == "SYSTEM_ADMIN":
             has_job_view = RolePermission.objects.filter(
                 role=role,
@@ -153,6 +161,11 @@ class AnalysisCollectionView(ContractView000):
         serializer = AnalysisCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         values = serializer.validated_data
+        if (
+            values["study"].patient_id is None
+            or not can_view_patient(request.user, values["study"].patient_id)
+        ):
+            raise PermissionDenied({"code": "AI_ANALYSIS_STUDY_FORBIDDEN"})
         with transaction.atomic():
             analysis = create_queued_analysis(
                 study=values["study"],
@@ -252,7 +265,7 @@ class AnalysisDetailView(APIView):
         analysis = AIAnalysis.objects.filter(pk=analysis_id).first()
         if analysis is None:
             raise Http404
-        if analysis.requested_by_id != request.user.id and not request.user.is_staff:
+        if not _can_read_analysis(request, analysis):
             raise Http404
         return Response(analysis_payload(analysis))
 

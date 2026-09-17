@@ -355,6 +355,21 @@
   background:radial-gradient(circle at 50% 45%,#253147 0,#111a29 38%,#080d15 78%);
   color:#e8edf8
 }
+.brain-viewer-stage .nifti-result-viewer { position:relative; z-index:1; height:100%; min-height:392px; border:0; border-radius:0; }
+.brain-viewer-stage .nifti-toolbar { min-height:58px; padding:5px 8px; }
+.brain-viewer-stage .nifti-title { display:none; }
+.brain-viewer-stage .nifti-viewer-controls { display:grid; width:100%; grid-template-columns:minmax(0,1fr) auto; grid-template-rows:24px 24px; gap:3px 8px; align-items:center; font-size:9px; }
+.brain-viewer-stage .nifti-primary-controls,.brain-viewer-stage .nifti-overlay-controls { display:flex; min-width:0; align-items:center; gap:5px; overflow:hidden; white-space:nowrap; }
+.brain-viewer-stage .nifti-primary-controls { grid-column:1; grid-row:1; }
+.brain-viewer-stage .nifti-overlay-controls { grid-column:1; grid-row:2; padding-left:2px; border-top:1px solid rgba(143,160,183,.18); }
+.brain-viewer-stage .nifti-view-actions { display:flex; grid-column:2; grid-row:1 / span 2; align-items:center; gap:4px; }
+.brain-viewer-stage .nifti-primary-controls>button,.brain-viewer-stage .nifti-view-actions>button { height:25px; padding:0 7px; border:1px solid #3a4d68; border-radius:5px; background:#17243a; color:#c9d5e5; font:inherit; cursor:pointer; }
+.brain-viewer-stage .nifti-overlay-controls>label { display:flex; align-items:center; gap:4px; }
+.brain-viewer-stage .nifti-window-value { min-width:84px; color:#8faed0; }
+.brain-viewer-stage .nifti-viewer-controls input[type="range"] { width:56px; }
+.brain-viewer-stage .nifti-viewer-footer { grid-template-columns:1fr auto; font-size:9px; }
+.brain-viewer-stage .nifti-viewer-footer > span:nth-child(2) { display:none; }
+.patient-viewer-open { width:100%; border:0; border-top:1px solid #27344a; background:#121a29; color:#c9dcff; padding:8px; font-size:11px; cursor:pointer; }
 .brain-viewer-stage:before {
   position:absolute;
   inset:0;
@@ -549,6 +564,24 @@
 .analysis-result-body {
   padding:13px
 }
+.analysis-clinical-headline {
+  display:flex;
+  align-items:center;
+  gap:9px;
+  padding:3px 0 10px;
+  border-bottom:1px solid #e7eaf2
+}
+.analysis-clinical-headline>span { color:#4d7cc9; font-size:18px; line-height:1 }
+.analysis-clinical-headline.is-positive>span { color:#d35a63 }
+.analysis-clinical-headline strong,.analysis-clinical-headline small { display:block }
+.analysis-clinical-headline strong { color:#303d56; font-size:13px }
+.analysis-clinical-headline small { margin-top:3px; color:#78839a; font-size:8px }
+.analysis-clinical-note { margin:3px 0 10px; color:#748096; font-size:8px; line-height:1.45 }
+.analysis-context { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; margin:10px 0; }
+.analysis-context div { min-width:0; padding:8px; border-radius:8px; background:#f6f7fc; }
+.analysis-context dt { color:#7b8498; font-size:7px; }
+.analysis-context dd { margin:3px 0 0; overflow:hidden; color:#3d4961; font-size:9px; font-weight:800; text-overflow:ellipsis; white-space:nowrap; }
+.analysis-summary-heading { margin-top:2px; color:#68738a; font-size:8px; font-weight:800; }
 .analysis-hero-metric {
   display:flex;
   align-items:center;

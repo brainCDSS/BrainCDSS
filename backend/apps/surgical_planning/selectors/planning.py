@@ -25,11 +25,16 @@ def surgical_plan_queryset():
 
 def list_surgical_plans(
     *,
+    user,
     patient_id=None,
     study_id=None,
     status=None,
 ):
-    queryset = surgical_plan_queryset()
+    from apps.patients.selectors.patients import accessible_patient_ids
+
+    queryset = surgical_plan_queryset().filter(
+        patient_id__in=accessible_patient_ids(user),
+    )
 
     if patient_id:
         queryset = queryset.filter(
@@ -54,7 +59,7 @@ def list_surgical_plans(
     return queryset
 
 
-def get_surgical_plan(*, planning_id):
-    return surgical_plan_queryset().get(
-        pk=planning_id
+def get_surgical_plan(*, user, planning_id):
+    return list_surgical_plans(user=user).get(
+        pk=planning_id,
     )

@@ -19,6 +19,7 @@ from apps.imaging.models import (
     SeriesReference,
 )
 from apps.radiology.models import RadiologyReport
+from apps.patients.selectors.patients import accessible_patient_ids
 
 
 def _annotated_queryset():
@@ -87,64 +88,12 @@ def scoped_imaging_studies(user):
         None,
     )
 
-    # Radiology worklist includes matched and unmatched studies.
-    if role_code == "RADIOLOGY":
+    if role_code == "SYSTEM_ADMIN":
         return queryset
 
-    # Current DB has no Nurse-to-department assignment table.
-    # Therefore Nurse scope is limited to patient-matched studies.
-    if role_code == "NURSE":
-        return queryset.filter(
-            patient_id__isnull=False
-        )
-
-    if role_code in {
-        "NEUROLOGIST",
-        "NEUROSURGEON",
-    }:
-        prototype_gcs_studies = (
-            NiftiArtifact.objects
-            .filter(source="PROTOTYPE_GCS")
-            .values("series__study_id")
-        )
-
-        consultation_encounters = (
-            Consultation.objects
-            .filter(
-                Q(requested_by_id=user.id)
-                | Q(assigned_to_id=user.id)
-            )
-            .values("encounter_id")
-        )
-
-        requested_ai_studies = (
-            AIAnalysis.objects
-            .filter(requested_by_id=user.id)
-            .values("study_id")
-        )
-
-        return queryset.filter(
-            Q(imaging_order__requested_by_id=user.id)
-            | Q(
-                imaging_order__encounter__appointment__clinician__user_id=user.id
-            )
-            | Q(
-                imaging_order__encounter_id__in=
-                Subquery(consultation_encounters)
-            )
-            | Q(
-                id__in=Subquery(
-                    requested_ai_studies
-                )
-            )
-            | Q(
-                id__in=Subquery(
-                    prototype_gcs_studies
-                )
-            )
-        )
-
-    return queryset.none()
+    # Use the same patient-level authorization boundary as Patient, AI and
+    # NIfTI views.  Prototype artifacts never grant production access.
+    return queryset.filter(patient_id__in=Subquery(accessible_patient_ids(user)))
 
 
 def filter_imaging_studies(queryset, params):

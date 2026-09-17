@@ -3,6 +3,20 @@ import { getAccessToken } from "../features/auth/session";
 /** Single boundary for backend HTTP calls; never call internal services from the browser. */
 const baseUrl = import.meta.env.VITE_BACKEND_URL ?? "http://localhost:8080";
 
+export class ApiRequestError extends Error {
+  constructor(
+    readonly status: number,
+    readonly detail: string,
+  ) {
+    super(`BACKEND_REQUEST_FAILED:${status}${detail ? `:${detail}` : ""}`);
+    this.name = "ApiRequestError";
+  }
+}
+
+export function getApiRequestStatus(error: unknown): number | null {
+  return error instanceof ApiRequestError ? error.status : null;
+}
+
 export function authenticatedAsset(path: string) {
   if (/^https?:\/\//i.test(path)) {
     return { url: path, headers: {} };
@@ -41,7 +55,7 @@ export async function apiRequest<T>(
         ? payload.detail
         : JSON.stringify(payload);
     } catch { /* Keep the plain response body. */ }
-    throw new Error(`BACKEND_REQUEST_FAILED:${response.status}${detail ? `:${detail}` : ""}`);
+    throw new ApiRequestError(response.status, detail);
   }
 
   if (response.status === 204) {

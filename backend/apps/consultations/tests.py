@@ -114,7 +114,7 @@ class ConsultationListResponseTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["allowed_actions"], ["CANCEL"])
 
-    def test_requested_unrelated_clinician_cannot_accept_or_reject(self):
+    def test_requested_unrelated_clinician_cannot_view_consultation(self):
         unrelated = User.objects.create_user(
             "unrelated",
             "password",
@@ -133,9 +133,7 @@ class ConsultationListResponseTests(APITestCase):
 
         response = self.client.get(reverse("api_con_003", args=[self.consultation.id]))
 
-        self.assertEqual(response.status_code, 200)
-        self.assertNotIn("ACCEPT", response.json()["allowed_actions"])
-        self.assertNotIn("REJECT", response.json()["allowed_actions"])
+        self.assertEqual(response.status_code, 404)
 
     def test_start_preserves_requester_and_assignee(self):
         self.consultation.status = "ACCEPTED"

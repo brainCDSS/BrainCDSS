@@ -183,7 +183,6 @@ class AnalysisCollectionView(ContractView000):
                     None,
                 ),
             )
-
             record_audit_event(
                 source_service="backend.ai_analysis",
                 action="AI_ANALYSIS_REQUESTED",

@@ -5,6 +5,7 @@ import { getImagingStudy } from "../imaging/api";
 import type { ImagingStudyDetail } from "../imaging/types";
 import type { AIAnalysisItem, AIAnalysisResult, NiftiProbe } from "./types";
 import type { ConsultationDraft } from "../consultations/types";
+import type { RadiologyReportDraft } from "../radiology/types";
 import "./ai-analysis.css";
 
 const NiftiViewer = lazy(() => import("./NiftiViewer"));
@@ -24,10 +25,11 @@ function findingLabel(type: string | undefined, positive: boolean | null | undef
 interface Props {
   initialAnalysisId?: string | null;
   onShareConsultation?: (draft: ConsultationDraft) => Promise<void>;
+  onCreateRadiologyReport?: (draft: RadiologyReportDraft) => void;
 }
 interface Lesion { id?: string | number; volume_ml?: number; representative_slice?: number; prediction_score?: number; relative_volume_pct?: number; location?: string; description?: string; max_diameter_mm?: number }
 
-export default function AIAnalysisResultsPage({ initialAnalysisId, onShareConsultation }: Props) {
+export default function AIAnalysisResultsPage({ initialAnalysisId, onShareConsultation, onCreateRadiologyReport }: Props) {
   const [items, setItems] = useState<AIAnalysisItem[]>([]);
   const [selected, setSelected] = useState<AIAnalysisItem | null>(null);
   const [result, setResult] = useState<AIAnalysisResult | null>(null);
@@ -167,6 +169,22 @@ export default function AIAnalysisResultsPage({ initialAnalysisId, onShareConsul
     });
   }
 
+  function createRadiologyReport() {
+    if (!selected || !study || !result || !onCreateRadiologyReport) {
+      setReviewMessage("판독 작성을 위해 완료된 AI 분석 결과와 검사 정보를 확인해 주세요.");
+      return;
+    }
+    onCreateRadiologyReport({
+      studyId: selected.study_id,
+      analysisId: selected.analysis_id,
+      accessionNumber: study.accession_number ?? "",
+      analysisType: ANALYSIS[selected.analysis_type] ?? selected.analysis_type,
+      finding: findingText,
+      lesionCount: result.lesion_count ?? null,
+      totalVolumeMl: result.total_volume_ml ?? null,
+    });
+  }
+
   const patient = study?.patient;
   const normalizedQuery = patientQuery.trim().toLocaleLowerCase("ko-KR");
   const visibleItems = items.filter((item) => {
@@ -218,7 +236,7 @@ export default function AIAnalysisResultsPage({ initialAnalysisId, onShareConsul
             {lesions.length ? <div className="lesion-list">{lesions.map((lesion,index) => <button type="button" key={String(lesion.id ?? index)} className={selectedLesion === index ? "is-selected" : ""} disabled={lesion.representative_slice == null} onClick={() => { setSelectedLesion(index); setFocusRequest((current) => current + 1); }}><strong>병변 {index + 1}{index === largestLesionIndex ? " · 최대" : ""}</strong>{lesion.description && <em>{lesion.description}</em>}{lesion.location && <span>위치 {lesion.location}</span>}<span>부피 {volume(lesion.volume_ml)}</span><span>총 병변의 {lesion.relative_volume_pct == null ? "미산출" : `${Number(lesion.relative_volume_pct).toFixed(1)}%`}</span><span>대표 슬라이스 {lesion.representative_slice ?? "미산출"}</span><span>예측 점수 {lesion.prediction_score == null ? "미산출" : lesion.prediction_score}</span>{lesion.max_diameter_mm != null && <span>최대 직경 {Number(lesion.max_diameter_mm).toFixed(1)} mm</span>}</button>)}</div> : <div className="lesion-explanation"><strong>{findingText}</strong><p>{result?.total_volume_ml == null ? "병변의 개수, 위치, 대표 슬라이스 정보가 아직 산출되지 않았습니다." : `AI 분할 결과의 총 병변 부피는 ${volume(result.total_volume_ml)}입니다. 병변별 위치와 대표 슬라이스는 새 분석부터 표시합니다.`}</p><small>빨간 마스크는 AI가 분할한 의심 영역이며, 최종 판단은 의료진 검토가 필요합니다.</small></div>}
           </section>
         </div>
-        <section className="review-panel review-panel-embedded"><div className="review-state"><span>검토 상태</span><strong>{result?.latest_review?.decision ?? "미검토"}</strong></div><label>의료진 소견<textarea value={opinion} onChange={(e) => setOpinion(e.target.value)} placeholder="AI 결과에 대한 소견을 입력하세요." /></label><label>검토 결정<select value={reviewDecision} onChange={(e) => setReviewDecision(e.target.value as typeof reviewDecision)}><option value="ACCEPT">수용</option><option value="MODIFY">수정 필요</option><option value="REJECT">거절</option></select></label>{reviewMessage && <p>{reviewMessage}</p>}<div className="review-actions"><button type="button" disabled={actionBusy || !result || !opinion.trim()} onClick={() => void saveReview()}>소견 저장</button><button type="button" disabled title="판독 API 미연결">판독 작성</button><button type="button" disabled={!selected || !study?.patient || !onShareConsultation} title={!onShareConsultation ? "신경과 의료진만 협진을 요청할 수 있습니다." : undefined} onClick={shareConsultation}>협진 공유</button></div></section>
+        <section className="review-panel review-panel-embedded"><div className="review-state"><span>검토 상태</span><strong>{result?.latest_review?.decision ?? "미검토"}</strong></div><label>의료진 소견<textarea value={opinion} onChange={(e) => setOpinion(e.target.value)} placeholder="AI 결과에 대한 소견을 입력하세요." /></label><label>검토 결정<select value={reviewDecision} onChange={(e) => setReviewDecision(e.target.value as typeof reviewDecision)}><option value="ACCEPT">수용</option><option value="MODIFY">수정 필요</option><option value="REJECT">거절</option></select></label>{reviewMessage && <p>{reviewMessage}</p>}<div className="review-actions"><button type="button" disabled={actionBusy || !result || !opinion.trim()} onClick={() => void saveReview()}>소견 저장</button><button type="button" disabled={!selected || !study || !result || !onCreateRadiologyReport} title={!onCreateRadiologyReport ? "신경과 의료진만 판독 작성을 시작할 수 있습니다." : undefined} onClick={createRadiologyReport}>판독 작성</button><button type="button" disabled={!selected || !study?.patient || !onShareConsultation} title={!onShareConsultation ? "신경과 의료진만 협진을 요청할 수 있습니다." : undefined} onClick={shareConsultation}>협진 공유</button></div></section>
       </aside>
       </div>
     </div>

@@ -199,6 +199,8 @@ urlpatterns += [
         "",
         include("apps.imaging.api.urls"),
     ),
+
+    path("", include("apps.radiology.api.urls")),
 ]
 
 

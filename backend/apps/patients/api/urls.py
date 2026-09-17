@@ -9,9 +9,15 @@ from apps.patients.api.views import (
     PatientMergeView,
     TemporaryPatientCreateView,
 )
+from apps.patients.api.timeline_views import PatientTimelineView
 
 
 urlpatterns = [
+    path(
+        "patients/<uuid:patient_id>/timeline",
+        PatientTimelineView.as_view(),
+        name="patient-timeline",
+    ),
     path(
         "patients",
         PatientListCreateView.as_view(),

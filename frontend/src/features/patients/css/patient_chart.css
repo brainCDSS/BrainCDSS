@@ -1903,6 +1903,28 @@
   min-height:0;
   flex:1
 }
+.recent-prescription-list {
+  display:flex;
+  min-height:0;
+  flex:1;
+  flex-direction:column;
+  gap:8px;
+  margin:0;
+  padding:12px;
+  overflow-y:auto;
+  list-style:none
+}
+.recent-prescription-list li {
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+  padding:9px 10px;
+  border:1px solid #e2ebf5;
+  border-radius:8px;
+  background:#f8fbff
+}
+.recent-prescription-list strong { color:#193a60; font-size:13px }
+.recent-prescription-list span { color:#687d95; font-size:12px }
 .recent-prescriptions-card .patient-panel-link {
   flex:0 0 auto;
   width:calc(100% - 24px)
@@ -2704,6 +2726,26 @@
 .clinical-timeline li.is-consultation::before {
   background: #45a080;
   box-shadow: 0 0 0 1px #45a080;
+}
+.clinical-timeline li.is-assessment::before {
+  background:#e49030;
+  box-shadow:0 0 0 1px #e49030;
+}
+.clinical-timeline li.is-note::before {
+  background:#417fd0;
+  box-shadow:0 0 0 1px #417fd0;
+}
+.clinical-timeline li.is-ai_review::before {
+  background:#7057ae;
+  box-shadow:0 0 0 1px #7057ae;
+}
+.clinical-timeline li.is-radiology::before {
+  background:#198c9f;
+  box-shadow:0 0 0 1px #198c9f;
+}
+.clinical-timeline li.is-prescription::before {
+  background:#249458;
+  box-shadow:0 0 0 1px #249458;
 }
 .clinical-timeline time {
   color: #7b879b;

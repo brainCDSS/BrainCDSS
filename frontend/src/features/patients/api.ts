@@ -6,6 +6,19 @@ import type {
   PatientListResponse,
 } from "./types";
 
+export interface PatientTimelineEvent {
+  id: string;
+  at: string;
+  title: string;
+  detail: string;
+  tone: "assessment" | "note" | "imaging" | "ai" | "ai_review" | "consultation" | "radiology" | "prescription";
+}
+
+export interface PatientTimelineResponse {
+  count: number;
+  results: PatientTimelineEvent[];
+}
+
 
 /**
  * 환자 목록 조회
@@ -67,5 +80,11 @@ export function createPatient(
 export function getPatient(patientId: string): Promise<PatientDetail> {
   return apiRequest<PatientDetail>(
     `/api/v1/patients/${encodeURIComponent(patientId)}`,
+  );
+}
+
+export function getPatientTimeline(patientId: string): Promise<PatientTimelineResponse> {
+  return apiRequest<PatientTimelineResponse>(
+    `/api/v1/patients/${encodeURIComponent(patientId)}/timeline`,
   );
 }

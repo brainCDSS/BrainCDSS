@@ -1001,7 +1001,7 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
               </div>
             ) : null}
 
-                        <label>
+            <label>
               <span>재평가 우선순위 *</span>
               <select
                 value={reviewPriority}
@@ -1059,7 +1059,7 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
         </section>
       </div>
     )}
-        {isConsultationRequestOpen && (
+    {isConsultationRequestOpen && (
       <div className="consultation-request-backdrop" role="presentation">
         <section
           className="consultation-request-modal"

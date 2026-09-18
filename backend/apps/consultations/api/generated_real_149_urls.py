@@ -4,6 +4,7 @@ from apps.consultations.api.consultation_list_view import ConsultationListCreate
 from apps.consultations.api.consultation_detail_view import ConsultationDetailView
 from apps.consultations.api.consultation_message_view import (
     ConsultationMessageCollectionView,
+    ConsultationMessagePresenceView,
 )
 
 urlpatterns = [
@@ -12,6 +13,7 @@ urlpatterns = [
         ConsultationListCreateView.as_view(),
         name='api_con_001_api_con_002',
     ),
+    path('api/v1/consultations/<uuid:consultation_id>/presence', ConsultationMessagePresenceView.as_view(), name='consultation_message_presence'),
     path(
         'api/v1/consultations/<uuid:consultation_id>',
         ConsultationDetailView.as_view(),

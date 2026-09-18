@@ -18,18 +18,21 @@ import {
   acceptConsultation,
   cancelConsultation,
   getConsultationDetail,
+  getConsultationMessagePresence,
   getConsultationMessages,
   markConsultationResponseViewed,
   rejectConsultation,
   respondConsultation,
   sendConsultationMessage,
   startConsultation,
+  updateConsultationMessagePresence,
 } from "./api";
 import ConsultationReasonModal from "./ConsultationReasonModal";
 
 import type {
   ConsultationListItem,
   ConsultationMessage,
+  ConsultationMessagePresence,
   ConsultationPriority,
   ConsultationStatus,
   ConsultationType,
@@ -98,6 +101,14 @@ const TYPE_LABEL: Record<
   NEUROSURGERY: "신경외과",
 };
 
+/* =========================================================
+   실시간 협진 메시지 설정
+   ========================================================= */
+
+const CHAT_MESSAGE_POLL_MS = 1000;
+const CHAT_PRESENCE_POLL_MS = 1000;
+const CHAT_TYPING_REFRESH_MS = 1000;
+const CHAT_TYPING_IDLE_MS = 2500;
 
 /* =========================================================
    성별 표시
@@ -184,7 +195,17 @@ export default function ConsultationPatientReview({
   const [chatSending, setChatSending] = useState(false);
   const [chatConnected, setChatConnected] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
+  const [chatPresence, setChatPresence] = useState<ConsultationMessagePresence | null>(null);
+
+
   const chatBodyRef = useRef<HTMLDivElement | null>(null);
+
+  const chatTypingTimerRef =
+    useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const chatTypingRef = useRef(false);
+
+  const chatTypingLastPublishedAtRef = useRef(0);
 
   async function runAction(action: string, reason?: string) {
     if (!consultation || actionBusy) return;
@@ -437,6 +458,7 @@ export default function ConsultationPatientReview({
     setChatLoading(true);
     setChatConnected(false);
     setChatError(null);
+    setChatPresence(null);
 
     const mergeMessages = (incoming: ConsultationMessage[]) => {
       setChatMessages((current) => {
@@ -458,11 +480,21 @@ export default function ConsultationPatientReview({
         });
         if (cancelled) return;
         mergeMessages(response.results);
-        if (response.next_cursor) cursor = response.next_cursor;
+
+        if (response.next_cursor) {
+          cursor = response.next_cursor;
+        }
+
         setChatConnected(true);
         setChatError(null);
         setChatLoading(false);
-        timer = setTimeout(pollMessages, response.has_more ? 0 : 2000);
+
+        timer = setTimeout(
+          pollMessages,
+          response.has_more
+            ? 0
+            : CHAT_MESSAGE_POLL_MS,
+        );
       } catch (pollError) {
         if (cancelled || (pollError instanceof DOMException && pollError.name === "AbortError")) {
           return;
@@ -481,6 +513,222 @@ export default function ConsultationPatientReview({
       if (timer) clearTimeout(timer);
     };
   }, [consultation?.consultation_id]);
+
+  useEffect(() => {
+    if (!consultation) return;
+
+    const consultationId = consultation.consultation_id;
+    let disposed = false;
+
+    const publish = async (isTyping: boolean) => {
+      try {
+        const presence = await updateConsultationMessagePresence(
+          consultationId,
+          isTyping,
+        );
+
+        if (!disposed) {
+          setChatPresence(presence);
+        }
+      } catch {
+        // Presence heartbeat 실패만으로 메시지 polling을 중단하지 않는다.
+      }
+    };
+
+    const isChatActivelyVisible = () =>
+      document.visibilityState === "visible"
+      && document.hasFocus();
+
+    const publishIfActive = () => {
+      if (!isChatActivelyVisible()) {
+        return;
+      }
+
+      void publish(
+        chatTypingRef.current,
+      );
+    };
+
+    publishIfActive();
+
+    const heartbeat = setInterval(
+      publishIfActive,
+      2000,
+    );
+
+    const handleVisibilityChange = () => {
+      if (
+        document.visibilityState
+        === "visible"
+      ) {
+        publishIfActive();
+      }
+    };
+
+    const handleWindowFocus = () => {
+      publishIfActive();
+    };
+
+    document.addEventListener(
+      "visibilitychange",
+      handleVisibilityChange,
+    );
+
+    window.addEventListener(
+      "focus",
+      handleWindowFocus,
+    );
+
+    return () => {
+      disposed = true;
+      clearInterval(heartbeat);
+
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange,
+      );
+
+      window.removeEventListener(
+        "focus",
+        handleWindowFocus,
+      );
+
+      if (chatTypingTimerRef.current) {
+        clearTimeout(
+          chatTypingTimerRef.current,
+        );
+        chatTypingTimerRef.current = null;
+      }
+
+      chatTypingRef.current = false;
+      chatTypingLastPublishedAtRef.current = 0;
+    };
+  }, [consultation?.consultation_id]);
+
+  useEffect(() => {
+    if (!consultation) return;
+
+    const consultationId = consultation.consultation_id;
+    let disposed = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let controller: AbortController | null = null;
+
+    const pollPresence = async () => {
+      controller = new AbortController();
+
+      try {
+        const presence = await getConsultationMessagePresence(
+          consultationId,
+          controller.signal,
+        );
+
+        if (!disposed) {
+          setChatPresence(presence);
+        }
+      } catch (pollError) {
+        if (
+          disposed ||
+          (
+            pollError instanceof DOMException &&
+            pollError.name === "AbortError"
+          )
+        ) {
+          return;
+        }
+
+        // Presence 조회 실패만으로 전체 채팅 연결을 실패 처리하지 않는다.
+      }
+
+      if (!disposed) {
+        timer = setTimeout(
+          pollPresence,
+          CHAT_PRESENCE_POLL_MS,
+        );
+      }
+    };
+
+    void pollPresence();
+
+    return () => {
+      disposed = true;
+      controller?.abort();
+
+      if (timer) {
+        clearTimeout(timer);
+      }
+    };
+  }, [consultation?.consultation_id]);
+
+  function handleChatDraftChange(value: string) {
+    setChatDraft(value);
+
+    if (!consultation) {
+      return;
+    }
+
+    const consultationId = consultation.consultation_id;
+
+    if (!value.trim()) {
+      if (chatTypingTimerRef.current) {
+        clearTimeout(chatTypingTimerRef.current);
+        chatTypingTimerRef.current = null;
+      }
+
+      const wasTyping = chatTypingRef.current;
+
+      chatTypingRef.current = false;
+      chatTypingLastPublishedAtRef.current = 0;
+
+      if (wasTyping) {
+        void updateConsultationMessagePresence(
+          consultationId,
+          false,
+        )
+          .then(setChatPresence)
+          .catch(() => undefined);
+      }
+
+      return;
+    }
+
+    const now = Date.now();
+    const shouldPublishTyping =
+      !chatTypingRef.current ||
+      now - chatTypingLastPublishedAtRef.current >=
+        CHAT_TYPING_REFRESH_MS;
+
+    chatTypingRef.current = true;
+
+    if (shouldPublishTyping) {
+      chatTypingLastPublishedAtRef.current = now;
+
+      void updateConsultationMessagePresence(
+        consultationId,
+        true,
+      )
+        .then(setChatPresence)
+        .catch(() => {
+          chatTypingLastPublishedAtRef.current = 0;
+        });
+    }
+
+    if (chatTypingTimerRef.current) {
+      clearTimeout(chatTypingTimerRef.current);
+    }
+
+    chatTypingTimerRef.current = setTimeout(() => {
+      chatTypingRef.current = false;
+      chatTypingLastPublishedAtRef.current = 0;
+      chatTypingTimerRef.current = null;
+
+      void updateConsultationMessagePresence(
+        consultationId,
+        false,
+      )
+        .then(setChatPresence)
+        .catch(() => undefined);
+    }, CHAT_TYPING_IDLE_MS);
+  }
 
   useEffect(() => {
     const body = chatBodyRef.current;
@@ -505,6 +753,22 @@ export default function ConsultationPatientReview({
           : [...current, message],
       );
       setChatDraft("");
+
+      if (chatTypingTimerRef.current) {
+        clearTimeout(chatTypingTimerRef.current);
+        chatTypingTimerRef.current = null;
+      }
+
+      chatTypingRef.current = false;
+      chatTypingLastPublishedAtRef.current = 0;
+
+      void updateConsultationMessagePresence(
+        consultation.consultation_id,
+        false,
+      )
+        .then(setChatPresence)
+        .catch(() => undefined);
+
       setChatConnected(true);
     } catch {
       setChatError("메시지를 전송하지 못했습니다. 잠시 후 다시 시도해 주세요.");
@@ -1422,6 +1686,15 @@ export default function ConsultationPatientReview({
               {chatConnected ? "실시간 연결" : "연결 중"}
             </span>
 
+            {chatPresence ? (
+              <div className="consultation-review__chat-presence" aria-live="polite">
+                <span>{chatPresence.active_count}명 참여 중</span>
+                {chatPresence.participants
+                  .filter((participant) => !participant.is_mine && participant.is_typing)
+                  .map((participant) => <strong key={participant.id}>{participant.name}님이 입력 중…</strong>)}
+              </div>
+            ) : null}
+
           </div>
 
 
@@ -1479,7 +1752,7 @@ export default function ConsultationPatientReview({
                   : "종료된 협진에는 메시지를 보낼 수 없습니다"
               }
               disabled={!canSendChatMessage || chatSending}
-              onChange={(event) => setChatDraft(event.target.value)}
+              onChange={(event) => handleChatDraftChange(event.target.value)}
               onKeyDown={(event) => {
                 if (
                   event.key === "Enter" &&

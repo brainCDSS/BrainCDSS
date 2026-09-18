@@ -2042,13 +2042,156 @@ def _assessment_complete(request, spec, kwargs):
     after = _assessment_detail_payload(assessment)
     _audit(request, spec, assessment, before, after)
     _outbox(spec, assessment, after)
+
+    emergency_event = None
+
+    if assessment.assigned_neurologist_id:
+        patient = assessment.encounter.patient
+
+        triage_priority = (
+            assessment.triage_priority
+            or "NON_EMERGENCY"
+        )
+
+        severity = {
+            "EMERGENCY": "CRITICAL",
+            "URGENT": "WARNING",
+        }.get(
+            triage_priority,
+            "INFO",
+        )
+
+        notification_data = {
+            "event_type": "NEUROLOGIST_ASSIGNED",
+            "assessment_id": str(
+                assessment.id
+            ),
+            "patient_id": str(
+                patient.id
+            ),
+            "encounter_id": str(
+                assessment.encounter_id
+            ),
+            "triage_priority": triage_priority,
+            "resource_type": "InitialAssessment",
+            "resource_id": str(
+                assessment.id
+            ),
+            "actor_user_id": str(
+                request.user.id
+            ),
+        }
+
+        if triage_priority in {
+            "URGENT",
+            "EMERGENCY",
+        }:
+            event_model = apps.get_model(
+                "assessments",
+                "EmergencyEvent",
+            )
+
+            event_now = timezone.now()
+
+            emergency_event = (
+                event_model.objects
+                .filter(
+                    assessment=assessment,
+                )
+                .order_by(
+                    "-created_at",
+                )
+                .first()
+            )
+
+            if emergency_event is None:
+                emergency_event = (
+                    event_model.objects.create(
+                        assessment=assessment,
+                        encounter=assessment.encounter,
+                        assigned_neurologist=(
+                            assessment.assigned_neurologist
+                        ),
+                        event_type=(
+                            "INITIAL_ASSESSMENT_ALERT"
+                        ),
+                        priority=triage_priority,
+                        status="NOTIFIED",
+                        occurred_at=(
+                            assessment.completed_at
+                            or event_now
+                        ),
+                        notified_at=event_now,
+                        created_at=event_now,
+                    )
+                )
+
+            notification_data[
+                "emergency_event_id"
+            ] = str(
+                emergency_event.id
+            )
+
+            # URGENT / EMERGENCY는
+            # 의료진의 일반 카테고리 설정에 의해
+            # 차단되지 않는 필수 임상경고로 생성한다.
+            notification_model = apps.get_model(
+                "notifications",
+                "Notification",
+            )
+
+            notification_model.objects.create(
+                recipient_user=(
+                    assessment.assigned_neurologist
+                ),
+                category="EMERGENCY",
+                severity=severity,
+                title=(
+                    "응급 환자 배정"
+                    if triage_priority
+                    == "EMERGENCY"
+                    else "긴급 환자 배정"
+                ),
+                body=(
+                    "응급 초기평가가 완료되었습니다. "
+                    "BrainOn에서 즉시 확인하세요."
+                    if triage_priority
+                    == "EMERGENCY"
+                    else
+                    "긴급 초기평가가 완료되었습니다. "
+                    "BrainOn에서 즉시 확인하세요."
+                ),
+                data_json=notification_data,
+            )
+
+        else:
+            from apps.notifications.services.notifications import (
+                create_notification_for_user,
+            )
+
+            create_notification_for_user(
+                recipient_user=(
+                    assessment.assigned_neurologist
+                ),
+                category="SYSTEM",
+                severity=severity,
+                title=(
+                    "초기평가 완료 · 담당 신경과 배정"
+                ),
+                body=(
+                    "초기평가가 완료되어 "
+                    "담당 환자로 배정되었습니다."
+                ),
+                data_json=notification_data,
+            )
+
     return Response({
         "assessment_id": str(assessment.id),
         "status": assessment.status,
         "total_score": assessment.total_score,
         "triage_priority": assessment.triage_priority,
         "assigned_neurologist_id": str(assessment.assigned_neurologist_id) if assessment.assigned_neurologist_id else None,
-        "emergency_event_id": None,
+        "emergency_event_id": str(emergency_event.id) if emergency_event else None,
         "completed_at": assessment.completed_at,
     }, status=200)
 

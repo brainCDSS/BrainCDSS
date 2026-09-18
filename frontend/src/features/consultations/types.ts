@@ -147,4 +147,17 @@ export interface ConsultationMessageListResponse {
   results: ConsultationMessage[];
   next_cursor: string | null;
   has_more: boolean;
+  presence: ConsultationMessagePresence;
+}
+
+export interface ConsultationMessagePresenceParticipant extends ConsultationUserSummary {
+  is_online: boolean;
+  is_typing: boolean;
+  is_mine: boolean;
+}
+
+export interface ConsultationMessagePresence {
+  participant_count: number;
+  active_count: number;
+  participants: ConsultationMessagePresenceParticipant[];
 }

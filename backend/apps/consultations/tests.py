@@ -562,3 +562,111 @@ class ConsultationListResponseTests(APITestCase):
         self.assertEqual(empty_response.status_code, 400)
         self.assertEqual(long_response.status_code, 400)
         self.assertFalse(ConsultationMessage.objects.exists())
+
+    def test_requested_assigned_radiologist_can_accept_or_reject(self):
+        radiology_role = Role.objects.create(
+            code="RADIOLOGY",
+            name="Radiology",
+        )
+
+        radiologist = User.objects.create_user(
+            "workflow-radiologist",
+            "password",
+            name="영상의학과 테스트의",
+            role=radiology_role,
+        )
+
+        hospital = Clinician.objects.get(
+            user=self.assignee,
+        ).department.hospital
+
+        radiology = Department.objects.create(
+            hospital=hospital,
+            code="FT-RAD",
+            name="영상의학과",
+        )
+
+        Clinician.objects.create(
+            user=radiologist,
+            department=radiology,
+        )
+
+        now = timezone.now()
+
+        consultation = Consultation.objects.create(
+            encounter=self.consultation.encounter,
+            consultation_type="RADIOLOGY",
+            requested_by=self.requester,
+            assigned_to=radiologist,
+            priority="URGENT",
+            reason="영상 판독 협진 요청",
+            status="REQUESTED",
+            requested_at=now,
+            created_at=now,
+            updated_at=now,
+        )
+
+        self.client.force_authenticate(radiologist)
+
+        response = self.client.get(
+            reverse(
+                "api_con_003",
+                args=[consultation.id],
+            )
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.assertEqual(
+            response.json()["allowed_actions"],
+            ["ACCEPT", "REJECT"],
+        )
+
+
+    def test_can_create_new_consultation_when_previous_one_is_in_progress(self):
+        self.assertEqual(
+            self.consultation.status,
+            "IN_PROGRESS",
+        )
+
+        self.client.force_authenticate(
+            self.requester,
+        )
+
+        response = self.client.post(
+            reverse(
+                "api_con_001_api_con_002"
+            ),
+            {
+                "encounter_id": str(
+                    self.consultation.encounter_id
+                ),
+                "consultation_type": "NEUROSURGERY",
+                "assigned_to_id": str(
+                    self.assignee.id
+                ),
+                "priority": "STAT",
+                "reason": "진행 중 협진과 별개의 추가 협진 요청",
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            201,
+        )
+
+        self.assertEqual(
+            Consultation.objects.filter(
+                encounter_id=
+                    self.consultation.encounter_id,
+                consultation_type=
+                    "NEUROSURGERY",
+                assigned_to_id=
+                    self.assignee.id,
+            ).count(),
+            2,
+        )

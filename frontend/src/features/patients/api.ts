@@ -28,6 +28,7 @@ export interface PatientTimelineResponse {
 export function getPatients(
   search?: string,
   page = 1,
+  scope?: "all" | "mine",
 ): Promise<PatientListResponse> {
   const query =
     new URLSearchParams();
@@ -36,6 +37,13 @@ export function getPatients(
     query.set(
       "search",
       search.trim(),
+    );
+  }
+
+  if (scope) {
+    query.set(
+      "scope",
+      scope,
     );
   }
 

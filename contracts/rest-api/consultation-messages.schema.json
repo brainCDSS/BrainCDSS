@@ -3,7 +3,7 @@
   "$id": "brainon/consultation-messages/v1",
   "title": "Consultation message collection response",
   "type": "object",
-  "required": ["results", "next_cursor", "has_more"],
+  "required": ["results", "next_cursor", "has_more", "presence"],
   "properties": {
     "results": {
       "type": "array",
@@ -16,10 +16,12 @@
         { "type": "null" }
       ]
     },
-    "has_more": { "type": "boolean" }
+    "has_more": { "type": "boolean" },
+    "presence": { "$ref": "#/$defs/presence" }
   },
   "additionalProperties": false,
   "$defs": {
+    "presence": { "type": "object", "required": ["participant_count", "active_count", "participants"], "properties": { "participant_count": {"type":"integer"}, "active_count": {"type":"integer"}, "participants": {"type":"array", "items": {"type":"object", "required":["id","name","department","is_online","is_typing","is_mine"], "properties":{"id":{"type":"string","format":"uuid"},"name":{"type":"string"},"department":{"oneOf":[{"type":"string"},{"type":"null"}]},"is_online":{"type":"boolean"},"is_typing":{"type":"boolean"},"is_mine":{"type":"boolean"}}, "additionalProperties":false}} }, "additionalProperties": false },
     "clinician": {
       "type": "object",
       "required": ["id", "name", "department"],

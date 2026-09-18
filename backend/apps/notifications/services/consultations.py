@@ -20,8 +20,10 @@ def create_assigned_consultation_notification(*, consultation):
             f"{patient.name} 환자 {consultation.reason}"
         ),
         data_json={
+            "event_type": "CONSULTATION_REQUESTED",
             "consultation_id": str(consultation.id),
             "encounter_id": str(consultation.encounter_id),
+            "patient_id": str(patient.id),
             "consultation_type": consultation.consultation_type,
             "priority": consultation.priority,
         },

@@ -500,3 +500,23 @@ class InitialScreeningAssessmentAPITests(APITestCase):
             recipient_user=self.neurologist,
             category="EMERGENCY",
         ).exists())
+
+        event = EmergencyEvent.objects.get(
+            assessment=self.assessment,
+        )
+        self.assertEqual(
+            event.assigned_neurologist_id,
+            self.neurologist.id,
+        )
+        self.assertEqual(
+            event.priority,
+            "URGENT",
+        )
+        self.assertEqual(
+            event.status,
+            "NOTIFIED",
+        )
+        self.assertEqual(
+            response.data["emergency_event_id"],
+            str(event.id),
+        )

@@ -249,6 +249,7 @@ class EmergencyWorklistView(APIView):
         queryset = (
             EmergencyEvent.objects.select_related(
                 "assessment",
+                "assessment__assigned_neurologist",
                 "encounter__patient",
             )
             .filter(
@@ -300,6 +301,22 @@ class EmergencyWorklistView(APIView):
     def _serialize_row(event):
         assessment = event.assessment
         patient = event.encounter.patient
+        assigned_neurologist = (
+            assessment.assigned_neurologist
+        )
+
+        red_flags = (
+            AssessmentItem.objects
+            .filter(
+                assessment=assessment,
+                is_red_flag=True,
+            )
+            .order_by(
+                "recorded_at",
+                "id",
+            )
+        )
+
         return {
             "assessment_id": assessment.id,
             "encounter_id": event.encounter_id,
@@ -308,16 +325,54 @@ class EmergencyWorklistView(APIView):
                 "patient_no": patient.patient_no,
                 "name": patient.name,
                 "sex": patient.sex,
-                "estimated_age": patient.estimated_age,
+                "estimated_age": (
+                    patient.estimated_age
+                ),
+                "birth_date": patient.birth_date,
+                "allergy_info": (
+                    patient.allergy_info
+                ),
             },
             "total_score": assessment.total_score,
-            "triage_priority": assessment.triage_priority,
+            "triage_priority": (
+                assessment.triage_priority
+            ),
+            "onset_at": assessment.onset_at,
             "lkw_at": assessment.lkw_at,
+            "completed_at": (
+                assessment.completed_at
+            ),
+            "symptom_note": (
+                assessment.symptom_note
+            ),
+            "assigned_neurologist": (
+                {
+                    "id": assigned_neurologist.id,
+                    "name": assigned_neurologist.name,
+                }
+                if assigned_neurologist
+                else None
+            ),
+            "red_flags": [
+                {
+                    "item_code": item.item_code,
+                    "value_text": item.value_text,
+                    "value_numeric": (
+                        item.value_numeric
+                    ),
+                    "unit": item.unit,
+                    "score": item.score,
+                    "note": item.note,
+                }
+                for item in red_flags
+            ],
             "event": {
                 "id": event.id,
                 "status": event.status,
                 "notified_at": event.notified_at,
-                "acknowledged_at": event.acknowledged_at,
+                "acknowledged_at": (
+                    event.acknowledged_at
+                ),
             },
         }
 

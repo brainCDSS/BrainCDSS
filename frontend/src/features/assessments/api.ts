@@ -173,9 +173,8 @@ export async function updateAssessment(
 
    Backend 처리:
    - 필수항목 검증
-   - Score 계산
-   - Red Flag 확인
-   - 긴급 / 응급 / 비응급 결정
+   - Initial Screening Score 계산
+   - 간호사가 선택한 triage_priority 검증 / 저장
    - 담당 신경과 저장
    - 긴급 / 응급일 경우 응급 이벤트 생성
    ========================================================= */

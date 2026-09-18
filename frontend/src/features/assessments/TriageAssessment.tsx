@@ -219,11 +219,6 @@ export default function TriageAssessment({
     emptyInitialScreeningScores,
   );
 
-  // Retained only for the legacy control kept in the DOM for layout compatibility.
-  // The visible assessment UI uses initialScreeningScores above.
-  const [consciousnessState, setConsciousnessState] = useState<AssessmentChoice>("");
-
-
   /* ========================================================
      4. Vital
      ======================================================== */
@@ -313,11 +308,25 @@ export default function TriageAssessment({
       setBpSys(itemNumber("BP_SYS")?.toString() ?? "");
       setBpDia(itemNumber("BP_DIA")?.toString() ?? "");
       setHeartRate(itemNumber("HEART_RATE")?.toString() ?? "");
-      setTemperature(itemNumber("TEMPERATURE")?.toString() ?? "");
+      setTemperature(
+        itemNumber("BODY_TEMP")?.toString()
+        ?? itemNumber("TEMPERATURE")?.toString()
+        ?? "",
+      );
       setSymptomNote(assessment.symptom_note ?? "");
       setInitialScreeningScores(() => {
         const next = emptyInitialScreeningScores();
-        initialScreeningItems.forEach(({ code }) => {
+        /* 체온 */
+
+    if (temperature !== "") {
+      items.push({
+        item_code: "BODY_TEMP",
+        value_numeric: Number(temperature),
+        unit: "°C",
+      });
+    }
+
+    initialScreeningItems.forEach(({ code }) => {
           const rawValue = itemsByCode.get(code)?.value_numeric
             ?? itemsByCode.get(code)?.score;
           const value = typeof rawValue === "number" ? rawValue : Number(rawValue);
@@ -459,6 +468,16 @@ export default function TriageAssessment({
     }
 
 
+    /* FAST - Speech */
+
+    if (fastSpeech !== "") {
+      items.push({
+        item_code: "FAST_SPEECH",
+        value_text: fastSpeech,
+      });
+    }
+
+
     /* 수축기 혈압 */
 
     if (bpSys !== "") {
@@ -470,6 +489,17 @@ export default function TriageAssessment({
         unit: "mmHg",
       });
 
+    }
+
+
+    /* 이완기 혈압 */
+
+    if (bpDia !== "") {
+      items.push({
+        item_code: "BP_DIA",
+        value_numeric: Number(bpDia),
+        unit: "mmHg",
+      });
     }
 
 
@@ -1336,69 +1366,6 @@ export default function TriageAssessment({
 
                   </div>
 
-
-                  <div className="triage-question-list">
-
-                    <div className="triage-question-card">
-
-                      <div className="triage-question-content">
-
-                        <strong>
-                          의식상태
-                        </strong>
-
-
-                        <span>
-                          현재 환자의 의식 및 반응 상태를 확인합니다.
-                        </span>
-
-                      </div>
-
-
-                      <div className="triage-choice-group">
-
-                        <button
-                          type="button"
-
-                          className={
-                            consciousnessState === "NORMAL"
-                              ? "triage-choice active"
-                              : "triage-choice"
-                          }
-
-                          onClick={() =>
-                            setConsciousnessState(
-                              "NORMAL",
-                            )
-                          }
-                        >
-                          정상
-                        </button>
-
-
-                        <button
-                          type="button"
-
-                          className={
-                            consciousnessState === "ABNORMAL"
-                              ? "triage-choice active abnormal"
-                              : "triage-choice"
-                          }
-
-                          onClick={() =>
-                            setConsciousnessState(
-                              "ABNORMAL",
-                            )
-                          }
-                        >
-                          이상
-                        </button>
-
-                      </div>
-
-                    </div>
-
-                  </div>
 
                 </section>
 

@@ -2152,6 +2152,26 @@ def _assessment_complete(request, spec, kwargs):
     after = _assessment_detail_payload(assessment)
     _audit(request, spec, assessment, before, after)
     _outbox(spec, assessment, after)
+
+    if emergency_event is not None:
+        OutboxEvent.objects.create(
+            event_type="emergency_detected",
+            aggregate_type="EmergencyEvent",
+            aggregate=str(emergency_event.id),
+            payload={
+                "emergency_event_id": str(emergency_event.id),
+                "assessment_id": str(assessment.id),
+                "encounter_id": str(assessment.encounter_id),
+                "assigned_neurologist_id": str(neurologist.id),
+                "triage_priority": assessment.triage_priority,
+                "status": emergency_event.status,
+            },
+            status="PENDING",
+            retry_count=0,
+            published_at=None,
+            created_at=now,
+        )
+
     return Response({
         "assessment_id": str(assessment.id),
         "status": assessment.status,

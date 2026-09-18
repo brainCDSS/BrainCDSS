@@ -255,17 +255,102 @@ def _require_neurologist(request):
         })
 
 
+EMERGENCY_FINDING_LABELS = {
+    "FAST_FACE": "FAST Face",
+    "FAST_ARM": "FAST Arm",
+    "FAST_SPEECH": "FAST Speech",
+    "BALANCE": "Balance / 균형",
+    "EYES": "Eyes / 시야",
+    "FACE": "Face / 안면",
+    "ARM": "Arm / 상지",
+    "SPEECH": "Speech / 언어",
+    "CONSCIOUSNESS": "Consciousness / 의식",
+}
+
+EMERGENCY_SCREENING_SEVERITY = {
+    2: "경미",
+    3: "중간",
+    4: "뚜렷",
+    5: "심함",
+}
+
+
+def _assessment_abnormal_findings(items):
+    findings = []
+
+    for item in items:
+        if (
+            item.item_code.startswith("FAST_")
+            and str(item.value_text or "").upper() == "ABNORMAL"
+        ):
+            findings.append({
+                "item_code": item.item_code,
+                "label": EMERGENCY_FINDING_LABELS.get(
+                    item.item_code,
+                    item.item_code,
+                ),
+                "detail": "이상",
+            })
+            continue
+
+        if item.item_code in {
+            "BALANCE",
+            "EYES",
+            "FACE",
+            "ARM",
+            "SPEECH",
+            "CONSCIOUSNESS",
+        }:
+            score = item.score
+            if score is None and item.value_numeric is not None:
+                try:
+                    score = int(item.value_numeric)
+                except (TypeError, ValueError):
+                    score = None
+
+            if score is not None and score > 1:
+                findings.append({
+                    "item_code": item.item_code,
+                    "label": EMERGENCY_FINDING_LABELS.get(
+                        item.item_code,
+                        item.item_code,
+                    ),
+                    "detail": EMERGENCY_SCREENING_SEVERITY.get(
+                        score,
+                        f"{score}점",
+                    ),
+                })
+
+    return findings
+
+
 class EmergencyWorklistView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         _require_neurologist(request)
 
+        latest_review = (
+            TriageReview.objects
+            .filter(
+                assessment_id=OuterRef("assessment_id"),
+            )
+            .order_by(
+                "-created_at",
+                "-id",
+            )
+        )
+
         queryset = (
             EmergencyEvent.objects.select_related(
                 "assessment",
                 "assessment__assigned_neurologist",
                 "encounter__patient",
+            )
+            .annotate(
+                worklist_effective_priority=Subquery(
+                    latest_review.values("priority")[:1],
+                ),
             )
             .filter(
                 assigned_neurologist=request.user,
@@ -320,15 +405,26 @@ class EmergencyWorklistView(APIView):
             assessment.assigned_neurologist
         )
 
-        red_flags = (
+        assessment_items = list(
             AssessmentItem.objects
             .filter(
                 assessment=assessment,
-                is_red_flag=True,
             )
             .order_by(
                 "recorded_at",
                 "id",
+            )
+        )
+
+        red_flags = [
+            item
+            for item in assessment_items
+            if item.is_red_flag
+        ]
+
+        abnormal_findings = (
+            _assessment_abnormal_findings(
+                assessment_items,
             )
         )
 
@@ -352,6 +448,10 @@ class EmergencyWorklistView(APIView):
             "triage_priority": (
                 assessment.triage_priority
             ),
+            "effective_priority": (
+                event.worklist_effective_priority
+                or assessment.triage_priority
+            ),
             "onset_at": assessment.onset_at,
             "lkw_at": assessment.lkw_at,
             "completed_at": (
@@ -368,6 +468,7 @@ class EmergencyWorklistView(APIView):
                 if assigned_neurologist
                 else None
             ),
+            "abnormal_findings": abnormal_findings,
             "red_flags": [
                 {
                     "item_code": item.item_code,

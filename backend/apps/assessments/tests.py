@@ -456,7 +456,7 @@ class InitialScreeningAssessmentAPITests(APITestCase):
             assessor=self.nurse,
             assigned_neurologist=self.neurologist,
             status="DRAFT",
-            triage_priority="URGENT",
+            triage_priority=None,
             created_at=timezone.now(),
             updated_at=timezone.now(),
         )
@@ -522,7 +522,10 @@ class InitialScreeningAssessmentAPITests(APITestCase):
 
         response = self.client.post(
             self.complete_url,
-            {"assigned_neurologist_id": str(self.neurologist.id)},
+            {
+                "assigned_neurologist_id": str(self.neurologist.id),
+                "triage_priority": "URGENT",
+            },
             format="json",
         )
         self.assertEqual(response.status_code, 200)
@@ -544,3 +547,45 @@ class InitialScreeningAssessmentAPITests(APITestCase):
             event_type="emergency_detected",
             aggregate_type="EmergencyEvent",
         ).exists())
+
+    def test_completion_requires_nurse_selected_triage_priority(self):
+        scores = {
+            "BALANCE": 1,
+            "EYES": 1,
+            "FACE": 1,
+            "ARM": 1,
+            "SPEECH": 1,
+            "CONSCIOUSNESS": 1,
+        }
+        self.client.patch(
+            self.detail_url,
+            {
+                "lkw_at": timezone.now().isoformat(),
+                "items": [
+                    *[
+                        {"item_code": code, "value_numeric": score}
+                        for code, score in scores.items()
+                    ],
+                    {"item_code": "FAST_FACE", "value_text": "NORMAL"},
+                    {"item_code": "FAST_ARM", "value_text": "NORMAL"},
+                    {"item_code": "FAST_SPEECH", "value_text": "NORMAL"},
+                    {"item_code": "BP_SYS", "value_numeric": 120, "unit": "mmHg"},
+                    {"item_code": "BP_DIA", "value_numeric": 80, "unit": "mmHg"},
+                    {"item_code": "HEART_RATE", "value_numeric": 72, "unit": "bpm"},
+                    {"item_code": "BODY_TEMP", "value_numeric": 36.7, "unit": "°C"},
+                ],
+            },
+            format="json",
+        )
+
+        response = self.client.post(
+            self.complete_url,
+            {"assigned_neurologist_id": str(self.neurologist.id)},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["code"], "TRIAGE_PRIORITY_REQUIRED")
+        self.assessment.refresh_from_db()
+        self.assertEqual(self.assessment.status, "DRAFT")
+        self.assertIsNone(self.assessment.triage_priority)

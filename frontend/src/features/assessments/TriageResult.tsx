@@ -26,12 +26,12 @@ interface TriageSummary {
   bpSys: string;
   bpDia: string;
   lkwAt: string;
-  riskAbnormal: number;
 }
 
 
 interface Props {
   result: AssessmentDetailResponse | null;
+  readOnly?: boolean;
   summary: TriageSummary;
   onBack: () => void;
   onComplete: () => void;
@@ -59,6 +59,7 @@ function priorityLabel(
 
 export default function TriageResult({
   result,
+  readOnly = false,
   summary,
   onBack,
   onComplete,
@@ -116,6 +117,17 @@ export default function TriageResult({
     setShowCompleteModal,
   ] = useState(false);
 
+  const existingFinalized =
+    readOnly ||
+    Boolean(
+      result &&
+      result.status !== "DRAFT",
+    );
+
+  const finalized =
+    completed !== null ||
+    existingFinalized;
+
 
   /* ========================================================
      평가 결과
@@ -151,8 +163,8 @@ export default function TriageResult({
 
   const finalPriority =
     completed?.triage_priority ??
-    selectedPriority ??
     result?.triage_priority ??
+    selectedPriority ??
     null;
 
   const fastStatus =
@@ -186,7 +198,10 @@ export default function TriageResult({
       );
 
 
-      if (!departmentId) {
+      if (
+        existingFinalized ||
+        !departmentId
+      ) {
         return () => {
           active =
             false;
@@ -245,6 +260,7 @@ export default function TriageResult({
     },
     [
       departmentId,
+      existingFinalized,
     ],
   );
 
@@ -255,6 +271,7 @@ export default function TriageResult({
 
   async function handleComplete() {
     if (
+      existingFinalized ||
       !result?.assessment_id ||
       !selectedUserId ||
       !selectedPriority ||
@@ -330,7 +347,7 @@ export default function TriageResult({
 
           <h2>
             {
-              completed
+              finalized
                 ? "초기평가 완료"
                 : "결과 · 담당 신경과 지정"
             }
@@ -339,7 +356,7 @@ export default function TriageResult({
 
           <p>
             {
-              completed
+              finalized
                 ? "초기평가 및 담당 신경과 의료진 배정이 완료되었습니다."
                 : "FAST, 선별점수, LKW를 확인해 우선순위와 담당 의료진을 지정합니다."
             }
@@ -362,7 +379,7 @@ export default function TriageResult({
 
             <span className="triage-result-label">
               {
-                completed
+                finalized
                   ? "ASSESSMENT COMPLETED"
                   : "ASSESSMENT RESULT"
               }
@@ -371,7 +388,7 @@ export default function TriageResult({
 
             <strong>
               {
-                completed
+                finalized
                   ? "최종 초기평가 결과"
                   : "초기평가 결과"
               }
@@ -380,7 +397,7 @@ export default function TriageResult({
 
             <p>
               {
-                completed
+                finalized
                   ? "초기 선별점수와 간호사 초기분류 결과입니다."
                   : "선별점수와 FAST/LKW를 확인한 뒤 초기평가 우선순위를 선택해 주세요."
               }
@@ -425,7 +442,7 @@ export default function TriageResult({
 
 
               {
-                !completed && (
+                !finalized && (
                   <small>
                     {
                       finalPriority ??
@@ -515,21 +532,6 @@ export default function TriageResult({
             </div>
 
 
-            <div>
-
-              <dt>
-                위험 문진
-              </dt>
-
-              <dd>
-                {
-                  summary.riskAbnormal
-                }
-                개 해당
-              </dd>
-
-            </div>
-
           </dl>
 
         </section>
@@ -611,7 +613,7 @@ export default function TriageResult({
           </h3>
 
           {
-            completed
+            finalized
               ? (
                 <div className="triage-priority-completed">
                   <strong>{priorityLabel(finalPriority)}</strong>
@@ -657,14 +659,14 @@ export default function TriageResult({
 
           <h3>
             {
-              completed
+              finalized
                 ? "담당 신경과"
                 : "담당 신경과 선택"
             }
           </h3>
 
           {
-            completed
+            finalized
               ? (
                 <>
 
@@ -678,6 +680,7 @@ export default function TriageResult({
                     <strong>
                       {
                         selectedClinician?.name ??
+                        result?.assigned_neurologist?.name ??
                         "담당 의료진"
                       }
                     </strong>
@@ -790,7 +793,7 @@ export default function TriageResult({
       <footer className="triage-wizard-actions triage-result-actions">
 
         {
-          completed
+          finalized
             ? (
               <>
                 <div />
@@ -800,9 +803,11 @@ export default function TriageResult({
                   <button
                     type="button"
                     className="triage-complete-button"
-                    disabled
+                    onClick={
+                      onBack
+                    }
                   >
-                    평가 완료
+                    목록으로
                   </button>
 
                 </div>

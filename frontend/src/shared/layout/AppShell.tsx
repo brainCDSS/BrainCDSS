@@ -9,6 +9,7 @@ import type { AssistantChatMessage } from "../../features/assistant/types";
 
 import TriageAssessment from "../../features/assessments/TriageAssessment";
 import ReceptionInitialAssessment from "../../features/assessments/ReceptionInitialAssessment";
+import { getAssessmentDetail } from "../../features/assessments/api";
 // [추가] 신경과 응급 Worklist 연결
 import EmergencyWorklist from "../../features/assessments/EmergencyWorklist";
 import EmergencyAlertHost from "../../features/assessments/EmergencyAlertHost";
@@ -423,13 +424,33 @@ export default function AppShell({
             consultation.consultation_id === stored.activeConsultationId,
         ) ? stored.activeConsultationId : null;
         const assessment = stored.activeAssessmentContext;
-        const restoredAssessment =
+        let restoredAssessment: ActiveAssessmentContext | null = null;
+
+        if (
           assessment &&
           typeof assessment.assessmentId === "string" &&
           typeof assessment.encounterId === "string" &&
           canAccessMenu(currentUser.role.code, "triage")
-            ? assessment
-            : null;
+        ) {
+          try {
+            const detail = await getAssessmentDetail(
+              assessment.assessmentId,
+            );
+
+            if (
+              !cancelled &&
+              detail.status === "DRAFT" &&
+              detail.encounter_id === assessment.encounterId
+            ) {
+              restoredAssessment = assessment;
+            }
+          } catch {
+            // Stale/invalid assessment contexts are intentionally discarded.
+          }
+        }
+
+        if (cancelled) return;
+
         const assistantIsActive =
           stored.isAssistantTabOpen === true &&
           stored.isAssistantTabActive === true;
@@ -736,6 +757,7 @@ export default function AppShell({
     }
 
     if (menu === "triage") {
+      setActiveAssessmentContext(null);
       setTriageRefreshKey((current) => current + 1);
     }
 
@@ -798,6 +820,7 @@ export default function AppShell({
     }
 
     if (menu === "triage") {
+      setActiveAssessmentContext(null);
       setTriageRefreshKey((current) => current + 1);
     }
 

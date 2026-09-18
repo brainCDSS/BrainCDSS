@@ -4,7 +4,7 @@ from rest_framework.test import APITestCase
 
 from apps.accounts.models import Role, User
 from apps.clinical_records.models import Encounter
-from apps.consultations.models import Consultation
+from apps.consultations.models import Consultation, ConsultationMessage
 from apps.notifications.models import Notification
 from apps.organizations.models import Clinician, Department, Hospital
 from apps.patients.models import Patient
@@ -463,4 +463,210 @@ class ConsultationListResponseTests(APITestCase):
             Notification.objects.filter(
                 recipient_user=other_surgeon,
             ).exists()
+        )
+
+    def test_consultation_participants_can_exchange_messages(self):
+        self.client.force_authenticate(self.requester)
+        url = reverse("consultation_messages", args=[self.consultation.id])
+
+        create_response = self.client.post(
+            url,
+            {"content": "Please confirm the lesion location."},
+            format="json",
+        )
+
+        self.assertEqual(create_response.status_code, 201)
+        self.assertTrue(create_response.json()["is_mine"])
+        self.assertEqual(create_response.json()["sender"]["name"], self.requester.name)
+        self.assertEqual(
+            ConsultationMessage.objects.get().content,
+            "Please confirm the lesion location.",
+        )
+
+        self.client.force_authenticate(self.assignee)
+        list_response = self.client.get(url)
+
+        self.assertEqual(list_response.status_code, 200)
+        self.assertEqual(len(list_response.json()["results"]), 1)
+        self.assertFalse(list_response.json()["results"][0]["is_mine"])
+
+    def test_consultation_messages_support_incremental_cursor(self):
+        self.client.force_authenticate(self.requester)
+        url = reverse("consultation_messages", args=[self.consultation.id])
+        first = self.client.post(
+            url,
+            {"content": "First message"},
+            format="json",
+        ).json()
+        second = self.client.post(
+            url,
+            {"content": "Second message"},
+            format="json",
+        ).json()
+
+        response = self.client.get(url, {"after": first["message_id"]})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [item["message_id"] for item in response.json()["results"]],
+            [second["message_id"]],
+        )
+        self.assertEqual(response.json()["next_cursor"], second["message_id"])
+
+    def test_unrelated_clinician_cannot_access_consultation_messages(self):
+        unrelated = User.objects.create_user(
+            "chat-outsider",
+            "password",
+            name="Chat Outsider",
+            role=self.assignee.role,
+        )
+        self.client.force_authenticate(unrelated)
+        url = reverse("consultation_messages", args=[self.consultation.id])
+
+        list_response = self.client.get(url)
+        create_response = self.client.post(
+            url,
+            {"content": "This must not be saved."},
+            format="json",
+        )
+
+        self.assertEqual(list_response.status_code, 403)
+        self.assertEqual(create_response.status_code, 403)
+        self.assertFalse(ConsultationMessage.objects.exists())
+
+    def test_closed_consultation_messages_are_read_only(self):
+        self.consultation.status = "CLOSED"
+        self.consultation.save(update_fields=["status"])
+        self.client.force_authenticate(self.requester)
+
+        response = self.client.post(
+            reverse("consultation_messages", args=[self.consultation.id]),
+            {"content": "Too late"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertFalse(ConsultationMessage.objects.exists())
+
+    def test_consultation_message_validates_content(self):
+        self.client.force_authenticate(self.requester)
+        url = reverse("consultation_messages", args=[self.consultation.id])
+
+        empty_response = self.client.post(url, {"content": "   "}, format="json")
+        long_response = self.client.post(
+            url,
+            {"content": "x" * 2001},
+            format="json",
+        )
+
+        self.assertEqual(empty_response.status_code, 400)
+        self.assertEqual(long_response.status_code, 400)
+        self.assertFalse(ConsultationMessage.objects.exists())
+
+    def test_requested_assigned_radiologist_can_accept_or_reject(self):
+        radiology_role = Role.objects.create(
+            code="RADIOLOGY",
+            name="Radiology",
+        )
+
+        radiologist = User.objects.create_user(
+            "workflow-radiologist",
+            "password",
+            name="영상의학과 테스트의",
+            role=radiology_role,
+        )
+
+        hospital = Clinician.objects.get(
+            user=self.assignee,
+        ).department.hospital
+
+        radiology = Department.objects.create(
+            hospital=hospital,
+            code="FT-RAD",
+            name="영상의학과",
+        )
+
+        Clinician.objects.create(
+            user=radiologist,
+            department=radiology,
+        )
+
+        now = timezone.now()
+
+        consultation = Consultation.objects.create(
+            encounter=self.consultation.encounter,
+            consultation_type="RADIOLOGY",
+            requested_by=self.requester,
+            assigned_to=radiologist,
+            priority="URGENT",
+            reason="영상 판독 협진 요청",
+            status="REQUESTED",
+            requested_at=now,
+            created_at=now,
+            updated_at=now,
+        )
+
+        self.client.force_authenticate(radiologist)
+
+        response = self.client.get(
+            reverse(
+                "api_con_003",
+                args=[consultation.id],
+            )
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.assertEqual(
+            response.json()["allowed_actions"],
+            ["ACCEPT", "REJECT"],
+        )
+
+
+    def test_can_create_new_consultation_when_previous_one_is_in_progress(self):
+        self.assertEqual(
+            self.consultation.status,
+            "IN_PROGRESS",
+        )
+
+        self.client.force_authenticate(
+            self.requester,
+        )
+
+        response = self.client.post(
+            reverse(
+                "api_con_001_api_con_002"
+            ),
+            {
+                "encounter_id": str(
+                    self.consultation.encounter_id
+                ),
+                "consultation_type": "NEUROSURGERY",
+                "assigned_to_id": str(
+                    self.assignee.id
+                ),
+                "priority": "STAT",
+                "reason": "진행 중 협진과 별개의 추가 협진 요청",
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            201,
+        )
+
+        self.assertEqual(
+            Consultation.objects.filter(
+                encounter_id=
+                    self.consultation.encounter_id,
+                consultation_type=
+                    "NEUROSURGERY",
+                assigned_to_id=
+                    self.assignee.id,
+            ).count(),
+            2,
         )

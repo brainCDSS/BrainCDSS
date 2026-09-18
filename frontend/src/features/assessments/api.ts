@@ -260,9 +260,37 @@ export function acknowledgeEmergencyEvent(eventId: string): Promise<{ event_id: 
 }
 
 // [추가] 신경과 응급 Worklist 연결
-export function getEmergencyWorklist(): Promise<EmergencyWorklistResponse> {
+export function getEmergencyWorklist(
+  filters: {
+    ackStatus?:
+      | "NOTIFIED"
+      | "UNACKNOWLEDGED"
+      | "ACKNOWLEDGED";
+    priority?: "URGENT" | "EMERGENCY";
+  } = {},
+): Promise<EmergencyWorklistResponse> {
+  const query = new URLSearchParams();
+
+  if (filters.ackStatus) {
+    query.set(
+      "ack_status",
+      filters.ackStatus,
+    );
+  }
+
+  if (filters.priority) {
+    query.set(
+      "priority",
+      filters.priority,
+    );
+  }
+
+  const suffix = query.toString();
+
   return apiRequest<EmergencyWorklistResponse>(
-    "/api/v1/neurology/emergency-worklist",
+    `/api/v1/neurology/emergency-worklist${
+      suffix ? `?${suffix}` : ""
+    }`,
   );
 }
 // [추가 끝] 신경과 응급 Worklist 연결

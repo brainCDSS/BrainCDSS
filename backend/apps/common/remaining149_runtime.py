@@ -2123,37 +2123,82 @@ def _assessment_complete(request, spec, kwargs):
             created_at=now,
         )
 
-    from apps.notifications.services.notifications import create_notification_for_user
-
-    create_notification_for_user(
-        recipient_user=neurologist,
-        category="EMERGENCY" if emergency_event is not None else "SYSTEM",
-        severity=(
-            "CRITICAL"
-            if assessment.triage_priority == "EMERGENCY"
-            else "WARNING"
-            if assessment.triage_priority == "URGENT"
-            else "INFO"
+    notification_data = {
+        "event_type": "NEUROLOGIST_ASSIGNED",
+        "patient_id": str(
+            assessment.encounter.patient_id
         ),
-        title=(
-            "Emergency assessment assigned"
+        "encounter_id": str(
+            assessment.encounter_id
+        ),
+        "assessment_id": str(
+            assessment.id
+        ),
+        "emergency_event_id": (
+            str(emergency_event.id)
             if emergency_event is not None
-            else "Initial assessment assigned"
+            else None
         ),
-        body=(
-            "A completed initial assessment has been assigned to you."
+        "triage_priority": (
+            assessment.triage_priority
         ),
-        data_json={
-            "patient_id": str(assessment.encounter.patient_id),
-            "encounter_id": str(assessment.encounter_id),
-            "assessment_id": str(assessment.id),
-            "emergency_event_id": (
-                str(emergency_event.id) if emergency_event is not None else None
-            ),
-            "triage_priority": assessment.triage_priority,
-            "actor_user_id": str(request.user.id),
-        },
+        "resource_type": "InitialAssessment",
+        "resource_id": str(
+            assessment.id
+        ),
+        "actor_user_id": str(
+            request.user.id
+        ),
+    }
+
+    severity = (
+        "CRITICAL"
+        if assessment.triage_priority == "EMERGENCY"
+        else "WARNING"
+        if assessment.triage_priority == "URGENT"
+        else "INFO"
     )
+
+    title = (
+        "Emergency assessment assigned"
+        if emergency_event is not None
+        else "Initial assessment assigned"
+    )
+
+    body = (
+        "A completed initial assessment "
+        "has been assigned to you."
+    )
+
+    if emergency_event is not None:
+        # URGENT / EMERGENCY is a mandatory clinical alert.
+        # Create it directly so an ordinary notification
+        # preference cannot suppress the alert.
+        notification_model = apps.get_model(
+            "notifications",
+            "Notification",
+        )
+        notification_model.objects.create(
+            recipient_user=neurologist,
+            category="EMERGENCY",
+            severity=severity,
+            title=title,
+            body=body,
+            data_json=notification_data,
+        )
+    else:
+        from apps.notifications.services.notifications import (
+            create_notification_for_user,
+        )
+
+        create_notification_for_user(
+            recipient_user=neurologist,
+            category="SYSTEM",
+            severity=severity,
+            title=title,
+            body=body,
+            data_json=notification_data,
+        )
 
     after = _assessment_detail_payload(assessment)
     _audit(request, spec, assessment, before, after)

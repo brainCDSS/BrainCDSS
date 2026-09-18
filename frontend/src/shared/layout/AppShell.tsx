@@ -11,6 +11,7 @@ import TriageAssessment from "../../features/assessments/TriageAssessment";
 import ReceptionInitialAssessment from "../../features/assessments/ReceptionInitialAssessment";
 // [추가] 신경과 응급 Worklist 연결
 import EmergencyWorklist from "../../features/assessments/EmergencyWorklist";
+import EmergencyAlertHost from "../../features/assessments/EmergencyAlertHost";
 // [추가 끝] 신경과 응급 Worklist 연결
 
 import PatientChart from "../../features/patients/PatientChart";
@@ -26,6 +27,12 @@ import CDSSResultsPage from "../../features/cdss/CDSSResultsPage";
 import MedicationSafetyPage from "../../features/medication-safety/MedicationSafetyPage";
 import { getActiveEncounter } from "../../features/medication-safety/api";
 import NotificationsPage from "../../features/notifications/NotificationsPage";
+import type {
+  NotificationItem,
+} from "../../features/notifications/types";
+import {
+  connectWebPush,
+} from "../../features/notifications/webPush";
 import SurgicalPlanningPage from "../../features/surgical-planning/SurgicalPlanningPage";
 import AppointmentsPage from "../../features/appointments/AppointmentsPage";
 import ClinicalNotesPage from "../../features/clinical-notes/ClinicalNotesPage";
@@ -291,6 +298,33 @@ export default function AppShell({
   ] = useState<MenuWorkspaceTabKey[]>([]);
 
   const [isWorkspaceHydrated, setIsWorkspaceHydrated] = useState(false);
+
+
+  /*
+   * 사용자가 이전에 브라우저 Push 권한을 허용한 경우
+   * 로그인/새로고침 시 FCM token을 자동 갱신한다.
+   *
+   * 최초 권한 허용은 알림센터의
+   * "웹 푸시 연결" 버튼에서 사용자가 직접 수행한다.
+   */
+  useEffect(() => {
+    if (
+      !("Notification" in window) ||
+      Notification.permission !== "granted"
+    ) {
+      return;
+    }
+
+    void connectWebPush().catch(
+      (error) => {
+        console.error(
+          "WEB_PUSH_RECONNECT_FAILED",
+          error,
+        );
+      },
+    );
+  }, [currentUser.id]);
+
 
   useEffect(() => {
     let cancelled = false;
@@ -1320,6 +1354,209 @@ export default function AppShell({
 
 
   /* ========================================================
+     Notification -> Related Work
+     ======================================================== */
+
+  const handleOpenNotificationRelatedWork =
+    async (
+      notification: NotificationItem,
+    ): Promise<boolean> => {
+
+      const data =
+        notification.data ?? {};
+
+      const stringValue = (
+        ...keys: string[]
+      ): string | null => {
+        for (const key of keys) {
+          const value = data[key];
+
+          if (
+            typeof value === "string" &&
+            value.trim()
+          ) {
+            return value.trim();
+          }
+        }
+
+        return null;
+      };
+
+
+      /*
+       * 1. 협진
+       *
+       * Notification의 consultation_id로
+       * 실제 Consultation을 조회한 뒤
+       * 기존 Patient Review Workspace Tab을 연다.
+       */
+      const consultationId =
+        stringValue(
+          "consultation_id",
+        );
+
+      if (
+        consultationId &&
+        canAccessMenu(
+          currentUser.role.code,
+          "consultations",
+        )
+      ) {
+        try {
+          const consultation =
+            await getConsultationDetail(
+              consultationId,
+            );
+
+          handleOpenConsultationReview(
+            consultation,
+          );
+
+          return true;
+        } catch (error) {
+          console.error(
+            "NOTIFICATION_CONSULTATION_OPEN_FAILED",
+            error,
+          );
+
+          /*
+           * 상세 조회가 실패해도
+           * 협진 업무 자체로는 이동한다.
+           */
+          handleMenuSelect(
+            "consultations",
+          );
+
+          return true;
+        }
+      }
+
+
+      /*
+       * 2. 환자
+       */
+      const patientId =
+        stringValue(
+          "patient_id",
+        );
+
+      const encounterId =
+        stringValue(
+          "encounter_id",
+        );
+
+      if (
+        patientId &&
+        canAccessMenu(
+          currentUser.role.code,
+          "patients",
+        )
+      ) {
+        try {
+          const patient =
+            await getPatient(
+              patientId,
+            );
+
+          handlePatientSelect(
+            patient,
+            encounterId ?? undefined,
+          );
+
+          return true;
+        } catch (error) {
+          console.error(
+            "NOTIFICATION_PATIENT_OPEN_FAILED",
+            error,
+          );
+        }
+      }
+
+
+      /*
+       * 3. AI 분석
+       */
+      const analysisId =
+        stringValue(
+          "analysis_id",
+          "ai_analysis_id",
+        );
+
+      if (
+        analysisId &&
+        canAccessMenu(
+          currentUser.role.code,
+          "ai-results",
+        )
+      ) {
+        setActiveAnalysisId(
+          analysisId,
+        );
+
+        handleMenuSelect(
+          "ai-results",
+        );
+
+        return true;
+      }
+
+
+      /*
+       * 4. ID가 없는 일반 알림은
+       * category에 해당하는 업무 화면으로 이동.
+       */
+      const categoryMenu:
+        Partial<
+          Record<
+            string,
+            SidebarMenuKey
+          >
+        > = {
+          CONSULTATION:
+            "consultations",
+
+          IMAGING:
+            "imaging",
+
+          AI_ANALYSIS:
+            "ai-results",
+
+          APPOINTMENT:
+            "appointments",
+
+          EMERGENCY:
+            "worklist",
+        };
+
+
+      const targetMenu =
+        categoryMenu[
+          notification.category
+        ];
+
+      if (
+        targetMenu &&
+        canAccessMenu(
+          currentUser.role.code,
+          targetMenu,
+        )
+      ) {
+        handleMenuSelect(
+          targetMenu,
+        );
+
+        return true;
+      }
+
+
+      /*
+       * SYSTEM 등 연결할 임상 업무가 없는 알림
+       */
+      return false;
+    };
+
+
+  /* ========================================================
      24. Main Content
      ======================================================== */
 
@@ -1634,7 +1871,13 @@ export default function AppShell({
     }
 
     if (activeMenu === "notifications") {
-      return <NotificationsPage />;
+      return (
+        <NotificationsPage
+          onOpenRelatedWork={
+            handleOpenNotificationRelatedWork
+          }
+        />
+      );
     }
 
 
@@ -1689,10 +1932,20 @@ export default function AppShell({
           ===================================================== */}
 
       <Header
+          onNotificationRelatedWork={
+            handleOpenNotificationRelatedWork
+          }
         onPatientSelect={
           handlePatientSelect
         }
         currentUser={currentUser}
+
+        onNotificationsOpen={() =>
+          handleMenuSelect(
+            "notifications",
+          )
+        }
+
         onLogout={onLogout}
       />
 
@@ -1842,6 +2095,14 @@ export default function AppShell({
 
         </main>
       </div>
+
+
+      <EmergencyAlertHost
+        currentUser={currentUser}
+        onOpenPatient={
+          handleWorklistPatientSelect
+        }
+      />
 
       <AssistantFloatingDock
         isOpen={isAssistantFloatingOpen}

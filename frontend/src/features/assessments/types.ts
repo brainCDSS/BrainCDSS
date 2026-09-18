@@ -299,6 +299,17 @@ export interface EmergencyPatientSummary {
   sex?: string | null;
   age?: number | null;
   estimated_age?: number | null;
+  birth_date?: string | null;
+  allergy_info?: string | null;
+}
+
+export interface EmergencyRedFlag {
+  item_code: string;
+  value_text: string | null;
+  value_numeric: number | string | null;
+  unit: string | null;
+  score: number | null;
+  note: string | null;
 }
 
 export interface EmergencyWorklistItem {
@@ -307,7 +318,15 @@ export interface EmergencyWorklistItem {
   patient_summary: EmergencyPatientSummary;
   total_score: number | null;
   triage_priority: string;
+  onset_at: string | null;
   lkw_at: string | null;
+  completed_at: string | null;
+  symptom_note: string | null;
+  assigned_neurologist: {
+    id: string;
+    name: string;
+  } | null;
+  red_flags: EmergencyRedFlag[];
   event: {
     id: string;
     status: string;

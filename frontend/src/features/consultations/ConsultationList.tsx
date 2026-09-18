@@ -8,6 +8,8 @@ import type {
   FormEvent,
 } from "react";
 
+import { loadAuthSession } from "../auth/session";
+import ConsultationRequestModal from "./ConsultationRequestModal";
 import { getConsultations } from "./api";
 
 import type {
@@ -351,6 +353,25 @@ export default function ConsultationList({
   );
 
 
+  const currentRole =
+    loadAuthSession()?.user.role.code;
+
+  const canRequestConsultation =
+    currentRole === "NEUROLOGIST";
+
+
+  const [
+    isConsultationRequestOpen,
+    setIsConsultationRequestOpen,
+  ] = useState(false);
+
+
+  const [
+    reloadKey,
+    setReloadKey,
+  ] = useState(0);
+
+
   /* ========================================================
      입력 중인 필터
      ======================================================== */
@@ -437,7 +458,7 @@ export default function ConsultationList({
 
     };
 
-  }, []);
+  }, [reloadKey]);
 
 
   /* ========================================================
@@ -706,10 +727,26 @@ export default function ConsultationList({
         </div>
 
 
-        <p>
-          요청하거나 배정된 협진 업무의
-          현재 진행 상태를 확인합니다.
-        </p>
+        <div className="consultation-list__header-actions">
+
+          <p>
+            요청하거나 배정된 협진 업무의
+            현재 진행 상태를 확인합니다.
+          </p>
+
+          {canRequestConsultation && (
+            <button
+              type="button"
+              className="consultation-list__request-button"
+              onClick={() =>
+                setIsConsultationRequestOpen(true)
+              }
+            >
+              + 협진 요청
+            </button>
+          )}
+
+        </div>
 
       </header>
 
@@ -1074,6 +1111,21 @@ export default function ConsultationList({
           )}
 
       </div>
+
+
+      {canRequestConsultation && (
+        <ConsultationRequestModal
+          open={isConsultationRequestOpen}
+          onClose={() =>
+            setIsConsultationRequestOpen(false)
+          }
+          onCreated={() =>
+            setReloadKey(
+              (value) => value + 1,
+            )
+          }
+        />
+      )}
 
     </section>
   );

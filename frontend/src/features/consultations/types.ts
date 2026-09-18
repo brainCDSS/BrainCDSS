@@ -36,6 +36,11 @@ export type ConsultationPriority =
   | "URGENT"
   | "STAT";
 
+
+/* =========================================================
+   협진 생성 Draft
+   ========================================================= */
+
 export interface ConsultationDraft {
   patientId: string;
   analysisId: string;
@@ -122,4 +127,37 @@ export interface ConsultationListItem {
 export interface ConsultationListResponse {
   count: number;
   results: ConsultationListItem[];
+}
+
+
+/* =========================================================
+   협진 실시간 메시지
+   ========================================================= */
+
+export interface ConsultationMessage {
+  message_id: string;
+  consultation_id: string;
+  sender: ConsultationUserSummary;
+  content: string;
+  created_at: string;
+  is_mine: boolean;
+}
+
+export interface ConsultationMessageListResponse {
+  results: ConsultationMessage[];
+  next_cursor: string | null;
+  has_more: boolean;
+  presence: ConsultationMessagePresence;
+}
+
+export interface ConsultationMessagePresenceParticipant extends ConsultationUserSummary {
+  is_online: boolean;
+  is_typing: boolean;
+  is_mine: boolean;
+}
+
+export interface ConsultationMessagePresence {
+  participant_count: number;
+  active_count: number;
+  participants: ConsultationMessagePresenceParticipant[];
 }

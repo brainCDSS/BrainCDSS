@@ -39,6 +39,12 @@ class PatientListQuerySerializer(serializers.Serializer):
         required=False,
         choices=("ACTIVE", "TEMP", "MERGED"),
     )
+    scope = serializers.ChoiceField(
+        required=False,
+        choices=("all", "mine"),
+        default="all",
+    )
+
     page = serializers.IntegerField(
         required=False,
         min_value=1,

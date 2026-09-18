@@ -9,7 +9,19 @@ import type {
 
 import { getPatients } from "../../features/patients/api";
 import type { Patient } from "../../features/patients/types";
+
+import {
+  getNotifications,
+} from "../../features/notifications/api";
+
+import {
+  NOTIFICATION_STATE_CHANGED_EVENT,
+} from "../../features/notifications/events";
 import type { LoginUser } from "../../features/auth/types";
+import NotificationPopover from "../../features/notifications/NotificationPopover";
+import type {
+  NotificationItem,
+} from "../../features/notifications/types";
 
 import "./layout.css";
 
@@ -24,6 +36,10 @@ import "./layout.css";
 
 interface HeaderProps {
   onPatientSelect?: (patient: Patient) => void;
+  onNotificationsOpen: () => void;
+  onNotificationRelatedWork?: (
+    item: NotificationItem,
+  ) => Promise<boolean>;
   currentUser: LoginUser;
   onLogout: () => void;
 }
@@ -47,6 +63,8 @@ interface HeaderProps {
  */
 export default function Header({
   onPatientSelect,
+  onNotificationsOpen,
+  onNotificationRelatedWork,
   currentUser,
   onLogout,
 }: HeaderProps) {
@@ -464,6 +482,98 @@ export default function Header({
   }
 
 
+  const [
+    unreadNotificationCount,
+    setUnreadNotificationCount,
+  ] = useState(0);
+
+
+  useEffect(() => {
+    let active = true;
+
+    async function refreshUnreadNotifications() {
+      try {
+        const response =
+          await getNotifications({
+            unreadOnly: true,
+          });
+
+        if (active) {
+          setUnreadNotificationCount(
+            response.unread_count ?? 0,
+          );
+        }
+      } catch (error) {
+        console.error(
+          "UNREAD_NOTIFICATION_COUNT_FAILED",
+          error,
+        );
+      }
+    }
+
+    function handleNotificationChanged() {
+      void refreshUnreadNotifications();
+    }
+
+    function handleVisibilityChange() {
+      if (
+        document.visibilityState ===
+        "visible"
+      ) {
+        void refreshUnreadNotifications();
+      }
+    }
+
+    void refreshUnreadNotifications();
+
+    const intervalId =
+      window.setInterval(
+        () => {
+          void refreshUnreadNotifications();
+        },
+        5000,
+      );
+
+    window.addEventListener(
+      NOTIFICATION_STATE_CHANGED_EVENT,
+      handleNotificationChanged,
+    );
+
+    window.addEventListener(
+      "focus",
+      handleNotificationChanged,
+    );
+
+    document.addEventListener(
+      "visibilitychange",
+      handleVisibilityChange,
+    );
+
+    return () => {
+      active = false;
+
+      window.clearInterval(
+        intervalId,
+      );
+
+      window.removeEventListener(
+        NOTIFICATION_STATE_CHANGED_EVENT,
+        handleNotificationChanged,
+      );
+
+      window.removeEventListener(
+        "focus",
+        handleNotificationChanged,
+      );
+
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange,
+      );
+    };
+  }, [currentUser.id]);
+
+
   return (
     <header className="header">
 
@@ -634,13 +744,17 @@ export default function Header({
 
         <div className="header-actions">
 
-          <button
-            type="button"
-            className="header-icon-button"
-            aria-label="알림"
-          >
-            알림
-          </button>
+          <NotificationPopover
+              unreadCount={
+                unreadNotificationCount
+              }
+              onOpenCenter={
+                onNotificationsOpen
+              }
+              onOpenRelatedWork={
+                onNotificationRelatedWork
+              }
+            />
 
 
           <button

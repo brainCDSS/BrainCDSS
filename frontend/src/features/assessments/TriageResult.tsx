@@ -380,7 +380,7 @@ export default function TriageResult({
 
             <span className="triage-result-label">
               {
-                completed
+                finalized
                   ? "ASSESSMENT COMPLETED"
                   : "ASSESSMENT RESULT"
               }
@@ -389,7 +389,7 @@ export default function TriageResult({
 
             <strong>
               {
-                completed
+                finalized
                   ? "최종 초기평가 결과"
                   : "초기평가 결과"
               }
@@ -398,7 +398,7 @@ export default function TriageResult({
 
             <p>
               {
-                completed
+                finalized
                   ? "초기 선별점수와 간호사 초기분류 결과입니다."
                   : "선별점수와 FAST/LKW를 확인한 뒤 초기평가 우선순위를 선택해 주세요."
               }

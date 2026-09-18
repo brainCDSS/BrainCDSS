@@ -184,12 +184,18 @@ export function PatientHeader({ patient, care, onOpenDetails }: { patient: Patie
 
 function TriageSummaryBar({
   assessment,
+  reviewData,
   loading,
   error,
+  canReview,
+  onReview,
 }: {
   assessment: AssessmentDetailResponse | null;
+  reviewData: TriageReviewListResponse | null;
   loading: boolean;
   error: boolean;
+  canReview: boolean;
+  onReview: () => void;
 }) {
   const [now, setNow] = useState(() => Date.now());
 
@@ -248,6 +254,14 @@ function TriageSummaryBar({
       })
     : "-";
 
+  const effectivePriority =
+    reviewData?.effective_priority ??
+    parsed?.triagePriority ??
+    null;
+  const latestReview =
+    reviewData?.latest_review ??
+    null;
+
   return (
     <section className="patient-triage-strip" aria-label="BrainCDSS 초기평가 요약">
       <div className="patient-triage-strip__brand">
@@ -304,11 +318,24 @@ function TriageSummaryBar({
           </div>
 
           <div className="patient-triage-priority">
-            <span>초기평가 우선순위</span>
-            <strong className={`is-${(parsed.triagePriority ?? "unknown").toLowerCase()}`}>
-              {triagePriorityLabel(parsed.triagePriority)}
-            </strong>
-            <small>{parsed.triagePriority ?? "-"}</small>
+            <span>
+              {latestReview ? "현재 우선순위" : "초기평가 우선순위"}
+            </span>
+            <div className="patient-triage-priority__line">
+              <strong className={`is-${(effectivePriority ?? "unknown").toLowerCase()}`}>
+                {triagePriorityLabel(effectivePriority)}
+              </strong>
+              {canReview && (
+                <button type="button" onClick={onReview}>
+                  재평가
+                </button>
+              )}
+            </div>
+            <small>
+              {latestReview
+                ? `초기 ${triagePriorityLabel(parsed.triagePriority)} · ${latestReview.reviewer.name} 재평가`
+                : parsed.triagePriority ?? "-"}
+            </small>
           </div>
         </>
       )}

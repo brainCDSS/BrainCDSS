@@ -451,7 +451,7 @@ class InitialScreeningAssessmentAPITests(APITestCase):
             self.detail_url,
             {
                 "onset_at": None,
-                "lkw_at": None,
+                "lkw_at": timezone.now().isoformat(),
                 "symptom_note": "screening",
                 "items": [
                     *[
@@ -459,14 +459,19 @@ class InitialScreeningAssessmentAPITests(APITestCase):
                         for code, score in scores.items()
                     ],
                     {"item_code": "FAST_FACE", "value_text": "ABNORMAL"},
+                    {"item_code": "FAST_ARM", "value_text": "NORMAL"},
+                    {"item_code": "FAST_SPEECH", "value_text": "NORMAL"},
                     {"item_code": "BP_SYS", "value_numeric": 148, "unit": "mmHg"},
+                    {"item_code": "BP_DIA", "value_numeric": 86, "unit": "mmHg"},
+                    {"item_code": "HEART_RATE", "value_numeric": 78, "unit": "bpm"},
+                    {"item_code": "BODY_TEMP", "value_numeric": 36.8, "unit": "°C"},
                 ],
             },
             format="json",
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(AssessmentItem.objects.filter(assessment=self.assessment).count(), 8)
+        self.assertEqual(AssessmentItem.objects.filter(assessment=self.assessment).count(), 13)
         self.assertTrue(AssessmentItem.objects.filter(
             assessment=self.assessment,
             item_code="BALANCE",
@@ -490,7 +495,11 @@ class InitialScreeningAssessmentAPITests(APITestCase):
             item_code="BALANCE",
         ).count(), 1)
 
-        response = self.client.post(self.complete_url, {}, format="json")
+        response = self.client.post(
+            self.complete_url,
+            {"assigned_neurologist_id": str(self.neurologist.id)},
+            format="json",
+        )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["total_score"], 21)
         self.assessment.refresh_from_db()
@@ -499,4 +508,10 @@ class InitialScreeningAssessmentAPITests(APITestCase):
         self.assertTrue(Notification.objects.filter(
             recipient_user=self.neurologist,
             category="EMERGENCY",
+        ).exists())
+        self.assertTrue(EmergencyEvent.objects.filter(
+            assessment=self.assessment,
+            assigned_neurologist=self.neurologist,
+            priority="URGENT",
+            status="NOTIFIED",
         ).exists())

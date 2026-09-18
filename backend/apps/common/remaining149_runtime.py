@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 import uuid
 from contextlib import nullcontext
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal, InvalidOperation
 
 from django.apps import apps
@@ -821,6 +821,109 @@ def _appointment_filter_fields(queryset, request):
         queryset = queryset.filter(status=status_value)
 
     return _appointment_filter_datetime(queryset, request)
+
+
+def _slot_query_boundary(value, parameter, *, end_of_day=False):
+    parsed_datetime = parse_datetime(value)
+    if parsed_datetime is not None:
+        if timezone.is_naive(parsed_datetime):
+            return timezone.make_aware(parsed_datetime)
+        return parsed_datetime
+
+    parsed_date = parse_date(value)
+    if parsed_date is None:
+        raise ContractError({
+            "code": "VALIDATION_ERROR",
+            parameter: "must be an ISO-8601 date or datetime",
+        })
+
+    boundary_time = time.max if end_of_day else time.min
+    return timezone.make_aware(datetime.combine(parsed_date, boundary_time))
+
+
+def _appointment_available_slots(request, spec, kwargs):
+    """Return only a clinician's AVAILABLE slots for an explicit time range."""
+    del spec
+    clinician_id = kwargs.get("clinician_id")
+    clinician_model = apps.get_model("organizations", "Clinician")
+    slot_model = apps.get_model("appointments", "AppointmentSlot")
+
+    try:
+        clinician = clinician_model.objects.select_related("user").get(
+            pk=clinician_id,
+        )
+    except (
+        clinician_model.DoesNotExist,
+        DjangoValidationError,
+        TypeError,
+        ValueError,
+    ) as exc:
+        raise NotFound({"code": "CLINICIAN_NOT_FOUND"}) from exc
+
+    date_value = request.query_params.get("date")
+    from_value = request.query_params.get("from")
+    to_value = request.query_params.get("to")
+
+    if date_value:
+        if from_value or to_value:
+            raise ContractError({
+                "code": "VALIDATION_ERROR",
+                "detail": "Use date or the from/to range, not both.",
+            })
+        target_date = parse_date(date_value)
+        if target_date is None:
+            raise ContractError({
+                "code": "VALIDATION_ERROR",
+                "date": "must be an ISO-8601 date",
+            })
+        queryset = slot_model.objects.filter(
+            clinician_id=clinician.id,
+            status="AVAILABLE",
+            start_at__date=target_date,
+        )
+        payload_from = target_date.isoformat()
+        payload_to = target_date.isoformat()
+    else:
+        if not from_value or not to_value:
+            raise ContractError({
+                "code": "VALIDATION_ERROR",
+                "detail": "date or both from and to are required.",
+            })
+
+        range_from = _slot_query_boundary(from_value, "from")
+        range_to = _slot_query_boundary(to_value, "to", end_of_day=True)
+        if range_from > range_to:
+            raise ContractError({
+                "code": "VALIDATION_ERROR",
+                "detail": "from must be earlier than or equal to to.",
+            })
+        queryset = slot_model.objects.filter(
+            clinician_id=clinician.id,
+            status="AVAILABLE",
+            start_at__gte=range_from,
+            start_at__lte=range_to,
+        )
+        payload_from = _safe_value(range_from)
+        payload_to = _safe_value(range_to)
+
+    slots = queryset.order_by("start_at")
+    return Response({
+        "clinician": {
+            "id": str(clinician.id),
+            "name": clinician.user.name,
+        },
+        "from": payload_from,
+        "to": payload_to,
+        "slots": [
+            {
+                "id": str(slot.id),
+                "start_at": _safe_value(slot.start_at),
+                "end_at": _safe_value(slot.end_at),
+                "status": "AVAILABLE",
+            }
+            for slot in slots
+        ],
+    }, status=200)
 
 
 def _appointment_paginated_payload(queryset, request):
@@ -4105,6 +4208,7 @@ CUSTOM_HANDLERS = {
     "API-RX-003": _batchb_rx_patch,
     "API-RX-004": _batchb_rx_finalize,
     "API-SCH-002": _schedule_put,
+    "API-SLOT-001": _appointment_available_slots,
     "API-APP-001": _appointment_create,
     "API-APP-002": _appointment_list,
     "API-APP-003": _appointment_detail,

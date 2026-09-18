@@ -6,9 +6,17 @@ from apps.prescriptions.api.prescription_finalize_views import (
 from apps.prescriptions.api.current_medications_views import (
     CurrentMedicationsView,
 )
+from apps.prescriptions.api.patient_prescription_views import (
+    PatientPrescriptionsView,
+)
 
 
 urlpatterns = [
+    path(
+        "api/v1/me/prescriptions",
+        PatientPrescriptionsView.as_view(),
+        name="patient_prescriptions",
+    ),
     path(
         "api/v1/patients/<uuid:patient_id>/current-medications",
         CurrentMedicationsView.as_view(),

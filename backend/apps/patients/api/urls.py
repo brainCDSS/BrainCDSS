@@ -9,9 +9,15 @@ from apps.patients.api.views import (
     PatientMergeView,
     TemporaryPatientCreateView,
 )
+from apps.patients.api.patient_profile_views import PatientProfileView
 
 
 urlpatterns = [
+    path(
+        "me/profile",
+        PatientProfileView.as_view(),
+        name="patient-profile",
+    ),
     path(
         "patients",
         PatientListCreateView.as_view(),

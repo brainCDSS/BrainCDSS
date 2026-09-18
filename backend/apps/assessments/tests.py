@@ -6,6 +6,7 @@ from apps.accounts.models import Role, RoleCode, User
 from apps.assessments.models import AssessmentItem, EmergencyEvent, InitialAssessment
 from apps.audit.models import AuditLog
 from apps.clinical_records.models import Encounter
+from apps.common.models import OutboxEvent
 from apps.notifications.models import Notification
 from apps.organizations.models import Department, Hospital
 from apps.patients.models import Patient
@@ -68,6 +69,32 @@ class AssessmentWorklistAPITests(APITestCase):
         item = response.data["results"][0]
         self.assertEqual(item["assessment_id"], str(assessment.id))
         self.assertEqual(item["status"], "DRAFT")
+
+    def test_completed_filter_returns_completed_assessment(self):
+        assessment = InitialAssessment.objects.create(
+            encounter=self.encounter,
+            assessor=self.nurse,
+            status="COMPLETED",
+            total_score=12,
+            triage_priority="NON_EMERGENCY",
+            completed_at=timezone.now(),
+            created_at=timezone.now(),
+            updated_at=timezone.now(),
+        )
+        self.encounter.status = "COMPLETED"
+        self.encounter.ended_at = timezone.now()
+        self.encounter.save(update_fields=["status", "ended_at"])
+
+        response = self.client.get(
+            self.url,
+            {"status": "COMPLETED"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 1)
+        item = response.data["results"][0]
+        self.assertEqual(item["assessment_id"], str(assessment.id))
+        self.assertEqual(item["status"], "COMPLETED")
 
     def test_detail_includes_active_neurology_department_id(self):
         hospital = Hospital.objects.create(
@@ -514,4 +541,8 @@ class InitialScreeningAssessmentAPITests(APITestCase):
             assigned_neurologist=self.neurologist,
             priority="URGENT",
             status="NOTIFIED",
+        ).exists())
+        self.assertTrue(OutboxEvent.objects.filter(
+            event_type="emergency_detected",
+            aggregate_type="EmergencyEvent",
         ).exists())

@@ -323,3 +323,30 @@ export interface EmergencyWorklistResponse {
   results: EmergencyWorklistItem[];
 }
 // [추가 끝] 신경과 응급 Worklist 연결
+
+
+
+export interface TriageReview {
+  review_id: string;
+  assessment_id: string;
+  priority: TriagePriority;
+  reason: string;
+  reviewer: {
+    id: string;
+    name: string;
+  };
+  reviewer_role: string;
+  created_at: string;
+}
+
+export interface TriageReviewListResponse {
+  initial_priority: TriagePriority | null;
+  effective_priority: TriagePriority | null;
+  latest_review: TriageReview | null;
+  reviews: TriageReview[];
+}
+
+export interface CreateTriageReviewRequest {
+  priority: TriagePriority;
+  reason: string;
+}

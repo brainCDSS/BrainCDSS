@@ -16,8 +16,15 @@ from apps.assessments.api.serializers import (
     AssessmentWorklistResponseSerializer,
     EmergencyEventAcknowledgeResponseSerializer,
     EmergencyWorklistResponseSerializer,
+    TriageReviewCreateSerializer,
+    TriageReviewListResponseSerializer,
 )
-from apps.assessments.models import AssessmentItem, EmergencyEvent, InitialAssessment
+from apps.assessments.models import (
+    AssessmentItem,
+    EmergencyEvent,
+    InitialAssessment,
+    TriageReview,
+)
 from apps.audit.services.audit_event import record_audit_event
 from apps.clinical_records.models import Encounter
 from apps.organizations.models import Department
@@ -400,3 +407,161 @@ class EmergencyEventAcknowledgeView(APIView):
             "acknowledged_at": acknowledged_at,
         }
         return Response(EmergencyEventAcknowledgeResponseSerializer(payload).data)
+
+
+def _serialize_triage_review(review):
+    return {
+        "review_id": review.id,
+        "assessment_id": review.assessment_id,
+        "priority": review.priority,
+        "reason": review.reason,
+        "reviewer": {
+            "id": review.reviewer_id,
+            "name": review.reviewer.name,
+        },
+        "reviewer_role": review.reviewer_role,
+        "created_at": review.created_at,
+    }
+
+
+class TriageReviewView(APIView):
+    """Append-only neurologist reassessment; nurse initial priority is preserved."""
+
+    permission_classes = [IsAuthenticated]
+
+    @staticmethod
+    def _assessment_for_user(request, assessment_id):
+        if getattr(getattr(request.user, "role", None), "code", None) != "NEUROLOGIST":
+            raise PermissionDenied({
+                "code": "FORBIDDEN_ROLE",
+                "detail": "Only neurologists may review triage priority.",
+            })
+
+        try:
+            return (
+                InitialAssessment.objects
+                .select_related("encounter__patient", "assigned_neurologist")
+                .get(pk=assessment_id)
+            )
+        except InitialAssessment.DoesNotExist as exc:
+            raise NotFound({
+                "code": "ASSESSMENT_NOT_FOUND",
+                "detail": "Assessment was not found.",
+            }) from exc
+
+    def get(self, request, assessment_id):
+        assessment = self._assessment_for_user(request, assessment_id)
+
+        if assessment.assigned_neurologist_id != request.user.id:
+            raise PermissionDenied({
+                "code": "ASSESSMENT_NOT_ASSIGNED",
+                "detail": "Only the assigned neurologist may view physician triage reviews.",
+            })
+
+        reviews = list(
+            TriageReview.objects
+            .filter(assessment=assessment)
+            .select_related("reviewer")
+            .order_by("created_at", "id")
+        )
+        latest_review = reviews[-1] if reviews else None
+
+        payload = {
+            "initial_priority": assessment.triage_priority,
+            "effective_priority": (
+                latest_review.priority
+                if latest_review is not None
+                else assessment.triage_priority
+            ),
+            "latest_review": (
+                _serialize_triage_review(latest_review)
+                if latest_review is not None
+                else None
+            ),
+            "reviews": [
+                _serialize_triage_review(review)
+                for review in reviews
+            ],
+        }
+        return Response(
+            TriageReviewListResponseSerializer(payload).data,
+            status=200,
+        )
+
+    @transaction.atomic
+    def post(self, request, assessment_id):
+        assessment = self._assessment_for_user(request, assessment_id)
+
+        if assessment.status != "COMPLETED":
+            raise ValidationError({
+                "code": "ASSESSMENT_NOT_COMPLETED",
+                "detail": "Only completed assessments can be re-triaged.",
+            })
+        if assessment.assigned_neurologist_id != request.user.id:
+            raise PermissionDenied({
+                "code": "ASSESSMENT_NOT_ASSIGNED",
+                "detail": "Only the assigned neurologist may re-triage this assessment.",
+            })
+
+        serializer = TriageReviewCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        latest_review = (
+            TriageReview.objects
+            .filter(assessment=assessment)
+            .order_by("-created_at", "-id")
+            .first()
+        )
+        previous_effective_priority = (
+            latest_review.priority
+            if latest_review is not None
+            else assessment.triage_priority
+        )
+
+        review = TriageReview.objects.create(
+            assessment=assessment,
+            reviewer=request.user,
+            reviewer_role="NEUROLOGIST",
+            priority=serializer.validated_data["priority"],
+            reason=serializer.validated_data["reason"],
+        )
+
+        record_audit_event(
+            source_service="assessments",
+            action="REVIEW_TRIAGE_PRIORITY",
+            resource_type="TriageReview",
+            resource_id=review.id,
+            patient_id=assessment.encounter.patient_id,
+            outcome="SUCCESS",
+            request=request,
+            reason=review.reason,
+            before_json={
+                "initial_priority": assessment.triage_priority,
+                "effective_priority": previous_effective_priority,
+            },
+            after_json={
+                "initial_priority": assessment.triage_priority,
+                "effective_priority": review.priority,
+                "review_id": str(review.id),
+            },
+        )
+
+        reviews = list(
+            TriageReview.objects
+            .filter(assessment=assessment)
+            .select_related("reviewer")
+            .order_by("created_at", "id")
+        )
+        payload = {
+            "initial_priority": assessment.triage_priority,
+            "effective_priority": review.priority,
+            "latest_review": _serialize_triage_review(review),
+            "reviews": [
+                _serialize_triage_review(item)
+                for item in reviews
+            ],
+        }
+        return Response(
+            TriageReviewListResponseSerializer(payload).data,
+            status=201,
+        )

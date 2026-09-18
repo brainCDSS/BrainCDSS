@@ -2075,29 +2075,35 @@ def _assessment_complete(request, spec, kwargs):
     if not 6 <= total_score <= 30:
         raise ContractError({"total_score": "must be between 6 and 30."})
 
-    # Priority is intentionally not inferred here. The repository does not
-    # contain an approved score/red-flag -> triage priority rule yet, so
-    # completing with a guessed clinical classification would be unsafe.
-    if assessment.triage_priority not in {
+    # The system does not infer clinical urgency from the screening score.
+    # The nurse explicitly records the initial triage priority after reviewing
+    # FAST, screening score and LKW.  This uses the existing DB column and
+    # keeps the clinical decision attributable to the assessor.
+    triage_priority = str(request.data.get("triage_priority") or "").upper()
+    if triage_priority not in {
         "URGENT",
         "EMERGENCY",
         "NON_EMERGENCY",
     }:
         raise ContractError({
-            "code": "TRIAGE_PRIORITY_NOT_DETERMINED",
-            "detail": "An approved triage rule must determine triage_priority before completion.",
+            "code": "TRIAGE_PRIORITY_REQUIRED",
+            "triage_priority": (
+                "must be one of EMERGENCY, URGENT, or NON_EMERGENCY."
+            ),
         })
 
     before = serialize_instance(assessment)
     now = timezone.now()
     assessment.assigned_neurologist = neurologist
     assessment.total_score = total_score
+    assessment.triage_priority = triage_priority
     assessment.status = "COMPLETED"
     assessment.completed_at = now
     assessment.updated_at = now
     assessment.save(update_fields=[
         "assigned_neurologist",
         "total_score",
+        "triage_priority",
         "status",
         "completed_at",
         "updated_at",

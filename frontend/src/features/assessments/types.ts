@@ -185,7 +185,7 @@ export interface CompleteAssessmentResponse {
 
   total_score: number;
 
-  triage_priority: string;
+  triage_priority: TriagePriority;
 
   assigned_neurologist_id: string;
 

@@ -820,6 +820,8 @@ export default function TriageAssessment({
       fastAbnormal: fastValues.filter(
         (value) => value === "ABNORMAL",
       ).length,
+      screeningTotal: initialScreeningTotal,
+      screeningCompleted: completedInitialScreeningCount,
       bpSys,
       bpDia,
       lkwAt,

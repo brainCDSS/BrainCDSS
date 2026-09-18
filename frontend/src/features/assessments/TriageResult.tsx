@@ -12,6 +12,7 @@ import type {
   AssessmentDetailResponse,
   Clinician,
   CompleteAssessmentResponse,
+  TriagePriority,
 } from "./types";
 
 import "./css/triage_assessment.css";
@@ -71,6 +72,13 @@ export default function TriageResult({
     selectedUserId,
     setSelectedUserId,
   ] = useState("");
+
+  const [
+    selectedPriority,
+    setSelectedPriority,
+  ] = useState<TriagePriority | "">(
+    result?.triage_priority ?? "",
+  );
 
 
   const [
@@ -139,8 +147,16 @@ export default function TriageResult({
 
   const finalPriority =
     completed?.triage_priority ??
+    selectedPriority ??
     result?.triage_priority ??
     null;
+
+  const fastStatus =
+    summary.fastCompleted === 3
+      ? summary.fastAbnormal > 0
+        ? "POSITIVE"
+        : "NEGATIVE"
+      : "INCOMPLETE";
 
 
   /* ========================================================
@@ -237,6 +253,7 @@ export default function TriageResult({
     if (
       !result?.assessment_id ||
       !selectedUserId ||
+      !selectedPriority ||
       completing
     ) {
       return;
@@ -259,6 +276,8 @@ export default function TriageResult({
           {
             assigned_neurologist_id:
               selectedUserId,
+            triage_priority:
+              selectedPriority,
           },
         );
 
@@ -358,8 +377,8 @@ export default function TriageResult({
             <p>
               {
                 completed
-                  ? "서버에서 계산된 최종 평가 결과입니다."
-                  : "점수와 우선순위는 Backend 계산 결과입니다."
+                  ? "초기 선별점수와 간호사 초기분류 결과입니다."
+                  : "선별점수와 FAST/LKW를 확인한 뒤 초기평가 우선순위를 선택해 주세요."
               }
             </p>
 
@@ -581,10 +600,59 @@ export default function TriageResult({
 
 
         {/* ==================================================
-            담당 신경과
+            초기평가 우선순위 + 담당 신경과
             ================================================== */}
 
         <section className="triage-result-subcard">
+
+          <h3>
+            초기평가 우선순위
+          </h3>
+
+          {
+            completed
+              ? (
+                <div className="triage-priority-completed">
+                  <strong>{priorityLabel(finalPriority)}</strong>
+                  <span>{finalPriority ?? "-"}</span>
+                </div>
+              )
+              : (
+                <label className="triage-priority-select">
+                  <span>
+                    간호사 초기분류
+                  </span>
+
+                  <select
+                    value={selectedPriority}
+                    onChange={(event) =>
+                      setSelectedPriority(
+                        event.target.value as TriagePriority | "",
+                      )
+                    }
+                  >
+                    <option value="">
+                      우선순위를 선택하세요
+                    </option>
+                    <option value="EMERGENCY">
+                      응급 (EMERGENCY)
+                    </option>
+                    <option value="URGENT">
+                      긴급 (URGENT)
+                    </option>
+                    <option value="NON_EMERGENCY">
+                      비응급 (NON_EMERGENCY)
+                    </option>
+                  </select>
+
+                  <small>
+                    FAST, 선별점수, LKW를 참고해 초기평가 우선순위를 선택합니다.
+                  </small>
+                </label>
+              )
+          }
+
+          <div className="triage-assignment-divider" />
 
           <h3>
             {
@@ -593,7 +661,6 @@ export default function TriageResult({
                 : "담당 신경과 선택"
             }
           </h3>
-
 
           {
             completed
@@ -768,6 +835,7 @@ export default function TriageResult({
                     className="triage-complete-button"
                     disabled={
                       !selectedUserId ||
+                      !selectedPriority ||
                       completing
                     }
                     onClick={

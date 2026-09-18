@@ -1927,7 +1927,7 @@ export default function TriageAssessment({
 
       <aside className="triage-system-summary" aria-label="시스템 요약">
         <h2>시스템 요약</h2>
-        <p>간호사 입력을 기반으로 자동 계산</p>
+        <p>선별점수 자동 합산 · 우선순위는 간호사 선택</p>
 
         <div className="triage-system-summary__score">
           <small>Initial Screening Score</small>
@@ -1947,7 +1947,7 @@ export default function TriageAssessment({
         </dl>
 
         <div className="triage-system-summary__note">
-          입력값을 기준으로 시스템이 위험도와 우선순위를 계산합니다.
+          FAST, 선별점수, LKW를 참고해 간호사가 초기평가 우선순위를 선택합니다.
         </div>
       </aside>
       </div>

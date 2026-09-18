@@ -1994,6 +1994,8 @@ def _assessment_patch(request, spec, kwargs):
 def _assessment_complete(request, spec, kwargs):
     assessment_model = apps.get_model("assessments", "InitialAssessment")
     item_model = apps.get_model("assessments", "AssessmentItem")
+    emergency_event_model = apps.get_model("assessments", "EmergencyEvent")
+    user_model = apps.get_model("accounts", "User")
     assessment = _get_instance(assessment_model, request, kwargs, for_update=True)
 
     if assessment.status != "DRAFT":
@@ -2002,21 +2004,70 @@ def _assessment_complete(request, spec, kwargs):
             "detail": "Only DRAFT assessments can be completed.",
         })
 
-    screening_items = {
+    if not isinstance(request.data, dict):
+        raise ContractError({"detail": "A JSON object is required."})
+
+    assigned_neurologist_id = request.data.get("assigned_neurologist_id")
+    if not assigned_neurologist_id:
+        raise ContractError({
+            "code": "NEUROLOGIST_REQUIRED",
+            "assigned_neurologist_id": "is required.",
+        })
+
+    neurologist = (
+        user_model.objects
+        .select_related("role")
+        .filter(pk=assigned_neurologist_id)
+        .first()
+    )
+    if neurologist is None:
+        raise NotFound({
+            "code": "NEUROLOGIST_NOT_FOUND",
+            "detail": "The selected neurologist was not found.",
+        })
+    if not neurologist.is_active or getattr(neurologist.role, "code", None) != "NEUROLOGIST":
+        raise ContractConflict({
+            "code": "NEUROLOGIST_NOT_AVAILABLE",
+            "detail": "The selected user is not an active neurologist.",
+        })
+
+    assessment_items = {
         item.item_code: item
-        for item in item_model.objects.filter(
-            assessment=assessment,
-            item_group="INITIAL_SCREENING",
-            item_code__in=INITIAL_SCREENING_ITEM_CODES,
-        )
+        for item in item_model.objects.filter(assessment=assessment)
     }
-    missing = [code for code in INITIAL_SCREENING_ITEM_CODES if code not in screening_items]
+
+    missing = [
+        code
+        for code in INITIAL_SCREENING_ITEM_CODES
+        if code not in assessment_items
+    ]
+    required_fast = ("FAST_FACE", "FAST_ARM", "FAST_SPEECH")
+    missing.extend(
+        code
+        for code in required_fast
+        if code not in assessment_items
+        or not str(assessment_items[code].value_text or "").strip()
+    )
+    required_vital = ("BP_SYS", "BP_DIA", "HEART_RATE", "BODY_TEMP")
+    missing.extend(
+        code
+        for code in required_vital
+        if code not in assessment_items
+        or assessment_items[code].value_numeric is None
+    )
+    if assessment.lkw_at is None:
+        missing.append("LKW_AT")
+
     if missing:
         raise ContractError({
             "code": "ASSESSMENT_INCOMPLETE",
             "items": missing,
         })
 
+    screening_items = {
+        code: assessment_items[code]
+        for code in INITIAL_SCREENING_ITEM_CODES
+    }
     total_score = sum(
         _initial_screening_score(screening_items[code].value_numeric, code)
         for code in INITIAL_SCREENING_ITEM_CODES
@@ -2024,14 +2075,26 @@ def _assessment_complete(request, spec, kwargs):
     if not 6 <= total_score <= 30:
         raise ContractError({"total_score": "must be between 6 and 30."})
 
+    # Priority is intentionally not inferred here. The repository does not
+    # contain an approved score/red-flag -> triage priority rule yet, so
+    # completing with a guessed clinical classification would be unsafe.
+    if assessment.triage_priority not in {
+        "URGENT",
+        "EMERGENCY",
+        "NON_EMERGENCY",
+    }:
+        raise ContractError({
+            "code": "TRIAGE_PRIORITY_NOT_DETERMINED",
+            "detail": "An approved triage rule must determine triage_priority before completion.",
+        })
+
     before = serialize_instance(assessment)
-    assigned_neurologist_id = request.data.get("assigned_neurologist_id") if isinstance(request.data, dict) else None
-    if assigned_neurologist_id:
-        assessment.assigned_neurologist_id = assigned_neurologist_id
+    now = timezone.now()
+    assessment.assigned_neurologist = neurologist
     assessment.total_score = total_score
     assessment.status = "COMPLETED"
-    assessment.completed_at = timezone.now()
-    assessment.updated_at = assessment.completed_at
+    assessment.completed_at = now
+    assessment.updated_at = now
     assessment.save(update_fields=[
         "assigned_neurologist",
         "total_score",
@@ -2039,6 +2102,53 @@ def _assessment_complete(request, spec, kwargs):
         "completed_at",
         "updated_at",
     ])
+
+    emergency_event = None
+    if assessment.triage_priority in {"URGENT", "EMERGENCY"}:
+        emergency_event = emergency_event_model.objects.create(
+            assessment=assessment,
+            encounter=assessment.encounter,
+            assigned_neurologist=neurologist,
+            event_type="EMERGENCY_DETECTED",
+            priority=assessment.triage_priority,
+            status="NOTIFIED",
+            occurred_at=now,
+            notified_at=now,
+            created_at=now,
+        )
+
+    from apps.notifications.services.notifications import create_notification_for_user
+
+    create_notification_for_user(
+        recipient_user=neurologist,
+        category="EMERGENCY" if emergency_event is not None else "SYSTEM",
+        severity=(
+            "CRITICAL"
+            if assessment.triage_priority == "EMERGENCY"
+            else "WARNING"
+            if assessment.triage_priority == "URGENT"
+            else "INFO"
+        ),
+        title=(
+            "Emergency assessment assigned"
+            if emergency_event is not None
+            else "Initial assessment assigned"
+        ),
+        body=(
+            "A completed initial assessment has been assigned to you."
+        ),
+        data_json={
+            "patient_id": str(assessment.encounter.patient_id),
+            "encounter_id": str(assessment.encounter_id),
+            "assessment_id": str(assessment.id),
+            "emergency_event_id": (
+                str(emergency_event.id) if emergency_event is not None else None
+            ),
+            "triage_priority": assessment.triage_priority,
+            "actor_user_id": str(request.user.id),
+        },
+    )
+
     after = _assessment_detail_payload(assessment)
     _audit(request, spec, assessment, before, after)
     _outbox(spec, assessment, after)
@@ -2047,8 +2157,10 @@ def _assessment_complete(request, spec, kwargs):
         "status": assessment.status,
         "total_score": assessment.total_score,
         "triage_priority": assessment.triage_priority,
-        "assigned_neurologist_id": str(assessment.assigned_neurologist_id) if assessment.assigned_neurologist_id else None,
-        "emergency_event_id": None,
+        "assigned_neurologist_id": str(assessment.assigned_neurologist_id),
+        "emergency_event_id": (
+            str(emergency_event.id) if emergency_event is not None else None
+        ),
         "completed_at": assessment.completed_at,
     }, status=200)
 

@@ -26,7 +26,6 @@ interface TriageSummary {
   bpSys: string;
   bpDia: string;
   lkwAt: string;
-  riskAbnormal: number;
 }
 
 
@@ -532,21 +531,6 @@ export default function TriageResult({
 
             </div>
 
-
-            <div>
-
-              <dt>
-                위험 문진
-              </dt>
-
-              <dd>
-                {
-                  summary.riskAbnormal
-                }
-                개 해당
-              </dd>
-
-            </div>
 
           </dl>
 

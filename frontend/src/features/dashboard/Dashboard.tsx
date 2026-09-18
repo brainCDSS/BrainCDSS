@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 
+import { getAssessmentsByEncounter } from "../assessments/api";
 import type { AssessmentWorklistItem } from "../assessments/types";
 import { getAIAnalyses } from "../ai-analysis/api";
 import type { AIAnalysisItem } from "../ai-analysis/types";
@@ -218,12 +219,9 @@ function DashboardPatientList({
           </span>
         </h2>
 
-        <button
-          type="button"
-          className="dash-patient-all-button"
-        >
+        <span className="dash-patient-all-button">
           전체
-        </button>
+        </span>
       </header>
 
       <label className="dash-patient-search">
@@ -668,13 +666,13 @@ function WorkflowPanel({
       "초기평가",
       assessments.filter(
         (item) =>
-          item.status ===
-          "IN_PROGRESS",
+          item.status === "DRAFT" ||
+          item.status === "IN_PROGRESS",
       ).length,
       assessments.filter(
         (item) =>
-          item.status ===
-          "PENDING",
+          item.status === "WAITING" ||
+          item.status === "PENDING",
       ).length,
       assessments.filter((item) => item.status === "COMPLETED" && isToday(item.created_at, selectedDate)).length,
     ],
@@ -741,12 +739,9 @@ function WorkflowPanel({
           진료 워크플로우 현황
         </h3>
 
-        <button
-          type="button"
-          disabled
-        >
-          전체 보기 ›
-        </button>
+        <span className="dash-workflow__all-label">
+          전체 보기
+        </span>
       </header>
 
       <div className="dash-table-wrap">
@@ -1101,12 +1096,68 @@ export default function Dashboard({
 
         void Promise.allSettled(
           next.patients.map((patient) => getPatientEncounters(patient.id)),
-        ).then((results) => {
+        ).then(async (results) => {
           if (!active) return;
           const encounters = results.flatMap((result) =>
             result.status === "fulfilled" ? result.value : [],
           );
-          setData((current) => ({ ...current, encounters }));
+
+          const assessmentResults = await Promise.allSettled(
+            encounters.map(async (encounter) => {
+              const encounterId =
+                encounter.encounter_id ??
+                encounter.id ??
+                "";
+
+              if (!encounterId) {
+                return null;
+              }
+
+              const response =
+                await getAssessmentsByEncounter(encounterId);
+
+              const latest =
+                response.results[0] ??
+                null;
+
+              return {
+                assessment_id:
+                  latest?.assessment_id ??
+                  null,
+                encounter_id: encounterId,
+                encounter_type:
+                  encounter.encounter_type,
+                status:
+                  latest?.status ??
+                  "WAITING",
+                triage_priority:
+                  latest?.triage_priority ??
+                  null,
+                created_at:
+                  latest?.updated_at ??
+                  latest?.created_at ??
+                  encounter.arrived_at ??
+                  null,
+              } satisfies AssessmentWorklistItem;
+            }),
+          );
+
+          if (!active) return;
+
+          const assessments =
+            assessmentResults.flatMap(
+              (result) =>
+                result.status === "fulfilled" &&
+                result.value
+                  ? [result.value]
+                  : [],
+            );
+
+          setData((current) => ({
+            ...current,
+            encounters,
+            assessments,
+          }));
         });
 
         if (

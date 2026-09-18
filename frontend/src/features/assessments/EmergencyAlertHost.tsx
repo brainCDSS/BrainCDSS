@@ -24,7 +24,6 @@ import {
 } from "./api";
 
 import type {
-  EmergencyRedFlag,
   EmergencyWorklistItem,
 } from "./types";
 
@@ -104,40 +103,6 @@ function sexLabel(
   }
 
   return value || "-";
-}
-
-
-function redFlagValue(
-  item: EmergencyRedFlag,
-): string {
-  const values: string[] = [];
-
-  if (item.value_text) {
-    values.push(
-      item.value_text,
-    );
-  }
-
-  if (
-    item.value_numeric !== null &&
-    item.value_numeric !== undefined
-  ) {
-    values.push(
-      `${item.value_numeric}${
-        item.unit
-          ? ` ${item.unit}`
-          : ""
-      }`,
-    );
-  }
-
-  if (item.note) {
-    values.push(
-      item.note,
-    );
-  }
-
-  return values.join(" · ");
 }
 
 
@@ -604,6 +569,25 @@ export default function EmergencyAlertHost({
               </div>
 
               <div>
+                <dt>초기 우선순위</dt>
+                <dd>
+                  {current.triage_priority}
+                </dd>
+              </div>
+
+              <div>
+                <dt>현재 우선순위</dt>
+                <dd>
+                  {
+                    current.effective_priority ===
+                    current.triage_priority
+                      ? current.effective_priority
+                      : `${current.effective_priority} (재평가)`
+                  }
+                </dd>
+              </div>
+
+              <div>
                 <dt>평가 완료</dt>
                 <dd>
                   {formatDateTime(
@@ -628,27 +612,25 @@ export default function EmergencyAlertHost({
           <section>
             <h3>주요 이상 소견</h3>
 
-            {current.red_flags.length ? (
+            {current.abnormal_findings.length ? (
               <ul className="emergency-alert-redflags">
-                {current.red_flags.map(
+                {current.abnormal_findings.map(
                   (item) => (
                     <li key={item.item_code}>
                       <strong>
-                        {item.item_code}
+                        {item.label}
                       </strong>
 
-                      {redFlagValue(item) && (
-                        <span>
-                          {redFlagValue(item)}
-                        </span>
-                      )}
+                      <span>
+                        {item.detail}
+                      </span>
                     </li>
                   ),
                 )}
               </ul>
             ) : (
               <p className="emergency-alert-empty">
-                기록된 Red Flag 항목이 없습니다.
+                입력된 이상 소견이 없습니다.
               </p>
             )}
 

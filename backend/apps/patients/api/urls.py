@@ -10,6 +10,7 @@ from apps.patients.api.views import (
     TemporaryPatientCreateView,
 )
 from apps.patients.api.patient_profile_views import PatientProfileView
+from apps.patients.api.timeline_views import PatientTimelineView
 
 
 urlpatterns = [
@@ -17,6 +18,11 @@ urlpatterns = [
         "me/profile",
         PatientProfileView.as_view(),
         name="patient-profile",
+    ),
+    path(
+        "patients/<uuid:patient_id>/timeline",
+        PatientTimelineView.as_view(),
+        name="patient-timeline",
     ),
     path(
         "patients",

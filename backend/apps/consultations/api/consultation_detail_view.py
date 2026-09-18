@@ -29,9 +29,17 @@ class ConsultationDetailView(ContractView001):
                 "encounter__patient",
                 "requested_by",
                 "assigned_to",
-            ).get(pk=kwargs["consultation_id"])
+            ).get(
+                pk=kwargs["consultation_id"],
+            )
         except Consultation.DoesNotExist as exc:
             raise NotFound({"code": "CONSULTATION_NOT_FOUND"}) from exc
+
+        if (
+            consultation.requested_by_id != request.user.id
+            and consultation.assigned_to_id != request.user.id
+        ):
+            raise NotFound({"code": "CONSULTATION_NOT_FOUND"})
 
         user_ids = {
             user_id

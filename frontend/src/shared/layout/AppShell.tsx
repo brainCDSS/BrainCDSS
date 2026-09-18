@@ -40,6 +40,8 @@ import AdminSettingsPage from "../../features/admin/AdminSettingsPage";
 
 import type { Patient } from "../../features/patients/types";
 import type { ConsultationListItem } from "../../features/consultations/types";
+import type { ConsultationDraft } from "../../features/consultations/types";
+import type { RadiologyReportDraft } from "../../features/radiology/types";
 import type { LoginUser } from "../../features/auth/types";
 import type { SidebarMenuKey } from "./Sidebar";
 
@@ -186,6 +188,8 @@ export default function AppShell({
   );
 
   const [activeAnalysisId, setActiveAnalysisId] = useState<string | null>(null);
+  const [consultationDraft, setConsultationDraft] = useState<ConsultationDraft | null>(null);
+  const [radiologyReportDraft, setRadiologyReportDraft] = useState<RadiologyReportDraft | null>(null);
 
 
   /* ========================================================
@@ -1174,6 +1178,22 @@ export default function AppShell({
 
   };
 
+  const handleAIAnalysisConsultationShare = async (draft: ConsultationDraft) => {
+    if (!canAccessMenu(currentUser.role.code, "consultations")) {
+      throw new Error("CONSULTATION_FORBIDDEN");
+    }
+
+    const patient = await getPatient(draft.patientId);
+    setConsultationDraft(draft);
+    handlePatientSelect(patient);
+  };
+
+  const handleAIAnalysisRadiologyReport = (draft: RadiologyReportDraft) => {
+    if (!canAccessMenu(currentUser.role.code, "radiology-reports")) return;
+    setRadiologyReportDraft(draft);
+    handleMenuSelect("radiology-reports");
+  };
+
   const handleWorklistPatientSelect = (
     patient: Patient,
     encounterId: string,
@@ -1371,6 +1391,8 @@ export default function AppShell({
           onNavigate={
             handleMenuSelect
           }
+          consultationDraft={consultationDraft}
+          onConsultationDraftConsumed={() => setConsultationDraft(null)}
         />
       );
 
@@ -1398,6 +1420,8 @@ export default function AppShell({
           canViewConsultations={
             canAccessMenu(currentUser.role.code, "consultations")
           }
+          consultationDraft={consultationDraft}
+          onConsultationDraftConsumed={() => setConsultationDraft(null)}
         />
       );
 
@@ -1581,11 +1605,11 @@ export default function AppShell({
     }
 
     if (activeMenu === "ai-results") {
-      return <AIAnalysisResultsPage initialAnalysisId={activeAnalysisId} />;
+      return <AIAnalysisResultsPage initialAnalysisId={activeAnalysisId} onShareConsultation={currentUser.role.code === "NEUROLOGIST" ? handleAIAnalysisConsultationShare : undefined} onCreateRadiologyReport={currentUser.role.code === "RADIOLOGY" ? handleAIAnalysisRadiologyReport : undefined} />;
     }
 
     if (activeMenu === "radiology-reports") {
-      return <RadiologyReportsPage />;
+      return <RadiologyReportsPage draft={radiologyReportDraft} onDraftConsumed={() => setRadiologyReportDraft(null)} />;
     }
 
     if (activeMenu === "cdss") {

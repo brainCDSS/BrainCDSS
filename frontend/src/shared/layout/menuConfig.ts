@@ -109,7 +109,7 @@ export const MENU_ALLOWED_ROLES: Record<
    * 추후 NEUROLOGIST만 남겨도 됨.
    */
   "radiology-reports": [
-    "NEUROLOGIST",
+    "RADIOLOGY",
   ],
 
   /*

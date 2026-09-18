@@ -42,6 +42,7 @@ from apps.surgical_planning.services.planning import (
     update_surgical_plan,
     update_surgical_plan_clip,
 )
+from apps.patients.selectors.patients import can_view_patient
 
 
 class PlanningAPIView(APIView):
@@ -49,9 +50,10 @@ class PlanningAPIView(APIView):
         SurgicalPlanningPermission,
     )
 
-    def get_plan(self, planning_id):
+    def get_plan(self, request, planning_id):
         try:
             return get_surgical_plan(
+                user=request.user,
                 planning_id=planning_id
             )
         except SurgicalPlan.DoesNotExist as exc:
@@ -89,6 +91,7 @@ class SurgicalPlanListCreateView(
     )
     def get(self, request):
         queryset = list_surgical_plans(
+            user=request.user,
             patient_id=request.query_params.get(
                 "patient_id"
             ),
@@ -126,6 +129,12 @@ class SurgicalPlanListCreateView(
             raise_exception=True
         )
 
+        if not can_view_patient(
+            request.user,
+            serializer.validated_data["patient_id"],
+        ):
+            raise Http404
+
         plan = self.service_call(
             create_surgical_plan,
             user=request.user,
@@ -153,7 +162,7 @@ class SurgicalPlanDetailView(
     ):
         return Response(
             SurgicalPlanSerializer(
-                self.get_plan(planning_id)
+                self.get_plan(request, planning_id)
             ).data
         )
 
@@ -166,6 +175,7 @@ class SurgicalPlanDetailView(
         request,
         planning_id,
     ):
+        self.get_plan(request, planning_id)
         serializer = SurgicalPlanUpdateSerializer(
             data=request.data
         )
@@ -220,6 +230,7 @@ class SurgicalPlanDraftView(
         request,
         planning_id,
     ):
+        self.get_plan(request, planning_id)
         serializer = SurgicalPlanUpdateSerializer(
             data=request.data
         )
@@ -268,6 +279,7 @@ class SurgicalPlanConfirmView(
         request,
         planning_id,
     ):
+        self.get_plan(request, planning_id)
         serializer = SurgicalPlanVersionSerializer(
             data=request.data
         )
@@ -306,7 +318,7 @@ class SurgicalPlanClipListCreateView(
         request,
         planning_id,
     ):
-        plan = self.get_plan(planning_id)
+        plan = self.get_plan(request, planning_id)
 
         clips = plan.clips.all()
 
@@ -333,6 +345,7 @@ class SurgicalPlanClipListCreateView(
         request,
         planning_id,
     ):
+        self.get_plan(request, planning_id)
         serializer = SurgicalPlanClipSerializer(
             data=request.data
         )
@@ -370,6 +383,7 @@ class SurgicalPlanClipDetailView(
         planning_id,
         clip_pk,
     ):
+        self.get_plan(request, planning_id)
         serializer = (
             SurgicalPlanClipUpdateSerializer(
                 data=request.data,
@@ -406,6 +420,7 @@ class SurgicalPlanClipDetailView(
         planning_id,
         clip_pk,
     ):
+        self.get_plan(request, planning_id)
         self.service_call(
             delete_surgical_plan_clip,
             planning_id=planning_id,
@@ -429,7 +444,7 @@ class SurgicalPlanMessageListCreateView(
         request,
         planning_id,
     ):
-        plan = self.get_plan(planning_id)
+        plan = self.get_plan(request, planning_id)
 
         messages = (
             plan.messages
@@ -463,6 +478,7 @@ class SurgicalPlanMessageListCreateView(
         request,
         planning_id,
     ):
+        self.get_plan(request, planning_id)
         serializer = SurgicalPlanMessageSerializer(
             data=request.data
         )

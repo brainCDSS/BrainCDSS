@@ -159,27 +159,35 @@ class AssessmentWorklistView(APIView):
             encounter_id=OuterRef("pk"),
         ).order_by("-created_at")
 
+        status_filter = (request.query_params.get("status") or "").upper()
+
         queryset = (
             Encounter.objects.select_related("patient")
-            .exclude(status__in=("COMPLETED", "CANCELLED"))
+            .exclude(status="CANCELLED")
             .annotate(
                 worklist_assessment_id=Subquery(latest_assessment.values("id")[:1]),
                 worklist_assessment_status=Subquery(latest_assessment.values("status")[:1]),
                 worklist_triage_priority=Subquery(latest_assessment.values("triage_priority")[:1]),
                 worklist_assessment_created_at=Subquery(latest_assessment.values("created_at")[:1]),
             )
-            .filter(
+        )
+
+        if status_filter == "COMPLETED":
+            # Historical/completed view. Completed encounters remain visible
+            # here even after the encounter itself has been closed.
+            queryset = queryset.filter(worklist_assessment_status="COMPLETED")
+        else:
+            # Default endpoint behavior remains an active nursing worklist.
+            queryset = queryset.exclude(status="COMPLETED").filter(
                 Q(worklist_assessment_id__isnull=True)
                 | Q(worklist_assessment_status="DRAFT")
             )
-            .order_by("-arrived_at", "-created_at")
-        )
+            if status_filter == "WAITING":
+                queryset = queryset.filter(worklist_assessment_id__isnull=True)
+            elif status_filter:
+                queryset = queryset.filter(worklist_assessment_status=status_filter)
 
-        status_filter = request.query_params.get("status")
-        if status_filter == "WAITING":
-            queryset = queryset.filter(worklist_assessment_id__isnull=True)
-        elif status_filter:
-            queryset = queryset.filter(worklist_assessment_status=status_filter)
+        queryset = queryset.order_by("-arrived_at", "-created_at")
 
         date_filter = parse_date(request.query_params.get("date", ""))
         if date_filter:

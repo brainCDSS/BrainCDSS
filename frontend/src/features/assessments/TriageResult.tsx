@@ -21,6 +21,8 @@ import "./css/triage_assessment.css";
 interface TriageSummary {
   fastCompleted: number;
   fastAbnormal: number;
+  screeningTotal: number;
+  screeningCompleted: number;
   bpSys: string;
   bpDia: string;
   lkwAt: string;
@@ -142,7 +144,9 @@ export default function TriageResult({
   const finalScore =
     completed?.total_score ??
     result?.total_score ??
-    null;
+    (summary.screeningCompleted === 6
+      ? summary.screeningTotal
+      : null);
 
 
   const finalPriority =
@@ -395,9 +399,11 @@ export default function TriageResult({
 
               <strong>
                 {
-                  finalScore ??
-                  "-"
+                  finalScore ?? "-"
                 }
+                <small>
+                  {" / 30"}
+                </small>
               </strong>
 
             </div>

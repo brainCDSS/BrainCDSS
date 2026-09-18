@@ -81,6 +81,12 @@ export interface AssessmentItem {
    초기평가 상세 조회 Response
    ========================================================= */
 
+export type TriagePriority =
+  | "EMERGENCY"
+  | "URGENT"
+  | "NON_EMERGENCY";
+
+
 export interface AssessmentDetailResponse {
   assessment_id: string;
 
@@ -92,7 +98,7 @@ export interface AssessmentDetailResponse {
 
   total_score: number | null;
 
-  triage_priority: string | null;
+  triage_priority: TriagePriority | null;
 
   onset_at?: string | null;
 
@@ -168,6 +174,7 @@ export interface UpdateAssessmentResponse {
 
 export interface CompleteAssessmentRequest {
   assigned_neurologist_id: string;
+  triage_priority: TriagePriority;
 }
 
 

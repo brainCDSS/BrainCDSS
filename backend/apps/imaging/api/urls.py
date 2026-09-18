@@ -25,6 +25,7 @@ from apps.imaging.api.imaging_history_views import (
     ImagingOrderTimelineView,
     ImagingStudyReportsView,
 )
+from apps.imaging.api.patient_test_results_views import PatientTestResultsView
 
 from apps.imaging.api.imaging_remaining_views import (
     DicomArtifactStowView,
@@ -38,6 +39,11 @@ from apps.imaging.api.imaging_remaining_views import (
 )
 
 urlpatterns = [
+    path(
+        "api/v1/me/test-results",
+        PatientTestResultsView.as_view(),
+        name="patient_test_results",
+    ),
     path(
         "api/v1/imaging-studies/<uuid:study_id>/resync",
         ImagingStudyResyncView.as_view(),

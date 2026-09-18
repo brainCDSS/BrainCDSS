@@ -3425,3 +3425,279 @@
     padding:3px 2px 8px;
   }
 }
+
+
+/* =========================================================
+   Physician triage reassessment
+   ========================================================= */
+
+.patient-triage-priority__line {
+  display:flex;
+  width:100%;
+  min-width:0;
+  align-items:center;
+  gap:6px;
+}
+
+.patient-triage-priority__line > button {
+  flex:0 0 auto;
+  height:24px;
+  padding:0 8px;
+  border:1px solid #9db9df;
+  border-radius:7px;
+  background:#fff;
+  color:#266ab6;
+  font:inherit;
+  font-size:9px;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.patient-triage-priority__line > button:hover {
+  border-color:#5f9be7;
+  background:#f1f7ff;
+}
+
+.triage-review-backdrop {
+  position:fixed;
+  z-index:1200;
+  inset:0;
+  display:grid;
+  place-items:center;
+  padding:24px;
+  background:rgba(20,32,51,.44);
+  backdrop-filter:blur(1.5px);
+}
+
+.triage-review-modal {
+  width:min(620px,100%);
+  max-height:calc(100vh - 48px);
+  overflow:auto;
+  border:1px solid #dbe4ef;
+  border-radius:16px;
+  background:#fff;
+  box-shadow:0 24px 60px rgba(20,35,58,.24);
+}
+
+.triage-review-modal__header {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:18px 20px;
+  border-bottom:1px solid #e8edf4;
+}
+
+.triage-review-modal__header span {
+  display:block;
+  color:#7a8799;
+  font-size:9px;
+  font-weight:800;
+  letter-spacing:.12em;
+}
+
+.triage-review-modal__header h2 {
+  margin:4px 0 0;
+  color:#1f3150;
+  font-size:18px;
+}
+
+.triage-review-modal__header > button {
+  display:grid;
+  width:34px;
+  height:34px;
+  place-items:center;
+  border:0;
+  border-radius:8px;
+  background:transparent;
+  color:#76849a;
+  font:inherit;
+  font-size:22px;
+  cursor:pointer;
+}
+
+.triage-review-form {
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+  padding:20px;
+}
+
+.triage-review-origin {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+}
+
+.triage-review-origin > div {
+  min-width:0;
+  padding:12px;
+  border:1px solid #e1e7ef;
+  border-radius:10px;
+  background:#f8fafc;
+}
+
+.triage-review-origin span,
+.triage-review-history > span,
+.triage-review-form > label > span {
+  display:block;
+  color:#6f7d92;
+  font-size:11px;
+  font-weight:800;
+}
+
+.triage-review-origin strong {
+  display:block;
+  margin-top:6px;
+  color:#263b5b;
+  font-size:16px;
+}
+
+.triage-review-origin small {
+  display:block;
+  margin-top:4px;
+  overflow:hidden;
+  color:#7d899b;
+  font-size:10px;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.triage-review-history {
+  padding:12px;
+  border:1px solid #e2e8f0;
+  border-radius:10px;
+  background:#fbfcfe;
+}
+
+.triage-review-history ol {
+  max-height:170px;
+  margin:8px 0 0;
+  padding:0;
+  overflow:auto;
+  list-style:none;
+}
+
+.triage-review-history li {
+  padding:9px 0;
+  border-top:1px solid #edf1f5;
+}
+
+.triage-review-history li:first-child {
+  border-top:0;
+}
+
+.triage-review-history li > div {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.triage-review-history strong {
+  color:#2a3c58;
+  font-size:12px;
+}
+
+.triage-review-history small {
+  color:#7c899b;
+  font-size:9px;
+}
+
+.triage-review-history p {
+  margin:5px 0 0;
+  color:#5d6d84;
+  font-size:10px;
+  line-height:1.45;
+}
+
+.triage-review-form > label {
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+}
+
+.triage-review-form select,
+.triage-review-form textarea {
+  width:100%;
+  border:1px solid #dbe4ee;
+  border-radius:9px;
+  outline:0;
+  background:#fff;
+  color:#263957;
+  font:inherit;
+  font-size:12px;
+}
+
+.triage-review-form select {
+  height:42px;
+  padding:0 11px;
+}
+
+.triage-review-form textarea {
+  min-height:110px;
+  resize:vertical;
+  padding:11px 12px;
+  line-height:1.55;
+}
+
+.triage-review-form select:focus,
+.triage-review-form textarea:focus {
+  border-color:#72a9ef;
+  box-shadow:0 0 0 3px rgba(47,120,232,.10);
+}
+
+.triage-review-error {
+  margin:0;
+  padding:9px 11px;
+  border:1px solid #f0ccd1;
+  border-radius:8px;
+  background:#fff4f5;
+  color:#b64d58;
+  font-size:11px;
+}
+
+.triage-review-form > footer {
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+}
+
+.triage-review-form > footer button {
+  min-width:90px;
+  height:38px;
+  padding:0 15px;
+  border:1px solid #d7e0eb;
+  border-radius:8px;
+  background:#fff;
+  color:#53627a;
+  font:inherit;
+  font-size:12px;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.triage-review-form > footer button.is-primary {
+  border-color:#2479e1;
+  background:#2479e1;
+  color:#fff;
+}
+
+.triage-review-form > footer button:disabled {
+  cursor:not-allowed;
+  opacity:.55;
+}
+
+@media(max-width:640px) {
+  .triage-review-origin {
+    grid-template-columns:1fr;
+  }
+
+  .triage-review-backdrop {
+    padding:14px;
+  }
+
+  .triage-review-modal {
+    max-height:calc(100vh - 28px);
+  }
+}

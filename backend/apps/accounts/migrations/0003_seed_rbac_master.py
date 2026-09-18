@@ -73,7 +73,7 @@ def seed_rbac_master(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("accounts", "0001_initial"),
+        ("accounts", "0002_seed_nurse_patient_read"),
     ]
 
     operations = [

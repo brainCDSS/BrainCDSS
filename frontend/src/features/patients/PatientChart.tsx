@@ -898,8 +898,8 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
           <TriageSummaryBar
             assessment={latestAssessment}
             reviewData={triageReviewData}
-            loading={vitalLoading || triageReviewLoading}
-            error={vitalError || Boolean(triageReviewError)}
+            loading={vitalLoading}
+            error={vitalError}
             canReview={canReviewTriage}
             onReview={openTriageReview}
           />
@@ -978,7 +978,26 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
               )}
             </div>
 
-            <label>
+            {triageReviewData?.reviews.length ? (
+              <div className="triage-review-history">
+                <span>재평가 이력 {triageReviewData.reviews.length}건</span>
+                <ol>
+                  {[...triageReviewData.reviews].reverse().map((review) => (
+                    <li key={review.review_id}>
+                      <div>
+                        <strong>{triagePriorityLabel(review.priority)}</strong>
+                        <small>
+                          {review.reviewer.name} · {dateTime(review.created_at)}
+                        </small>
+                      </div>
+                      <p>{review.reason}</p>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            ) : null}
+
+                        <label>
               <span>재평가 우선순위 *</span>
               <select
                 value={reviewPriority}

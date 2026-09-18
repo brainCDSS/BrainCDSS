@@ -1867,6 +1867,86 @@ def _initial_screening_score(value, item_code):
     return int(decimal_value)
 
 
+def _assessment_start(request, spec, kwargs):
+    del kwargs
+    assessment_model = apps.get_model("assessments", "InitialAssessment")
+    encounter_model = apps.get_model("clinical_records", "Encounter")
+
+    if not isinstance(request.data, dict):
+        raise ContractError({
+            "code": "VALIDATION_ERROR",
+            "detail": "A JSON object is required.",
+        })
+
+    encounter_id = request.data.get("encounter_id")
+    if not encounter_id:
+        raise ContractError({
+            "code": "ENCOUNTER_ID_REQUIRED",
+            "detail": "encounter_id is required.",
+        })
+
+    try:
+        encounter = (
+            encounter_model.objects
+            .select_for_update()
+            .get(pk=encounter_id)
+        )
+    except (
+        encounter_model.DoesNotExist,
+        DjangoValidationError,
+        TypeError,
+        ValueError,
+    ) as exc:
+        raise NotFound({
+            "code": "ENCOUNTER_NOT_FOUND",
+            "detail": "Encounter was not found.",
+        }) from exc
+
+    if (
+        encounter.status in {"COMPLETED", "CANCELLED"}
+        or encounter.ended_at is not None
+    ):
+        raise ContractConflict({
+            "code": "ENCOUNTER_NOT_ACTIVE",
+            "detail": "Only active encounters can start an assessment.",
+        })
+
+    existing_draft = (
+        assessment_model.objects
+        .filter(
+            encounter=encounter,
+            status="DRAFT",
+        )
+        .order_by("-created_at", "-id")
+        .first()
+    )
+    if existing_draft is not None:
+        raise ContractConflict({
+            "code": "ASSESSMENT_ALREADY_IN_PROGRESS",
+            "detail": "A DRAFT assessment already exists for this encounter.",
+        })
+
+    now = timezone.now()
+    assessment = assessment_model.objects.create(
+        encounter=encounter,
+        assessor=request.user,
+        status="DRAFT",
+        created_at=now,
+        updated_at=now,
+    )
+
+    payload = {
+        "assessment_id": str(assessment.id),
+        "encounter_id": str(encounter.id),
+        "status": assessment.status,
+        "assessor_id": str(request.user.id),
+        "created_at": assessment.created_at,
+    }
+    _audit(request, spec, assessment, None, payload)
+    _outbox(spec, assessment, payload)
+    return Response(payload, status=201)
+
+
 def _assessment_detail_payload(assessment):
     item_model = apps.get_model("assessments", "AssessmentItem")
     items = item_model.objects.filter(assessment=assessment).order_by("recorded_at", "id")
@@ -4382,6 +4462,7 @@ CUSTOM_HANDLERS = {
     "API-APP-011": _appointment_correct,
     "API-NOTI-003": _notification_preferences_get,
     "API-NOTI-004": _notification_preferences_patch,
+    "API-ASM-002": _assessment_start,
     "API-ASM-003": _assessment_detail,
     "API-ASM-004": _assessment_patch,
     "API-ASM-005": _assessment_complete,

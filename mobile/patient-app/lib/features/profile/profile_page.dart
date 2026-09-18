@@ -170,36 +170,6 @@ class _CustomerSupportCard extends StatelessWidget {
       );
 }
 
-class _MyInfoPage extends StatelessWidget {
-  const _MyInfoPage({required this.session});
-  final AuthSession session;
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('내 정보')),
-    body: ListView(padding: const EdgeInsets.all(20), children: [
-      _InfoRow(label: '이름', value: session.user.name),
-      _InfoRow(label: '아이디', value: session.user.loginId),
-      _InfoRow(label: '이메일', value: session.user.email ?? ''),
-    ]),
-  );
-}
-
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.label, required this.value});
-  final String label;
-  final String value;
-  @override
-  Widget build(BuildContext context) => Container(
-    margin: const EdgeInsets.only(bottom: 10),
-    padding: const EdgeInsets.all(17),
-    decoration: BoxDecoration(color: Colors.white, border: Border.all(color: _border), borderRadius: BorderRadius.circular(15)),
-    child: Row(children: [
-      SizedBox(width: 80, child: Text(label, style: const TextStyle(color: _muted))),
-      Expanded(child: Text(value.isEmpty ? '-' : value, style: const TextStyle(color: _text, fontWeight: FontWeight.w700))),
-    ]),
-  );
-}
-
 class _PatientProfileDetailPage extends StatefulWidget {
   const _PatientProfileDetailPage({required this.apiClient});
 

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../core/api/api_client.dart';
 import '../auth/auth_session.dart';
-import '../emergency/fast_emergency_page.dart';
 import '../medications/patient_prescriptions_api.dart';
 import '../notifications/notifications_api.dart';
 import '../test-results/test_results_api.dart';
@@ -29,13 +28,10 @@ class HomePage extends StatefulWidget {
 }
 
 class HomePageState extends State<HomePage> {
-  static const Color _primaryDark = Color(0xFF5665B8);
-  static const Color _primarySoft = Color(0xFFE5E8FF);
   static const Color _surface = Color(0xFFFFFFFF);
   static const Color _border = Color(0xFFCFD7E8);
   static const Color _textPrimary = Color(0xFF263A5A);
   static const Color _textSecondary = Color(0xFF65758D);
-  static const Color _emergency = Color(0xFFE94E4E);
 
   late final HomeApi _homeApi;
   late final NotificationsApi _notificationsApi;
@@ -46,7 +42,6 @@ class HomePageState extends State<HomePage> {
   String? _appointmentError;
 
   List<HomeAppointment> _appointments = const [];
-  List<PatientNotification> _notifications = const [];
   List<MedicationScheduleSummary> _todaySchedules = const [];
   List<TestResultSummary> _testResults = const [];
   bool _showTodaySchedule = true;
@@ -74,7 +69,9 @@ class HomePageState extends State<HomePage> {
           .catchError((_) => <MedicationScheduleSummary>[]),
       _testResultsApi.list().catchError((_) => <TestResultSummary>[]),
     ]);
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
     setState(() {
       _todaySchedules = results[0] as List<MedicationScheduleSummary>;
       _testResults = results[1] as List<TestResultSummary>;
@@ -83,13 +80,8 @@ class HomePageState extends State<HomePage> {
 
   Future<void> _loadNotifications() async {
     try {
-      final response = await _notificationsApi.list(unreadOnly: true);
-      if (mounted)
-        setState(() => _notifications =
-            response.items.where((item) => !item.isRead).toList());
-    } catch (_) {
-      if (mounted) setState(() => _notifications = const []);
-    }
+      await _notificationsApi.list(unreadOnly: true);
+    } catch (_) {}
   }
 
   Future<void> _loadAppointments() async {
@@ -101,21 +93,27 @@ class HomePageState extends State<HomePage> {
     try {
       final appointments = await _homeApi.getMyAppointments();
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _appointments = appointments;
         _isLoadingAppointments = false;
       });
     } on ApiException {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _appointmentError = '예약 정보를 불러오지 못했습니다.';
         _isLoadingAppointments = false;
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _appointmentError = '예약 정보를 불러오지 못했습니다.';
@@ -428,8 +426,6 @@ class HomePageState extends State<HomePage> {
 
 /*상단 인사말 카드섹션*/
   Widget _buildGreeting() {
-    final greeting = _patientName.isEmpty ? '안녕하세요' : '$_patientName님, 안녕하세요';
-
     return Container(
       height: 164,
       padding: const EdgeInsets.fromLTRB(20, 20, 12, 3), //카드여백(마지막)
@@ -484,72 +480,6 @@ class HomePageState extends State<HomePage> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildSectionTitle({
-    required String title,
-    required String subtitle,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            color: _textPrimary,
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          subtitle,
-          style: const TextStyle(
-            color: _textSecondary,
-            fontSize: 13,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildHealthSummary({
-    required int todayAppointmentCount,
-  }) {
-    return Row(
-      children: [
-        Expanded(
-          child: _SummaryCard(
-            icon: Icons.calendar_month_outlined,
-            label: '예약',
-            onTap: widget.onOpenAppointments,
-            value: _isLoadingAppointments
-                ? '확인 중'
-                : _appointmentError != null
-                    ? '확인 필요'
-                    : todayAppointmentCount == 0
-                        ? '오늘 없음'
-                        : '오늘 $todayAppointmentCount건',
-          ),
-        ),
-        const SizedBox(width: 10),
-        const Expanded(
-          child: _SummaryCard(
-            icon: Icons.medication_outlined,
-            label: '복약',
-            value: '정보 없음',
-          ),
-        ),
-        const SizedBox(width: 10),
-        const Expanded(
-          child: _SummaryCard(
-            icon: Icons.assignment_outlined,
-            label: '검사 결과',
-            value: '정보 없음',
-          ),
-        ),
-      ],
     );
   }
 
@@ -626,93 +556,6 @@ class HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildEmergencySection() {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: _surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: _border,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '응급 상황',
-            style: TextStyle(
-              color: _textPrimary,
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            '뇌졸중 의심 증상이 있다면 신속하게 대응하세요.',
-            style: TextStyle(
-              color: _textSecondary,
-              fontSize: 13,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => FastEmergencyPage.open(context),
-                  icon: const Icon(
-                    Icons.health_and_safety_outlined,
-                  ),
-                  label: const Padding(
-                    padding: EdgeInsets.symmetric(
-                      vertical: 14,
-                    ),
-                    child: Text(
-                      'FAST 안내',
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: _emergency,
-                    foregroundColor: Colors.white,
-                  ),
-                  onPressed: () {
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          '119 전화 연결 기능은 연결 예정입니다.',
-                        ),
-                      ),
-                    );
-                  },
-                  icon: const Icon(
-                    Icons.call_outlined,
-                  ),
-                  label: const Padding(
-                    padding: EdgeInsets.symmetric(
-                      vertical: 14,
-                    ),
-                    child: Text(
-                      '119 연락',
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   BoxDecoration _cardDecoration() {
     return BoxDecoration(
       color: _surface,
@@ -766,83 +609,6 @@ class _HomeSummaryTile extends StatelessWidget {
                   fontWeight: FontWeight.w800)),
         ]),
       );
-}
-
-class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-    this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          minHeight: 120,
-        ),
-        child: Ink(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 16,
-          ),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFFFFF),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: const Color(0xFFCFD7E8),
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE5E8FF),
-                  borderRadius: BorderRadius.circular(11),
-                ),
-                child: Icon(
-                  icon,
-                  size: 20,
-                  color: const Color(0xFF5665B8),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: Color(0xFF65758D),
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                value,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Color(0xFF263A5A),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _AppointmentCard extends StatelessWidget {
@@ -1067,10 +833,11 @@ class _EmptyCard extends StatelessWidget {
 
 String _homeScheduleTime(MedicationScheduleSummary schedule) {
   final scheduledAt = schedule.scheduledAt;
-  if (scheduledAt == null)
+  if (scheduledAt == null) {
     return schedule.timeSlot?.trim().isNotEmpty == true
         ? schedule.timeSlot!.trim()
         : '-';
+  }
   final time =
       '${scheduledAt.hour.toString().padLeft(2, '0')}:${scheduledAt.minute.toString().padLeft(2, '0')}';
   final slot = schedule.timeSlot?.trim();

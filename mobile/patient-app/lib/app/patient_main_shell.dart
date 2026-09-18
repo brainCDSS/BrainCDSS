@@ -315,7 +315,6 @@ class _PatientDrawer extends StatelessWidget {
   final Future<void> Function() onLogout;
 
   static const _primaryDark = Color(0xFF5665B8);
-  static const _primarySoft = Color(0xFFE5E8FF);
   static const _text = Color(0xFF263A5A);
   static const _secondary = Color(0xFF65758D);
 

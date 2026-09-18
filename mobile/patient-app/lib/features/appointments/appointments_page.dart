@@ -756,21 +756,26 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
     try {
       final value = await AppointmentsApi(widget.apiClient)
           .detail(widget.appointment.appointmentId);
-      if (mounted)
+      if (mounted) {
         setState(() {
           _detail = value;
           _error = null;
         });
+      }
     } on ApiException catch (error) {
-      if (mounted) setState(() => _error = error.message);
+      if (mounted) {
+        setState(() => _error = error.message);
+      }
     } catch (_) {
-      if (mounted) setState(() => _error = '예약 상세를 불러오지 못했습니다.');
+      if (mounted) {
+        setState(() => _error = '예약 상세를 불러오지 못했습니다.');
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_detail == null)
+    if (_detail == null) {
       return Scaffold(
           appBar: AppBar(title: const Text('예약 상세')),
           body: Center(
@@ -778,6 +783,7 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
                   ? const CircularProgressIndicator()
                   : TextButton(
                       onPressed: _load, child: Text('$_error 다시 시도'))));
+    }
     String nested(String key) {
       final value = _detail![key];
       return value is Map ? value['name']?.toString() ?? '' : '';
@@ -914,7 +920,9 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
                       child: const Text('닫기')),
                   FilledButton(
                     onPressed: () async {
-                      if (_isCancelling) return;
+                      if (_isCancelling) {
+                        return;
+                      }
                       setState(() => _isCancelling = true);
                       final reason = selectedReason == '기타'
                           ? otherReason.text
@@ -923,19 +931,27 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
                         await AppointmentsApi(widget.apiClient).cancel(
                             widget.appointment.appointmentId,
                             reason: reason);
-                        if (dialogContext.mounted) Navigator.pop(dialogContext);
-                        if (context.mounted) Navigator.pop(context);
+                        if (dialogContext.mounted) {
+                          Navigator.pop(dialogContext);
+                        }
+                        if (context.mounted) {
+                          Navigator.pop(context);
+                        }
                       } on ApiException catch (error) {
-                        if (dialogContext.mounted)
+                        if (dialogContext.mounted) {
                           ScaffoldMessenger.of(dialogContext).showSnackBar(
                               SnackBar(content: Text(error.message)));
+                        }
                       } catch (_) {
-                        if (dialogContext.mounted)
+                        if (dialogContext.mounted) {
                           ScaffoldMessenger.of(dialogContext).showSnackBar(
                               const SnackBar(
                                   content: Text('예약 취소를 처리하지 못했습니다.')));
+                        }
                       } finally {
-                        if (mounted) setState(() => _isCancelling = false);
+                        if (mounted) {
+                          setState(() => _isCancelling = false);
+                        }
                       }
                     },
                     child: const Text('예약 취소'),
@@ -1234,29 +1250,35 @@ class _SlotSelectionPageState extends State<_SlotSelectionPage> {
   Future<void> _loadClinicians() async {
     try {
       final values = await _api.clinicians();
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _clinicians = values;
         _loading = false;
       });
     } on ApiException catch (error) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = error.message;
           _loading = false;
         });
+      }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = '의료진 목록을 불러오지 못했습니다.';
           _loading = false;
         });
+      }
     }
   }
 
   Future<void> _loadSlots() async {
     final clinicianId = _clinicianId;
-    if (clinicianId == null || clinicianId.isEmpty) return;
+    if (clinicianId == null || clinicianId.isEmpty) {
+      return;
+    }
     setState(() {
       _loading = true;
       _error = null;
@@ -1264,25 +1286,28 @@ class _SlotSelectionPageState extends State<_SlotSelectionPage> {
     });
     try {
       final values = await _api.slots(clinicianId, _date);
-      if (mounted)
+      if (mounted) {
         setState(() {
           _slots = values;
           _loading = false;
         });
+      }
     } on ApiException catch (error) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _slots = const [];
           _error = error.message;
           _loading = false;
         });
+      }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _slots = const [];
           _error = '예약 가능 시간을 불러오지 못했습니다.';
           _loading = false;
         });
+      }
     }
   }
 

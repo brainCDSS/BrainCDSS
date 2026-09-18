@@ -274,7 +274,7 @@ class _TodayMedicationSummary extends StatelessWidget {
               ),
               const SizedBox(width: 13),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('오늘 복용할 약 ${itemCount}개', style: const TextStyle(color: _text, fontSize: 16, fontWeight: FontWeight.w800)),
+                Text('오늘 복용할 약 $itemCount개', style: const TextStyle(color: _text, fontSize: 16, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 5),
                 const Text('처방된 복약 정보를 확인해 주세요.', style: TextStyle(color: _muted, fontSize: 12)),
               ])),
@@ -903,27 +903,6 @@ class _MedicationErrorCard extends StatelessWidget {
             onPressed: onRetry,
             icon: const Icon(Icons.refresh_rounded),
             label: const Text('다시 시도'))
-      ]));
-}
-
-class _EmptyMedicationCard extends StatelessWidget {
-  const _EmptyMedicationCard();
-  @override
-  Widget build(BuildContext context) => Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 36),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: _border),
-          borderRadius: BorderRadius.circular(18)),
-      child: const Column(children: [
-        Icon(Icons.medication_outlined, color: _primary, size: 42),
-        SizedBox(height: 14),
-        Text('등록된 복약 정보가 없습니다.',
-            style: TextStyle(color: _text, fontWeight: FontWeight.w700)),
-        SizedBox(height: 6),
-        Text('복약 일정이 등록되면 이곳에서 확인할 수 있습니다.',
-            textAlign: TextAlign.center, style: TextStyle(color: _muted))
       ]));
 }
 

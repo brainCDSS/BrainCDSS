@@ -520,6 +520,8 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
   const canRequestConsultation = currentRole === "NEUROLOGIST";
   const canReviewTriage =
     currentRole === "NEUROLOGIST" &&
+    encounter?.status !== "COMPLETED" &&
+    !encounter?.ended_at &&
     Boolean(
       latestAssessment?.assigned_neurologist?.id &&
       latestAssessment.assigned_neurologist.id === currentUser?.id,
@@ -658,7 +660,7 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
     };
   }, [canReviewTriage, latestAssessment?.assessment_id]);
 
-    useEffect(() => {
+  useEffect(() => {
     const requestId = ++medicationRequestId.current;
     setCurrentMedications([]);
     setMedicationsError(false);
@@ -771,7 +773,7 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
     }
   }
 
-    function resetConsultationRequestForm() {
+  function resetConsultationRequestForm() {
     setConsultationType("RADIOLOGY");
     setSelectedClinicianId("");
     setConsultationPriority("ROUTINE");
@@ -900,7 +902,7 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
             reviewData={triageReviewData}
             loading={vitalLoading}
             error={vitalError}
-            canReview={canReviewTriage}
+            canReview={canReviewTriage && !triageReviewLoading}
             onReview={openTriageReview}
           />
         )}

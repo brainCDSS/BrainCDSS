@@ -100,6 +100,10 @@ export interface AssessmentDetailResponse {
 
   symptom_note?: string | null;
 
+  created_at?: string | null;
+
+  updated_at?: string | null;
+
   assigned_neurologist?: {
     id: string;
     name: string;

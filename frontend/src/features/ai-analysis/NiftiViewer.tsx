@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { DRAG_MODE, MULTIPLANAR_TYPE, Niivue, SHOW_RENDER } from "@niivue/niivue";
 import { authenticatedAsset } from "../../api/client";
 import { getNiftiViewerManifest } from "./api";
+import { getStudyNiftiViewerManifest } from "../imaging/api";
 import type { NiftiProbe } from "./types";
 
 type ViewMode = "AXIAL" | "CORONAL" | "SAGITTAL" | "MULTIPLANAR";
@@ -32,7 +33,7 @@ type NiivueLocation = {
   values?: Array<{ value?: number; vox?: ArrayLike<number> }>;
 };
 
-export default function NiftiViewer({ analysisId, focusSlice, focusRequest, onProbe }: { analysisId: string; focusSlice?: number | null; focusRequest?: number; onProbe?: (probe: NiftiProbe | null) => void }) {
+export default function NiftiViewer({ analysisId, studyId, maskOnly = false, focusSlice, focusRequest, onProbe }: { analysisId?: string; studyId?: string; maskOnly?: boolean; focusSlice?: number | null; focusRequest?: number; onProbe?: (probe: NiftiProbe | null) => void }) {
   const shellRef = useRef<HTMLElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const viewerRef = useRef<Niivue | null>(null);
@@ -149,7 +150,10 @@ export default function NiftiViewer({ analysisId, focusSlice, focusRequest, onPr
     viewerRef.current = viewer;
     async function load() {
       setMessage("NIfTI 영상을 불러오는 중입니다."); setAlignment(null); setHasMask(false); setMaskVisible(true); setHasProbability(false); setProbabilityVisible(false); setHasXai(false); setXaiVisible(false); setSourceRole("");
-      const manifest = await getNiftiViewerManifest(analysisId);
+      if (!analysisId && !studyId) return setMessage("표시할 영상이 없습니다.");
+      const manifest = analysisId
+        ? await getNiftiViewerManifest(analysisId)
+        : await getStudyNiftiViewerManifest(studyId!);
       const canvas = canvasRef.current;
       if (!active || !canvas) return;
       if (!canvas.getContext("webgl2")) return setMessage("WebGL2를 사용할 수 없습니다. 브라우저 하드웨어 가속을 확인해 주세요.");
@@ -157,8 +161,8 @@ export default function NiftiViewer({ analysisId, focusSlice, focusRequest, onPr
       const defaultRole = roles.includes("DWI") ? "DWI" : roles[0];
       const activeRole = selectedSourceRole || defaultRole;
       const source = manifest.inputs.find((item) => item.role === activeRole);
-      const probability = manifest.probabilities?.[0]; const mask = manifest.masks[0]; const components = manifest.components?.[0];
-      const xai = manifest.xai?.find((item) => item.role === activeRole) ?? manifest.xai?.find((item) => !item.role);
+      const probability = maskOnly ? undefined : manifest.probabilities?.[0]; const mask = manifest.masks[0]; const components = maskOnly ? undefined : manifest.components?.[0];
+      const xai = maskOnly ? undefined : (manifest.xai?.find((item) => item.role === activeRole) ?? manifest.xai?.find((item) => !item.role));
       if (!source) return setMessage("분석에 사용한 원본 NIfTI가 없습니다.");
       setSourceRole(source.role); setSourceRoles(roles);
       if (!selectedSourceRole) setSelectedSourceRole(defaultRole);
@@ -280,7 +284,7 @@ export default function NiftiViewer({ analysisId, focusSlice, focusRequest, onPr
       if (windowFrameRef.current !== null) cancelAnimationFrame(windowFrameRef.current);
       if (attached) try { viewer.closeDrawing(); } catch { /* canvas teardown */ }
     };
-  }, [analysisId, selectedSourceRole]);
+  }, [analysisId, studyId, maskOnly, selectedSourceRole]);
 
   useEffect(() => { const viewer = viewerRef.current; const index = maskIndexRef.current; if (viewer && index !== null) viewer.setOpacity(index, maskVisible ? maskOpacity / 100 : 0); }, [maskOpacity, maskVisible]);
   useEffect(() => { const viewer = viewerRef.current; const index = probabilityIndexRef.current; if (viewer && index !== null) viewer.setOpacity(index, probabilityVisible ? probabilityOpacity / 100 : 0); }, [probabilityOpacity, probabilityVisible]);
@@ -317,10 +321,10 @@ export default function NiftiViewer({ analysisId, focusSlice, focusRequest, onPr
         <div className="nifti-overlay-controls">
         <label><input type="checkbox" checked={maskVisible} disabled={!hasMask} onChange={(event) => setMaskVisible(event.target.checked)} /> 마스크</label>
         <label>투명도 <input type="range" min="0" max="100" value={maskOpacity} disabled={!hasMask} onChange={(event) => setMaskOpacity(Number(event.target.value))} /><strong>{maskOpacity}%</strong></label>
-        <label><input type="checkbox" checked={probabilityVisible} disabled={!hasProbability} onChange={(event) => setProbabilityVisible(event.target.checked)} /> 병변 가능도</label>
+        {!maskOnly && <><label><input type="checkbox" checked={probabilityVisible} disabled={!hasProbability} onChange={(event) => setProbabilityVisible(event.target.checked)} /> 병변 가능도</label>
         <label>가능도 <input type="range" min="0" max="100" value={probabilityOpacity} disabled={!hasProbability} onChange={(event) => setProbabilityOpacity(Number(event.target.value))} /><strong>{probabilityOpacity}%</strong></label>
         <label title="Smooth Integrated Gradients"><input type="checkbox" checked={xaiVisible} disabled={!hasXai} onChange={(event) => setXaiVisible(event.target.checked)} /> XAI</label>
-        <label>XAI <input type="range" min="0" max="100" value={xaiOpacity} disabled={!hasXai} onChange={(event) => setXaiOpacity(Number(event.target.value))} /><strong>{xaiOpacity}%</strong></label>
+        <label>XAI <input type="range" min="0" max="100" value={xaiOpacity} disabled={!hasXai} onChange={(event) => setXaiOpacity(Number(event.target.value))} /><strong>{xaiOpacity}%</strong></label></>}
         </div>
         <div className="nifti-view-actions">
         <button type="button" onClick={() => fit()}>화면 맞춤</button><button type="button" onClick={() => fit(viewMode, true)}>초기화</button><button type="button" onClick={() => void toggleFullscreen()}>전체화면</button>

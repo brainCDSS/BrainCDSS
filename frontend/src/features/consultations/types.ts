@@ -38,6 +38,20 @@ export type ConsultationPriority =
 
 
 /* =========================================================
+   협진 생성 Draft
+   ========================================================= */
+
+export interface ConsultationDraft {
+  patientId: string;
+  analysisId: string;
+  studyId: string;
+  consultationType: ConsultationType;
+  priority: ConsultationPriority;
+  reason: string;
+}
+
+
+/* =========================================================
    현재 로그인 의료진과 협진의 관계
    ========================================================= */
 

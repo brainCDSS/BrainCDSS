@@ -17,7 +17,11 @@ from apps.ai_analysis.api.inference import (
     AnalysisNiftiViewerView,
     ResultArtifactContentView,
 )
-from apps.imaging.api.nifti import NiftiArtifactContentView, StudyAIInputsView
+from apps.imaging.api.nifti import (
+    NiftiArtifactContentView,
+    StudyAIInputsView,
+    StudyNiftiViewerView,
+)
 
 
 # ============================================================
@@ -48,6 +52,10 @@ urlpatterns = [
     path(
         "api/v1/imaging-studies/<uuid:study_id>/ai-inputs",
         StudyAIInputsView.as_view(),
+    ),
+    path(
+        "api/v1/imaging-studies/<uuid:study_id>/nifti-viewer",
+        StudyNiftiViewerView.as_view(),
     ),
     path(
         "api/v1/nifti-artifacts/<uuid:artifact_id>/content",
@@ -191,6 +199,8 @@ urlpatterns += [
         "",
         include("apps.imaging.api.urls"),
     ),
+
+    path("", include("apps.radiology.api.urls")),
 ]
 
 

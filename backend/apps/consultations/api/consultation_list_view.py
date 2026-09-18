@@ -1,9 +1,12 @@
+from django.db.models import Q
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
 from apps.common.remaining149_runtime import _role_code, check_access
 from apps.consultations.api.generated_real_149 import ContractView000, SPECS
 from apps.consultations.models import Consultation
 from apps.organizations.models import Clinician
+from apps.patients.selectors.patients import can_view_patient
 
 from django.db import transaction
 from django.utils import timezone
@@ -105,6 +108,9 @@ class ConsultationListCreateView(ContractView000):
                 "encounter_id": "Consultations require a REGISTERED or IN_PROGRESS encounter.",
             })
 
+        if not can_view_patient(request.user, encounter.patient_id):
+            raise PermissionDenied({"code": "CONSULTATION_FORBIDDEN"})
+
         if not Clinician.objects.filter(
             user=request.user,
             is_active=True,
@@ -200,6 +206,8 @@ class ConsultationListCreateView(ContractView000):
             "encounter__patient",
             "requested_by",
             "assigned_to",
+        ).filter(
+            Q(requested_by_id=request.user.id) | Q(assigned_to_id=request.user.id),
         )
 
         for query_name in ("encounter_id", "status", "consultation_type"):

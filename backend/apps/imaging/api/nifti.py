@@ -9,6 +9,7 @@ from apps.imaging.services.nifti import (
     create_signed_gcs_artifact_uri,
     study_input_bundles,
 )
+from apps.patients.selectors.patients import can_view_patient
 
 
 CLINICAL_ROLES = {"NEUROLOGIST", "NEUROSURGEON", "RADIOLOGY"}
@@ -119,16 +120,51 @@ class StudyAIInputsView(ClinicalNiftiView):
     def get(self, request, study_id):
         self.check_role(request)
         study = ImagingStudy.objects.filter(pk=study_id, status="AVAILABLE").first()
-        if study is None:
+        if (
+            study is None
+            or study.patient_id is None
+            or not can_view_patient(request.user, study.patient_id)
+        ):
             raise Http404
         return Response({"study_id": str(study.id), "bundles": study_input_bundles(study)})
+
+
+class StudyNiftiViewerView(ClinicalNiftiView):
+    """Return only source NIfTI images for the compact patient-chart viewer."""
+
+    def get(self, request, study_id):
+        self.check_role(request)
+        study = ImagingStudy.objects.filter(pk=study_id, status="AVAILABLE").first()
+        if (
+            study is None
+            or study.patient_id is None
+            or not can_view_patient(request.user, study.patient_id)
+        ):
+            raise Http404
+        role_order = {"DWI": 0, "ADC": 1, "CT": 2, "MRA": 3}
+        artifacts = sorted(
+            NiftiArtifact.objects.filter(series__study=study),
+            key=lambda item: role_order.get(item.role, 99),
+        )
+        return Response({
+            "analysis_id": str(study.id),
+            "inputs": [
+                {"role": item.role, "url": create_signed_gcs_artifact_uri(item)}
+                for item in artifacts
+            ],
+            "masks": [], "probabilities": [], "components": [], "xai": [],
+        })
 
 
 class NiftiArtifactContentView(ClinicalNiftiView):
     def get(self, request, artifact_id):
         self.check_role(request)
-        artifact = NiftiArtifact.objects.filter(pk=artifact_id).first()
-        if artifact is None:
+        artifact = NiftiArtifact.objects.select_related("series__study").filter(pk=artifact_id).first()
+        if (
+            artifact is None
+            or artifact.series.study.patient_id is None
+            or not can_view_patient(request.user, artifact.series.study.patient_id)
+        ):
             raise Http404
         return HttpResponseRedirect(
             create_signed_gcs_artifact_uri(artifact)

@@ -1,5 +1,6 @@
 import { apiRequest } from "../../api/client";
 import type { ImagingOrderListResponse, ImagingOrderResponse, ImagingOrderTimelineResponse, ImagingSeriesResponse, ImagingStudy, ImagingStudyApiItem, ImagingStudyDetail, ImagingStudyListResponse, KeyImage, KeyImagesResponse, StudyAIHistoryResponse, StudyAIInputsResponse, ViewerContextResponse, ViewerSessionResponse } from "./types";
+import type { NiftiViewerManifest } from "../ai-analysis/types";
 
 function toScreenStudy(item: ImagingStudyApiItem): ImagingStudy {
   const sourceModality = Array.isArray(item.modalities)
@@ -47,6 +48,7 @@ export async function getImagingStudies(
 export function getImagingStudy(studyId: string) { return apiRequest<ImagingStudyDetail>(`/api/v1/imaging-studies/${encodeURIComponent(studyId)}`); }
 export function getImagingStudySeries(studyId: string) { return apiRequest<ImagingSeriesResponse>(`/api/v1/imaging-studies/${encodeURIComponent(studyId)}/series`); }
 export function getStudyAIInputs(studyId: string) { return apiRequest<StudyAIInputsResponse>(`/api/v1/imaging-studies/${encodeURIComponent(studyId)}/ai-inputs`); }
+export function getStudyNiftiViewerManifest(studyId: string) { return apiRequest<NiftiViewerManifest>(`/api/v1/imaging-studies/${encodeURIComponent(studyId)}/nifti-viewer`); }
 export function getStudyAIAnalyses(studyId: string) { return apiRequest<StudyAIHistoryResponse>(`/api/v1/imaging-studies/${encodeURIComponent(studyId)}/ai-analyses`); }
 export function getViewerContext(studyId: string, includeAIOverlay = true) { return apiRequest<ViewerContextResponse>(`/api/v1/imaging-studies/${encodeURIComponent(studyId)}/viewer-context?include_ai_overlay=${includeAIOverlay}`); }
 export function getKeyImages(studyId: string) { return apiRequest<KeyImagesResponse>(`/api/v1/imaging-studies/${encodeURIComponent(studyId)}/key-images`); }

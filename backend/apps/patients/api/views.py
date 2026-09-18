@@ -30,6 +30,7 @@ from apps.patients.api.serializers import (
     TemporaryPatientResponseSerializer,
 )
 from apps.patients.selectors.patients import (
+    can_view_patient,
     get_active_hospital,
     get_patient,
     list_favorite_hospitals,
@@ -171,6 +172,7 @@ class PatientListCreateView(APIView):
         data = _validate(query)
 
         qs = list_patients(
+            actor=request.user,
             search=data.get("search"),
             patient_no=data.get("patient_no"),
             birth_date=data.get("birth_date"),
@@ -308,7 +310,7 @@ class PatientDetailUpdateView(APIView):
 
         original = get_patient(patient_id)
 
-        if original is None:
+        if original is None or not can_view_patient(request.user, patient_id):
             raise DomainAPIException(
                 code="PATIENT_NOT_FOUND",
                 detail="Patient was not found.",

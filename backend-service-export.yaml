@@ -1,0 +1,100 @@
+﻿apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/ingress-status: all
+    run.googleapis.com/invoker-iam-disabled: 'true'
+    run.googleapis.com/maxScale: '3'
+    run.googleapis.com/urls: '["https://brainon-backend-v2-471747856095.asia-southeast1.run.app","https://brainon-backend-v2-3gykqo24da-as.a.run.app"]'
+  labels:
+    cloud.googleapis.com/location: asia-southeast1
+    run.googleapis.com/satisfiesPzs: 'true'
+  name: brainon-backend-v2
+  namespace: '471747856095'
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/maxScale: '20'
+        autoscaling.knative.dev/minScale: '0'
+        run.googleapis.com/client-name: gcloud
+        run.googleapis.com/client-version: 577.0.0
+        run.googleapis.com/cloudsql-instances: project-77d13b0f-3be4-4791-a87:asia-southeast1:brainon-cdss
+        run.googleapis.com/cpu-throttling: 'true'
+        run.googleapis.com/network-interfaces: '[{"network":"default","subnetwork":"default"}]'
+        run.googleapis.com/sessionAffinity: 'false'
+        run.googleapis.com/startup-cpu-boost: 'true'
+        run.googleapis.com/vpc-access-egress: private-ranges-only
+      labels:
+        client.knative.dev/nonce: jedfaqyrfx
+        run.googleapis.com/startupProbeType: Default
+    spec:
+      containerConcurrency: 20
+      containers:
+      - env:
+        - name: DJANGO_SETTINGS_MODULE
+          value: config.settings.base
+        - name: POSTGRES_DB
+          value: brainon
+        - name: POSTGRES_USER
+          value: brainon
+        - name: POSTGRES_HOST
+          value: /cloudsql/project-77d13b0f-3be4-4791-a87:asia-southeast1:brainon-cdss
+        - name: POSTGRES_PORT
+          value: '5432'
+        - name: DJANGO_DEBUG
+          value: 'false'
+        - name: JWT_COOKIE_SECURE
+          value: 'true'
+        - name: DJANGO_ALLOWED_HOSTS
+          value: .run.app,www.brainon.kro.kr,brainon.kro.kr
+        - name: CORS_ALLOWED_ORIGINS
+          value: https://www.brainon.kro.kr,http://localhost:5173
+        - name: CSRF_TRUSTED_ORIGINS
+          value: https://www.brainon.kro.kr,http://localhost:5173
+        - name: INFERENCE_API_URL
+          value: https://brainon-inference-v2-471747856095.asia-southeast1.run.app
+        - name: INFERENCE_AUTH_AUDIENCE
+          value: https://brainon-inference-v2-471747856095.asia-southeast1.run.app
+        - name: INFERENCE_USE_ID_TOKEN
+          value: 'true'
+        - name: INFERENCE_TIMEOUT_SECONDS
+          value: '900'
+        - name: AI_INFERENCE_DEVELOPMENT_ENABLED
+          value: 'false'
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: '2'
+              name: POSTGRES_PASSWORD
+        - name: DJANGO_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              key: '3'
+              name: DJANGO_SECRET_KEY
+        - name: CELERY_BROKER_URL
+          valueFrom:
+            secretKeyRef:
+              key: '1'
+              name: CELERY_BROKER_URL
+        image: asia-southeast1-docker.pkg.dev/project-77d13b0f-3be4-4791-a87/brainon-containers/brainon-backend:component-map-2026-09-15
+        name: brainon-backend-1
+        ports:
+        - containerPort: 8080
+          name: http1
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+        startupProbe:
+          failureThreshold: 1
+          periodSeconds: 240
+          tcpSocket:
+            port: 8080
+          timeoutSeconds: 240
+      serviceAccountName: brainon-backend-sa@project-77d13b0f-3be4-4791-a87.iam.gserviceaccount.com
+      timeoutSeconds: 900
+  traffic:
+  - latestRevision: true
+    percent: 100

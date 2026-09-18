@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.patients.api.permissions import role_code
+from apps.patients.selectors.patients import can_view_patient
 from apps.prescriptions.models import PrescriptionItem
 
 
@@ -31,6 +32,11 @@ class CurrentMedicationsView(APIView):
         if role_code(request.user) not in CLINICAL_READ_ROLES:
             return Response(
                 {"code": "FORBIDDEN_ROLE"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if not can_view_patient(request.user, patient_id):
+            return Response(
+                {"code": "PATIENT_ACCESS_FORBIDDEN"},
                 status=status.HTTP_403_FORBIDDEN,
             )
 

@@ -4096,6 +4096,28 @@ def _consultation_respond_strict(
     )
 
 
+def _ensure_consultation_action_scope(request, kwargs, action):
+    """Enforce requester/assignee scope for generic consultation actions."""
+    consultation = _consultation_action_locked(kwargs)
+
+    if action in {"start", "reject"}:
+        allowed = consultation.assigned_to_id == request.user.id
+    elif action == "view-response":
+        allowed = consultation.requested_by_id == request.user.id
+    elif action == "cancel":
+        allowed = request.user.id in {
+            consultation.requested_by_id,
+            consultation.assigned_to_id,
+        }
+    else:
+        allowed = True
+
+    if not allowed:
+        raise PermissionDenied({
+            "code": "CONSULTATION_FORBIDDEN",
+        })
+
+
 CUSTOM_HANDLERS = {
     "API-RX-001": _batchb_rx_create,
     "API-CON-004": _consultation_accept_strict,
@@ -4133,6 +4155,7 @@ CUSTOM_HANDLERS = {
 def execute_contract(request, spec, **kwargs):
     check_access(request, spec)
 
+    model = _model(spec)
     handler = CUSTOM_HANDLERS.get(spec["api_id"])
     context = transaction.atomic() if spec.get("transactional") or request.method not in READ_METHODS else nullcontext()
 
@@ -4162,6 +4185,15 @@ def execute_contract(request, spec, **kwargs):
                 ))
             )
             if is_action:
+                if (
+                    model is not None
+                    and model._meta.label_lower == "consultations.consultation"
+                ):
+                    _ensure_consultation_action_scope(
+                        request,
+                        kwargs,
+                        action,
+                    )
                 return _generic_action(request, spec, kwargs)
             return _generic_create(request, spec, kwargs)
 

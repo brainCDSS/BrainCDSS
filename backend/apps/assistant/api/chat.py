@@ -15,6 +15,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.patients.models import Patient
+from apps.patients.selectors.patients import can_view_patient
 from apps.audit.services.audit_event import record_audit_event
 
 CLINICIAN_ROLES = {
@@ -313,6 +314,14 @@ class AssistantMessageView(APIView):
                         status
                         .HTTP_404_NOT_FOUND
                     ),
+                )
+
+            if not can_view_patient(request.user, patient.id):
+                return Response(
+                    {
+                        "code": "PATIENT_CONTEXT_FORBIDDEN",
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
                 )
 
         role_code = _role_code(

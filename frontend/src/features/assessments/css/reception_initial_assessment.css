@@ -119,6 +119,22 @@
   color: var(--primary-dark);
 }
 
+.reception-message--info strong {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.reception-message--info button {
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--primary);
+  border-radius: 6px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
 
 /* =========================================================
    Main Workspace

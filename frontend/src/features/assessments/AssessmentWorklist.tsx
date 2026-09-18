@@ -32,6 +32,7 @@ interface AssessmentWorklistProps {
   onOpenTriage?: (
     assessmentId: string,
     encounterId: string,
+    readOnly?: boolean,
   ) => void;
 
 }
@@ -136,6 +137,8 @@ export default function AssessmentWorklist({
   ] = useState<string | null>(
     null,
   );
+
+  const [activeTab, setActiveTab] = useState<"WAITING" | "COMPLETED">("WAITING");
 
 
   /* ========================================================
@@ -438,6 +441,10 @@ export default function AssessmentWorklist({
 
   }
 
+  const waitingItems = worklist.results.filter((item) => item.status !== "COMPLETED");
+  const completedItems = worklist.results.filter((item) => item.status === "COMPLETED");
+  const displayedItems = activeTab === "WAITING" ? waitingItems : completedItems;
+
 
   /* ========================================================
      11. Main 화면
@@ -477,6 +484,15 @@ export default function AssessmentWorklist({
           =================================================== */}
 
       <section className="assessment-worklist-card">
+
+        <div className="assessment-worklist-tabs" role="tablist" aria-label="초기평가 목록">
+          <button type="button" role="tab" aria-selected={activeTab === "WAITING"} className={activeTab === "WAITING" ? "is-active" : ""} onClick={() => setActiveTab("WAITING")}>
+            초기평가 대기 ({waitingItems.length})
+          </button>
+          <button type="button" role="tab" aria-selected={activeTab === "COMPLETED"} className={activeTab === "COMPLETED" ? "is-active" : ""} onClick={() => setActiveTab("COMPLETED")}>
+            평가 완료 ({completedItems.length})
+          </button>
+        </div>
 
 
         {/* -------------------------------------------------
@@ -554,7 +570,7 @@ export default function AssessmentWorklist({
             Empty State
             ================================================= */}
 
-        {worklist.results.length === 0 ? (
+        {displayedItems.length === 0 ? (
 
           <div className="assessment-worklist-empty">
 
@@ -564,13 +580,15 @@ export default function AssessmentWorklist({
 
 
             <strong>
-              현재 초기평가 대기 환자가 없습니다.
+              {activeTab === "WAITING"
+                ? "현재 초기평가 대기 환자가 없습니다."
+                : "완료된 초기평가를 조회할 수 없습니다."}
             </strong>
 
-
             <p>
-              새로운 환자가 접수되면
-              이 Worklist에 표시됩니다.
+              {activeTab === "WAITING"
+                ? "새로운 환자가 접수되면 Worklist에 표시됩니다."
+                : "현재 worklist API는 완료 Assessment를 반환하지 않습니다."}
             </p>
 
           </div>
@@ -595,7 +613,7 @@ export default function AssessmentWorklist({
           <div className="assessment-worklist-data">
 
 
-            {worklist.results.map((item) => {
+            {displayedItems.map((item) => {
 
               const starting =
                 startingEncounterId ===
@@ -628,25 +646,27 @@ export default function AssessmentWorklist({
                   </div>
 
 
-                  <button
-                    type="button"
-
-                    disabled={starting}
-
-                    onClick={() =>
-                      handleOpenTriage(
-                        item,
-                      )
-                    }
-                  >
-
-                    {starting
-                      ? "시작 중..."
-                      : item.assessment_id
-                        ? "Triage 계속"
-                        : "Triage 시작"}
-
-                  </button>
+                  {activeTab === "COMPLETED" ? (
+                    <button
+                      type="button"
+                      disabled={!item.assessment_id}
+                      onClick={() => item.assessment_id && onOpenTriage?.(
+                        item.assessment_id,
+                        item.encounter_id,
+                        true,
+                      )}
+                    >
+                      초기평가 보기
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={starting}
+                      onClick={() => handleOpenTriage(item)}
+                    >
+                      {starting ? "시작 중..." : item.assessment_id ? "Triage 계속" : "Triage 시작"}
+                    </button>
+                  )}
 
                 </div>
 

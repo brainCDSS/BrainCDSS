@@ -27,7 +27,9 @@ import "./css/triage_assessment.css";
 interface TriageAssessmentProps {
   assessmentId?: string | null;
   encounterId?: string | null;
+  readOnly?: boolean;
   onComplete?: () => void;
+  onBack?: () => void;
 }
 
 
@@ -44,7 +46,8 @@ type AssessmentChoice =
 type AssessmentStep =
   | 1
   | 2
-  | 3;
+  | 3
+  | 4;
 
 type InitialScreeningCode =
   | "BALANCE"
@@ -106,7 +109,9 @@ const riskQuestions: RiskQuestion[] = [];
 export default function TriageAssessment({
   assessmentId,
   encounterId,
+  readOnly = false,
   onComplete,
+  onBack,
 }: TriageAssessmentProps) {
 
 
@@ -276,6 +281,11 @@ export default function TriageAssessment({
     [initialScreeningScores],
   );
 
+  const completedInitialScreeningCount = useMemo(
+    () => Object.values(initialScreeningScores).filter((score) => score !== null).length,
+    [initialScreeningScores],
+  );
+
   useEffect(() => {
     if (!assessmentId) {
       return;
@@ -290,6 +300,21 @@ export default function TriageAssessment({
       const itemsByCode = new Map(
         assessment.items.map((item) => [item.item_code, item]),
       );
+      const itemText = (code: string) => itemsByCode.get(code)?.value_text ?? "";
+      const itemNumber = (code: string) => itemsByCode.get(code)?.value_numeric;
+      const toDateTimeLocal = (value: string | null | undefined) =>
+        value ? new Date(value).toISOString().slice(0, 16) : "";
+
+      setOnsetAt(toDateTimeLocal(assessment.onset_at));
+      setLkwAt(toDateTimeLocal(assessment.lkw_at));
+      setFastFace(itemText("FAST_FACE") as AssessmentChoice);
+      setFastArm(itemText("FAST_ARM") as AssessmentChoice);
+      setFastSpeech(itemText("FAST_SPEECH") as AssessmentChoice);
+      setBpSys(itemNumber("BP_SYS")?.toString() ?? "");
+      setBpDia(itemNumber("BP_DIA")?.toString() ?? "");
+      setHeartRate(itemNumber("HEART_RATE")?.toString() ?? "");
+      setTemperature(itemNumber("TEMPERATURE")?.toString() ?? "");
+      setSymptomNote(assessment.symptom_note ?? "");
       setInitialScreeningScores(() => {
         const next = emptyInitialScreeningScores();
         initialScreeningItems.forEach(({ code }) => {
@@ -731,10 +756,7 @@ export default function TriageAssessment({
     setApiError(null);
 
     setCurrentStep(
-      (previous) =>
-        previous === 3
-          ? 2
-          : 1,
+      (previous) => Math.max(1, previous - 1) as AssessmentStep,
     );
   }
 
@@ -743,10 +765,7 @@ export default function TriageAssessment({
     setApiError(null);
 
     setCurrentStep(
-      (previous) =>
-        previous === 1
-          ? 2
-          : 3,
+      (previous) => Math.min(4, previous + 1) as AssessmentStep,
     );
   }
 
@@ -847,15 +866,19 @@ export default function TriageAssessment({
         {[
           {
             step: 1 as AssessmentStep,
-            label: "기본 정보 · FAST",
+            label: "발생 정보 · FAST",
           },
           {
             step: 2 as AssessmentStep,
-            label: "신경 상태 · Vital",
+            label: "빠른 신경 선별",
           },
           {
             step: 3 as AssessmentStep,
-            label: "위험 문진 · 메모",
+            label: "Vital · 위험정보",
+          },
+          {
+            step: 4 as AssessmentStep,
+            label: "메모 · 전달",
           },
         ].map((item) => (
           <div
@@ -913,13 +936,16 @@ export default function TriageAssessment({
           현재 STEP
           =================================================== */}
 
+      <div className="triage-assessment__layout">
+      <main className="triage-assessment__main">
+      <fieldset className="triage-assessment__read-only-fields" disabled={readOnly}>
       <div
         className={
           `triage-assessment__step triage-assessment__step--${currentStep}`
         }
       >
 
-        {currentStep === 1 && (
+        {(currentStep === 1 || readOnly) && (
           <>
           {/* ===================================================
                     1. 증상 발생 정보
@@ -1242,16 +1268,15 @@ export default function TriageAssessment({
         )}
 
 
-        {currentStep === 2 && (
+        {(currentStep === 2 || currentStep === 3 || readOnly) && (
           <>
-            <section className="triage-assessment__section">
+            <section className="triage-assessment__section triage-assessment__section--screening">
               <div className="initial-screening">
                 <div className="initial-screening__summary">
                   <div>
-                    <h2>Initial Screening Score</h2>
+                    <h2>빠른 신경 선별</h2>
                     <p>각 항목의 현재 상태를 1점부터 5점까지 선택하세요.</p>
                   </div>
-                  <strong>{initialScreeningTotal} / 30</strong>
                 </div>
 
                 <div className="initial-screening__list">
@@ -1287,7 +1312,7 @@ export default function TriageAssessment({
                     3. 의식 / 신경학적 상태
                     =================================================== */}
 
-                <section className="triage-assessment__section">
+                <section className="triage-assessment__section triage-assessment__section--consciousness">
 
                   <div className="triage-section-heading">
 
@@ -1381,7 +1406,7 @@ export default function TriageAssessment({
                     4. Vital Sign
                     =================================================== */}
 
-                <section className="triage-assessment__section">
+                <section className="triage-assessment__section triage-assessment__section--vital">
 
                   <div className="triage-section-heading">
 
@@ -1557,13 +1582,13 @@ export default function TriageAssessment({
         )}
 
 
-        {currentStep === 3 && (
+        {(currentStep === 3 || currentStep === 4 || readOnly) && (
           <>
           {/* ===================================================
                     5. 주요 증상 / 위험 문진
                     =================================================== */}
 
-                <section className="triage-assessment__section">
+                <section className="triage-assessment__section triage-assessment__section--risk">
 
                   <div className="triage-section-heading">
 
@@ -1709,7 +1734,7 @@ export default function TriageAssessment({
                     6. 추가 메모
                     =================================================== */}
 
-                <section className="triage-assessment__section">
+                <section className="triage-assessment__section triage-assessment__section--memo">
 
                   <div className="triage-section-heading">
 
@@ -1756,6 +1781,7 @@ export default function TriageAssessment({
         )}
 
       </div>
+      </fieldset>
 
 
       {/* ===================================================
@@ -1763,6 +1789,19 @@ export default function TriageAssessment({
           =================================================== */}
 
       <div className="triage-assessment__actions">
+
+        {readOnly ? (
+          <div className="triage-assessment__actions-right">
+            <button
+              type="button"
+              className="triage-back-button"
+              onClick={onBack}
+            >
+              목록으로
+            </button>
+          </div>
+        ) : (
+          <>
 
         <div className="triage-assessment__actions-left">
 
@@ -1794,7 +1833,7 @@ export default function TriageAssessment({
           </button>
 
 
-          {currentStep < 3 ? (
+          {currentStep < 4 ? (
 
             <button
               type="button"
@@ -1822,6 +1861,36 @@ export default function TriageAssessment({
 
         </div>
 
+          </>
+        )}
+      </div>
+      </main>
+
+      <aside className="triage-system-summary" aria-label="시스템 요약">
+        <h2>시스템 요약</h2>
+        <p>간호사 입력을 기반으로 자동 계산</p>
+
+        <div className="triage-system-summary__score">
+          <small>Initial Screening Score</small>
+          <div><strong>{initialScreeningTotal}</strong><span> / 30</span></div>
+          <div className="triage-system-summary__progress" aria-hidden="true">
+            <span style={{ width: `${(completedInitialScreeningCount / 6) * 100}%` }} />
+          </div>
+          <small>{completedInitialScreeningCount} / 6 문항 평가</small>
+        </div>
+
+        <dl className="triage-system-summary__list">
+          <div><dt>FAST</dt><dd>{completedFastCount === 3 ? "입력 완료" : "미입력"}</dd></div>
+          <div><dt>빠른 신경 선별</dt><dd>{completedInitialScreeningCount ? `${initialScreeningTotal}점` : "미평가"}</dd></div>
+          <div><dt>Vital</dt><dd>{bpSys && bpDia && heartRate && temperature ? "입력 완료" : "입력 대기"}</dd></div>
+          <div><dt>LKW</dt><dd>{lkwAt ? "입력 완료" : "입력 대기"}</dd></div>
+          <div><dt>전달 상태</dt><dd>{completedInitialScreeningCount === 6 ? "신경 선별 완료" : "작성중"}</dd></div>
+        </dl>
+
+        <div className="triage-system-summary__note">
+          입력값을 기준으로 시스템이 위험도와 우선순위를 계산합니다.
+        </div>
+      </aside>
       </div>
 
     </div>

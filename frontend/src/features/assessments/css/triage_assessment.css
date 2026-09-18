@@ -1147,6 +1147,187 @@
 }
 
 /* =========================================================
+   Mockup-aligned scrolling, four-step layout and system summary
+   ========================================================= */
+
+.app-content:has(.triage-assessment) {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.triage-assessment {
+  display: block;
+  height: auto;
+  max-height: none;
+  max-width: 1480px;
+  min-height: 100%;
+  margin: 0 auto;
+  padding: 24px 28px 40px;
+  overflow: visible;
+}
+
+.triage-step-navigation {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 14px;
+}
+
+.triage-assessment__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 305px;
+  align-items: start;
+  gap: 14px;
+}
+
+.triage-assessment__main {
+  min-width: 0;
+}
+
+.triage-assessment__read-only-fields {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.triage-assessment__step {
+  display: block;
+  min-height: auto;
+  overflow: visible;
+}
+
+.triage-assessment__step .triage-assessment__section {
+  margin-bottom: 14px;
+}
+
+.triage-assessment__step--2 .triage-assessment__section--consciousness,
+.triage-assessment__step--2 .triage-assessment__section--vital,
+.triage-assessment__step--3 .triage-assessment__section--screening,
+.triage-assessment__step--3 .triage-assessment__section--consciousness,
+.triage-assessment__step--3 .triage-assessment__section--memo,
+.triage-assessment__step--4 .triage-assessment__section--risk {
+  display: none;
+}
+
+.triage-system-summary {
+  position: sticky;
+  top: 16px;
+  padding: 18px;
+  border: 1px solid #dde5ee;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 6px 20px rgba(31, 55, 82, 0.07);
+}
+
+.triage-system-summary > h2 {
+  margin: 0 0 3px;
+  color: #25364a;
+  font-size: 18px;
+}
+
+.triage-system-summary > p {
+  margin: 0 0 14px;
+  color: #7a8799;
+  font-size: 11px;
+}
+
+.triage-system-summary__score {
+  padding: 17px;
+  border: 1px solid #d9e8fa;
+  border-radius: 13px;
+  background: #f6faff;
+  text-align: center;
+}
+
+.triage-system-summary__score small {
+  display: block;
+  color: #7084a0;
+  font-size: 11px;
+}
+
+.triage-system-summary__score strong {
+  color: #377bc9;
+  font-size: 34px;
+  line-height: 1.35;
+}
+
+.triage-system-summary__score span {
+  color: #8b98aa;
+  font-size: 13px;
+}
+
+.triage-system-summary__progress {
+  height: 7px;
+  margin: 8px 0 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e9eff6;
+}
+
+.triage-system-summary__progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #377bc9;
+  transition: width 0.2s ease;
+}
+
+.triage-system-summary__list {
+  display: grid;
+  gap: 0;
+  margin: 14px 0 0;
+}
+
+.triage-system-summary__list div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid #edf1f5;
+  font-size: 12px;
+}
+
+.triage-system-summary__list dt {
+  color: #8794a4;
+}
+
+.triage-system-summary__list dd {
+  margin: 0;
+  color: #344054;
+  font-weight: 700;
+  text-align: right;
+}
+
+.triage-system-summary__note {
+  margin-top: 12px;
+  padding: 10px 11px;
+  border-radius: 9px;
+  background: #eef7f3;
+  color: #3f725d;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.triage-assessment__actions {
+  padding: 0 0 8px;
+}
+
+@media (max-width: 1120px) {
+  .triage-assessment__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .triage-system-summary {
+    position: static;
+  }
+}
+
+@media (max-width: 760px) {
+  .triage-step-navigation {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* =========================================================
    Vital Sign 전용 2열 배치
 
    수축기 혈압 | 이완기 혈압
@@ -1362,7 +1543,7 @@
 
 /* Triage 화면일 때만 Main Content 전체 스크롤을 막는다. */
 .app-content:has(.triage-assessment) {
-  overflow-y: hidden;
+  overflow-y: auto;
 }
 
 
@@ -1371,14 +1552,14 @@
    ========================================================= */
 
 .triage-assessment {
-  display: flex;
+  display: block;
 
   width: 100%;
-  height: 100%;
-  max-height: 100%;
-  max-width: 1180px;
+  height: auto;
+  max-height: none;
+  max-width: 1480px;
 
-  min-height: 0;
+  min-height: 100%;
 
   flex-direction: column;
 
@@ -1388,7 +1569,7 @@
 
   box-sizing: border-box;
 
-  overflow: hidden;
+  overflow: visible;
 }
 
 
@@ -1432,7 +1613,7 @@
   width: 100%;
 
   grid-template-columns:
-    repeat(3, minmax(0, 1fr));
+    repeat(4, minmax(0, 1fr));
 
   gap: 8px;
 }
@@ -1533,22 +1714,22 @@
    ========================================================= */
 
 .triage-assessment__step {
-  display: flex;
+  display: block;
 
   flex: 1 1 auto;
 
-  min-height: 0;
+  min-height: auto;
 
   flex-direction: column;
 
   gap: 12px;
 
-  overflow: hidden;
+  overflow: visible;
 }
 
 
 .triage-assessment__step .triage-assessment__section {
-  margin-bottom: 0;
+  margin-bottom: 14px;
 
   padding: 16px 20px;
 }
@@ -1636,6 +1817,13 @@
   grid-template-columns:
     repeat(4, minmax(0, 1fr));
 
+  gap: 14px;
+}
+
+.triage-assessment__step--3
+.triage-assessment__section--vital
+.triage-assessment__grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
 }
 

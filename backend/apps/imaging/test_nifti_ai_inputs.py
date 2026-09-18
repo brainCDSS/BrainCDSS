@@ -7,9 +7,11 @@ from apps.accounts.models import Role, User
 from apps.imaging.api.nifti import (
     ImagingStudyCollectionView,
     NiftiArtifactContentView,
+    StudyNiftiViewerView,
 )
 from apps.imaging.models import ImagingStudy, NiftiArtifact, SeriesReference
 from apps.imaging.services.nifti import study_input_bundles
+from apps.patients.models import Patient, PatientCareAssignment
 
 
 class NiftiAIInputTests(TestCase):
@@ -20,7 +22,19 @@ class NiftiAIInputTests(TestCase):
             login_id="synthetic-imaging-user", password="test-only-password",
             name="Synthetic Imaging User", role=role,
         )
+        self.patient = Patient.objects.create(
+            patient_no="SYNTHETIC-NIFTI-PATIENT",
+            name="Synthetic Imaging Patient",
+            created_by=self.user,
+        )
+        PatientCareAssignment.objects.create(
+            patient=self.patient,
+            clinician=self.user,
+            role=PatientCareAssignment.AssignmentRole.PRIMARY,
+            source=PatientCareAssignment.Source.MANUAL,
+        )
         self.study = ImagingStudy.objects.create(
+            patient=self.patient,
             study_instance_uid="1.2.826.0.1.3680043.10.999.200",
             accession_number="SYNTHETIC-NIFTI",
             study_datetime=now,
@@ -107,3 +121,19 @@ class NiftiAIInputTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response["Location"], signed_url.return_value)
         signed_url.assert_called_once_with(artifact)
+
+    @patch("apps.imaging.api.nifti.create_signed_gcs_artifact_uri")
+    def test_study_viewer_manifest_contains_only_source_images(self, signed_url):
+        self.add_artifact("ADC", 2)
+        self.add_artifact("DWI", 1)
+        signed_url.side_effect = lambda artifact: f"https://example.test/{artifact.role}"
+        request = APIRequestFactory().get(
+            f"/api/v1/imaging-studies/{self.study.id}/nifti-viewer"
+        )
+        force_authenticate(request, user=self.user)
+
+        response = StudyNiftiViewerView.as_view()(request, self.study.id)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([item["role"] for item in response.data["inputs"]], ["DWI", "ADC"])
+        self.assertEqual(response.data["masks"], [])

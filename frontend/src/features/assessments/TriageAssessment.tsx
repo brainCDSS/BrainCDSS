@@ -925,11 +925,22 @@ export default function TriageAssessment({
 
         summary={summary}
 
-        onBack={() =>
+        onBack={() => {
+          if (
+            readOnly ||
+            (
+              assessmentResult &&
+              assessmentResult.status !== "DRAFT"
+            )
+          ) {
+            onBack?.();
+            return;
+          }
+
           setShowResult(
             false,
-          )
-        }
+          );
+        }}
 
         onComplete={() => {
           onComplete?.();

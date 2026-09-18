@@ -30,8 +30,6 @@ const NEW_WORK_GROUPS: Array<{
     label: "관리자",
     items: [
       { key: "admin-users", icon: "관리" },
-      { key: "admin-monitoring", icon: "상태" },
-      { key: "admin-audit", icon: "감사" },
       { key: "admin-settings", icon: "설정" },
     ],
   },

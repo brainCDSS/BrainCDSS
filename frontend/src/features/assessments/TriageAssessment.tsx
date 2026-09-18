@@ -81,25 +81,28 @@ const emptyInitialScreeningScores = (): Record<InitialScreeningCode, number | nu
 });
 
 
-/* =========================================================
-   위험 문진 문항
+function toDateTimeLocal(
+  value: string | null | undefined,
+) {
+  if (!value) {
+    return "";
+  }
 
-   실제 문항 / item_code는
-   Backend Rule 계약 후 연결한다.
-   ========================================================= */
+  const date = new Date(value);
 
-interface RiskQuestion {
-  id: string;
-  itemCode: string;
-  title: string;
-  description?: string;
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const localDate = new Date(
+    date.getTime() -
+      date.getTimezoneOffset() * 60_000,
+  );
+
+  return localDate
+    .toISOString()
+    .slice(0, 16);
 }
-
-
-/**
- * 현재 Rule API 미연동
- */
-const riskQuestions: RiskQuestion[] = [];
 
 
 /* =========================================================
@@ -130,8 +133,8 @@ export default function TriageAssessment({
      --------------------------------------------------------
      STEP 1: 증상 발생 정보 + FAST
      STEP 2: 의식 / 신경학적 상태 + Vital Sign
-     STEP 3: 주요 증상 / 위험 문진 + 추가 메모
-     STEP 4: 결과 / 담당 신경과 지정(TriageResult)
+     STEP 3: Vital Sign
+     STEP 4: 추가 메모 / 결과 전달
      ======================================================== */
 
   const [
@@ -219,11 +222,6 @@ export default function TriageAssessment({
     emptyInitialScreeningScores,
   );
 
-  // Retained only for the legacy control kept in the DOM for layout compatibility.
-  // The visible assessment UI uses initialScreeningScores above.
-  const [consciousnessState, setConsciousnessState] = useState<AssessmentChoice>("");
-
-
   /* ========================================================
      4. Vital
      ======================================================== */
@@ -253,19 +251,7 @@ export default function TriageAssessment({
 
 
   /* ========================================================
-     5. 위험 문진
-     ======================================================== */
-
-  const [
-    riskAnswers,
-    setRiskAnswers,
-  ] = useState<
-    Record<string, AssessmentChoice>
-  >({});
-
-
-  /* ========================================================
-     6. 추가 메모
+     5. 추가 메모
      ======================================================== */
 
   const [
@@ -297,13 +283,15 @@ export default function TriageAssessment({
         return;
       }
 
+      setAssessmentResult(
+        assessment,
+      );
+
       const itemsByCode = new Map(
         assessment.items.map((item) => [item.item_code, item]),
       );
       const itemText = (code: string) => itemsByCode.get(code)?.value_text ?? "";
       const itemNumber = (code: string) => itemsByCode.get(code)?.value_numeric;
-      const toDateTimeLocal = (value: string | null | undefined) =>
-        value ? new Date(value).toISOString().slice(0, 16) : "";
 
       setOnsetAt(toDateTimeLocal(assessment.onset_at));
       setLkwAt(toDateTimeLocal(assessment.lkw_at));
@@ -313,11 +301,19 @@ export default function TriageAssessment({
       setBpSys(itemNumber("BP_SYS")?.toString() ?? "");
       setBpDia(itemNumber("BP_DIA")?.toString() ?? "");
       setHeartRate(itemNumber("HEART_RATE")?.toString() ?? "");
-      setTemperature(itemNumber("TEMPERATURE")?.toString() ?? "");
+      setTemperature(
+        itemNumber("BODY_TEMP")?.toString()
+        ?? itemNumber("TEMPERATURE")?.toString()
+        ?? "",
+      );
       setSymptomNote(assessment.symptom_note ?? "");
       setInitialScreeningScores(() => {
         const next = emptyInitialScreeningScores();
-        initialScreeningItems.forEach(({ code }) => {
+        /* 체온 */
+
+
+
+    initialScreeningItems.forEach(({ code }) => {
           const rawValue = itemsByCode.get(code)?.value_numeric
             ?? itemsByCode.get(code)?.score;
           const value = typeof rawValue === "number" ? rawValue : Number(rawValue);
@@ -327,8 +323,18 @@ export default function TriageAssessment({
         });
         return next;
       });
+
+      if (assessment.status !== "DRAFT") {
+        setShowResult(
+          true,
+        );
+      }
     }).catch(() => {
-      // Existing draft entry remains usable when its detail cannot be loaded.
+      if (active) {
+        setApiError(
+          "초기평가 정보를 불러오지 못했습니다.",
+        );
+      }
     });
 
     return () => {
@@ -382,25 +388,6 @@ export default function TriageAssessment({
     fastArm,
     fastSpeech,
   ].filter(Boolean).length;
-
-
-  /* ========================================================
-     위험 문진 응답
-     ======================================================== */
-
-  function handleRiskAnswer(
-    itemCode: string,
-    value: AssessmentChoice,
-  ) {
-
-    setRiskAnswers(
-      (previous) => ({
-        ...previous,
-        [itemCode]: value,
-      }),
-    );
-
-  }
 
 
   /* ========================================================
@@ -459,6 +446,16 @@ export default function TriageAssessment({
     }
 
 
+    /* FAST - Speech */
+
+    if (fastSpeech !== "") {
+      items.push({
+        item_code: "FAST_SPEECH",
+        value_text: fastSpeech,
+      });
+    }
+
+
     /* 수축기 혈압 */
 
     if (bpSys !== "") {
@@ -470,6 +467,17 @@ export default function TriageAssessment({
         unit: "mmHg",
       });
 
+    }
+
+
+    /* 이완기 혈압 */
+
+    if (bpDia !== "") {
+      items.push({
+        item_code: "BP_DIA",
+        value_numeric: Number(bpDia),
+        unit: "mmHg",
+      });
     }
 
 
@@ -485,6 +493,15 @@ export default function TriageAssessment({
       });
 
     }
+    /* 체온 */
+
+    if (temperature !== "") {
+      items.push({
+        item_code: "BODY_TEMP",
+        value_numeric: Number(temperature),
+        unit: "°C",
+      });
+    }
 
     initialScreeningItems.forEach(({ code }) => {
       const score = initialScreeningScores[code];
@@ -498,34 +515,6 @@ export default function TriageAssessment({
         score,
       });
     });
-
-
-    /* Backend Rule에서 받은 위험 문진 */
-
-    riskQuestions.forEach(
-      (question) => {
-
-        const value =
-          riskAnswers[
-            question.itemCode
-          ];
-
-
-        if (!value) {
-          return;
-        }
-
-
-        items.push({
-          item_code:
-            question.itemCode,
-
-          value_text:
-            value,
-        });
-
-      },
-    );
 
 
     return {
@@ -588,6 +577,27 @@ export default function TriageAssessment({
       setApiError(
         null,
       );
+
+      const currentAssessment =
+        assessmentResult ??
+        await getAssessmentDetail(
+          assessmentId,
+        );
+
+      setAssessmentResult(
+        currentAssessment,
+      );
+
+      if (
+        currentAssessment.status !==
+        "DRAFT"
+      ) {
+        setShowResult(
+          true,
+        );
+
+        return;
+      }
 
 
       const payload =
@@ -674,6 +684,28 @@ export default function TriageAssessment({
       setApiError(
         null,
       );
+
+
+      const currentAssessment =
+        assessmentResult ??
+        await getAssessmentDetail(
+          assessmentId,
+        );
+
+      setAssessmentResult(
+        currentAssessment,
+      );
+
+      if (
+        currentAssessment.status !==
+        "DRAFT"
+      ) {
+        setShowResult(
+          true,
+        );
+
+        return;
+      }
 
 
       /* -----------------------------------------------
@@ -787,12 +819,11 @@ export default function TriageAssessment({
       fastAbnormal: fastValues.filter(
         (value) => value === "ABNORMAL",
       ).length,
+      screeningTotal: initialScreeningTotal,
+      screeningCompleted: completedInitialScreeningCount,
       bpSys,
       bpDia,
       lkwAt,
-      riskAbnormal: Object.values(riskAnswers).filter(
-        (value) => value === "ABNORMAL",
-      ).length,
     };
 
     return (
@@ -801,13 +832,32 @@ export default function TriageAssessment({
           assessmentResult
         }
 
-        summary={summary}
-
-        onBack={() =>
-          setShowResult(
-            false,
+        readOnly={
+          readOnly ||
+          Boolean(
+            assessmentResult &&
+            assessmentResult.status !== "DRAFT",
           )
         }
+
+        summary={summary}
+
+        onBack={() => {
+          if (
+            readOnly ||
+            (
+              assessmentResult &&
+              assessmentResult.status !== "DRAFT"
+            )
+          ) {
+            onBack?.();
+            return;
+          }
+
+          setShowResult(
+            false,
+          );
+        }}
 
         onComplete={() => {
           onComplete?.();
@@ -874,7 +924,7 @@ export default function TriageAssessment({
           },
           {
             step: 3 as AssessmentStep,
-            label: "Vital · 위험정보",
+            label: "Vital",
           },
           {
             step: 4 as AssessmentStep,
@@ -1337,69 +1387,6 @@ export default function TriageAssessment({
                   </div>
 
 
-                  <div className="triage-question-list">
-
-                    <div className="triage-question-card">
-
-                      <div className="triage-question-content">
-
-                        <strong>
-                          의식상태
-                        </strong>
-
-
-                        <span>
-                          현재 환자의 의식 및 반응 상태를 확인합니다.
-                        </span>
-
-                      </div>
-
-
-                      <div className="triage-choice-group">
-
-                        <button
-                          type="button"
-
-                          className={
-                            consciousnessState === "NORMAL"
-                              ? "triage-choice active"
-                              : "triage-choice"
-                          }
-
-                          onClick={() =>
-                            setConsciousnessState(
-                              "NORMAL",
-                            )
-                          }
-                        >
-                          정상
-                        </button>
-
-
-                        <button
-                          type="button"
-
-                          className={
-                            consciousnessState === "ABNORMAL"
-                              ? "triage-choice active abnormal"
-                              : "triage-choice"
-                          }
-
-                          onClick={() =>
-                            setConsciousnessState(
-                              "ABNORMAL",
-                            )
-                          }
-                        >
-                          이상
-                        </button>
-
-                      </div>
-
-                    </div>
-
-                  </div>
-
                 </section>
 
           {/* ===================================================
@@ -1585,153 +1572,7 @@ export default function TriageAssessment({
         {(currentStep === 3 || currentStep === 4 || readOnly) && (
           <>
           {/* ===================================================
-                    5. 주요 증상 / 위험 문진
-                    =================================================== */}
-
-                <section className="triage-assessment__section triage-assessment__section--risk">
-
-                  <div className="triage-section-heading">
-
-                    <div className="triage-section-number">
-                      5
-                    </div>
-
-
-                    <div>
-
-                      <h2>
-                        주요 증상 / 위험 문진
-                      </h2>
-
-
-                      <p>
-                        주요 증상과 위험 문진 항목을 확인합니다.
-                      </p>
-
-                    </div>
-
-                  </div>
-
-
-                  <div className="triage-question-list">
-
-                    {riskQuestions.length === 0 ? (
-
-                      <div className="triage-question-card">
-
-                        <div className="triage-question-content">
-
-                          <strong>
-                            위험 문진 항목
-                          </strong>
-
-
-                          <span>
-                            Triage Rule 연동 후
-                            체크리스트 문항이 표시됩니다.
-                          </span>
-
-                        </div>
-
-                      </div>
-
-                    ) : (
-
-                      riskQuestions.map(
-                        (question) => {
-
-                          const answer =
-                            riskAnswers[
-                              question.itemCode
-                            ] ?? "";
-
-
-                          return (
-
-                            <div
-                              key={
-                                question.id
-                              }
-
-                              className="triage-question-card"
-                            >
-
-                              <div className="triage-question-content">
-
-                                <strong>
-                                  {question.title}
-                                </strong>
-
-
-                                {question.description && (
-
-                                  <span>
-                                    {question.description}
-                                  </span>
-
-                                )}
-
-                              </div>
-
-
-                              <div className="triage-choice-group">
-
-                                <button
-                                  type="button"
-
-                                  className={
-                                    answer === "NORMAL"
-                                      ? "triage-choice active"
-                                      : "triage-choice"
-                                  }
-
-                                  onClick={() =>
-                                    handleRiskAnswer(
-                                      question.itemCode,
-                                      "NORMAL",
-                                    )
-                                  }
-                                >
-                                  정상
-                                </button>
-
-
-                                <button
-                                  type="button"
-
-                                  className={
-                                    answer === "ABNORMAL"
-                                      ? "triage-choice active abnormal"
-                                      : "triage-choice"
-                                  }
-
-                                  onClick={() =>
-                                    handleRiskAnswer(
-                                      question.itemCode,
-                                      "ABNORMAL",
-                                    )
-                                  }
-                                >
-                                  이상
-                                </button>
-
-                              </div>
-
-                            </div>
-
-                          );
-
-                        },
-                      )
-
-                    )}
-
-                  </div>
-
-                </section>
-
-          {/* ===================================================
-                    6. 추가 메모
+                    5. 추가 메모
                     =================================================== */}
 
                 <section className="triage-assessment__section triage-assessment__section--memo">
@@ -1739,7 +1580,7 @@ export default function TriageAssessment({
                   <div className="triage-section-heading">
 
                     <div className="triage-section-number">
-                      6
+                      5
                     </div>
 
 
@@ -1868,7 +1709,7 @@ export default function TriageAssessment({
 
       <aside className="triage-system-summary" aria-label="시스템 요약">
         <h2>시스템 요약</h2>
-        <p>간호사 입력을 기반으로 자동 계산</p>
+        <p>선별점수 자동 합산 · 우선순위는 간호사 선택</p>
 
         <div className="triage-system-summary__score">
           <small>Initial Screening Score</small>
@@ -1888,7 +1729,7 @@ export default function TriageAssessment({
         </dl>
 
         <div className="triage-system-summary__note">
-          입력값을 기준으로 시스템이 위험도와 우선순위를 계산합니다.
+          FAST, 선별점수, LKW를 참고해 간호사가 초기평가 우선순위를 선택합니다.
         </div>
       </aside>
       </div>

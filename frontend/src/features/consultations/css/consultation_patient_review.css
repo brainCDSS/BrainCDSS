@@ -1072,15 +1072,95 @@
   font-weight: 800;
 }
 
+.consultation-review__connection-status.is-connected {
+  background: rgba(42, 157, 105, 0.12);
+  color: #25875e;
+}
+
 .consultation-review__chat-body {
   display: flex;
   flex: 1;
   min-height: 0;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
+  align-items: stretch;
+  overflow-y: auto;
   padding: 16px;
   background: rgba(79, 130, 189, 0.015);
+}
+
+.consultation-review__chat-presence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.consultation-review__chat-presence strong {
+  color: var(--primary);
+}
+
+.consultation-review__chat-list {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.consultation-review__chat-message {
+  align-self: flex-start;
+  max-width: min(78%, 520px);
+}
+
+.consultation-review__chat-message.is-mine {
+  align-self: flex-end;
+}
+
+.consultation-review__chat-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 4px 4px;
+  color: var(--text-secondary);
+  font-size: 9px;
+}
+
+.consultation-review__chat-meta strong {
+  color: var(--text-primary);
+  font-size: 10px;
+}
+
+.consultation-review__chat-meta time {
+  margin-left: auto;
+}
+
+.consultation-review__chat-message p {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px 12px 12px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: 11px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.consultation-review__chat-message.is-mine p {
+  border-color: var(--primary);
+  border-radius: 12px 4px 12px 12px;
+  background: var(--primary);
+  color: #fff;
+}
+
+.consultation-review__chat-error {
+  padding: 7px 12px;
+  border-top: 1px solid rgba(200, 77, 77, 0.22);
+  background: rgba(200, 77, 77, 0.07);
+  color: #c84d4d;
+  font-size: 10px;
 }
 
 .consultation-review__chat-empty {

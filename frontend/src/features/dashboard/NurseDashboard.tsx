@@ -605,29 +605,37 @@ export default function NurseDashboard({
       getNurseAssessmentWorklist(
         date,
       ),
+      getNurseAssessmentWorklist(
+        date,
+        "COMPLETED",
+      ),
       getNurseDashboardAppointments(
         date,
       ),
     ]).then(
       ([
         assessmentResult,
+        completedAssessmentResult,
         appointmentResult,
       ]) => {
         if (!active) {
           return;
         }
 
-        if (
-          assessmentResult.status ===
-          "fulfilled"
-        ) {
-          setAssessments(
-            assessmentResult.value
-              .results,
-          );
-        } else {
-          setAssessments([]);
-        }
+        const activeAssessments =
+          assessmentResult.status === "fulfilled"
+            ? assessmentResult.value.results
+            : [];
+
+        const completedAssessments =
+          completedAssessmentResult.status === "fulfilled"
+            ? completedAssessmentResult.value.results
+            : [];
+
+        setAssessments([
+          ...activeAssessments,
+          ...completedAssessments,
+        ]);
 
         if (
           appointmentResult.status ===
@@ -644,6 +652,8 @@ export default function NurseDashboard({
 
         if (
           assessmentResult.status ===
+            "rejected" ||
+          completedAssessmentResult.status ===
             "rejected" ||
           appointmentResult.status ===
             "rejected"
@@ -848,13 +858,9 @@ export default function NurseDashboard({
       환자 목록 <span>({patients.length})</span>
     </h2>
 
-    <button
-      type="button"
-      className="dash-patient-all-button is-active"
-      aria-pressed="true"
-    >
+    <span className="dash-patient-all-button is-active">
       전체
-    </button>
+    </span>
   </header>
 
   <label className="dash-patient-search">

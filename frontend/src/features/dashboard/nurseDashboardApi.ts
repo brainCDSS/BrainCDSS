@@ -47,10 +47,12 @@ function buildQuery(
  */
 export function getNurseAssessmentWorklist(
   date: string,
+  status?: "COMPLETED",
 ) {
   return apiRequest<AssessmentWorklistResponse>(
     `/api/v1/assessments/worklist${buildQuery({
       date,
+      status,
     })}`,
   );
 }

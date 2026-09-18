@@ -1867,6 +1867,86 @@ def _initial_screening_score(value, item_code):
     return int(decimal_value)
 
 
+def _assessment_start(request, spec, kwargs):
+    del kwargs
+    assessment_model = apps.get_model("assessments", "InitialAssessment")
+    encounter_model = apps.get_model("clinical_records", "Encounter")
+
+    if not isinstance(request.data, dict):
+        raise ContractError({
+            "code": "VALIDATION_ERROR",
+            "detail": "A JSON object is required.",
+        })
+
+    encounter_id = request.data.get("encounter_id")
+    if not encounter_id:
+        raise ContractError({
+            "code": "ENCOUNTER_ID_REQUIRED",
+            "detail": "encounter_id is required.",
+        })
+
+    try:
+        encounter = (
+            encounter_model.objects
+            .select_for_update()
+            .get(pk=encounter_id)
+        )
+    except (
+        encounter_model.DoesNotExist,
+        DjangoValidationError,
+        TypeError,
+        ValueError,
+    ) as exc:
+        raise NotFound({
+            "code": "ENCOUNTER_NOT_FOUND",
+            "detail": "Encounter was not found.",
+        }) from exc
+
+    if (
+        encounter.status in {"COMPLETED", "CANCELLED"}
+        or encounter.ended_at is not None
+    ):
+        raise ContractConflict({
+            "code": "ENCOUNTER_NOT_ACTIVE",
+            "detail": "Only active encounters can start an assessment.",
+        })
+
+    existing_draft = (
+        assessment_model.objects
+        .filter(
+            encounter=encounter,
+            status="DRAFT",
+        )
+        .order_by("-created_at", "-id")
+        .first()
+    )
+    if existing_draft is not None:
+        raise ContractConflict({
+            "code": "ASSESSMENT_ALREADY_IN_PROGRESS",
+            "detail": "A DRAFT assessment already exists for this encounter.",
+        })
+
+    now = timezone.now()
+    assessment = assessment_model.objects.create(
+        encounter=encounter,
+        assessor=request.user,
+        status="DRAFT",
+        created_at=now,
+        updated_at=now,
+    )
+
+    payload = {
+        "assessment_id": str(assessment.id),
+        "encounter_id": str(encounter.id),
+        "status": assessment.status,
+        "assessor_id": str(request.user.id),
+        "created_at": assessment.created_at,
+    }
+    _audit(request, spec, assessment, None, payload)
+    _outbox(spec, assessment, payload)
+    return Response(payload, status=201)
+
+
 def _assessment_detail_payload(assessment):
     item_model = apps.get_model("assessments", "AssessmentItem")
     items = item_model.objects.filter(assessment=assessment).order_by("recorded_at", "id")
@@ -1994,6 +2074,8 @@ def _assessment_patch(request, spec, kwargs):
 def _assessment_complete(request, spec, kwargs):
     assessment_model = apps.get_model("assessments", "InitialAssessment")
     item_model = apps.get_model("assessments", "AssessmentItem")
+    emergency_event_model = apps.get_model("assessments", "EmergencyEvent")
+    user_model = apps.get_model("accounts", "User")
     assessment = _get_instance(assessment_model, request, kwargs, for_update=True)
 
     if assessment.status != "DRAFT":
@@ -2002,21 +2084,70 @@ def _assessment_complete(request, spec, kwargs):
             "detail": "Only DRAFT assessments can be completed.",
         })
 
-    screening_items = {
+    if not isinstance(request.data, dict):
+        raise ContractError({"detail": "A JSON object is required."})
+
+    assigned_neurologist_id = request.data.get("assigned_neurologist_id")
+    if not assigned_neurologist_id:
+        raise ContractError({
+            "code": "NEUROLOGIST_REQUIRED",
+            "assigned_neurologist_id": "is required.",
+        })
+
+    neurologist = (
+        user_model.objects
+        .select_related("role")
+        .filter(pk=assigned_neurologist_id)
+        .first()
+    )
+    if neurologist is None:
+        raise NotFound({
+            "code": "NEUROLOGIST_NOT_FOUND",
+            "detail": "The selected neurologist was not found.",
+        })
+    if not neurologist.is_active or getattr(neurologist.role, "code", None) != "NEUROLOGIST":
+        raise ContractConflict({
+            "code": "NEUROLOGIST_NOT_AVAILABLE",
+            "detail": "The selected user is not an active neurologist.",
+        })
+
+    assessment_items = {
         item.item_code: item
-        for item in item_model.objects.filter(
-            assessment=assessment,
-            item_group="INITIAL_SCREENING",
-            item_code__in=INITIAL_SCREENING_ITEM_CODES,
-        )
+        for item in item_model.objects.filter(assessment=assessment)
     }
-    missing = [code for code in INITIAL_SCREENING_ITEM_CODES if code not in screening_items]
+
+    missing = [
+        code
+        for code in INITIAL_SCREENING_ITEM_CODES
+        if code not in assessment_items
+    ]
+    required_fast = ("FAST_FACE", "FAST_ARM", "FAST_SPEECH")
+    missing.extend(
+        code
+        for code in required_fast
+        if code not in assessment_items
+        or not str(assessment_items[code].value_text or "").strip()
+    )
+    required_vital = ("BP_SYS", "BP_DIA", "HEART_RATE", "BODY_TEMP")
+    missing.extend(
+        code
+        for code in required_vital
+        if code not in assessment_items
+        or assessment_items[code].value_numeric is None
+    )
+    if assessment.lkw_at is None:
+        missing.append("LKW_AT")
+
     if missing:
         raise ContractError({
             "code": "ASSESSMENT_INCOMPLETE",
             "items": missing,
         })
 
+    screening_items = {
+        code: assessment_items[code]
+        for code in INITIAL_SCREENING_ITEM_CODES
+    }
     total_score = sum(
         _initial_screening_score(screening_items[code].value_numeric, code)
         for code in INITIAL_SCREENING_ITEM_CODES
@@ -2024,31 +2155,163 @@ def _assessment_complete(request, spec, kwargs):
     if not 6 <= total_score <= 30:
         raise ContractError({"total_score": "must be between 6 and 30."})
 
+    # The system does not infer clinical urgency from the screening score.
+    # The nurse explicitly records the initial triage priority after reviewing
+    # FAST, screening score and LKW.  This uses the existing DB column and
+    # keeps the clinical decision attributable to the assessor.
+    triage_priority = str(request.data.get("triage_priority") or "").upper()
+    if triage_priority not in {
+        "URGENT",
+        "EMERGENCY",
+        "NON_EMERGENCY",
+    }:
+        raise ContractError({
+            "code": "TRIAGE_PRIORITY_REQUIRED",
+            "triage_priority": (
+                "must be one of EMERGENCY, URGENT, or NON_EMERGENCY."
+            ),
+        })
+
     before = serialize_instance(assessment)
-    assigned_neurologist_id = request.data.get("assigned_neurologist_id") if isinstance(request.data, dict) else None
-    if assigned_neurologist_id:
-        assessment.assigned_neurologist_id = assigned_neurologist_id
+    now = timezone.now()
+    assessment.assigned_neurologist = neurologist
     assessment.total_score = total_score
+    assessment.triage_priority = triage_priority
     assessment.status = "COMPLETED"
-    assessment.completed_at = timezone.now()
-    assessment.updated_at = assessment.completed_at
+    assessment.completed_at = now
+    assessment.updated_at = now
     assessment.save(update_fields=[
         "assigned_neurologist",
         "total_score",
+        "triage_priority",
         "status",
         "completed_at",
         "updated_at",
     ])
+
+    emergency_event = None
+    if assessment.triage_priority in {"URGENT", "EMERGENCY"}:
+        emergency_event = emergency_event_model.objects.create(
+            assessment=assessment,
+            encounter=assessment.encounter,
+            assigned_neurologist=neurologist,
+            event_type="EMERGENCY_DETECTED",
+            priority=assessment.triage_priority,
+            status="NOTIFIED",
+            occurred_at=now,
+            notified_at=now,
+            created_at=now,
+        )
+
+    notification_data = {
+        "event_type": "NEUROLOGIST_ASSIGNED",
+        "patient_id": str(
+            assessment.encounter.patient_id
+        ),
+        "encounter_id": str(
+            assessment.encounter_id
+        ),
+        "assessment_id": str(
+            assessment.id
+        ),
+        "emergency_event_id": (
+            str(emergency_event.id)
+            if emergency_event is not None
+            else None
+        ),
+        "triage_priority": (
+            assessment.triage_priority
+        ),
+        "resource_type": "InitialAssessment",
+        "resource_id": str(
+            assessment.id
+        ),
+        "actor_user_id": str(
+            request.user.id
+        ),
+    }
+
+    severity = (
+        "CRITICAL"
+        if assessment.triage_priority == "EMERGENCY"
+        else "WARNING"
+        if assessment.triage_priority == "URGENT"
+        else "INFO"
+    )
+
+    title = (
+        "Emergency assessment assigned"
+        if emergency_event is not None
+        else "Initial assessment assigned"
+    )
+
+    body = (
+        "A completed initial assessment "
+        "has been assigned to you."
+    )
+
+    if emergency_event is not None:
+        # URGENT / EMERGENCY is a mandatory clinical alert.
+        # Create it directly so an ordinary notification
+        # preference cannot suppress the alert.
+        notification_model = apps.get_model(
+            "notifications",
+            "Notification",
+        )
+        notification_model.objects.create(
+            recipient_user=neurologist,
+            category="EMERGENCY",
+            severity=severity,
+            title=title,
+            body=body,
+            data_json=notification_data,
+        )
+    else:
+        from apps.notifications.services.notifications import (
+            create_notification_for_user,
+        )
+
+        create_notification_for_user(
+            recipient_user=neurologist,
+            category="SYSTEM",
+            severity=severity,
+            title=title,
+            body=body,
+            data_json=notification_data,
+        )
+
     after = _assessment_detail_payload(assessment)
     _audit(request, spec, assessment, before, after)
     _outbox(spec, assessment, after)
+
+    if emergency_event is not None:
+        OutboxEvent.objects.create(
+            event_type="emergency_detected",
+            aggregate_type="EmergencyEvent",
+            aggregate=str(emergency_event.id),
+            payload={
+                "emergency_event_id": str(emergency_event.id),
+                "assessment_id": str(assessment.id),
+                "encounter_id": str(assessment.encounter_id),
+                "assigned_neurologist_id": str(neurologist.id),
+                "triage_priority": assessment.triage_priority,
+                "status": emergency_event.status,
+            },
+            status="PENDING",
+            retry_count=0,
+            published_at=None,
+            created_at=now,
+        )
+
     return Response({
         "assessment_id": str(assessment.id),
         "status": assessment.status,
         "total_score": assessment.total_score,
         "triage_priority": assessment.triage_priority,
-        "assigned_neurologist_id": str(assessment.assigned_neurologist_id) if assessment.assigned_neurologist_id else None,
-        "emergency_event_id": None,
+        "assigned_neurologist_id": str(assessment.assigned_neurologist_id),
+        "emergency_event_id": (
+            str(emergency_event.id) if emergency_event is not None else None
+        ),
         "completed_at": assessment.completed_at,
     }, status=200)
 
@@ -4244,6 +4507,7 @@ CUSTOM_HANDLERS = {
     "API-APP-011": _appointment_correct,
     "API-NOTI-003": _notification_preferences_get,
     "API-NOTI-004": _notification_preferences_patch,
+    "API-ASM-002": _assessment_start,
     "API-ASM-003": _assessment_detail,
     "API-ASM-004": _assessment_patch,
     "API-ASM-005": _assessment_complete,

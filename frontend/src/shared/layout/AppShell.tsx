@@ -9,8 +9,10 @@ import type { AssistantChatMessage } from "../../features/assistant/types";
 
 import TriageAssessment from "../../features/assessments/TriageAssessment";
 import ReceptionInitialAssessment from "../../features/assessments/ReceptionInitialAssessment";
+import { getAssessmentDetail } from "../../features/assessments/api";
 // [추가] 신경과 응급 Worklist 연결
 import EmergencyWorklist from "../../features/assessments/EmergencyWorklist";
+import EmergencyAlertHost from "../../features/assessments/EmergencyAlertHost";
 // [추가 끝] 신경과 응급 Worklist 연결
 
 import PatientChart from "../../features/patients/PatientChart";
@@ -26,15 +28,19 @@ import CDSSResultsPage from "../../features/cdss/CDSSResultsPage";
 import MedicationSafetyPage from "../../features/medication-safety/MedicationSafetyPage";
 import { getActiveEncounter } from "../../features/medication-safety/api";
 import NotificationsPage from "../../features/notifications/NotificationsPage";
+import type {
+  NotificationItem,
+} from "../../features/notifications/types";
+import {
+  connectWebPush,
+} from "../../features/notifications/webPush";
 import SurgicalPlanningPage from "../../features/surgical-planning/SurgicalPlanningPage";
 import AppointmentsPage from "../../features/appointments/AppointmentsPage";
 import ClinicalNotesPage from "../../features/clinical-notes/ClinicalNotesPage";
 
 // [추가] 관리자 화면 연결
-import AdminDashboard from "../../features/admin/AdminDashboard";
 import AdminUsersPage from "../../features/admin/AdminUsersPage";
 import SystemMonitoringPage from "../../features/admin/SystemMonitoringPage";
-import AuditLogPage from "../../features/admin/AuditLogPage";
 import AdminSettingsPage from "../../features/admin/AdminSettingsPage";
 // [추가 끝] 관리자 화면 연결
 
@@ -100,12 +106,16 @@ interface StoredWorkspaceState {
 }
 
 const WORKSPACE_STORAGE_PREFIX = "brain-cdss-workspace";
+const RETIRED_ADMIN_MENU_KEYS = new Set([
+  "admin-monitoring",
+  "admin-audit",
+]);
 
 const SIDEBAR_MENU_KEYS: SidebarMenuKey[] = [
   "dashboard", "patients", "worklist", "triage", "clinical-notes",
   "appointments", "imaging", "ai-results", "radiology-reports", "cdss",
   "consultations", "surgical-planning", "prescriptions", "notifications",
-  "admin-users", "admin-monitoring", "admin-audit", "admin-settings",
+  "admin-users", "admin-settings",
 ];
 
 function isSidebarMenuKey(value: unknown): value is SidebarMenuKey {
@@ -125,6 +135,22 @@ function isStringOrNull(value: unknown): value is string | null {
 
 function workspaceStorageKey(userId: string) {
   return `${WORKSPACE_STORAGE_PREFIX}:${userId}`;
+}
+
+export function normalizeSystemAdminWorkspaceNavigation(
+  activeMenu: unknown,
+  openMenuTabs: unknown,
+) {
+  return {
+    activeMenu: RETIRED_ADMIN_MENU_KEYS.has(String(activeMenu))
+      ? "dashboard"
+      : activeMenu,
+    openMenuTabs: Array.isArray(openMenuTabs)
+      ? openMenuTabs.filter(
+          (menu) => !RETIRED_ADMIN_MENU_KEYS.has(String(menu)),
+        )
+      : openMenuTabs,
+  };
 }
 
 
@@ -292,6 +318,33 @@ export default function AppShell({
 
   const [isWorkspaceHydrated, setIsWorkspaceHydrated] = useState(false);
 
+
+  /*
+   * 사용자가 이전에 브라우저 Push 권한을 허용한 경우
+   * 로그인/새로고침 시 FCM token을 자동 갱신한다.
+   *
+   * 최초 권한 허용은 알림센터의
+   * "웹 푸시 연결" 버튼에서 사용자가 직접 수행한다.
+   */
+  useEffect(() => {
+    if (
+      !("Notification" in window) ||
+      Notification.permission !== "granted"
+    ) {
+      return;
+    }
+
+    void connectWebPush().catch(
+      (error) => {
+        console.error(
+          "WEB_PUSH_RECONNECT_FAILED",
+          error,
+        );
+      },
+    );
+  }, [currentUser.id]);
+
+
   useEffect(() => {
     let cancelled = false;
     const storageKey = workspaceStorageKey(currentUser.id);
@@ -302,11 +355,24 @@ export default function AppShell({
         if (!storedValue) return;
 
         const stored = JSON.parse(storedValue) as Partial<StoredWorkspaceState>;
+        const normalizedAdminNavigation =
+          currentUser.role.code === "SYSTEM_ADMIN"
+            ? normalizeSystemAdminWorkspaceNavigation(
+                stored.activeMenu,
+                stored.openMenuTabs,
+              )
+            : {
+                activeMenu: stored.activeMenu,
+                openMenuTabs: stored.openMenuTabs,
+              };
         if (
           stored.userId !== currentUser.id ||
-          !isSidebarMenuKey(stored.activeMenu) ||
-          !canAccessMenu(currentUser.role.code, stored.activeMenu) ||
-          !Array.isArray(stored.openMenuTabs) ||
+          !isSidebarMenuKey(normalizedAdminNavigation.activeMenu) ||
+          !canAccessMenu(
+            currentUser.role.code,
+            normalizedAdminNavigation.activeMenu,
+          ) ||
+          !Array.isArray(normalizedAdminNavigation.openMenuTabs) ||
           !Array.isArray(stored.openPatientIds) ||
           !Array.isArray(stored.openConsultationIds) ||
           !isStringOrNull(stored.activePatientId) ||
@@ -316,7 +382,7 @@ export default function AppShell({
           return;
         }
 
-        const openMenuTabs = stored.openMenuTabs.filter(
+        const openMenuTabs = normalizedAdminNavigation.openMenuTabs.filter(
           (menu): menu is MenuWorkspaceTabKey =>
             isMenuWorkspaceTabKey(menu) &&
             canAccessMenu(currentUser.role.code, menu),
@@ -358,13 +424,33 @@ export default function AppShell({
             consultation.consultation_id === stored.activeConsultationId,
         ) ? stored.activeConsultationId : null;
         const assessment = stored.activeAssessmentContext;
-        const restoredAssessment =
+        let restoredAssessment: ActiveAssessmentContext | null = null;
+
+        if (
           assessment &&
           typeof assessment.assessmentId === "string" &&
           typeof assessment.encounterId === "string" &&
           canAccessMenu(currentUser.role.code, "triage")
-            ? assessment
-            : null;
+        ) {
+          try {
+            const detail = await getAssessmentDetail(
+              assessment.assessmentId,
+            );
+
+            if (
+              !cancelled &&
+              detail.status === "DRAFT" &&
+              detail.encounter_id === assessment.encounterId
+            ) {
+              restoredAssessment = assessment;
+            }
+          } catch {
+            // Stale/invalid assessment contexts are intentionally discarded.
+          }
+        }
+
+        if (cancelled) return;
+
         const assistantIsActive =
           stored.isAssistantTabOpen === true &&
           stored.isAssistantTabActive === true;
@@ -401,13 +487,13 @@ export default function AppShell({
         } else if (restoredConsultationId) {
           setActiveConsultationId(restoredConsultationId);
           setActiveMenu("consultations");
-        } else if (stored.activeMenu === "triage") {
+        } else if (normalizedAdminNavigation.activeMenu === "triage") {
           if (restoredAssessment) {
             setActiveAssessmentContext(restoredAssessment);
             setActiveMenu("triage");
           }
         } else {
-          setActiveMenu(stored.activeMenu);
+          setActiveMenu(normalizedAdminNavigation.activeMenu);
         }
       } catch {
         sessionStorage.removeItem(storageKey);
@@ -635,8 +721,6 @@ export default function AppShell({
       menu !== "notifications" &&
       // [추가] 관리자 화면 연결
       menu !== "admin-users" &&
-      menu !== "admin-monitoring" &&
-      menu !== "admin-audit" &&
       menu !== "admin-settings"
       // [추가 끝] 관리자 화면 연결
     ) {
@@ -673,6 +757,7 @@ export default function AppShell({
     }
 
     if (menu === "triage") {
+      setActiveAssessmentContext(null);
       setTriageRefreshKey((current) => current + 1);
     }
 
@@ -735,6 +820,7 @@ export default function AppShell({
     }
 
     if (menu === "triage") {
+      setActiveAssessmentContext(null);
       setTriageRefreshKey((current) => current + 1);
     }
 
@@ -1320,6 +1406,209 @@ export default function AppShell({
 
 
   /* ========================================================
+     Notification -> Related Work
+     ======================================================== */
+
+  const handleOpenNotificationRelatedWork =
+    async (
+      notification: NotificationItem,
+    ): Promise<boolean> => {
+
+      const data =
+        notification.data ?? {};
+
+      const stringValue = (
+        ...keys: string[]
+      ): string | null => {
+        for (const key of keys) {
+          const value = data[key];
+
+          if (
+            typeof value === "string" &&
+            value.trim()
+          ) {
+            return value.trim();
+          }
+        }
+
+        return null;
+      };
+
+
+      /*
+       * 1. 협진
+       *
+       * Notification의 consultation_id로
+       * 실제 Consultation을 조회한 뒤
+       * 기존 Patient Review Workspace Tab을 연다.
+       */
+      const consultationId =
+        stringValue(
+          "consultation_id",
+        );
+
+      if (
+        consultationId &&
+        canAccessMenu(
+          currentUser.role.code,
+          "consultations",
+        )
+      ) {
+        try {
+          const consultation =
+            await getConsultationDetail(
+              consultationId,
+            );
+
+          handleOpenConsultationReview(
+            consultation,
+          );
+
+          return true;
+        } catch (error) {
+          console.error(
+            "NOTIFICATION_CONSULTATION_OPEN_FAILED",
+            error,
+          );
+
+          /*
+           * 상세 조회가 실패해도
+           * 협진 업무 자체로는 이동한다.
+           */
+          handleMenuSelect(
+            "consultations",
+          );
+
+          return true;
+        }
+      }
+
+
+      /*
+       * 2. 환자
+       */
+      const patientId =
+        stringValue(
+          "patient_id",
+        );
+
+      const encounterId =
+        stringValue(
+          "encounter_id",
+        );
+
+      if (
+        patientId &&
+        canAccessMenu(
+          currentUser.role.code,
+          "patients",
+        )
+      ) {
+        try {
+          const patient =
+            await getPatient(
+              patientId,
+            );
+
+          handlePatientSelect(
+            patient,
+            encounterId ?? undefined,
+          );
+
+          return true;
+        } catch (error) {
+          console.error(
+            "NOTIFICATION_PATIENT_OPEN_FAILED",
+            error,
+          );
+        }
+      }
+
+
+      /*
+       * 3. AI 분석
+       */
+      const analysisId =
+        stringValue(
+          "analysis_id",
+          "ai_analysis_id",
+        );
+
+      if (
+        analysisId &&
+        canAccessMenu(
+          currentUser.role.code,
+          "ai-results",
+        )
+      ) {
+        setActiveAnalysisId(
+          analysisId,
+        );
+
+        handleMenuSelect(
+          "ai-results",
+        );
+
+        return true;
+      }
+
+
+      /*
+       * 4. ID가 없는 일반 알림은
+       * category에 해당하는 업무 화면으로 이동.
+       */
+      const categoryMenu:
+        Partial<
+          Record<
+            string,
+            SidebarMenuKey
+          >
+        > = {
+          CONSULTATION:
+            "consultations",
+
+          IMAGING:
+            "imaging",
+
+          AI_ANALYSIS:
+            "ai-results",
+
+          APPOINTMENT:
+            "appointments",
+
+          EMERGENCY:
+            "worklist",
+        };
+
+
+      const targetMenu =
+        categoryMenu[
+          notification.category
+        ];
+
+      if (
+        targetMenu &&
+        canAccessMenu(
+          currentUser.role.code,
+          targetMenu,
+        )
+      ) {
+        handleMenuSelect(
+          targetMenu,
+        );
+
+        return true;
+      }
+
+
+      /*
+       * SYSTEM 등 연결할 임상 업무가 없는 알림
+       */
+      return false;
+    };
+
+
+  /* ========================================================
      24. Main Content
      ======================================================== */
 
@@ -1355,10 +1644,8 @@ export default function AppShell({
     // [추가] 관리자 화면 연결
     if (currentUser.role.code === "SYSTEM_ADMIN") {
       if (activeMenu === "admin-users") return <AdminUsersPage />;
-      if (activeMenu === "admin-monitoring") return <SystemMonitoringPage />;
-      if (activeMenu === "admin-audit") return <AuditLogPage />;
       if (activeMenu === "admin-settings") return <AdminSettingsPage />;
-      return <AdminDashboard />;
+      return <SystemMonitoringPage />;
     }
     // [추가 끝] 관리자 화면 연결
 
@@ -1634,7 +1921,13 @@ export default function AppShell({
     }
 
     if (activeMenu === "notifications") {
-      return <NotificationsPage />;
+      return (
+        <NotificationsPage
+          onOpenRelatedWork={
+            handleOpenNotificationRelatedWork
+          }
+        />
+      );
     }
 
 
@@ -1689,10 +1982,20 @@ export default function AppShell({
           ===================================================== */}
 
       <Header
+          onNotificationRelatedWork={
+            handleOpenNotificationRelatedWork
+          }
         onPatientSelect={
           handlePatientSelect
         }
         currentUser={currentUser}
+
+        onNotificationsOpen={() =>
+          handleMenuSelect(
+            "notifications",
+          )
+        }
+
         onLogout={onLogout}
       />
 
@@ -1842,6 +2145,14 @@ export default function AppShell({
 
         </main>
       </div>
+
+
+      <EmergencyAlertHost
+        currentUser={currentUser}
+        onOpenPatient={
+          handleWorklistPatientSelect
+        }
+      />
 
       <AssistantFloatingDock
         isOpen={isAssistantFloatingOpen}

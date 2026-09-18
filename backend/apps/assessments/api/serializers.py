@@ -74,6 +74,21 @@ class EmergencyWorklistPatientSerializer(serializers.Serializer):
     name = serializers.CharField()
     sex = serializers.CharField(allow_null=True)
     estimated_age = serializers.IntegerField(allow_null=True)
+    birth_date = serializers.DateField(allow_null=True)
+    allergy_info = serializers.CharField(allow_null=True)
+
+
+class EmergencyRedFlagSerializer(serializers.Serializer):
+    item_code = serializers.CharField()
+    value_text = serializers.CharField(allow_null=True)
+    value_numeric = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        allow_null=True,
+    )
+    unit = serializers.CharField(allow_null=True)
+    score = serializers.IntegerField(allow_null=True)
+    note = serializers.CharField(allow_null=True)
 
 
 class EmergencyWorklistEventSerializer(serializers.Serializer):
@@ -89,7 +104,12 @@ class EmergencyWorklistItemSerializer(serializers.Serializer):
     patient_summary = EmergencyWorklistPatientSerializer()
     total_score = serializers.IntegerField(allow_null=True)
     triage_priority = serializers.CharField()
+    onset_at = serializers.DateTimeField(allow_null=True)
     lkw_at = serializers.DateTimeField(allow_null=True)
+    completed_at = serializers.DateTimeField(allow_null=True)
+    symptom_note = serializers.CharField(allow_null=True)
+    assigned_neurologist = serializers.DictField(allow_null=True)
+    red_flags = EmergencyRedFlagSerializer(many=True)
     event = EmergencyWorklistEventSerializer()
 
 
@@ -105,3 +125,32 @@ class EmergencyEventAcknowledgeResponseSerializer(serializers.Serializer):
     status = serializers.CharField()
     acknowledged_by = serializers.UUIDField()
     acknowledged_at = serializers.DateTimeField()
+
+
+
+class TriageReviewCreateSerializer(serializers.Serializer):
+    priority = serializers.ChoiceField(
+        choices=("EMERGENCY", "URGENT", "NON_EMERGENCY"),
+    )
+    reason = serializers.CharField(
+        allow_blank=False,
+        trim_whitespace=True,
+        max_length=2000,
+    )
+
+
+class TriageReviewItemSerializer(serializers.Serializer):
+    review_id = serializers.UUIDField()
+    assessment_id = serializers.UUIDField()
+    priority = serializers.CharField()
+    reason = serializers.CharField()
+    reviewer = serializers.DictField()
+    reviewer_role = serializers.CharField()
+    created_at = serializers.DateTimeField()
+
+
+class TriageReviewListResponseSerializer(serializers.Serializer):
+    initial_priority = serializers.CharField(allow_null=True)
+    effective_priority = serializers.CharField(allow_null=True)
+    latest_review = TriageReviewItemSerializer(allow_null=True)
+    reviews = TriageReviewItemSerializer(many=True)

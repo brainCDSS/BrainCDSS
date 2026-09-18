@@ -18,6 +18,8 @@ import type {
   // [추가] 신경과 응급 Worklist 연결
   EmergencyWorklistResponse,
   // [추가 끝] 신경과 응급 Worklist 연결
+  CreateTriageReviewRequest,
+  TriageReviewListResponse,
 } from "./types";
 
 export async function createEncounter(payload: CreateEncounterRequest): Promise<EncounterResponse> {
@@ -36,11 +38,25 @@ export async function createEncounter(payload: CreateEncounterRequest): Promise<
    초기평가 대기 환자 목록 조회
    ========================================================= */
 
-export async function getAssessmentWorklist():
-Promise<AssessmentWorklistResponse> {
+export async function getAssessmentWorklist(
+  status?: "WAITING" | "DRAFT" | "COMPLETED",
+  date?: string,
+): Promise<AssessmentWorklistResponse> {
+  const query = new URLSearchParams();
+
+  if (status) {
+    query.set("status", status);
+  }
+  if (date) {
+    query.set("date", date);
+  }
+
+  const suffix = query.toString()
+    ? `?${query.toString()}`
+    : "";
 
   const response = await apiRequest<AssessmentWorklistResponse>(
-    "/api/v1/assessments/worklist",
+    `/api/v1/assessments/worklist${suffix}`,
   );
 
   return {
@@ -159,9 +175,8 @@ export async function updateAssessment(
 
    Backend 처리:
    - 필수항목 검증
-   - Score 계산
-   - Red Flag 확인
-   - 긴급 / 응급 / 비응급 결정
+   - Initial Screening Score 계산
+   - 간호사가 선택한 triage_priority 검증 / 저장
    - 담당 신경과 저장
    - 긴급 / 응급일 경우 응급 이벤트 생성
    ========================================================= */
@@ -245,9 +260,63 @@ export function acknowledgeEmergencyEvent(eventId: string): Promise<{ event_id: 
 }
 
 // [추가] 신경과 응급 Worklist 연결
-export function getEmergencyWorklist(): Promise<EmergencyWorklistResponse> {
+export function getEmergencyWorklist(
+  filters: {
+    ackStatus?:
+      | "NOTIFIED"
+      | "UNACKNOWLEDGED"
+      | "ACKNOWLEDGED";
+    priority?: "URGENT" | "EMERGENCY";
+  } = {},
+): Promise<EmergencyWorklistResponse> {
+  const query = new URLSearchParams();
+
+  if (filters.ackStatus) {
+    query.set(
+      "ack_status",
+      filters.ackStatus,
+    );
+  }
+
+  if (filters.priority) {
+    query.set(
+      "priority",
+      filters.priority,
+    );
+  }
+
+  const suffix = query.toString();
+
   return apiRequest<EmergencyWorklistResponse>(
-    "/api/v1/neurology/emergency-worklist",
+    `/api/v1/neurology/emergency-worklist${
+      suffix ? `?${suffix}` : ""
+    }`,
   );
 }
 // [추가 끝] 신경과 응급 Worklist 연결
+
+
+
+export function getTriageReviews(
+  assessmentId: string,
+): Promise<TriageReviewListResponse> {
+  return apiRequest<TriageReviewListResponse>(
+    `/api/v1/assessments/${encodeURIComponent(assessmentId)}/triage-reviews`,
+  );
+}
+
+export function createTriageReview(
+  assessmentId: string,
+  payload: CreateTriageReviewRequest,
+): Promise<TriageReviewListResponse> {
+  return apiRequest<TriageReviewListResponse>(
+    `/api/v1/assessments/${encodeURIComponent(assessmentId)}/triage-reviews`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    },
+  );
+}

@@ -170,8 +170,13 @@ export default function AssessmentWorklist({
          * GET
          * /api/v1/assessments/worklist
          */
-        const response =
-          await getAssessmentWorklist();
+        const [
+          activeResponse,
+          completedResponse,
+        ] = await Promise.all([
+          getAssessmentWorklist(),
+          getAssessmentWorklist("COMPLETED"),
+        ]);
 
 
         if (!active) {
@@ -179,9 +184,17 @@ export default function AssessmentWorklist({
         }
 
 
-        setWorklist(
-          response,
-        );
+        setWorklist({
+          count:
+            activeResponse.count +
+            completedResponse.count,
+          next: null,
+          previous: null,
+          results: [
+            ...activeResponse.results,
+            ...completedResponse.results,
+          ],
+        });
 
       } catch (requestError) {
 
@@ -588,7 +601,7 @@ export default function AssessmentWorklist({
             <p>
               {activeTab === "WAITING"
                 ? "새로운 환자가 접수되면 Worklist에 표시됩니다."
-                : "현재 worklist API는 완료 Assessment를 반환하지 않습니다."}
+                : "선택한 조건에 완료된 초기평가가 없습니다."}
             </p>
 
           </div>

@@ -18,6 +18,8 @@ import type {
   // [추가] 신경과 응급 Worklist 연결
   EmergencyWorklistResponse,
   // [추가 끝] 신경과 응급 Worklist 연결
+  CreateTriageReviewRequest,
+  TriageReviewListResponse,
 } from "./types";
 
 export async function createEncounter(payload: CreateEncounterRequest): Promise<EncounterResponse> {
@@ -264,3 +266,29 @@ export function getEmergencyWorklist(): Promise<EmergencyWorklistResponse> {
   );
 }
 // [추가 끝] 신경과 응급 Worklist 연결
+
+
+
+export function getTriageReviews(
+  assessmentId: string,
+): Promise<TriageReviewListResponse> {
+  return apiRequest<TriageReviewListResponse>(
+    `/api/v1/assessments/${encodeURIComponent(assessmentId)}/triage-reviews`,
+  );
+}
+
+export function createTriageReview(
+  assessmentId: string,
+  payload: CreateTriageReviewRequest,
+): Promise<TriageReviewListResponse> {
+  return apiRequest<TriageReviewListResponse>(
+    `/api/v1/assessments/${encodeURIComponent(assessmentId)}/triage-reviews`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    },
+  );
+}

@@ -106,27 +106,6 @@ function toDateTimeLocal(
 
 
 /* =========================================================
-   위험 문진 문항
-
-   실제 문항 / item_code는
-   Backend Rule 계약 후 연결한다.
-   ========================================================= */
-
-interface RiskQuestion {
-  id: string;
-  itemCode: string;
-  title: string;
-  description?: string;
-}
-
-
-/**
- * 현재 Rule API 미연동
- */
-const riskQuestions: RiskQuestion[] = [];
-
-
-/* =========================================================
    Triage Assessment
    ========================================================= */
 
@@ -154,8 +133,8 @@ export default function TriageAssessment({
      --------------------------------------------------------
      STEP 1: 증상 발생 정보 + FAST
      STEP 2: 의식 / 신경학적 상태 + Vital Sign
-     STEP 3: 주요 증상 / 위험 문진 + 추가 메모
-     STEP 4: 결과 / 담당 신경과 지정(TriageResult)
+     STEP 3: Vital Sign
+     STEP 4: 추가 메모 / 결과 전달
      ======================================================== */
 
   const [
@@ -272,19 +251,7 @@ export default function TriageAssessment({
 
 
   /* ========================================================
-     5. 위험 문진
-     ======================================================== */
-
-  const [
-    riskAnswers,
-    setRiskAnswers,
-  ] = useState<
-    Record<string, AssessmentChoice>
-  >({});
-
-
-  /* ========================================================
-     6. 추가 메모
+     5. 추가 메모
      ======================================================== */
 
   const [
@@ -424,25 +391,6 @@ export default function TriageAssessment({
 
 
   /* ========================================================
-     위험 문진 응답
-     ======================================================== */
-
-  function handleRiskAnswer(
-    itemCode: string,
-    value: AssessmentChoice,
-  ) {
-
-    setRiskAnswers(
-      (previous) => ({
-        ...previous,
-        [itemCode]: value,
-      }),
-    );
-
-  }
-
-
-  /* ========================================================
      PATCH Payload 생성
      --------------------------------------------------------
 
@@ -567,34 +515,6 @@ export default function TriageAssessment({
         score,
       });
     });
-
-
-    /* Backend Rule에서 받은 위험 문진 */
-
-    riskQuestions.forEach(
-      (question) => {
-
-        const value =
-          riskAnswers[
-            question.itemCode
-          ];
-
-
-        if (!value) {
-          return;
-        }
-
-
-        items.push({
-          item_code:
-            question.itemCode,
-
-          value_text:
-            value,
-        });
-
-      },
-    );
 
 
     return {
@@ -904,9 +824,6 @@ export default function TriageAssessment({
       bpSys,
       bpDia,
       lkwAt,
-      riskAbnormal: Object.values(riskAnswers).filter(
-        (value) => value === "ABNORMAL",
-      ).length,
     };
 
     return (
@@ -1007,7 +924,7 @@ export default function TriageAssessment({
           },
           {
             step: 3 as AssessmentStep,
-            label: "Vital · 위험정보",
+            label: "Vital",
           },
           {
             step: 4 as AssessmentStep,
@@ -1655,153 +1572,7 @@ export default function TriageAssessment({
         {(currentStep === 3 || currentStep === 4 || readOnly) && (
           <>
           {/* ===================================================
-                    5. 주요 증상 / 위험 문진
-                    =================================================== */}
-
-                <section className="triage-assessment__section triage-assessment__section--risk">
-
-                  <div className="triage-section-heading">
-
-                    <div className="triage-section-number">
-                      5
-                    </div>
-
-
-                    <div>
-
-                      <h2>
-                        주요 증상 / 위험 문진
-                      </h2>
-
-
-                      <p>
-                        주요 증상과 위험 문진 항목을 확인합니다.
-                      </p>
-
-                    </div>
-
-                  </div>
-
-
-                  <div className="triage-question-list">
-
-                    {riskQuestions.length === 0 ? (
-
-                      <div className="triage-question-card">
-
-                        <div className="triage-question-content">
-
-                          <strong>
-                            위험 문진 항목
-                          </strong>
-
-
-                          <span>
-                            Triage Rule 연동 후
-                            체크리스트 문항이 표시됩니다.
-                          </span>
-
-                        </div>
-
-                      </div>
-
-                    ) : (
-
-                      riskQuestions.map(
-                        (question) => {
-
-                          const answer =
-                            riskAnswers[
-                              question.itemCode
-                            ] ?? "";
-
-
-                          return (
-
-                            <div
-                              key={
-                                question.id
-                              }
-
-                              className="triage-question-card"
-                            >
-
-                              <div className="triage-question-content">
-
-                                <strong>
-                                  {question.title}
-                                </strong>
-
-
-                                {question.description && (
-
-                                  <span>
-                                    {question.description}
-                                  </span>
-
-                                )}
-
-                              </div>
-
-
-                              <div className="triage-choice-group">
-
-                                <button
-                                  type="button"
-
-                                  className={
-                                    answer === "NORMAL"
-                                      ? "triage-choice active"
-                                      : "triage-choice"
-                                  }
-
-                                  onClick={() =>
-                                    handleRiskAnswer(
-                                      question.itemCode,
-                                      "NORMAL",
-                                    )
-                                  }
-                                >
-                                  정상
-                                </button>
-
-
-                                <button
-                                  type="button"
-
-                                  className={
-                                    answer === "ABNORMAL"
-                                      ? "triage-choice active abnormal"
-                                      : "triage-choice"
-                                  }
-
-                                  onClick={() =>
-                                    handleRiskAnswer(
-                                      question.itemCode,
-                                      "ABNORMAL",
-                                    )
-                                  }
-                                >
-                                  이상
-                                </button>
-
-                              </div>
-
-                            </div>
-
-                          );
-
-                        },
-                      )
-
-                    )}
-
-                  </div>
-
-                </section>
-
-          {/* ===================================================
-                    6. 추가 메모
+                    5. 추가 메모
                     =================================================== */}
 
                 <section className="triage-assessment__section triage-assessment__section--memo">
@@ -1809,7 +1580,7 @@ export default function TriageAssessment({
                   <div className="triage-section-heading">
 
                     <div className="triage-section-number">
-                      6
+                      5
                     </div>
 
 

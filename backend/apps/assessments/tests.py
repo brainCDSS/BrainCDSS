@@ -149,10 +149,7 @@ class AssessmentWorklistAPITests(APITestCase):
 
 class EmergencyWorklistAPITests(APITestCase):
     def setUp(self):
-        self.neurologist_role = Role.objects.create(
-            code=RoleCode.NEUROLOGIST,
-            name="Neurologist",
-        )
+        self.neurologist_role = Role.objects.get(code=RoleCode.NEUROLOGIST)
         self.nurse_role = Role.objects.get(
             code=RoleCode.NURSE,
         )
@@ -284,25 +281,13 @@ class EmergencyWorklistAPITests(APITestCase):
 
 class AssessmentEncounterListAPITests(APITestCase):
     def setUp(self):
-        self.neurologist_role = Role.objects.create(
-            code=RoleCode.NEUROLOGIST,
-            name="Neurologist",
-        )
+        self.neurologist_role = Role.objects.get(code=RoleCode.NEUROLOGIST)
         self.nurse_role = Role.objects.get(
             code=RoleCode.NURSE,
         )
-        self.neurosurgeon_role = Role.objects.create(
-            code=RoleCode.NEUROSURGEON,
-            name="Neurosurgeon",
-        )
-        self.radiology_role = Role.objects.create(
-            code=RoleCode.RADIOLOGY,
-            name="Radiology",
-        )
-        self.patient_role = Role.objects.create(
-            code=RoleCode.PATIENT,
-            name="Patient",
-        )
+        self.neurosurgeon_role = Role.objects.get(code=RoleCode.NEUROSURGEON)
+        self.radiology_role = Role.objects.get(code=RoleCode.RADIOLOGY)
+        self.patient_role = Role.objects.get(code=RoleCode.PATIENT)
         self.neurologist = User.objects.create_user(
             login_id="assessment-list-neurologist",
             password="test-password",
@@ -425,10 +410,7 @@ class AssessmentEncounterListAPITests(APITestCase):
 class InitialScreeningAssessmentAPITests(APITestCase):
     def setUp(self):
         role = Role.objects.get(code=RoleCode.NURSE)
-        neurologist_role = Role.objects.create(
-            code=RoleCode.NEUROLOGIST,
-            name="Neurologist",
-        )
+        neurologist_role = Role.objects.get(code=RoleCode.NEUROLOGIST)
         self.nurse = User.objects.create_user(
             login_id="screening-nurse",
             password="test-password",
@@ -590,7 +572,7 @@ class InitialScreeningAssessmentAPITests(APITestCase):
         )
 
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.data["code"], "TRIAGE_PRIORITY_REQUIRED")
+        self.assertEqual(response.data["error"]["details"]["code"], "TRIAGE_PRIORITY_REQUIRED")
         self.assessment.refresh_from_db()
         self.assertEqual(self.assessment.status, "DRAFT")
         self.assertIsNone(self.assessment.triage_priority)
@@ -599,10 +581,7 @@ class InitialScreeningAssessmentAPITests(APITestCase):
 
 class TriageReviewAPITests(APITestCase):
     def setUp(self):
-        self.neurologist_role = Role.objects.create(
-            code=RoleCode.NEUROLOGIST,
-            name="Neurologist",
-        )
+        self.neurologist_role = Role.objects.get(code=RoleCode.NEUROLOGIST)
         self.nurse_role = Role.objects.get(code=RoleCode.NURSE)
         self.neurologist = User.objects.create_user(
             login_id="triage-review-neurologist",
@@ -758,7 +737,7 @@ class TriageReviewAPITests(APITestCase):
         )
 
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.data["code"], "TRIAGE_REVIEW_LOCKED")
+        self.assertEqual(response.data["error"]["details"]["code"], "TRIAGE_REVIEW_LOCKED")
         self.assertEqual(
             TriageReview.objects.filter(
                 assessment=self.assessment,

@@ -64,7 +64,7 @@ class RBACBaselineMigrationTests(TestCase):
         )
 
         migration = import_module(
-            "apps.accounts.migrations.0002_seed_rbac_master"
+            "apps.accounts.migrations.0003_seed_rbac_master"
         )
         migration.seed_rbac_master(django_apps, None)
         migration.seed_rbac_master(django_apps, None)

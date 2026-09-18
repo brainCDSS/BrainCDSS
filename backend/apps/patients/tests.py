@@ -12,7 +12,7 @@ from apps.patients.selectors.patients import can_view_patient, list_patients
 class PatientProfileViewTests(TestCase):
     def setUp(self):
         self.factory = APIRequestFactory()
-        patient_role = Role.objects.create(code="PATIENT", name="Patient")
+        patient_role = Role.objects.get(code="PATIENT")
         self.user = User.objects.create_user(
             login_id="profile-patient",
             password="test-password",
@@ -77,7 +77,7 @@ class PatientProfileViewTests(TestCase):
         self.assertTrue(all(value is None for value in response.data.values()))
 class PatientCareAssignmentSelectorTests(TestCase):
     def setUp(self):
-        role = Role.objects.create(code="NEUROLOGIST", name="Neurologist")
+        role = Role.objects.get(code="NEUROLOGIST")
         self.clinician = User.objects.create_user("neuro-test", "password", name="Neurologist", role=role)
         self.other_clinician = User.objects.create_user("neuro-other", "password", name="Other", role=role)
         self.assigned = Patient.objects.create(patient_no="P-ASSIGNED", name="Assigned", created_by=self.clinician)

@@ -12,8 +12,8 @@ from apps.patients.models import Patient
 
 class ConsultationListResponseTests(APITestCase):
     def setUp(self):
-        neurologist_role = Role.objects.create(code="NEUROLOGIST", name="Neurologist")
-        surgeon_role = Role.objects.create(code="NEUROSURGEON", name="Neurosurgeon")
+        neurologist_role = Role.objects.get(code="NEUROLOGIST")
+        surgeon_role = Role.objects.get(code="NEUROSURGEON")
         self.requester = User.objects.create_user("requester", "password", name="요청의", role=neurologist_role)
         self.assignee = User.objects.create_user("assignee", "password", name="담당의", role=surgeon_role)
         hospital = Hospital.objects.create(name="테스트 병원", address="서울")
@@ -263,10 +263,7 @@ class ConsultationListResponseTests(APITestCase):
         )
 
     def test_create_rejects_assignee_from_different_department(self):
-        radiology_role = Role.objects.create(
-            code="RADIOLOGY",
-            name="Radiology",
-        )
+        radiology_role = Role.objects.get(code="RADIOLOGY")
         radiologist = User.objects.create_user(
             "radiologist",
             "password",
@@ -311,10 +308,7 @@ class ConsultationListResponseTests(APITestCase):
         )
 
     def test_neurologist_can_create_assigned_radiology_consultation(self):
-        radiology_role = Role.objects.create(
-            code="RADIOLOGY",
-            name="Radiology",
-        )
+        radiology_role = Role.objects.get(code="RADIOLOGY")
         radiologist = User.objects.create_user(
             "radiologist",
             "password",
@@ -564,10 +558,7 @@ class ConsultationListResponseTests(APITestCase):
         self.assertFalse(ConsultationMessage.objects.exists())
 
     def test_requested_assigned_radiologist_can_accept_or_reject(self):
-        radiology_role = Role.objects.create(
-            code="RADIOLOGY",
-            name="Radiology",
-        )
+        radiology_role = Role.objects.get(code="RADIOLOGY")
 
         radiologist = User.objects.create_user(
             "workflow-radiologist",

@@ -38,10 +38,8 @@ import AppointmentsPage from "../../features/appointments/AppointmentsPage";
 import ClinicalNotesPage from "../../features/clinical-notes/ClinicalNotesPage";
 
 // [추가] 관리자 화면 연결
-import AdminDashboard from "../../features/admin/AdminDashboard";
 import AdminUsersPage from "../../features/admin/AdminUsersPage";
 import SystemMonitoringPage from "../../features/admin/SystemMonitoringPage";
-import AuditLogPage from "../../features/admin/AuditLogPage";
 import AdminSettingsPage from "../../features/admin/AdminSettingsPage";
 // [추가 끝] 관리자 화면 연결
 
@@ -107,12 +105,16 @@ interface StoredWorkspaceState {
 }
 
 const WORKSPACE_STORAGE_PREFIX = "brain-cdss-workspace";
+const RETIRED_ADMIN_MENU_KEYS = new Set([
+  "admin-monitoring",
+  "admin-audit",
+]);
 
 const SIDEBAR_MENU_KEYS: SidebarMenuKey[] = [
   "dashboard", "patients", "worklist", "triage", "clinical-notes",
   "appointments", "imaging", "ai-results", "radiology-reports", "cdss",
   "consultations", "surgical-planning", "prescriptions", "notifications",
-  "admin-users", "admin-monitoring", "admin-audit", "admin-settings",
+  "admin-users", "admin-settings",
 ];
 
 function isSidebarMenuKey(value: unknown): value is SidebarMenuKey {
@@ -132,6 +134,22 @@ function isStringOrNull(value: unknown): value is string | null {
 
 function workspaceStorageKey(userId: string) {
   return `${WORKSPACE_STORAGE_PREFIX}:${userId}`;
+}
+
+export function normalizeSystemAdminWorkspaceNavigation(
+  activeMenu: unknown,
+  openMenuTabs: unknown,
+) {
+  return {
+    activeMenu: RETIRED_ADMIN_MENU_KEYS.has(String(activeMenu))
+      ? "dashboard"
+      : activeMenu,
+    openMenuTabs: Array.isArray(openMenuTabs)
+      ? openMenuTabs.filter(
+          (menu) => !RETIRED_ADMIN_MENU_KEYS.has(String(menu)),
+        )
+      : openMenuTabs,
+  };
 }
 
 
@@ -336,11 +354,24 @@ export default function AppShell({
         if (!storedValue) return;
 
         const stored = JSON.parse(storedValue) as Partial<StoredWorkspaceState>;
+        const normalizedAdminNavigation =
+          currentUser.role.code === "SYSTEM_ADMIN"
+            ? normalizeSystemAdminWorkspaceNavigation(
+                stored.activeMenu,
+                stored.openMenuTabs,
+              )
+            : {
+                activeMenu: stored.activeMenu,
+                openMenuTabs: stored.openMenuTabs,
+              };
         if (
           stored.userId !== currentUser.id ||
-          !isSidebarMenuKey(stored.activeMenu) ||
-          !canAccessMenu(currentUser.role.code, stored.activeMenu) ||
-          !Array.isArray(stored.openMenuTabs) ||
+          !isSidebarMenuKey(normalizedAdminNavigation.activeMenu) ||
+          !canAccessMenu(
+            currentUser.role.code,
+            normalizedAdminNavigation.activeMenu,
+          ) ||
+          !Array.isArray(normalizedAdminNavigation.openMenuTabs) ||
           !Array.isArray(stored.openPatientIds) ||
           !Array.isArray(stored.openConsultationIds) ||
           !isStringOrNull(stored.activePatientId) ||
@@ -350,7 +381,7 @@ export default function AppShell({
           return;
         }
 
-        const openMenuTabs = stored.openMenuTabs.filter(
+        const openMenuTabs = normalizedAdminNavigation.openMenuTabs.filter(
           (menu): menu is MenuWorkspaceTabKey =>
             isMenuWorkspaceTabKey(menu) &&
             canAccessMenu(currentUser.role.code, menu),
@@ -435,13 +466,13 @@ export default function AppShell({
         } else if (restoredConsultationId) {
           setActiveConsultationId(restoredConsultationId);
           setActiveMenu("consultations");
-        } else if (stored.activeMenu === "triage") {
+        } else if (normalizedAdminNavigation.activeMenu === "triage") {
           if (restoredAssessment) {
             setActiveAssessmentContext(restoredAssessment);
             setActiveMenu("triage");
           }
         } else {
-          setActiveMenu(stored.activeMenu);
+          setActiveMenu(normalizedAdminNavigation.activeMenu);
         }
       } catch {
         sessionStorage.removeItem(storageKey);
@@ -669,8 +700,6 @@ export default function AppShell({
       menu !== "notifications" &&
       // [추가] 관리자 화면 연결
       menu !== "admin-users" &&
-      menu !== "admin-monitoring" &&
-      menu !== "admin-audit" &&
       menu !== "admin-settings"
       // [추가 끝] 관리자 화면 연결
     ) {
@@ -1592,10 +1621,8 @@ export default function AppShell({
     // [추가] 관리자 화면 연결
     if (currentUser.role.code === "SYSTEM_ADMIN") {
       if (activeMenu === "admin-users") return <AdminUsersPage />;
-      if (activeMenu === "admin-monitoring") return <SystemMonitoringPage />;
-      if (activeMenu === "admin-audit") return <AuditLogPage />;
       if (activeMenu === "admin-settings") return <AdminSettingsPage />;
-      return <AdminDashboard />;
+      return <SystemMonitoringPage />;
     }
     // [추가 끝] 관리자 화면 연결
 

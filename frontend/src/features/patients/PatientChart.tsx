@@ -4,8 +4,18 @@ import { getApiRequestStatus } from "../../api/client";
 
 import { getAIAnalyses, getAIAnalysisResult } from "../ai-analysis/api";
 import type { AIAnalysisItem, AIAnalysisResult } from "../ai-analysis/types";
-import { getAssessmentsByEncounter, getClinicians } from "../assessments/api";
-import type { AssessmentDetailResponse, Clinician } from "../assessments/types";
+import {
+  createTriageReview,
+  getAssessmentsByEncounter,
+  getClinicians,
+  getTriageReviews,
+} from "../assessments/api";
+import type {
+  AssessmentDetailResponse,
+  Clinician,
+  TriagePriority,
+  TriageReviewListResponse,
+} from "../assessments/types";
 import {
   latestCompletedAssessment,
   parseInitialAssessment,

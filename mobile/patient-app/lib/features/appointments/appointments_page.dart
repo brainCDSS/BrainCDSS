@@ -16,18 +16,14 @@ enum AppointmentTab { upcoming, past }
 enum ReservationStep { date, clinician, confirm }
 
 class AppointmentsPage extends StatefulWidget {
-  const AppointmentsPage({super.key, required this.apiClient});
+  const AppointmentsPage({
+    super.key,
+    required this.apiClient,
+    required this.onOpenReservation,
+  });
 
   final ApiClient apiClient;
-
-  static void openReservation(BuildContext context, ApiClient apiClient,
-      {VoidCallback? onChanged}) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-          builder: (_) => _ReservationStartPage(
-              apiClient: apiClient, onChanged: onChanged)),
-    );
-  }
+  final VoidCallback onOpenReservation;
 
   @override
   State<AppointmentsPage> createState() => AppointmentsPageState();
@@ -111,9 +107,8 @@ class AppointmentsPageState extends State<AppointmentsPage> {
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
         children: [
           _ReserveBanner(
-              onTap: () => AppointmentsPage.openReservation(
-                  context, widget.apiClient,
-                  onChanged: _load)),
+            onTap: widget.onOpenReservation,
+          ),
           const SizedBox(height: 22),
           _AppointmentSummary(
             upcomingCount: upcoming.length,
@@ -252,12 +247,52 @@ class _ReserveBanner extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               SizedBox(
-                width: 92,
-                child: Image.asset(
-                  'assets/images/hojjang_main.png',
-                  fit: BoxFit.contain,
+                width: 104,
+                height: 88,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      right: 22,
+                      child: Image.asset(
+                        'assets/images/hojjang_main.png',
+                        fit: BoxFit.contain,
+                        alignment: Alignment.bottomCenter,
+                      ),
+                    ),
+                    Positioned(
+                      right: 0,
+                      bottom: 2,
+                      child: Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x240E2C70),
+                              blurRadius: 10,
+                              offset: Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: IconButton(
+                          onPressed: onTap,
+                          icon: const Icon(Icons.chevron_right_rounded),
+                          color: _primary,
+                          iconSize: 23,
+                          tooltip: '진료 예약하기',
+                          padding: EdgeInsets.zero,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -721,21 +756,26 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
     try {
       final value = await AppointmentsApi(widget.apiClient)
           .detail(widget.appointment.appointmentId);
-      if (mounted)
+      if (mounted) {
         setState(() {
           _detail = value;
           _error = null;
         });
+      }
     } on ApiException catch (error) {
-      if (mounted) setState(() => _error = error.message);
+      if (mounted) {
+        setState(() => _error = error.message);
+      }
     } catch (_) {
-      if (mounted) setState(() => _error = '예약 상세를 불러오지 못했습니다.');
+      if (mounted) {
+        setState(() => _error = '예약 상세를 불러오지 못했습니다.');
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_detail == null)
+    if (_detail == null) {
       return Scaffold(
           appBar: AppBar(title: const Text('예약 상세')),
           body: Center(
@@ -743,6 +783,7 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
                   ? const CircularProgressIndicator()
                   : TextButton(
                       onPressed: _load, child: Text('$_error 다시 시도'))));
+    }
     String nested(String key) {
       final value = _detail![key];
       return value is Map ? value['name']?.toString() ?? '' : '';
@@ -751,95 +792,197 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
     final date = DateTime.tryParse(_detail!['scheduled_at']?.toString() ?? '')
         ?.toLocal();
     return Scaffold(
-      appBar: AppBar(title: const Text('예약 상세')),
-      body: ListView(padding: const EdgeInsets.all(20), children: [
-        _InfoCard(
-            title:
-                nested('department').isEmpty ? '진료 예약' : nested('department'),
-            rows: {
-              '예약일시': date == null ? '-' : _formatDate(date),
-              '병원': nested('hospital').isEmpty ? '-' : nested('hospital'),
-              '의료진': nested('clinician').isEmpty ? '-' : nested('clinician'),
-              '상태': _statusLabel(_detail!['status']?.toString() ?? ''),
-              '예약 유형': _detail!['request_type']?.toString() ?? '-',
-            }),
-        const SizedBox(height: 18),
-        Row(children: [
-          Expanded(
-              child: OutlinedButton(
-                  onPressed: () async {
-                    final changed = await Navigator.of(context).push<bool>(
-                        MaterialPageRoute(
-                            builder: (_) => _ReservationChangePage(
-                                apiClient: widget.apiClient,
-                                appointment: widget.appointment)));
-                    if (changed == true && context.mounted)
-                      Navigator.pop(context);
-                  },
-                  child: const Text('예약 변경'))),
-          const SizedBox(width: 10),
-          Expanded(
-              child: OutlinedButton(
-                  style: OutlinedButton.styleFrom(foregroundColor: _danger),
-                  onPressed: _isCancelling ? null : () => _showCancel(context),
-                  child: Text(_isCancelling ? '취소 중...' : '예약 취소'))),
-        ]),
-      ]),
+      appBar: AppBar(
+        title: const Text('예약 상세'),
+        actions: [
+          IconButton(
+            tooltip: '메뉴',
+            onPressed: () {},
+            icon: const Icon(Icons.more_horiz_rounded),
+          ),
+        ],
+      ),
+      body: SafeArea(
+        top: false,
+        child: Column(
+          children: [
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                children: [
+                  _AppointmentDetailCard(
+                    status: _detail!['status']?.toString() ?? '',
+                    scheduledAt: date,
+                    department: nested('department'),
+                    clinician: nested('clinician'),
+                    hospital: nested('hospital'),
+                  ),
+                  const SizedBox(height: 16),
+                  const _AppointmentNoticeCard(),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+              child: Row(children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () async {
+                      final changed = await Navigator.of(context).push<bool>(
+                          MaterialPageRoute(
+                              builder: (_) => _ReservationChangePage(
+                                  apiClient: widget.apiClient,
+                                  appointment: widget.appointment)));
+                      if (changed == true && context.mounted) {
+                        Navigator.pop(context);
+                      }
+                    },
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(52),
+                      foregroundColor: _primary,
+                      side: const BorderSide(color: _primary),
+                    ),
+                    child: const Text('예약 변경'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(52),
+                      foregroundColor: _danger,
+                      side: const BorderSide(color: Color(0xFFF0A7B0)),
+                    ),
+                    onPressed:
+                        _isCancelling ? null : () => _showCancel(context),
+                    child: Text(_isCancelling ? '취소 중...' : '예약 취소'),
+                  ),
+                ),
+              ]),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   void _showCancel(BuildContext context) {
-    final reason = TextEditingController();
+    final otherReason = TextEditingController();
+    String? selectedReason;
     showDialog<void>(
         context: context,
-        builder: (dialogContext) => AlertDialog(
-              title: const Text('예약을 취소할까요?'),
-              content: TextField(
-                  controller: reason,
-                  decoration: const InputDecoration(labelText: '취소 사유 (선택)')),
-              actions: [
-                TextButton(
-                    onPressed: () => Navigator.pop(dialogContext),
-                    child: const Text('닫기')),
-                FilledButton(
+        builder: (dialogContext) => StatefulBuilder(
+              builder: (context, setDialogState) => AlertDialog(
+                title: const Text('예약을 취소할까요?'),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedReason,
+                      isExpanded: true,
+                      hint: const Text('취소 사유를 선택해 주세요.'),
+                      decoration: InputDecoration(
+                        labelText: '취소 사유 (선택)',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      items: const [
+                        '일정 변경',
+                        '다른 의료진으로 변경',
+                        '증상 호전',
+                        '다른 병원 방문',
+                        '개인 사정',
+                        '기타',
+                      ]
+                          .map((reason) => DropdownMenuItem(
+                                value: reason,
+                                child: Text(reason),
+                              ))
+                          .toList(),
+                      onChanged: (reason) =>
+                          setDialogState(() => selectedReason = reason),
+                    ),
+                    if (selectedReason == '기타') ...[
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: otherReason,
+                        decoration: const InputDecoration(
+                          labelText: '취소 사유 입력',
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      child: const Text('닫기')),
+                  FilledButton(
                     onPressed: () async {
-                      if (_isCancelling) return;
+                      if (_isCancelling) {
+                        return;
+                      }
                       setState(() => _isCancelling = true);
+                      final reason = selectedReason == '기타'
+                          ? otherReason.text
+                          : selectedReason;
                       try {
                         await AppointmentsApi(widget.apiClient).cancel(
                             widget.appointment.appointmentId,
-                            reason: reason.text);
-                        if (dialogContext.mounted) Navigator.pop(dialogContext);
-                        if (context.mounted) Navigator.pop(context);
+                            reason: reason);
+                        if (dialogContext.mounted) {
+                          Navigator.pop(dialogContext);
+                        }
+                        if (context.mounted) {
+                          Navigator.pop(context);
+                        }
                       } on ApiException catch (error) {
-                        if (dialogContext.mounted)
+                        if (dialogContext.mounted) {
                           ScaffoldMessenger.of(dialogContext).showSnackBar(
                               SnackBar(content: Text(error.message)));
+                        }
                       } catch (_) {
-                        if (dialogContext.mounted)
+                        if (dialogContext.mounted) {
                           ScaffoldMessenger.of(dialogContext).showSnackBar(
                               const SnackBar(
                                   content: Text('예약 취소를 처리하지 못했습니다.')));
+                        }
                       } finally {
-                        if (mounted) setState(() => _isCancelling = false);
+                        if (mounted) {
+                          setState(() => _isCancelling = false);
+                        }
                       }
                     },
-                    child: const Text('예약 취소')),
-              ],
+                    child: const Text('예약 취소'),
+                  ),
+                ],
+              ),
             ));
   }
 }
 
-class _ReservationStartPage extends StatelessWidget {
-  const _ReservationStartPage({required this.apiClient, this.onChanged});
+class AppointmentReservationFlow extends StatelessWidget {
+  const AppointmentReservationFlow({
+    super.key,
+    required this.apiClient,
+    this.onChanged,
+    this.onComplete,
+    this.embedded = false,
+  });
   final ApiClient apiClient;
   final VoidCallback? onChanged;
+  final VoidCallback? onComplete;
+  final bool embedded;
   @override
   Widget build(BuildContext context) => _SlotSelectionPage(
         apiClient: apiClient,
         title: '진료 예약',
         onSubmit: (slotId) => AppointmentsApi(apiClient).create(slotId),
         onChanged: onChanged,
+        onComplete: onComplete,
+        embedded: embedded,
+        showCompletion: true,
       );
 }
 
@@ -858,18 +1001,221 @@ class _ReservationChangePage extends StatelessWidget {
       );
 }
 
+class _ReservationCompletedPage extends StatelessWidget {
+  const _ReservationCompletedPage({
+    required this.date,
+    required this.slot,
+    required this.clinician,
+  });
+
+  final DateTime date;
+  final AppointmentSlot? slot;
+  final ClinicianOption? clinician;
+
+  @override
+  Widget build(BuildContext context) => PopScope(
+        canPop: false,
+        child: Scaffold(
+          body: SafeArea(
+            child: Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 24, 16, 20),
+                    child: Column(
+                      children: [
+                        Stack(
+                          clipBehavior: Clip.none,
+                          alignment: Alignment.topCenter,
+                          children: [
+                            SizedBox(
+                              width: 160,
+                              height: 160,
+                              child: Image.asset(
+                                'assets/images/image1.png',
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                            Positioned(
+                              top: -4,
+                              child: Container(
+                                width: 36,
+                                height: 36,
+                                decoration: const BoxDecoration(
+                                  color: _primary,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.check_rounded,
+                                  color: Colors.white,
+                                  size: 22,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        const Text(
+                          '예약이 완료되었습니다!',
+                          style: TextStyle(
+                            color: _text,
+                            fontSize: 23,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        const Text(
+                          '선택하신 일정으로 진료 예약이 완료되었어요.\n예약 내역은 내 예약에서 확인할 수 있습니다.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: _muted,
+                            fontSize: 14,
+                            height: 1.55,
+                          ),
+                        ),
+                        const SizedBox(height: 28),
+                        _ReservationCompletedSummary(
+                          date: date,
+                          slot: slot,
+                          clinician: clinician,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: FilledButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      child: const Text('확인'),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+}
+
+class _ReservationCompletedSummary extends StatelessWidget {
+  const _ReservationCompletedSummary({
+    required this.date,
+    required this.slot,
+    required this.clinician,
+  });
+
+  final DateTime date;
+  final AppointmentSlot? slot;
+  final ClinicianOption? clinician;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: _border),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          children: [
+            _ReservationCompletedRow(
+              icon: Icons.calendar_month_outlined,
+              label: '예약 날짜 / 시간',
+              value:
+                  '${_formatSelectedDate(date)} ${_formatSlotTime(slot?.startAt)}',
+            ),
+            if (clinician?.department.isNotEmpty == true) ...[
+              const Divider(height: 24, color: Color(0xFFE6E8F2)),
+              _ReservationCompletedRow(
+                icon: Icons.account_tree_outlined,
+                label: '진료과',
+                value: clinician!.department,
+              ),
+            ],
+            if (clinician?.name.isNotEmpty == true) ...[
+              const Divider(height: 24, color: Color(0xFFE6E8F2)),
+              _ReservationCompletedRow(
+                icon: Icons.person_outline_rounded,
+                label: '의료진',
+                value: clinician!.name,
+              ),
+            ],
+          ],
+        ),
+      );
+}
+
+class _ReservationCompletedRow extends StatelessWidget {
+  const _ReservationCompletedRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: _soft,
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: Icon(icon, color: _primary, size: 22),
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: const TextStyle(color: _muted, fontSize: 12)),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _text,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+}
+
 class _SlotSelectionPage extends StatefulWidget {
   const _SlotSelectionPage(
       {required this.apiClient,
       required this.title,
       required this.onSubmit,
       this.fixedClinicianId,
-      this.onChanged});
+      this.onChanged,
+      this.onComplete,
+      this.embedded = false,
+      this.showCompletion = false});
   final ApiClient apiClient;
   final String title;
   final String? fixedClinicianId;
   final Future<void> Function(String slotId) onSubmit;
   final VoidCallback? onChanged;
+  final VoidCallback? onComplete;
+  final bool embedded;
+  final bool showCompletion;
   @override
   State<_SlotSelectionPage> createState() => _SlotSelectionPageState();
 }
@@ -880,6 +1226,7 @@ class _SlotSelectionPageState extends State<_SlotSelectionPage> {
   List<AppointmentSlot> _slots = const [];
   String? _clinicianId;
   String? _selectedSlotId;
+  String? _selectedDepartment;
   DateTime _date = DateTime.now();
   DateTime _displayedMonth = _monthStart(DateTime.now());
   ReservationStep _step = ReservationStep.date;
@@ -903,29 +1250,35 @@ class _SlotSelectionPageState extends State<_SlotSelectionPage> {
   Future<void> _loadClinicians() async {
     try {
       final values = await _api.clinicians();
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _clinicians = values;
         _loading = false;
       });
     } on ApiException catch (error) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = error.message;
           _loading = false;
         });
+      }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = '의료진 목록을 불러오지 못했습니다.';
           _loading = false;
         });
+      }
     }
   }
 
   Future<void> _loadSlots() async {
     final clinicianId = _clinicianId;
-    if (clinicianId == null || clinicianId.isEmpty) return;
+    if (clinicianId == null || clinicianId.isEmpty) {
+      return;
+    }
     setState(() {
       _loading = true;
       _error = null;
@@ -933,25 +1286,28 @@ class _SlotSelectionPageState extends State<_SlotSelectionPage> {
     });
     try {
       final values = await _api.slots(clinicianId, _date);
-      if (mounted)
+      if (mounted) {
         setState(() {
           _slots = values;
           _loading = false;
         });
+      }
     } on ApiException catch (error) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _slots = const [];
           _error = error.message;
           _loading = false;
         });
+      }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _slots = const [];
           _error = '예약 가능 시간을 불러오지 못했습니다.';
           _loading = false;
         });
+      }
     }
   }
 
@@ -975,6 +1331,16 @@ class _SlotSelectionPageState extends State<_SlotSelectionPage> {
     return null;
   }
 
+  List<String> get _departments => _clinicians
+      .map((clinician) => clinician.department)
+      .where((department) => department.isNotEmpty)
+      .toSet()
+      .toList();
+
+  List<ClinicianOption> get _departmentClinicians => _clinicians
+      .where((clinician) => clinician.department == _selectedDepartment)
+      .toList();
+
   AppointmentSlot? get _selectedSlot {
     for (final slot in _slots) {
       if (slot.id == _selectedSlotId) return slot;
@@ -988,14 +1354,31 @@ class _SlotSelectionPageState extends State<_SlotSelectionPage> {
     setState(() => _submitting = true);
     try {
       await widget.onSubmit(slotId);
+      if (widget.showCompletion && mounted) {
+        final confirmed = await Navigator.of(context).push<bool>(
+          MaterialPageRoute(
+            builder: (_) => _ReservationCompletedPage(
+              date: _date,
+              slot: _selectedSlot,
+              clinician: _selectedClinician,
+            ),
+          ),
+        );
+        if (!mounted || confirmed != true) return;
+      }
       widget.onChanged?.call();
-      if (mounted) Navigator.pop(context, true);
+      if (widget.embedded) {
+        widget.onComplete?.call();
+      } else if (mounted) {
+        Navigator.pop(context, true);
+      }
     } on ApiException catch (error) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = error.message;
           _submitting = false;
         });
+      }
     } catch (_) {
       if (mounted) setState(() => _error = '요청을 처리하지 못했습니다.');
     } finally {
@@ -1004,22 +1387,42 @@ class _SlotSelectionPageState extends State<_SlotSelectionPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: Text(widget.title)),
-        body: SafeArea(
-          top: false,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-            children: [
-              _ReservationStepIndicator(step: _step),
-              const SizedBox(height: 24),
-              if (_step == ReservationStep.date) _buildDateStep(),
-              if (_step == ReservationStep.clinician) _buildClinicianStep(),
-              if (_step == ReservationStep.confirm) _buildConfirmStep(),
-            ],
+  Widget build(BuildContext context) {
+    final content = SafeArea(
+      top: false,
+      bottom: false,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(90, 10, 20, 12),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 350),
+                child: _ReservationStepIndicator(step: _step),
+              ),
+            ),
           ),
-        ),
-      );
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+              children: [
+                if (_step == ReservationStep.date) _buildDateStep(),
+                if (_step == ReservationStep.clinician) _buildClinicianStep(),
+                if (_step == ReservationStep.confirm) _buildConfirmStep(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (widget.embedded) return content;
+
+    return Scaffold(
+      appBar: AppBar(title: Text(widget.title)),
+      body: content,
+    );
+  }
 
   Widget _buildDateStep() => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1077,7 +1480,7 @@ class _SlotSelectionPageState extends State<_SlotSelectionPage> {
           const SizedBox(height: 16),
           if (widget.fixedClinicianId == null) ...[
             const Text(
-              '의료진 선택',
+              '진료과 선택',
               style: TextStyle(
                   color: _text, fontSize: 16, fontWeight: FontWeight.w800),
             ),
@@ -1086,8 +1489,57 @@ class _SlotSelectionPageState extends State<_SlotSelectionPage> {
               const Center(child: CircularProgressIndicator())
             else if (_error != null && _clinicians.isEmpty)
               _StateCard.error(message: _error!, onRetry: _loadClinicians)
-            else
-              ..._clinicians.map((clinician) => _ClinicianSelectionCard(
+            else ...[
+              DropdownButtonFormField<String>(
+                initialValue: _selectedDepartment,
+                isExpanded: true,
+                hint: const Text('진료과를 선택해 주세요.'),
+                icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: Colors.white,
+                  prefixIcon: const Icon(Icons.medical_services_outlined),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: _border),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: _primary, width: 1.5),
+                  ),
+                ),
+                items: _departments
+                    .map((department) => DropdownMenuItem(
+                          value: department,
+                          child: Text(department),
+                        ))
+                    .toList(),
+                onChanged: (department) {
+                  setState(() {
+                    _selectedDepartment = department;
+                    _clinicianId = null;
+                    _selectedSlotId = null;
+                    _slots = const [];
+                    _error = null;
+                  });
+                },
+              ),
+              const SizedBox(height: 18),
+              if (_selectedDepartment == null)
+                const _StateCard.empty(
+                  icon: Icons.medical_services_outlined,
+                  title: '진료과를 선택해 주세요.',
+                  description: '진료과를 선택하면 해당 과의 의료진 목록이 표시됩니다.',
+                )
+              else ...[
+                const Text(
+                  '의료진 선택',
+                  style: TextStyle(
+                      color: _text, fontSize: 16, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 10),
+                ..._departmentClinicians.map(
+                  (clinician) => _ClinicianSelectionCard(
                     clinician: clinician,
                     selected: clinician.id == _clinicianId,
                     onTap: () {
@@ -1095,48 +1547,48 @@ class _SlotSelectionPageState extends State<_SlotSelectionPage> {
                       setState(() => _clinicianId = clinician.id);
                       _loadSlots();
                     },
-                  )),
+                  ),
+                ),
+              ],
+            ],
             const SizedBox(height: 18),
           ],
-          const Text(
-            '예약 가능 시간',
-            style: TextStyle(
-                color: _text, fontSize: 16, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 10),
-          if (_clinicianId == null)
-            const _StateCard.empty(
-              icon: Icons.person_search_outlined,
-              title: '의료진을 선택해 주세요.',
-              description: '의료진을 선택하면 예약 가능한 시간이 표시됩니다.',
-            )
-          else if (_loading)
-            const Center(
-                child: Padding(
-              padding: EdgeInsets.all(24),
-              child: CircularProgressIndicator(),
-            ))
-          else if (_error != null)
-            _StateCard.error(message: _error!, onRetry: _loadSlots)
-          else if (_slots.isEmpty)
-            const _StateCard.empty(
-              icon: Icons.event_busy_outlined,
-              title: '예약 가능한 시간이 없습니다.',
-              description: '다른 날짜 또는 의료진을 선택해 주세요.',
-            )
-          else
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _slots
-                  .map((slot) => _SlotTimeButton(
-                        label: _formatSlotTime(slot.startAt),
-                        selected: _selectedSlotId == slot.id,
-                        onTap: () => setState(() => _selectedSlotId = slot.id),
-                      ))
-                  .toList(),
+          if (_clinicianId != null) ...[
+            const Text(
+              '예약 가능 시간',
+              style: TextStyle(
+                  color: _text, fontSize: 16, fontWeight: FontWeight.w800),
             ),
-          const SizedBox(height: 22),
+            const SizedBox(height: 10),
+            if (_loading)
+              const Center(
+                  child: Padding(
+                padding: EdgeInsets.all(24),
+                child: CircularProgressIndicator(),
+              ))
+            else if (_error != null)
+              _StateCard.error(message: _error!, onRetry: _loadSlots)
+            else if (_slots.isEmpty)
+              const _StateCard.empty(
+                icon: Icons.event_busy_outlined,
+                title: '예약 가능한 시간이 없습니다.',
+                description: '다른 날짜 또는 의료진을 선택해 주세요.',
+              )
+            else
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _slots
+                    .map((slot) => _SlotTimeButton(
+                          label: _formatSlotTime(slot.startAt),
+                          selected: _selectedSlotId == slot.id,
+                          onTap: () =>
+                              setState(() => _selectedSlotId = slot.id),
+                        ))
+                    .toList(),
+              ),
+            const SizedBox(height: 22),
+          ],
           Row(
             children: [
               Expanded(
@@ -1245,7 +1697,7 @@ class _ReservationStepIndicator extends StatelessWidget {
                 child: Text(
                   labels[index],
                   maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
                   style: TextStyle(
                     color: active || completed ? _primary : _muted,
                     fontSize: 12,
@@ -1504,36 +1956,146 @@ class _SelectedReservationDateCard extends StatelessWidget {
       );
 }
 
-class _InfoCard extends StatelessWidget {
-  const _InfoCard({required this.title, required this.rows});
-  final String title;
-  final Map<String, String> rows;
+class _AppointmentDetailCard extends StatelessWidget {
+  const _AppointmentDetailCard({
+    required this.status,
+    required this.scheduledAt,
+    required this.department,
+    required this.clinician,
+    required this.hospital,
+  });
+
+  final String status;
+  final DateTime? scheduledAt;
+  final String department;
+  final String clinician;
+  final String hospital;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: _border),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _AppointmentStatusBadge(status: status),
+            const SizedBox(height: 13),
+            Text(
+              scheduledAt == null ? '-' : _formatAppointmentDate(scheduledAt!),
+              style: const TextStyle(
+                color: _text,
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const Divider(height: 30, color: Color(0xFFE6E8F2)),
+            _AppointmentDetailRow(
+              icon: Icons.account_tree_outlined,
+              label: '진료과',
+              value: department.isEmpty ? '-' : department,
+            ),
+            const Divider(height: 24, color: Color(0xFFE6E8F2)),
+            _AppointmentDetailRow(
+              icon: Icons.person_outline_rounded,
+              label: '의료진',
+              value: clinician.isEmpty ? '-' : clinician,
+            ),
+            const Divider(height: 24, color: Color(0xFFE6E8F2)),
+            _AppointmentDetailRow(
+              icon: Icons.local_hospital_outlined,
+              label: '병원',
+              value: hospital.isEmpty ? '-' : hospital,
+            ),
+          ],
+        ),
+      );
+}
+
+class _AppointmentDetailRow extends StatelessWidget {
+  const _AppointmentDetailRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: _soft,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: _primary, size: 23),
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: const TextStyle(color: _muted, fontSize: 12)),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _text,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+}
+
+class _AppointmentNoticeCard extends StatelessWidget {
+  const _AppointmentNoticeCard();
+
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: _border),
-            borderRadius: BorderRadius.circular(18)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title,
-              style: const TextStyle(
-                  color: _text, fontSize: 18, fontWeight: FontWeight.w800)),
-          const Divider(height: 28),
-          ...rows.entries.map((row) => Padding(
-              padding: const EdgeInsets.only(bottom: 14),
-              child:
-                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                SizedBox(
-                    width: 88,
-                    child:
-                        Text(row.key, style: const TextStyle(color: _muted))),
-                Expanded(
-                    child: Text(row.value,
-                        style: const TextStyle(
-                            color: _text, fontWeight: FontWeight.w600))),
-              ]))),
-        ]),
+          color: _soft,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.info_outline_rounded, color: _primary, size: 19),
+                SizedBox(width: 7),
+                Text(
+                  '안내사항',
+                  style: TextStyle(
+                    color: _text,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 10),
+            Text(
+              '• 예약 시간 10분 전까지 병원에 도착해 주세요.\n• 신분증을 지참해 주세요.',
+              style: TextStyle(color: _muted, fontSize: 13, height: 1.7),
+            ),
+          ],
+        ),
       );
 }
 
@@ -1660,14 +2222,6 @@ class _StateCard extends StatelessWidget {
                 ],
               ]),
       );
-}
-
-String _formatDate(DateTime value) {
-  final month = value.month.toString().padLeft(2, '0');
-  final day = value.day.toString().padLeft(2, '0');
-  final hour = value.hour.toString().padLeft(2, '0');
-  final minute = value.minute.toString().padLeft(2, '0');
-  return '${value.year}.$month.$day  $hour:$minute';
 }
 
 DateTime _monthStart(DateTime value) => DateTime(value.year, value.month);

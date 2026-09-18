@@ -25,6 +25,8 @@ interface TriageSummary {
   screeningCompleted: number;
   bpSys: string;
   bpDia: string;
+  heartRate: string;
+  temperature: string;
   lkwAt: string;
 }
 
@@ -133,10 +135,76 @@ export default function TriageResult({
      평가 결과
      ======================================================== */
 
-  const redFlags =
-    result?.items.filter(
-      (item) =>
-        item.is_red_flag,
+  const screeningLabels: Record<string, string> = {
+    BALANCE: "Balance / 균형",
+    EYES: "Eyes / 시야",
+    FACE: "Face / 안면",
+    ARM: "Arm / 상지",
+    SPEECH: "Speech / 언어",
+    CONSCIOUSNESS: "Consciousness / 의식",
+  };
+
+  const scoreLabels = [
+    "",
+    "정상",
+    "경미",
+    "중간",
+    "뚜렷",
+    "심함",
+  ];
+
+  const abnormalFindings =
+    result?.items.flatMap(
+      (item) => {
+        if (
+          item.item_code.startsWith(
+            "FAST_",
+          ) &&
+          item.value_text ===
+            "ABNORMAL"
+        ) {
+          return [{
+            code:
+              item.item_code,
+            label:
+              `FAST ${item.item_code.replace("FAST_", "")}`,
+            detail:
+              "이상",
+          }];
+        }
+
+        if (
+          Object.prototype.hasOwnProperty.call(
+            screeningLabels,
+            item.item_code,
+          )
+        ) {
+          const score =
+            Number(
+              item.score ??
+              item.value_numeric,
+            );
+
+          if (
+            Number.isFinite(score) &&
+            score > 1
+          ) {
+            return [{
+              code:
+                item.item_code,
+              label:
+                screeningLabels[
+                  item.item_code
+                ],
+              detail:
+                scoreLabels[score] ??
+                `${score}점`,
+            }];
+          }
+        }
+
+        return [];
+      },
     ) ?? [];
 
 
@@ -507,6 +575,41 @@ export default function TriageResult({
                   summary.bpDia ||
                   "-"
                 }
+                {" mmHg"}
+              </dd>
+
+            </div>
+
+
+            <div>
+
+              <dt>
+                HR
+              </dt>
+
+              <dd>
+                {
+                  summary.heartRate
+                    ? `${summary.heartRate} bpm`
+                    : "-"
+                }
+              </dd>
+
+            </div>
+
+
+            <div>
+
+              <dt>
+                BT
+              </dt>
+
+              <dd>
+                {
+                  summary.temperature
+                    ? `${summary.temperature} ℃`
+                    : "-"
+                }
               </dd>
 
             </div>
@@ -540,29 +643,29 @@ export default function TriageResult({
 
 
       {/* ====================================================
-          Red Flag + 담당 신경과
+          주요 이상 소견 + 담당 신경과
           ==================================================== */}
 
       <div className="triage-result-columns">
 
         {/* ==================================================
-            Red Flag
+            주요 이상 소견
             ================================================== */}
 
         <section className="triage-result-subcard">
 
           <h3>
-            Red Flag
+            주요 이상 소견
           </h3>
 
 
           {
-            redFlags.length === 0
+            abnormalFindings.length === 0
               ? (
                 <div className="triage-result-empty">
                   {
                     result
-                      ? "확인된 Red Flag 항목이 없습니다."
+                      ? "입력된 이상 소견이 없습니다."
                       : "평가 결과 연동 정보가 없습니다."
                   }
                 </div>
@@ -571,23 +674,25 @@ export default function TriageResult({
                 <ul>
 
                   {
-                    redFlags.map(
+                    abnormalFindings.map(
                       (item) => (
                         <li
                           key={
-                            item.item_code
+                            item.code
                           }
                         >
 
                           <strong>
                             {
-                              item.item_code
+                              item.label
                             }
                           </strong>
 
 
                           <span>
-                            Red Flag
+                            {
+                              item.detail
+                            }
                           </span>
 
                         </li>

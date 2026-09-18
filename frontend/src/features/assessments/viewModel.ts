@@ -1,7 +1,22 @@
-import type {
-  AssessmentDetailResponse,
-  AssessmentItem,
-} from "./types";
+export interface AssessmentItemLike {
+  item_code: string;
+  value_text?: string | null;
+  value_numeric?: number | string | null;
+  value?: boolean | number | string;
+  unit?: string | null;
+}
+
+export interface InitialAssessmentLike {
+  status: string;
+  total_score: number | null;
+  triage_priority: string | null;
+  onset_at?: string | null;
+  lkw_at?: string | null;
+  symptom_note?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  items: AssessmentItemLike[];
+}
 
 export interface ParsedInitialAssessment {
   bpSys: string | null;
@@ -27,7 +42,7 @@ export interface ParsedInitialAssessment {
 }
 
 export function assessmentItemValue(
-  item: AssessmentItem | undefined,
+  item: AssessmentItemLike | undefined,
 ): string | null {
   if (!item) {
     return null;
@@ -52,7 +67,7 @@ export function assessmentItemValue(
 }
 
 export function parseInitialAssessment(
-  assessment: AssessmentDetailResponse,
+  assessment: InitialAssessmentLike,
 ): ParsedInitialAssessment {
   const items = new Map(
     (assessment.items ?? []).map(
@@ -86,58 +101,53 @@ export function parseInitialAssessment(
   };
 }
 
+interface AssessmentWithStatusAndTime {
+  status: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+function newestByTimestamp<T extends AssessmentWithStatusAndTime>(
+  assessments: T[],
+): T[] {
+  return [...assessments].sort(
+    (left, right) =>
+      (
+        right.updated_at ??
+        right.created_at ??
+        ""
+      ).localeCompare(
+        left.updated_at ??
+        left.created_at ??
+        "",
+      ),
+  );
+}
+
 export function latestCompletedAssessment<
-  T extends Pick<
-    AssessmentDetailResponse,
-    "status" | "created_at" | "updated_at"
-  >
+  T extends AssessmentWithStatusAndTime
 >(
   assessments: T[],
 ): T | null {
-  return assessments
-    .filter(
+  return newestByTimestamp(
+    assessments.filter(
       (assessment) =>
         assessment.status.toUpperCase() ===
         "COMPLETED",
-    )
-    .sort(
-      (left, right) =>
-        (
-          right.updated_at ??
-          right.created_at ??
-          ""
-        ).localeCompare(
-          left.updated_at ??
-          left.created_at ??
-          "",
-        ),
-    )[0] ?? null;
+    ),
+  )[0] ?? null;
 }
 
 export function latestDraftAssessment<
-  T extends Pick<
-    AssessmentDetailResponse,
-    "status" | "created_at" | "updated_at"
-  >
+  T extends AssessmentWithStatusAndTime
 >(
   assessments: T[],
 ): T | null {
-  return assessments
-    .filter(
+  return newestByTimestamp(
+    assessments.filter(
       (assessment) =>
         assessment.status.toUpperCase() ===
         "DRAFT",
-    )
-    .sort(
-      (left, right) =>
-        (
-          right.updated_at ??
-          right.created_at ??
-          ""
-        ).localeCompare(
-          left.updated_at ??
-          left.created_at ??
-          "",
-        ),
-    )[0] ?? null;
+    ),
+  )[0] ?? null;
 }

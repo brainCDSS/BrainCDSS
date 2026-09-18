@@ -534,6 +534,10 @@ class TriageReviewView(APIView):
             reason=serializer.validated_data["reason"],
         )
 
+        # Reassessment is initiated by the assigned neurologist.  Keep the
+        # history/audit record, but do not create another EmergencyEvent or
+        # Notification here; the clinician must not receive a new-assignment
+        # popup for an action they just performed themselves.
         record_audit_event(
             source_service="assessments",
             action="REVIEW_TRIAGE_PRIORITY",

@@ -337,7 +337,7 @@ export default function TriageResult({
             {
               completed
                 ? "초기평가 및 담당 신경과 의료진 배정이 완료되었습니다."
-                : "서버 계산 결과를 확인하고 담당 의료진을 지정합니다."
+                : "FAST, 선별점수, LKW를 확인해 우선순위와 담당 의료진을 지정합니다."
             }
           </p>
 
@@ -456,17 +456,12 @@ export default function TriageResult({
               </dt>
 
               <dd>
-                {
-                  summary.fastAbnormal
-                }
-                {" / 3 이상 "}
+                <strong>
+                  {fastStatus}
+                </strong>
 
                 <small>
-                  (
-                  {
-                    summary.fastCompleted
-                  }
-                  /3 응답)
+                  {summary.fastCompleted}/3 응답 · 이상 {summary.fastAbnormal}개
                 </small>
               </dd>
 

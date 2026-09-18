@@ -17,6 +17,112 @@ from apps.organizations.models import Department, Hospital
 from apps.patients.models import Patient
 
 
+class AssessmentStartAPITests(APITestCase):
+    def setUp(self):
+        self.role = Role.objects.get(code=RoleCode.NURSE)
+        self.nurse = User.objects.create_user(
+            login_id="assessment-start-nurse",
+            password="test-password",
+            name="Assessment start nurse",
+            role=self.role,
+        )
+        self.client.force_authenticate(self.nurse)
+        self.patient = Patient.objects.create(
+            patient_no="ASSESSMENT-START-001",
+            name="Assessment Start Patient",
+            created_by=self.nurse,
+        )
+        self.encounter = Encounter.objects.create(
+            patient=self.patient,
+            encounter_no="ENC-ASSESSMENT-START-001",
+            encounter_type="EMERGENCY",
+            status="REGISTERED",
+            arrived_at=timezone.now(),
+            created_at=timezone.now(),
+            updated_at=timezone.now(),
+        )
+        self.url = reverse("api-asm-assessment-list-by-encounter")
+
+    def test_start_creates_new_draft_assessment(self):
+        response = self.client.post(
+            self.url,
+            {"encounter_id": str(self.encounter.id)},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["status"], "DRAFT")
+        self.assertEqual(
+            response.data["encounter_id"],
+            str(self.encounter.id),
+        )
+
+        assessment = InitialAssessment.objects.get(
+            pk=response.data["assessment_id"],
+        )
+        self.assertEqual(assessment.status, "DRAFT")
+        self.assertEqual(assessment.encounter_id, self.encounter.id)
+        self.assertEqual(assessment.assessor_id, self.nurse.id)
+        self.assertTrue(
+            OutboxEvent.objects.filter(
+                event_type="assessment_created",
+                aggregate=str(assessment.id),
+            ).exists()
+        )
+
+    def test_start_rejects_duplicate_draft(self):
+        InitialAssessment.objects.create(
+            encounter=self.encounter,
+            assessor=self.nurse,
+            status="DRAFT",
+            created_at=timezone.now(),
+            updated_at=timezone.now(),
+        )
+
+        response = self.client.post(
+            self.url,
+            {"encounter_id": str(self.encounter.id)},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(
+            response.data["error"]["details"]["code"],
+            "ASSESSMENT_ALREADY_IN_PROGRESS",
+        )
+        self.assertEqual(
+            InitialAssessment.objects.filter(
+                encounter=self.encounter,
+                status="DRAFT",
+            ).count(),
+            1,
+        )
+
+    def test_start_rejects_closed_encounter(self):
+        self.encounter.status = "COMPLETED"
+        self.encounter.ended_at = timezone.now()
+        self.encounter.save(
+            update_fields=["status", "ended_at"],
+        )
+
+        response = self.client.post(
+            self.url,
+            {"encounter_id": str(self.encounter.id)},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(
+            response.data["error"]["details"]["code"],
+            "ENCOUNTER_NOT_ACTIVE",
+        )
+        self.assertFalse(
+            InitialAssessment.objects.filter(
+                encounter=self.encounter,
+            ).exists()
+        )
+
+
 class AssessmentWorklistAPITests(APITestCase):
     def setUp(self):
         self.role = Role.objects.get(code=RoleCode.NURSE)
@@ -590,7 +696,10 @@ class InitialScreeningAssessmentAPITests(APITestCase):
         )
 
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.data["code"], "TRIAGE_PRIORITY_REQUIRED")
+        self.assertEqual(
+            response.data["error"]["details"]["code"],
+            "TRIAGE_PRIORITY_REQUIRED",
+        )
         self.assessment.refresh_from_db()
         self.assertEqual(self.assessment.status, "DRAFT")
         self.assertIsNone(self.assessment.triage_priority)
@@ -758,7 +867,10 @@ class TriageReviewAPITests(APITestCase):
         )
 
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.data["code"], "TRIAGE_REVIEW_LOCKED")
+        self.assertEqual(
+            response.data["error"]["details"]["code"],
+            "TRIAGE_REVIEW_LOCKED",
+        )
         self.assertEqual(
             TriageReview.objects.filter(
                 assessment=self.assessment,

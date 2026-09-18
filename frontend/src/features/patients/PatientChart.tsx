@@ -518,14 +518,16 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
   const currentRole = currentUser?.role.code;
   const isNurse = currentRole === "NURSE";
   const canRequestConsultation = currentRole === "NEUROLOGIST";
-  const canReviewTriage =
+  const canViewTriageReviews =
     currentRole === "NEUROLOGIST" &&
-    encounter?.status !== "COMPLETED" &&
-    !encounter?.ended_at &&
     Boolean(
       latestAssessment?.assigned_neurologist?.id &&
       latestAssessment.assigned_neurologist.id === currentUser?.id,
     );
+  const canReviewTriage =
+    canViewTriageReviews &&
+    encounter?.status !== "COMPLETED" &&
+    !encounter?.ended_at;
 
   const [isConsultationRequestOpen, setIsConsultationRequestOpen] = useState(false);
   const [consultationType, setConsultationType] = useState<ConsultationType>("RADIOLOGY");
@@ -634,7 +636,7 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
     setTriageReviewData(null);
     setTriageReviewError(null);
 
-    if (!latestAssessment?.assessment_id || !canReviewTriage) {
+    if (!latestAssessment?.assessment_id || !canViewTriageReviews) {
       setTriageReviewLoading(false);
       return () => {
         active = false;
@@ -658,7 +660,7 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
     return () => {
       active = false;
     };
-  }, [canReviewTriage, latestAssessment?.assessment_id]);
+  }, [canViewTriageReviews, latestAssessment?.assessment_id]);
 
   useEffect(() => {
     const requestId = ++medicationRequestId.current;

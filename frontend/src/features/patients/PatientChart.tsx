@@ -5,7 +5,7 @@ import { getApiRequestStatus } from "../../api/client";
 import { getAIAnalyses, getAIAnalysisResult } from "../ai-analysis/api";
 import type { AIAnalysisItem, AIAnalysisResult } from "../ai-analysis/types";
 import { getAssessmentsByEncounter, getClinicians } from "../assessments/api";
-import type { AssessmentDetailResponse, AssessmentItem, Clinician } from "../assessments/types";
+import type { AssessmentDetailResponse, Clinician } from "../assessments/types";
 import {
   latestCompletedAssessment,
   parseInitialAssessment,
@@ -38,11 +38,6 @@ const PAGE_SIZE = 6;
 
 function sex(value: string | null) { return value === "M" || value === "MALE" ? "남" : value === "F" || value === "FEMALE" ? "여" : value || "-"; }
 function age(patient: Patient) { return patient.estimated_age === null ? "-" : `${patient.estimated_age}세`; }
-function formatAssessmentItemValue(item: AssessmentItem | undefined) {
-  const value = item?.value_numeric ?? item?.value_text;
-  if (value === null || value === undefined || value === "") return null;
-  return item?.unit ? `${value} ${item.unit}` : String(value);
-}
 function encounterBadge(encounter?: { status?: string | null; endedAt?: string | null }) {
   if (encounter?.endedAt) return { label: "완료", tone: "completed" };
   if (encounter?.status === "IN_PROGRESS") return { label: "진료중", tone: "in-progress" };

@@ -67,6 +67,44 @@ function consultationTypeLabel(value?: string | null) {
   return labels[value ?? ""] ?? "-";
 }
 
+function triagePriorityLabel(value?: string | null) {
+  const labels: Record<string, string> = {
+    EMERGENCY: "응급",
+    URGENT: "긴급",
+    NON_EMERGENCY: "비응급",
+  };
+  return labels[value ?? ""] ?? "-";
+}
+
+function lkwElapsedLabel(value: string | null, now: number) {
+  if (!value) return "-";
+
+  const timestamp = new Date(value).getTime();
+  if (Number.isNaN(timestamp) || timestamp > now) return "-";
+
+  const totalMinutes = Math.floor((now - timestamp) / 60_000);
+
+  if (totalMinutes < 60) {
+    return `${totalMinutes}분 전`;
+  }
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours < 24) {
+    return minutes > 0
+      ? `${hours}시간 ${minutes}분 전`
+      : `${hours}시간 전`;
+  }
+
+  const days = Math.floor(hours / 24);
+  const remainHours = hours % 24;
+
+  return remainHours > 0
+    ? `${days}일 ${remainHours}시간 전`
+    : `${days}일 전`;
+}
+
 export function PatientRail({ selectedId, patients, onSelect }: { selectedId: string | null; patients: Patient[]; onSelect?: (patient: Patient) => void }) {
   const [search, setSearch] = useState(""); const [page, setPage] = useState(1); const [encounterBadges, setEncounterBadges] = useState<Record<string, { label: string; tone: string }>>({});
   const filtered = useMemo(() => { const query = search.trim().toLowerCase(); return query ? patients.filter((item) => item.name.toLowerCase().includes(query) || item.patient_no.toLowerCase().includes(query)) : patients; }, [patients, search]);
@@ -132,6 +170,140 @@ export function PatientHeader({ patient, care, onOpenDetails }: { patient: Patie
     </dl>
     {onOpenDetails && <button className="patient-context-detail" type="button" onClick={onOpenDetails}>상세 정보 <span aria-hidden="true">⌄</span></button>}
   </header>;
+}
+
+function TriageSummaryBar({
+  assessment,
+  loading,
+  error,
+}: {
+  assessment: AssessmentDetailResponse | null;
+  loading: boolean;
+  error: boolean;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const updateNow = () => setNow(Date.now());
+    const timer = window.setInterval(updateNow, 60_000);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        updateNow();
+      }
+    };
+
+    window.addEventListener("focus", updateNow);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", updateNow);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
+
+  const parsed = assessment
+    ? parseInitialAssessment(assessment)
+    : null;
+
+  const fastValues = [
+    parsed?.fastFace,
+    parsed?.fastArm,
+    parsed?.fastSpeech,
+  ];
+
+  const fastCompleted = fastValues.filter(Boolean).length;
+  const fastAbnormal = fastValues.filter(
+    (value) => value === "ABNORMAL",
+  ).length;
+
+  const fastStatus =
+    fastCompleted === 3
+      ? fastAbnormal > 0
+        ? "POSITIVE"
+        : "NEGATIVE"
+      : "-";
+
+  const findings = [
+    parsed?.fastFace === "ABNORMAL" ? "Face abnormal" : null,
+    parsed?.fastArm === "ABNORMAL" ? "Arm abnormal" : null,
+    parsed?.fastSpeech === "ABNORMAL" ? "Speech abnormal" : null,
+  ].filter((item): item is string => Boolean(item));
+
+  const lkwElapsed = lkwElapsedLabel(parsed?.lkwAt ?? null, now);
+  const lkwClock = parsed?.lkwAt
+    ? new Date(parsed.lkwAt).toLocaleTimeString("ko-KR", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "-";
+
+  return (
+    <section className="patient-triage-strip" aria-label="BrainCDSS 초기평가 요약">
+      <div className="patient-triage-strip__brand">
+        <span className="patient-triage-strip__icon" aria-hidden="true">✚</span>
+        <div>
+          <strong>BrainCDSS Triage</strong>
+          <small>초기평가 요약</small>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="patient-triage-strip__state">초기평가 정보를 불러오는 중입니다.</div>
+      ) : error ? (
+        <div className="patient-triage-strip__state is-error">초기평가 정보를 불러오지 못했습니다.</div>
+      ) : !assessment || !parsed ? (
+        <div className="patient-triage-strip__state">완료된 초기평가가 없습니다.</div>
+      ) : (
+        <>
+          <div className="patient-triage-metric">
+            <span>FAST</span>
+            <strong className={fastStatus === "POSITIVE" ? "is-alert" : ""}>
+              {fastStatus}
+            </strong>
+          </div>
+
+          <div className="patient-triage-metric">
+            <span>선별점수</span>
+            <strong>
+              {parsed.totalScore ?? "-"}
+              <small> / 30</small>
+            </strong>
+          </div>
+
+          <div className="patient-triage-metric">
+            <span>LKW</span>
+            <strong>{lkwElapsed}</strong>
+            <small>{lkwClock}</small>
+          </div>
+
+          <div className="patient-triage-findings">
+            <span>주요 소견</span>
+            {findings.length ? (
+              <div>
+                {findings.slice(0, 2).map((item) => (
+                  <small key={item}>• {item}</small>
+                ))}
+                {findings.length > 2 && (
+                  <b>+{findings.length - 2}</b>
+                )}
+              </div>
+            ) : (
+              <small>FAST 이상 소견 없음</small>
+            )}
+          </div>
+
+          <div className="patient-triage-priority">
+            <span>초기평가 우선순위</span>
+            <strong className={`is-${(parsed.triagePriority ?? "unknown").toLowerCase()}`}>
+              {triagePriorityLabel(parsed.triagePriority)}
+            </strong>
+            <small>{parsed.triagePriority ?? "-"}</small>
+          </div>
+        </>
+      )}
+    </section>
+  );
 }
 
 function SummaryCards({
@@ -585,6 +757,13 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
       <PatientRail selectedId={patient?.id ?? null} patients={patientList.length ? patientList : patients} onSelect={selectPatient} />
       {displayPatient && <PatientHeader patient={displayPatient} care={encounter ? { arrivedAt: encounter.arrived_at, endedAt: encounter.ended_at, encounterStatus: encounter.status, encounterType: encounter.encounter_type } : undefined} />}
       {patient && !accessDenied ? <main className={`patient-context-main${activeTab === "clinical" ? " is-clinical" : ""}`}>
+        {activeTab === "summary" && (
+          <TriageSummaryBar
+            assessment={latestAssessment}
+            loading={vitalLoading}
+            error={vitalError}
+          />
+        )}
         <nav className="patient-chart-tabs" aria-label="환자 정보 탭"><button type="button" className={activeTab === "summary" ? "is-active" : ""} onClick={() => setActiveTab("summary")}>요약</button><button type="button" className={activeTab === "clinical" ? "is-active" : ""} onClick={() => setActiveTab("clinical")}>진료정보</button></nav>
         {activeTab === "clinical" && <ClinicalNotesReadOnly patientId={patient.id} encounterId={encounterId} />}
         {encounterLoading ? <div className="patient-encounter-state">Encounter 정보를 불러오는 중입니다.</div> : !encounterId ? <div className="patient-encounter-state is-empty">현재 활성 Encounter가 없습니다.</div> : encounterError ? <div className="patient-encounter-state is-empty">{encounterError}</div> : null}

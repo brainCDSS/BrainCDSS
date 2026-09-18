@@ -766,7 +766,7 @@ class TriageReviewAPITests(APITestCase):
             0,
         )
 
-        def test_nurse_and_unassigned_neurologist_cannot_retriage(self):
+    def test_nurse_and_unassigned_neurologist_cannot_retriage(self):
         self.client.force_authenticate(self.nurse)
         nurse_response = self.client.post(
             self.url,

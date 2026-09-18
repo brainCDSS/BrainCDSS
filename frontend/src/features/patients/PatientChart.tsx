@@ -6,6 +6,10 @@ import { getAIAnalyses, getAIAnalysisResult } from "../ai-analysis/api";
 import type { AIAnalysisItem, AIAnalysisResult } from "../ai-analysis/types";
 import { getAssessmentsByEncounter, getClinicians } from "../assessments/api";
 import type { AssessmentDetailResponse, AssessmentItem, Clinician } from "../assessments/types";
+import {
+  latestCompletedAssessment,
+  parseInitialAssessment,
+} from "../assessments/viewModel";
 import { getActiveHospitals, getHospitalDetail } from "../appointments/api";
 import { createConsultation, getConsultations } from "../consultations/api";
 import type {
@@ -158,10 +162,25 @@ function SummaryCards({
 }) {
   const latest = studies[0];
   const consultation = consultations[0];
-  const vitalItems = new Map((latestAssessment?.items ?? []).map((item) => [item.item_code, item]));
-  const bloodPressure = formatAssessmentItemValue(vitalItems.get("BP_SYS"));
-  const heartRate = formatAssessmentItemValue(vitalItems.get("HEART_RATE"));
-  const hasVital = bloodPressure !== null || heartRate !== null;
+  const parsedAssessment =
+    latestAssessment
+      ? parseInitialAssessment(latestAssessment)
+      : null;
+  const bloodPressure =
+    parsedAssessment?.bpSys || parsedAssessment?.bpDia
+      ? [
+          parsedAssessment?.bpSys,
+          parsedAssessment?.bpDia,
+        ].filter(Boolean).join(" / ")
+      : null;
+  const heartRate = parsedAssessment?.heartRate ?? null;
+  const respRate = parsedAssessment?.respRate ?? null;
+  const bodyTemp = parsedAssessment?.bodyTemp ?? null;
+  const hasVital =
+    bloodPressure !== null ||
+    heartRate !== null ||
+    respRate !== null ||
+    bodyTemp !== null;
 
   return (
     <section className="patient-summary-grid">
@@ -171,7 +190,7 @@ function SummaryCards({
           <h3>Vital Sign</h3>
         </header>
 
-        {vitalLoading ? <div className="summary-empty"><strong>Vital 정보를 불러오는 중입니다.</strong></div> : vitalError ? <div className="summary-empty"><strong>Vital 정보를 불러오지 못했습니다.</strong></div> : !hasVital ? <div className="summary-empty"><strong>Vital 기록 없음</strong><span>현재 Encounter에 기록된 Vital 정보가 없습니다.</span></div> : <dl><div><dt>BP</dt><dd>{bloodPressure ?? "-"}</dd></div><div><dt>HR</dt><dd>{heartRate ?? "-"}</dd></div><div><dt>RR</dt><dd>-</dd></div><div><dt>BT</dt><dd>-</dd></div></dl>}
+        {vitalLoading ? <div className="summary-empty"><strong>Vital 정보를 불러오는 중입니다.</strong></div> : vitalError ? <div className="summary-empty"><strong>Vital 정보를 불러오지 못했습니다.</strong></div> : !hasVital ? <div className="summary-empty"><strong>Vital 기록 없음</strong><span>현재 Encounter의 완료된 초기평가에 기록된 Vital 정보가 없습니다.</span></div> : <dl><div><dt>BP</dt><dd>{bloodPressure ?? "-"}</dd></div><div><dt>HR</dt><dd>{heartRate ?? "-"}</dd></div><div><dt>RR</dt><dd>{respRate ?? "-"}</dd></div><div><dt>BT</dt><dd>{bodyTemp ?? "-"}</dd></div></dl>}
       </article>
 
       <article className="patient-summary-card">
@@ -379,7 +398,9 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
     setVitalLoading(true);
     void getAssessmentsByEncounter(encounterId).then((response) => {
       if (vitalRequestId.current !== requestId) return;
-      setLatestAssessment(response.results[0] ?? null);
+      setLatestAssessment(
+        latestCompletedAssessment(response.results),
+      );
     }).catch(() => {
       if (vitalRequestId.current !== requestId) return;
       setVitalError(true);

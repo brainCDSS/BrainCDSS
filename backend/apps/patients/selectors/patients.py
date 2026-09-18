@@ -65,6 +65,14 @@ def accessible_patient_ids(actor):
         return Patient.objects.all().values("id")
     if role_code == "PATIENT":
         return Patient.objects.filter(user_id=actor.id).values("id")
+    if role_code == "NURSE":
+        # Nurses must be able to find an existing patient before an
+        # assignment or consultation exists (registration/triage workflow).
+        # The current product runs as a single-hospital deployment, so expose
+        # every non-merged patient here. When hospital ownership is persisted
+        # on the patient/encounter boundary, narrow this branch to the nurse's
+        # hospital without changing the clinician assignment rules below.
+        return Patient.objects.exclude(status="MERGED").values("id")
 
     assigned_patient_ids = PatientCareAssignment.objects.filter(
         clinician_id=actor.id,

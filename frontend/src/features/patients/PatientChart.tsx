@@ -504,6 +504,13 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
   const [accessDenied, setAccessDenied] = useState(false);
   const [encounter, setEncounter] = useState<EncounterListItem | null>(null); const [encounterLoading, setEncounterLoading] = useState(false); const [encounterError, setEncounterError] = useState<string | null>(null); const encounterRequestId = useRef(0);
   const [latestAssessment, setLatestAssessment] = useState<AssessmentDetailResponse | null>(null); const [vitalLoading, setVitalLoading] = useState(false); const [vitalError, setVitalError] = useState(false); const vitalRequestId = useRef(0);
+  const [triageReviewData, setTriageReviewData] = useState<TriageReviewListResponse | null>(null);
+  const [triageReviewLoading, setTriageReviewLoading] = useState(false);
+  const [triageReviewError, setTriageReviewError] = useState<string | null>(null);
+  const [isTriageReviewOpen, setIsTriageReviewOpen] = useState(false);
+  const [reviewPriority, setReviewPriority] = useState<TriagePriority | "">("");
+  const [reviewReason, setReviewReason] = useState("");
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [currentMedications, setCurrentMedications] = useState<CurrentMedicationItem[]>([]); const [medicationsLoading, setMedicationsLoading] = useState(false); const [medicationsError, setMedicationsError] = useState(false); const medicationRequestId = useRef(0);
   const [timelineEvents, setTimelineEvents] = useState<PatientTimelineEvent[]>([]); const [timelineLoading, setTimelineLoading] = useState(false); const [timelineError, setTimelineError] = useState(false); const timelineRequestId = useRef(0);
   const automaticPatientId = useRef<string | null>(null);
@@ -511,6 +518,12 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
   const currentRole = currentUser?.role.code;
   const isNurse = currentRole === "NURSE";
   const canRequestConsultation = currentRole === "NEUROLOGIST";
+  const canReviewTriage =
+    currentRole === "NEUROLOGIST" &&
+    Boolean(
+      latestAssessment?.assigned_neurologist?.id &&
+      latestAssessment.assigned_neurologist.id === currentUser?.id,
+    );
 
   const [isConsultationRequestOpen, setIsConsultationRequestOpen] = useState(false);
   const [consultationType, setConsultationType] = useState<ConsultationType>("RADIOLOGY");
@@ -615,6 +628,37 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
   }, [encounterId, patient?.id]);
 
   useEffect(() => {
+    let active = true;
+    setTriageReviewData(null);
+    setTriageReviewError(null);
+
+    if (!latestAssessment?.assessment_id || !canReviewTriage) {
+      setTriageReviewLoading(false);
+      return () => {
+        active = false;
+      };
+    }
+
+    setTriageReviewLoading(true);
+    void getTriageReviews(latestAssessment.assessment_id)
+      .then((response) => {
+        if (active) setTriageReviewData(response);
+      })
+      .catch(() => {
+        if (active) {
+          setTriageReviewError("의사 재평가 이력을 불러오지 못했습니다.");
+        }
+      })
+      .finally(() => {
+        if (active) setTriageReviewLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [canReviewTriage, latestAssessment?.assessment_id]);
+
+    useEffect(() => {
     const requestId = ++medicationRequestId.current;
     setCurrentMedications([]);
     setMedicationsError(false);
@@ -671,7 +715,63 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
   const selectedStudy = studies.find((item) => item.id === selectedStudyId) ?? studies[0] ?? null; const selectedAnalysis = selectedStudy ? analyses.find((item) => item.study_id === selectedStudy.id) ?? null : null; const selectedAnalysisResult = selectedAnalysis ? analysisResults[selectedAnalysis.analysis_id] ?? null : null;
   useEffect(() => { const id = ++analysisRequestId.current; if (!selectedAnalysis || selectedAnalysis.status !== "COMPLETED" || analysisResults[selectedAnalysis.analysis_id]) { setAnalysisLoading(false); return; } setAnalysisLoading(true); setAnalysisError(null); getAIAnalysisResult(selectedAnalysis.analysis_id).then((value) => { if (analysisRequestId.current === id) setAnalysisResults((current) => ({ ...current, [value.analysis_id]: value })); }).catch(() => { if (analysisRequestId.current === id) setAnalysisError("AI 상세 결과를 불러오지 못했습니다."); }).finally(() => { if (analysisRequestId.current === id) setAnalysisLoading(false); }); }, [selectedAnalysis?.analysis_id, selectedAnalysis?.status, analysisResults]);
 
-  function resetConsultationRequestForm() {
+  function openTriageReview() {
+    if (!canReviewTriage || !latestAssessment) return;
+    const currentPriority =
+      triageReviewData?.effective_priority ??
+      latestAssessment.triage_priority ??
+      "";
+    setReviewPriority(currentPriority);
+    setReviewReason("");
+    setTriageReviewError(null);
+    setIsTriageReviewOpen(true);
+  }
+
+  function closeTriageReview() {
+    if (reviewSubmitting) return;
+    setIsTriageReviewOpen(false);
+    setReviewReason("");
+    setTriageReviewError(null);
+  }
+
+  async function handleTriageReviewSubmit(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+
+    if (
+      !latestAssessment?.assessment_id ||
+      !reviewPriority ||
+      !reviewReason.trim() ||
+      !canReviewTriage
+    ) {
+      setTriageReviewError("재평가 우선순위와 사유를 입력해 주세요.");
+      return;
+    }
+
+    try {
+      setReviewSubmitting(true);
+      setTriageReviewError(null);
+
+      const response = await createTriageReview(
+        latestAssessment.assessment_id,
+        {
+          priority: reviewPriority,
+          reason: reviewReason.trim(),
+        },
+      );
+
+      setTriageReviewData(response);
+      setIsTriageReviewOpen(false);
+      setReviewReason("");
+    } catch {
+      setTriageReviewError("의사 재평가를 저장하지 못했습니다.");
+    } finally {
+      setReviewSubmitting(false);
+    }
+  }
+
+    function resetConsultationRequestForm() {
     setConsultationType("RADIOLOGY");
     setSelectedClinicianId("");
     setConsultationPriority("ROUTINE");
@@ -797,8 +897,11 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
         {activeTab === "summary" && (
           <TriageSummaryBar
             assessment={latestAssessment}
-            loading={vitalLoading}
-            error={vitalError}
+            reviewData={triageReviewData}
+            loading={vitalLoading || triageReviewLoading}
+            error={vitalError || Boolean(triageReviewError)}
+            canReview={canReviewTriage}
+            onReview={openTriageReview}
           />
         )}
         <nav className="patient-chart-tabs" aria-label="환자 정보 탭"><button type="button" className={activeTab === "summary" ? "is-active" : ""} onClick={() => setActiveTab("summary")}>요약</button><button type="button" className={activeTab === "clinical" ? "is-active" : ""} onClick={() => setActiveTab("clinical")}>진료정보</button></nav>
@@ -823,7 +926,117 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
       </main> : <main className="patient-context-main patient-context-main--empty"><div className="patient-selection-empty"><strong>{accessDenied ? "환자 정보 접근 권한이 없습니다." : "선택된 환자가 없습니다."}</strong><span>{accessDenied ? "담당 환자 배정 또는 협진 참여 여부를 확인해 주세요." : "왼쪽 환자 목록에서 환자를 선택해 주세요."}</span></div></main>}
     </div>
     <aside className="patient-context-aside"><Prescriptions items={currentMedications} loading={medicationsLoading} error={medicationsError} onOpen={() => isNurse ? setIsPermissionModalOpen(true) : onNavigate?.("prescriptions")} /><Timeline events={patient ? timelineEvents : []} loading={timelineLoading} error={timelineError} /></aside>
-    {isConsultationRequestOpen && (
+    {isTriageReviewOpen && latestAssessment && (
+      <div className="triage-review-backdrop" role="presentation">
+        <section
+          className="triage-review-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="triage-review-title"
+        >
+          <header className="triage-review-modal__header">
+            <div>
+              <span>PHYSICIAN REASSESSMENT</span>
+              <h2 id="triage-review-title">초기평가 우선순위 재평가</h2>
+            </div>
+            <button
+              type="button"
+              aria-label="닫기"
+              disabled={reviewSubmitting}
+              onClick={closeTriageReview}
+            >
+              ×
+            </button>
+          </header>
+
+          <form
+            className="triage-review-form"
+            onSubmit={handleTriageReviewSubmit}
+          >
+            <div className="triage-review-origin">
+              <div>
+                <span>간호사 초기분류</span>
+                <strong>
+                  {triagePriorityLabel(latestAssessment.triage_priority)}
+                </strong>
+                <small>{latestAssessment.triage_priority ?? "-"}</small>
+              </div>
+
+              {triageReviewData?.latest_review && (
+                <div>
+                  <span>최근 의사 재평가</span>
+                  <strong>
+                    {triagePriorityLabel(
+                      triageReviewData.latest_review.priority,
+                    )}
+                  </strong>
+                  <small>
+                    {triageReviewData.latest_review.reviewer.name} ·{" "}
+                    {dateTime(triageReviewData.latest_review.created_at)}
+                  </small>
+                </div>
+              )}
+            </div>
+
+            <label>
+              <span>재평가 우선순위 *</span>
+              <select
+                value={reviewPriority}
+                disabled={reviewSubmitting}
+                onChange={(event) =>
+                  setReviewPriority(
+                    event.target.value as TriagePriority | "",
+                  )
+                }
+              >
+                <option value="">선택하세요</option>
+                <option value="EMERGENCY">응급 (EMERGENCY)</option>
+                <option value="URGENT">긴급 (URGENT)</option>
+                <option value="NON_EMERGENCY">비응급 (NON_EMERGENCY)</option>
+              </select>
+            </label>
+
+            <label>
+              <span>재평가 사유 *</span>
+              <textarea
+                value={reviewReason}
+                disabled={reviewSubmitting}
+                placeholder="현재 상태와 재분류 근거를 기록하세요."
+                onChange={(event) => setReviewReason(event.target.value)}
+              />
+            </label>
+
+            {triageReviewError && (
+              <p className="triage-review-error">
+                {triageReviewError}
+              </p>
+            )}
+
+            <footer>
+              <button
+                type="button"
+                disabled={reviewSubmitting}
+                onClick={closeTriageReview}
+              >
+                취소
+              </button>
+              <button
+                type="submit"
+                className="is-primary"
+                disabled={
+                  reviewSubmitting ||
+                  !reviewPriority ||
+                  !reviewReason.trim()
+                }
+              >
+                {reviewSubmitting ? "저장 중..." : "재평가 저장"}
+              </button>
+            </footer>
+          </form>
+        </section>
+      </div>
+    )}
+        {isConsultationRequestOpen && (
       <div className="consultation-request-backdrop" role="presentation">
         <section
           className="consultation-request-modal"

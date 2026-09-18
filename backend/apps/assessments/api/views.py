@@ -497,6 +497,14 @@ class TriageReviewView(APIView):
                 "code": "ASSESSMENT_NOT_COMPLETED",
                 "detail": "Only completed assessments can be re-triaged.",
             })
+        if (
+            assessment.encounter.status == "COMPLETED"
+            or assessment.encounter.ended_at is not None
+        ):
+            raise ValidationError({
+                "code": "TRIAGE_REVIEW_LOCKED",
+                "detail": "Triage reassessment is locked after encounter completion.",
+            })
         if assessment.assigned_neurologist_id != request.user.id:
             raise PermissionDenied({
                 "code": "ASSESSMENT_NOT_ASSIGNED",

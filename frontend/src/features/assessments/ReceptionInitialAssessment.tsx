@@ -2015,26 +2015,6 @@ export default function ReceptionInitialAssessment({
     }
 
     if (
-      !receptionDraft.department
-    ) {
-      setError(
-        "진료과를 선택해 주세요.",
-      );
-
-      return;
-    }
-
-    if (
-      !receptionDraft.clinician
-    ) {
-      setError(
-        "담당 의료진을 선택해 주세요.",
-      );
-
-      return;
-    }
-
-    if (
       !onOpenTriage
     ) {
       setError(
@@ -2792,12 +2772,9 @@ export default function ReceptionInitialAssessment({
                       검색 결과 {results.length}건
                     </strong>
 
-                    <button
-                      type="button"
-                      className="reception-result-sort"
-                    >
-                      정확도순⌄
-                    </button>
+                    <span className="reception-result-sort">
+                      정확도순
+                    </span>
 
                   </div>
 
@@ -3564,9 +3541,7 @@ export default function ReceptionInitialAssessment({
 
                   <span>
                     진료과
-                    <em>
-                      *
-                    </em>
+                    <small>선택사항</small>
                   </span>
 
                   <select
@@ -3633,9 +3608,7 @@ export default function ReceptionInitialAssessment({
 
                   <span>
                     담당의
-                    <em>
-                      *
-                    </em>
+                    <small>선택사항</small>
                   </span>
 
                   <select
@@ -3854,8 +3827,6 @@ export default function ReceptionInitialAssessment({
                     appointmentLoading ||
                     departmentLoading ||
                     clinicianLoading ||
-                    !receptionDraft.department ||
-                    !receptionDraft.clinician ||
                     (
                       visitMode ===
                         "APPOINTMENT" &&

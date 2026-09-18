@@ -81,6 +81,30 @@ const emptyInitialScreeningScores = (): Record<InitialScreeningCode, number | nu
 });
 
 
+function toDateTimeLocal(
+  value: string | null | undefined,
+) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const localDate = new Date(
+    date.getTime() -
+      date.getTimezoneOffset() * 60_000,
+  );
+
+  return localDate
+    .toISOString()
+    .slice(0, 16);
+}
+
+
 /* =========================================================
    위험 문진 문항
 
@@ -292,13 +316,15 @@ export default function TriageAssessment({
         return;
       }
 
+      setAssessmentResult(
+        assessment,
+      );
+
       const itemsByCode = new Map(
         assessment.items.map((item) => [item.item_code, item]),
       );
       const itemText = (code: string) => itemsByCode.get(code)?.value_text ?? "";
       const itemNumber = (code: string) => itemsByCode.get(code)?.value_numeric;
-      const toDateTimeLocal = (value: string | null | undefined) =>
-        value ? new Date(value).toISOString().slice(0, 16) : "";
 
       setOnsetAt(toDateTimeLocal(assessment.onset_at));
       setLkwAt(toDateTimeLocal(assessment.lkw_at));
@@ -330,8 +356,18 @@ export default function TriageAssessment({
         });
         return next;
       });
+
+      if (assessment.status !== "DRAFT") {
+        setShowResult(
+          true,
+        );
+      }
     }).catch(() => {
-      // Existing draft entry remains usable when its detail cannot be loaded.
+      if (active) {
+        setApiError(
+          "초기평가 정보를 불러오지 못했습니다.",
+        );
+      }
     });
 
     return () => {
@@ -622,6 +658,27 @@ export default function TriageAssessment({
         null,
       );
 
+      const currentAssessment =
+        assessmentResult ??
+        await getAssessmentDetail(
+          assessmentId,
+        );
+
+      setAssessmentResult(
+        currentAssessment,
+      );
+
+      if (
+        currentAssessment.status !==
+        "DRAFT"
+      ) {
+        setShowResult(
+          true,
+        );
+
+        return;
+      }
+
 
       const payload =
         buildUpdatePayload();
@@ -707,6 +764,28 @@ export default function TriageAssessment({
       setApiError(
         null,
       );
+
+
+      const currentAssessment =
+        assessmentResult ??
+        await getAssessmentDetail(
+          assessmentId,
+        );
+
+      setAssessmentResult(
+        currentAssessment,
+      );
+
+      if (
+        currentAssessment.status !==
+        "DRAFT"
+      ) {
+        setShowResult(
+          true,
+        );
+
+        return;
+      }
 
 
       /* -----------------------------------------------
@@ -834,6 +913,14 @@ export default function TriageAssessment({
       <TriageResult
         result={
           assessmentResult
+        }
+
+        readOnly={
+          readOnly ||
+          Boolean(
+            assessmentResult &&
+            assessmentResult.status !== "DRAFT",
+          )
         }
 
         summary={summary}

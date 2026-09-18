@@ -102,7 +102,7 @@ class PatientCareAssignmentSelectorTests(TestCase):
 
 class NursePatientAccessSelectorTests(TestCase):
     def setUp(self):
-        self.role = Role.objects.create(code="NURSE", name="Nurse")
+        self.role = Role.objects.get(code="NURSE")
         self.nurse = User.objects.create_user(
             "nurse-access",
             "password",

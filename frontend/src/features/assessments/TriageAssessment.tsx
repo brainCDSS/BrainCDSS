@@ -318,13 +318,7 @@ export default function TriageAssessment({
         const next = emptyInitialScreeningScores();
         /* 체온 */
 
-    if (temperature !== "") {
-      items.push({
-        item_code: "BODY_TEMP",
-        value_numeric: Number(temperature),
-        unit: "°C",
-      });
-    }
+
 
     initialScreeningItems.forEach(({ code }) => {
           const rawValue = itemsByCode.get(code)?.value_numeric
@@ -514,6 +508,15 @@ export default function TriageAssessment({
         unit: "bpm",
       });
 
+    }
+    /* 체온 */
+
+    if (temperature !== "") {
+      items.push({
+        item_code: "BODY_TEMP",
+        value_numeric: Number(temperature),
+        unit: "°C",
+      });
     }
 
     initialScreeningItems.forEach(({ code }) => {

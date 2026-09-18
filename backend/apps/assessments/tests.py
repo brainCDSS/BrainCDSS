@@ -14,7 +14,7 @@ from apps.patients.models import Patient
 
 class AssessmentWorklistAPITests(APITestCase):
     def setUp(self):
-        self.role = Role.objects.create(code=RoleCode.NURSE, name="간호사")
+        self.role = Role.objects.get(code=RoleCode.NURSE)
         self.nurse = User.objects.create_user(
             login_id="worklist-nurse",
             password="test-password",
@@ -148,9 +148,8 @@ class EmergencyWorklistAPITests(APITestCase):
             code=RoleCode.NEUROLOGIST,
             name="Neurologist",
         )
-        self.nurse_role = Role.objects.create(
+        self.nurse_role = Role.objects.get(
             code=RoleCode.NURSE,
-            name="Nurse",
         )
         self.neurologist = User.objects.create_user(
             login_id="emergency-neurologist",
@@ -284,9 +283,8 @@ class AssessmentEncounterListAPITests(APITestCase):
             code=RoleCode.NEUROLOGIST,
             name="Neurologist",
         )
-        self.nurse_role = Role.objects.create(
+        self.nurse_role = Role.objects.get(
             code=RoleCode.NURSE,
-            name="Nurse",
         )
         self.neurosurgeon_role = Role.objects.create(
             code=RoleCode.NEUROSURGEON,
@@ -421,7 +419,7 @@ class AssessmentEncounterListAPITests(APITestCase):
 
 class InitialScreeningAssessmentAPITests(APITestCase):
     def setUp(self):
-        role = Role.objects.create(code=RoleCode.NURSE, name="Nurse")
+        role = Role.objects.get(code=RoleCode.NURSE)
         neurologist_role = Role.objects.create(
             code=RoleCode.NEUROLOGIST,
             name="Neurologist",

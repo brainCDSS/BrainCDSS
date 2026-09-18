@@ -678,6 +678,18 @@ class TriageReviewAPITests(APITestCase):
             ).count(),
             1,
         )
+        self.assertEqual(
+            EmergencyEvent.objects.filter(
+                assessment=self.assessment,
+            ).count(),
+            0,
+        )
+        self.assertEqual(
+            Notification.objects.filter(
+                recipient_user=self.neurologist,
+            ).count(),
+            0,
+        )
 
         second = self.client.post(
             self.url,
@@ -729,7 +741,32 @@ class TriageReviewAPITests(APITestCase):
             "EMERGENCY",
         )
 
-    def test_nurse_and_unassigned_neurologist_cannot_retriage(self):
+    def test_retriage_is_locked_after_encounter_completion(self):
+        encounter = self.assessment.encounter
+        encounter.status = "COMPLETED"
+        encounter.ended_at = timezone.now()
+        encounter.save(update_fields=["status", "ended_at"])
+
+        self.client.force_authenticate(self.neurologist)
+        response = self.client.post(
+            self.url,
+            {
+                "priority": "EMERGENCY",
+                "reason": "Attempt after encounter completion.",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["code"], "TRIAGE_REVIEW_LOCKED")
+        self.assertEqual(
+            TriageReview.objects.filter(
+                assessment=self.assessment,
+            ).count(),
+            0,
+        )
+
+        def test_nurse_and_unassigned_neurologist_cannot_retriage(self):
         self.client.force_authenticate(self.nurse)
         nurse_response = self.client.post(
             self.url,

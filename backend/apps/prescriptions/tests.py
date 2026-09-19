@@ -15,7 +15,7 @@ from apps.prescriptions.models import Prescription, PrescriptionItem
 class PatientPrescriptionsViewTests(TestCase):
     def setUp(self):
         self.factory = APIRequestFactory()
-        role = Role.objects.create(code="PATIENT", name="Patient")
+        role = Role.objects.get(code="PATIENT")
         self.user = User.objects.create_user(login_id="patient-prescription", password="test-password", name="Patient", role=role)
         self.patient = Patient.objects.create(user=self.user, patient_no="RX-PATIENT", name="Patient", created_by=self.user)
         self.other_user = User.objects.create_user(login_id="other-patient-prescription", password="test-password", name="Other", role=role)

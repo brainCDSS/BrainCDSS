@@ -13,9 +13,8 @@ class MedicationsPage extends StatefulWidget {
   const MedicationsPage({super.key, required this.apiClient});
   final ApiClient apiClient;
 
-  static void openSchedule(BuildContext context, ApiClient client) => _open(
-      context,
-      _MedicationSchedulePage(apiClient: client));
+  static void openSchedule(BuildContext context, ApiClient client) =>
+      _open(context, _MedicationSchedulePage(apiClient: client));
   static void openHistory(BuildContext context, ApiClient client) => _open(
       context,
       const _MedicationEmptyPage(
@@ -40,9 +39,13 @@ class MedicationsPage extends StatefulWidget {
 class _MedicationsPageState extends State<MedicationsPage> {
   late final PatientPrescriptionsApi _api =
       PatientPrescriptionsApi(widget.apiClient);
+  late final MedicationSchedulesApi _schedulesApi =
+      MedicationSchedulesApi(widget.apiClient);
   List<PrescriptionItemSummary> _items = const [];
+  List<MedicationScheduleSummary> _todaySchedules = const [];
   String? _error;
   bool _loading = true;
+  final Set<String> _takingScheduleIds = {};
 
   @override
   void initState() {
@@ -56,10 +59,14 @@ class _MedicationsPageState extends State<MedicationsPage> {
       _error = null;
     });
     try {
-      final items = await _api.listItems();
+      final results = await Future.wait([
+        _api.listItems(),
+        _schedulesApi.listForDate(DateTime.now()),
+      ]);
       if (!mounted) return;
       setState(() {
-        _items = items;
+        _items = results[0] as List<PrescriptionItemSummary>;
+        _todaySchedules = results[1] as List<MedicationScheduleSummary>;
         _loading = false;
       });
     } on ApiException catch (error) {
@@ -88,7 +95,13 @@ class _MedicationsPageState extends State<MedicationsPage> {
           children: [
             const _MedicationGuideBanner(),
             const SizedBox(height: 16),
-            _TodayMedicationSummary(itemCount: _items.length),
+            _TodayScheduleCard(
+              schedules: _todaySchedules,
+              loading: _loading,
+              takingScheduleIds: _takingScheduleIds,
+              onMarkTaken: _markTaken,
+              onUndoTaken: _confirmUndoTaken,
+            ),
             const SizedBox(height: 14),
             if (_loading)
               const Padding(
@@ -96,78 +109,99 @@ class _MedicationsPageState extends State<MedicationsPage> {
                   child: Center(child: CircularProgressIndicator()))
             else if (_error != null)
               _MedicationErrorCard(message: _error!, onRetry: _load)
-            else if (_items.isNotEmpty)
-              ..._groupedMedicationItems(_items).map(
-                (group) => _MedicationGroup(
-                  group: group,
-                  onTapItem: _openPrescriptionDetail,
-                ),
+            else
+              _ActiveMedicationCard(
+                items: _items,
+                onTapItem: _openPrescriptionDetail,
+                onViewAll: _openActiveMedicationList,
               ),
-            const SizedBox(height: 4),
-            const Text('복약 관리 메뉴',
-                style: TextStyle(
-                    color: _text, fontSize: 17, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 10),
-            _menu(Icons.calendar_month_outlined, '복약 일정',
-                '복약 예정 일정을 확인할 수 있어요.',
-                () => MedicationsPage.openSchedule(context, widget.apiClient)),
-            const SizedBox(height: 11),
-            _menu(Icons.fact_check_outlined, '복약 기록',
-                '복약 완료 내역을 확인할 수 있어요.',
-                () => MedicationsPage.openHistory(context, widget.apiClient)),
-            const SizedBox(height: 14),
-            const _MedicationSupportCard(),
           ],
         ),
       );
 
   void _openPrescriptionDetail(PrescriptionItemSummary item) {
-    Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => _PrescriptionDetailPage(item: item)));
+    Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => _PrescriptionDetailPage(item: item)));
   }
 
-  Widget _menu(
-          IconData icon, String title, String description, VoidCallback onTap) =>
-      Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(17),
-          child: Ink(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: const Color(0xFFDDE2F3)),
-              borderRadius: BorderRadius.circular(17),
-            ),
-            child: Row(children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                    color: _soft, borderRadius: BorderRadius.circular(12)),
-                child: Icon(icon, color: _primary, size: 21),
-              ),
-              const SizedBox(width: 13),
-              Expanded(child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title,
-                        style: const TextStyle(
-                            color: _text,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 3),
-                    Text(description,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: _muted, fontSize: 12)),
-                  ])),
-              const Icon(Icons.chevron_right_rounded, color: _muted),
-            ]),
+  void _openActiveMedicationList() {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => _ActiveMedicationListPage(items: _items),
+    ));
+  }
+
+  Future<void> _markTaken(MedicationScheduleSummary schedule) async {
+    if (schedule.scheduleId.isEmpty ||
+        _takingScheduleIds.contains(schedule.scheduleId)) {
+      return;
+    }
+    setState(() => _takingScheduleIds.add(schedule.scheduleId));
+    try {
+      if (schedule.intakeId?.isNotEmpty == true) {
+        await _schedulesApi.updateIntake(schedule.intakeId!, 'TAKEN');
+      } else {
+        await _schedulesApi.markTaken(schedule.scheduleId);
+      }
+      await _load();
+    } on ApiException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('복용 상태를 변경하지 못했습니다.')));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('복용 상태를 저장하지 못했습니다.')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _takingScheduleIds.remove(schedule.scheduleId));
+      }
+    }
+  }
+
+  Future<void> _confirmUndoTaken(MedicationScheduleSummary schedule) async {
+    if (schedule.intakeId?.isEmpty != false ||
+        _takingScheduleIds.contains(schedule.scheduleId)) {
+      return;
+    }
+    final shouldUndo = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('복용 완료를 취소할까요?'),
+        content: const Text('실수로 완료 처리한 경우 복용 상태를 되돌릴 수 있어요.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소'),
           ),
-        ),
-      );
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('되돌리기'),
+          ),
+        ],
+      ),
+    );
+    if (shouldUndo != true || !mounted) {
+      return;
+    }
+    setState(() => _takingScheduleIds.add(schedule.scheduleId));
+    try {
+      await _schedulesApi.updateIntake(schedule.intakeId!, 'SKIPPED');
+      await _load();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('복용 상태를 변경하지 못했습니다.')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _takingScheduleIds.remove(schedule.scheduleId));
+      }
+    }
+  }
 }
 
 class _MedicationGuideBanner extends StatelessWidget {
@@ -193,7 +227,8 @@ class _MedicationGuideBanner extends StatelessWidget {
             width: 142,
             height: 142,
             child: IgnorePointer(
-              child: Image.asset('assets/images/image2.png', fit: BoxFit.contain),
+              child:
+                  Image.asset('assets/images/image2.png', fit: BoxFit.contain),
             ),
           ),
         ]),
@@ -243,8 +278,220 @@ class _BannerLabel extends StatelessWidget {
       );
 }
 
-class _TodayMedicationSummary extends StatelessWidget {
-  const _TodayMedicationSummary({required this.itemCount});
+class _TodayScheduleCard extends StatelessWidget {
+  const _TodayScheduleCard({
+    required this.schedules,
+    required this.loading,
+    required this.takingScheduleIds,
+    required this.onMarkTaken,
+    required this.onUndoTaken,
+  });
+
+  final List<MedicationScheduleSummary> schedules;
+  final bool loading;
+  final Set<String> takingScheduleIds;
+  final ValueChanged<MedicationScheduleSummary> onMarkTaken;
+  final ValueChanged<MedicationScheduleSummary> onUndoTaken;
+
+  @override
+  Widget build(BuildContext context) {
+    final completed = schedules.where((item) => item.status == 'TAKEN').length;
+    final progress = schedules.isEmpty ? 0.0 : completed / schedules.length;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: _border),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.calendar_today_outlined,
+                  color: _primary, size: 21),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text('오늘의 복약',
+                    style: TextStyle(
+                        color: _text,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800)),
+              ),
+              Text(_todayLabel(),
+                  style: const TextStyle(color: _muted, fontSize: 12)),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (loading)
+            const Center(
+                child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: CircularProgressIndicator()))
+          else if (schedules.isEmpty)
+            const _EmptyTodayMedicationContent()
+          else ...[
+            Row(
+              children: [
+                Text('$completed / ${schedules.length} 완료',
+                    style: const TextStyle(
+                        color: _text,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800)),
+                const Spacer(),
+                Text('${(progress * 100).round()}%',
+                    style: const TextStyle(
+                        color: _primary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(99),
+              child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 8,
+                  backgroundColor: const Color(0xFFE8E9F5)),
+            ),
+            const SizedBox(height: 10),
+            ...schedules.map((schedule) => _TodayScheduleRow(
+                  schedule: schedule,
+                  saving: takingScheduleIds.contains(schedule.scheduleId),
+                  onMarkTaken: () => onMarkTaken(schedule),
+                  onUndoTaken: () => onUndoTaken(schedule),
+                )),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _TodayScheduleRow extends StatelessWidget {
+  const _TodayScheduleRow({
+    required this.schedule,
+    required this.saving,
+    required this.onMarkTaken,
+    required this.onUndoTaken,
+  });
+
+  final MedicationScheduleSummary schedule;
+  final bool saving;
+  final VoidCallback onMarkTaken;
+  final VoidCallback onUndoTaken;
+
+  @override
+  Widget build(BuildContext context) {
+    final taken = schedule.status == 'TAKEN';
+    final time = schedule.scheduledAt;
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 11),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: Color(0xFFEDF0F7))),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 58,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_formatTime(time),
+                    style: const TextStyle(
+                        color: _text,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800)),
+                const SizedBox(height: 3),
+                Row(children: [
+                  Icon(_timeSlotIcon(schedule.timeSlot),
+                      color: _primary, size: 14),
+                  const SizedBox(width: 3),
+                  Expanded(
+                      child: Text(_timeSlotText(schedule.timeSlot),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: _muted, fontSize: 11))),
+                ]),
+              ],
+            ),
+          ),
+          if (taken)
+            const SizedBox(width: 28)
+          else
+            GestureDetector(
+              onTap: saving ? null : onMarkTaken,
+              child: Icon(Icons.radio_button_unchecked_rounded,
+                  color: saving
+                      ? const Color(0xFFE1E3EE)
+                      : const Color(0xFFB9B5EC),
+                  size: 28),
+            ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                    schedule.medicationName.isEmpty
+                        ? '-'
+                        : schedule.medicationName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        color: _text,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800)),
+                const SizedBox(height: 3),
+                Text(_scheduleDose(schedule),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: _muted, fontSize: 12)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (taken)
+            GestureDetector(
+                onTap: saving ? null : onUndoTaken,
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.check_circle_rounded,
+                      color: Color(0xFF3BAF82), size: 22),
+                  const SizedBox(width: 4),
+                  Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                    const Text('복용 완료',
+                        style: TextStyle(
+                            color: Color(0xFF29986D),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800)),
+                    if (schedule.takenAt != null)
+                      Text('${_formatTime(schedule.takenAt)} 복용',
+                          style: const TextStyle(color: _muted, fontSize: 10)),
+                  ])
+                ]))
+          else
+            TextButton(
+              onPressed: saving ? null : onMarkTaken,
+              style: TextButton.styleFrom(
+                  backgroundColor: _soft,
+                  foregroundColor: _primary,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+              child: Text(saving ? '저장 중' : '복용했어요',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w800, fontSize: 12)),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class TodayMedicationSummary extends StatelessWidget {
+  const TodayMedicationSummary({super.key, required this.itemCount});
 
   final int itemCount;
 
@@ -258,8 +505,14 @@ class _TodayMedicationSummary extends StatelessWidget {
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            const Expanded(child: Text('오늘의 복약', style: TextStyle(color: _text, fontSize: 18, fontWeight: FontWeight.w800))),
-            Text(_todayLabel(), style: const TextStyle(color: _muted, fontSize: 12)),
+            const Expanded(
+                child: Text('오늘의 복약',
+                    style: TextStyle(
+                        color: _text,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800))),
+            Text(_todayLabel(),
+                style: const TextStyle(color: _muted, fontSize: 12)),
           ]),
           const SizedBox(height: 15),
           if (itemCount == 0)
@@ -269,15 +522,25 @@ class _TodayMedicationSummary extends StatelessWidget {
               Container(
                 width: 54,
                 height: 54,
-                decoration: const BoxDecoration(color: _soft, shape: BoxShape.circle),
-                child: const Icon(Icons.medication_outlined, color: _primary, size: 27),
+                decoration:
+                    const BoxDecoration(color: _soft, shape: BoxShape.circle),
+                child: const Icon(Icons.medication_outlined,
+                    color: _primary, size: 27),
               ),
               const SizedBox(width: 13),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('오늘 복용할 약 $itemCount개', style: const TextStyle(color: _text, fontSize: 16, fontWeight: FontWeight.w800)),
-                const SizedBox(height: 5),
-                const Text('처방된 복약 정보를 확인해 주세요.', style: TextStyle(color: _muted, fontSize: 12)),
-              ])),
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    Text('오늘 복용할 약 $itemCount개',
+                        style: const TextStyle(
+                            color: _text,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 5),
+                    const Text('처방된 복약 정보를 확인해 주세요.',
+                        style: TextStyle(color: _muted, fontSize: 12)),
+                  ])),
             ]),
         ]),
       );
@@ -300,37 +563,21 @@ class _EmptyTodayMedicationContent extends StatelessWidget {
                   color: _text, fontSize: 17, fontWeight: FontWeight.w800)),
         ),
         const SizedBox(width: 14),
-        const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('오늘 복용할 약이 없어요.', style: TextStyle(color: _text, fontSize: 15, fontWeight: FontWeight.w800)),
+        const Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('오늘 복용할 약이 없어요.',
+              style: TextStyle(
+                  color: _text, fontSize: 15, fontWeight: FontWeight.w800)),
           SizedBox(height: 5),
-          Text('등록된 처방이 생기면 이곳에서 확인할 수 있어요.', style: TextStyle(color: _muted, fontSize: 12, height: 1.35)),
+          Text('등록된 처방이 생기면 이곳에서 확인할 수 있어요.',
+              style: TextStyle(color: _muted, fontSize: 12, height: 1.35)),
           SizedBox(height: 8),
-          Text('오늘도 건강한 하루 되세요!', style: TextStyle(color: _primary, fontSize: 12, fontWeight: FontWeight.w700)),
+          Text('오늘도 건강한 하루 되세요!',
+              style: TextStyle(
+                  color: _primary, fontSize: 12, fontWeight: FontWeight.w700)),
         ])),
       ]);
-}
-
-class _MedicationSupportCard extends StatelessWidget {
-  const _MedicationSupportCard();
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF0F4FF),
-          border: Border.all(color: const Color(0xFFDDE6FA)),
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: const Row(children: [
-          Icon(Icons.support_agent_rounded, color: _primary, size: 27),
-          SizedBox(width: 12),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('궁금한 점이 있으신가요?', style: TextStyle(color: _text, fontWeight: FontWeight.w800)),
-            SizedBox(height: 3),
-            Text('고객센터로 문의하시면 빠르게 도와드릴게요.', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: _muted, fontSize: 12)),
-          ])),
-        ]),
-      );
 }
 
 String _todayLabel() {
@@ -339,15 +586,234 @@ String _todayLabel() {
   return '${today.year}.${today.month.toString().padLeft(2, '0')}.${today.day.toString().padLeft(2, '0')} (${weekdays[today.weekday - 1]})';
 }
 
-class _MedicationSection {
-  const _MedicationSection({required this.title, required this.icon, required this.items});
+String _formatTime(DateTime? value) {
+  if (value == null) {
+    return '-';
+  }
+  return '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
+}
+
+String _timeSlotText(String? value) {
+  final slot = (value ?? '').toUpperCase();
+  if (slot.contains('MORNING')) {
+    return '아침';
+  }
+  if (slot.contains('AFTERNOON') ||
+      slot.contains('LUNCH') ||
+      slot.contains('NOON')) {
+    return '점심';
+  }
+  if (slot.contains('EVENING') || slot.contains('NIGHT')) {
+    return '저녁';
+  }
+  return value?.trim().isNotEmpty == true ? value!.trim() : '복약';
+}
+
+IconData _timeSlotIcon(String? value) {
+  final slot = (value ?? '').toUpperCase();
+  if (slot.contains('EVENING') || slot.contains('NIGHT')) {
+    return Icons.nightlight_round;
+  }
+  if (slot.contains('AFTERNOON') ||
+      slot.contains('LUNCH') ||
+      slot.contains('NOON')) {
+    return Icons.wb_sunny_outlined;
+  }
+  return Icons.wb_sunny_outlined;
+}
+
+String _scheduleDose(MedicationScheduleSummary schedule) {
+  final dose = schedule.dose?.trim() ?? '';
+  final slot = _timeSlotText(schedule.timeSlot);
+  return dose.isEmpty ? slot : '$dose · $slot';
+}
+
+class _ActiveMedicationCard extends StatelessWidget {
+  const _ActiveMedicationCard({
+    required this.items,
+    required this.onTapItem,
+    required this.onViewAll,
+  });
+
+  final List<PrescriptionItemSummary> items;
+  final ValueChanged<PrescriptionItemSummary> onTapItem;
+  final VoidCallback onViewAll;
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleItems = items.take(3).toList();
+    final showAll = false;
+    final onToggle = onViewAll;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: _border),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.medication_outlined, color: _primary, size: 22),
+              const SizedBox(width: 8),
+              const Expanded(
+                  child: Text('복용 중인 약',
+                      style: TextStyle(
+                          color: _text,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800))),
+              Text('${items.length}개',
+                  style: const TextStyle(
+                      color: _muted,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (items.isNotEmpty)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: onViewAll,
+                child: const Text('전체보기'),
+              ),
+            ),
+          if (items.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 10),
+              child: Text('복용 중인 약이 없습니다.',
+                  style: TextStyle(color: _muted, fontSize: 13)),
+            )
+          else ...[
+            for (var index = 0; index < visibleItems.length; index++)
+              _ActiveMedicationRow(
+                item: visibleItems[index],
+                showDivider: index > 0,
+                onTap: () => onTapItem(visibleItems[index]),
+              ),
+            if (items.length > 3)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: TextButton.icon(
+                    onPressed: onToggle,
+                    icon: Icon(showAll
+                        ? Icons.expand_less_rounded
+                        : Icons.expand_more_rounded),
+                    label: Text(showAll ? '접기' : '+ ${items.length - 3}개 더 보기'),
+                    style: TextButton.styleFrom(
+                        foregroundColor: _primary, backgroundColor: _soft),
+                  ),
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ActiveMedicationRow extends StatelessWidget {
+  const _ActiveMedicationRow({
+    required this.item,
+    required this.showDivider,
+    required this.onTap,
+  });
+
+  final PrescriptionItemSummary item;
+  final bool showDivider;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 11),
+          decoration: BoxDecoration(
+            border: showDivider
+                ? const Border(top: BorderSide(color: Color(0xFFEDF0F7)))
+                : null,
+          ),
+          child: Row(
+            children: [
+              const _GenericPill(size: 38),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                        item.medicationName.isEmpty ? '-' : item.medicationName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            color: _text,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 3),
+                    Text(
+                        '하루 ${item.frequencyPerDay}회${_timingSuffix(item.timing)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: _muted, fontSize: 12)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: _muted),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ActiveMedicationListPage extends StatelessWidget {
+  const _ActiveMedicationListPage({required this.items});
+
+  final List<PrescriptionItemSummary> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('복용 중인 약')),
+      body: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+        itemCount: items.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (context, index) {
+          final item = items[index];
+          return _ActiveMedicationRow(
+            item: item,
+            showDivider: false,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => _PrescriptionDetailPage(item: item),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class MedicationSection {
+  const MedicationSection(
+      {required this.title, required this.icon, required this.items});
 
   final String title;
   final IconData icon;
   final List<PrescriptionItemSummary> items;
 }
 
-List<_MedicationSection> _groupedMedicationItems(
+List<MedicationSection> groupedMedicationItems(
     List<PrescriptionItemSummary> items) {
   final groups = <String, List<PrescriptionItemSummary>>{};
   for (final item in items) {
@@ -365,7 +831,7 @@ List<_MedicationSection> _groupedMedicationItems(
   return [
     for (final title in order)
       if (groups.containsKey(title))
-        _MedicationSection(
+        MedicationSection(
           title: title,
           icon: title == '저녁'
               ? Icons.nightlight_round
@@ -377,10 +843,11 @@ List<_MedicationSection> _groupedMedicationItems(
   ];
 }
 
-class _MedicationGroup extends StatelessWidget {
-  const _MedicationGroup({required this.group, required this.onTapItem});
+class MedicationGroup extends StatelessWidget {
+  const MedicationGroup(
+      {super.key, required this.group, required this.onTapItem});
 
-  final _MedicationSection group;
+  final MedicationSection group;
   final ValueChanged<PrescriptionItemSummary> onTapItem;
 
   @override
@@ -390,20 +857,28 @@ class _MedicationGroup extends StatelessWidget {
           Row(children: [
             Icon(group.icon, color: _primary, size: 19),
             const SizedBox(width: 7),
-            Expanded(child: Text(group.title, style: const TextStyle(color: _text, fontSize: 16, fontWeight: FontWeight.w800))),
-            Text('${group.items.length}개', style: const TextStyle(color: _muted, fontSize: 13)),
+            Expanded(
+                child: Text(group.title,
+                    style: const TextStyle(
+                        color: _text,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800))),
+            Text('${group.items.length}개',
+                style: const TextStyle(color: _muted, fontSize: 13)),
           ]),
           const SizedBox(height: 8),
           ...group.items.map((item) => Padding(
                 padding: const EdgeInsets.only(bottom: 9),
-                child: _MedicationItemCard(item: item, onTap: () => onTapItem(item)),
+                child: MedicationItemCard(
+                    item: item, onTap: () => onTapItem(item)),
               )),
         ]),
       );
 }
 
-class _MedicationItemCard extends StatelessWidget {
-  const _MedicationItemCard({required this.item, required this.onTap});
+class MedicationItemCard extends StatelessWidget {
+  const MedicationItemCard(
+      {super.key, required this.item, required this.onTap});
   final PrescriptionItemSummary item;
   final VoidCallback onTap;
   @override
@@ -425,7 +900,8 @@ class _MedicationItemCard extends StatelessWidget {
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                    Text(item.medicationName.isEmpty ? '-' : item.medicationName,
+                    Text(
+                        item.medicationName.isEmpty ? '-' : item.medicationName,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -452,11 +928,13 @@ class _MedicationSchedulePage extends StatefulWidget {
   final ApiClient apiClient;
 
   @override
-  State<_MedicationSchedulePage> createState() => _MedicationSchedulePageState();
+  State<_MedicationSchedulePage> createState() =>
+      _MedicationSchedulePageState();
 }
 
 class _MedicationSchedulePageState extends State<_MedicationSchedulePage> {
-  late final MedicationSchedulesApi _api = MedicationSchedulesApi(widget.apiClient);
+  late final MedicationSchedulesApi _api =
+      MedicationSchedulesApi(widget.apiClient);
   late DateTime _selectedDate = _dateOnly(DateTime.now());
   List<MedicationScheduleSummary> _schedules = const [];
   String? _error;
@@ -517,11 +995,15 @@ class _MedicationSchedulePageState extends State<_MedicationSchedulePage> {
                           fontWeight: FontWeight.w800))),
               if (_isToday(_selectedDate))
                 Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
                         color: _soft, borderRadius: BorderRadius.circular(16)),
                     child: const Text('오늘',
-                        style: TextStyle(color: _primary, fontSize: 12, fontWeight: FontWeight.w700))),
+                        style: TextStyle(
+                            color: _primary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700))),
             ]),
             const SizedBox(height: 12),
             if (_loading)
@@ -533,7 +1015,8 @@ class _MedicationSchedulePageState extends State<_MedicationSchedulePage> {
             else if (_schedules.isEmpty)
               const _ScheduleEmptyState()
             else
-              ..._groupedSchedules(_schedules).map((group) => _ScheduleGroup(group: group)),
+              ..._groupedSchedules(_schedules)
+                  .map((group) => _ScheduleGroup(group: group)),
           ],
         ),
       );
@@ -547,8 +1030,10 @@ class _WeekCalendar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final weekStart = selectedDate.subtract(Duration(days: selectedDate.weekday - 1));
-    final days = List.generate(7, (index) => weekStart.add(Duration(days: index)));
+    final weekStart =
+        selectedDate.subtract(Duration(days: selectedDate.weekday - 1));
+    final days =
+        List.generate(7, (index) => weekStart.add(Duration(days: index)));
     const weekdayLabels = ['월', '화', '수', '목', '금', '토', '일'];
     return Container(
       padding: const EdgeInsets.all(14),
@@ -560,25 +1045,29 @@ class _WeekCalendar extends StatelessWidget {
         Row(children: [
           IconButton(
               visualDensity: VisualDensity.compact,
-              onPressed: () => onSelect(selectedDate.subtract(const Duration(days: 7))),
+              onPressed: () =>
+                  onSelect(selectedDate.subtract(const Duration(days: 7))),
               icon: const Icon(Icons.chevron_left_rounded, color: _primary)),
           Expanded(
               child: Text('${selectedDate.year}년 ${selectedDate.month}월',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: _text, fontWeight: FontWeight.w800))),
+                  style: const TextStyle(
+                      color: _text, fontWeight: FontWeight.w800))),
           IconButton(
               visualDensity: VisualDensity.compact,
-              onPressed: () => onSelect(selectedDate.add(const Duration(days: 7))),
+              onPressed: () =>
+                  onSelect(selectedDate.add(const Duration(days: 7))),
               icon: const Icon(Icons.chevron_right_rounded, color: _primary)),
         ]),
         const SizedBox(height: 7),
         Row(children: [
           for (var index = 0; index < days.length; index++)
-            Expanded(child: _WeekDayCell(
-                date: days[index],
-                label: weekdayLabels[index],
-                selected: _sameDay(days[index], selectedDate),
-                onTap: () => onSelect(days[index]))),
+            Expanded(
+                child: _WeekDayCell(
+                    date: days[index],
+                    label: weekdayLabels[index],
+                    selected: _sameDay(days[index], selectedDate),
+                    onTap: () => onSelect(days[index]))),
         ]),
       ]),
     );
@@ -586,7 +1075,11 @@ class _WeekCalendar extends StatelessWidget {
 }
 
 class _WeekDayCell extends StatelessWidget {
-  const _WeekDayCell({required this.date, required this.label, required this.selected, required this.onTap});
+  const _WeekDayCell(
+      {required this.date,
+      required this.label,
+      required this.selected,
+      required this.onTap});
 
   final DateTime date;
   final String label;
@@ -611,7 +1104,11 @@ class _WeekDayCell extends StatelessWidget {
                   decoration: BoxDecoration(
                       color: selected ? _primary : Colors.transparent,
                       shape: BoxShape.circle),
-                  child: Text('${date.day}', style: TextStyle(color: selected ? Colors.white : _text, fontSize: 13, fontWeight: FontWeight.w700))),
+                  child: Text('${date.day}',
+                      style: TextStyle(
+                          color: selected ? Colors.white : _text,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700))),
             ]),
           ),
         ),
@@ -619,13 +1116,15 @@ class _WeekDayCell extends StatelessWidget {
 }
 
 class _ScheduleSection {
-  const _ScheduleSection({required this.title, required this.icon, required this.items});
+  const _ScheduleSection(
+      {required this.title, required this.icon, required this.items});
   final String title;
   final IconData icon;
   final List<MedicationScheduleSummary> items;
 }
 
-List<_ScheduleSection> _groupedSchedules(List<MedicationScheduleSummary> schedules) {
+List<_ScheduleSection> _groupedSchedules(
+    List<MedicationScheduleSummary> schedules) {
   final groups = <String, List<MedicationScheduleSummary>>{};
   for (final schedule in schedules) {
     final slot = (schedule.timeSlot?.trim() ?? '').toUpperCase();
@@ -633,7 +1132,9 @@ List<_ScheduleSection> _groupedSchedules(List<MedicationScheduleSummary> schedul
         ? '아침'
         : slot.contains('점심') || slot.contains('LUNCH') || slot.contains('NOON')
             ? '점심'
-            : slot.contains('저녁') || slot.contains('EVENING') || slot.contains('NIGHT')
+            : slot.contains('저녁') ||
+                    slot.contains('EVENING') ||
+                    slot.contains('NIGHT')
                 ? '저녁'
                 : '기타';
     groups.putIfAbsent(title, () => []).add(schedule);
@@ -644,7 +1145,11 @@ List<_ScheduleSection> _groupedSchedules(List<MedicationScheduleSummary> schedul
       if (groups.containsKey(title))
         _ScheduleSection(
             title: title,
-            icon: title == '저녁' ? Icons.nightlight_round : title == '기타' ? Icons.schedule_outlined : Icons.wb_sunny_outlined,
+            icon: title == '저녁'
+                ? Icons.nightlight_round
+                : title == '기타'
+                    ? Icons.schedule_outlined
+                    : Icons.wb_sunny_outlined,
             items: groups[title]!),
   ];
 }
@@ -660,11 +1165,14 @@ class _ScheduleGroup extends StatelessWidget {
           Row(children: [
             Icon(group.icon, color: _primary, size: 20),
             const SizedBox(width: 7),
-            Text('${group.title} (${group.items.length}개)', style: const TextStyle(color: _text, fontSize: 16, fontWeight: FontWeight.w800)),
+            Text('${group.title} (${group.items.length}개)',
+                style: const TextStyle(
+                    color: _text, fontSize: 16, fontWeight: FontWeight.w800)),
           ]),
           const SizedBox(height: 8),
           ...group.items.map((schedule) => Padding(
-              padding: const EdgeInsets.only(bottom: 9), child: _ScheduleCard(schedule: schedule))),
+              padding: const EdgeInsets.only(bottom: 9),
+              child: _ScheduleCard(schedule: schedule))),
         ]),
       );
 }
@@ -676,16 +1184,35 @@ class _ScheduleCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: Colors.white, border: Border.all(color: _border), borderRadius: BorderRadius.circular(18)),
+        decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: _border),
+            borderRadius: BorderRadius.circular(18)),
         child: Row(children: [
           const _GenericPill(),
           const SizedBox(width: 12),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(schedule.medicationName.isEmpty ? '-' : schedule.medicationName, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _text, fontSize: 15, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 4),
-            Text(_scheduleSubtitle(schedule), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _muted, fontSize: 12)),
-          ])),
-          if (_hasScheduleStatus(schedule.status)) _ScheduleStatusBadge(status: schedule.status!),
+          Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                Text(
+                    schedule.medicationName.isEmpty
+                        ? '-'
+                        : schedule.medicationName,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        color: _text,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800)),
+                const SizedBox(height: 4),
+                Text(_scheduleSubtitle(schedule),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: _muted, fontSize: 12)),
+              ])),
+          if (_hasScheduleStatus(schedule.status))
+            _ScheduleStatusBadge(status: schedule.status!),
         ]),
       );
 }
@@ -696,8 +1223,11 @@ class _ScheduleStatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-        decoration: BoxDecoration(color: _soft, borderRadius: BorderRadius.circular(14)),
-        child: Text(status, style: const TextStyle(color: _primary, fontSize: 11, fontWeight: FontWeight.w700)),
+        decoration: BoxDecoration(
+            color: _soft, borderRadius: BorderRadius.circular(14)),
+        child: Text(status,
+            style: const TextStyle(
+                color: _primary, fontSize: 11, fontWeight: FontWeight.w700)),
       );
 }
 
@@ -706,11 +1236,15 @@ class _ScheduleEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(22),
-        decoration: BoxDecoration(color: const Color(0xFFF8F9FE), border: Border.all(color: const Color(0xFFE3E6F1)), borderRadius: BorderRadius.circular(18)),
+        decoration: BoxDecoration(
+            color: const Color(0xFFF8F9FE),
+            border: Border.all(color: const Color(0xFFE3E6F1)),
+            borderRadius: BorderRadius.circular(18)),
         child: const Column(children: [
           Icon(Icons.calendar_today_outlined, color: _primary, size: 32),
           SizedBox(height: 10),
-          Text('선택한 날짜의 복약 일정이 없습니다.', style: TextStyle(color: _text, fontWeight: FontWeight.w700)),
+          Text('선택한 날짜의 복약 일정이 없습니다.',
+              style: TextStyle(color: _text, fontWeight: FontWeight.w700)),
         ]),
       );
 }
@@ -952,7 +1486,8 @@ String _formatDate(DateTime? value) => value == null
     ? '-'
     : '${value.year}.${value.month.toString().padLeft(2, '0')}.${value.day.toString().padLeft(2, '0')}';
 
-DateTime _dateOnly(DateTime value) => DateTime(value.year, value.month, value.day);
+DateTime _dateOnly(DateTime value) =>
+    DateTime(value.year, value.month, value.day);
 
 bool _sameDay(DateTime first, DateTime second) =>
     first.year == second.year &&
@@ -972,9 +1507,14 @@ String _scheduleSubtitle(MedicationScheduleSummary schedule) {
   final values = <String>[];
   if (schedule.scheduledAt != null) {
     final date = schedule.scheduledAt!;
-    values.add('${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}');
+    values.add(
+        '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}');
   }
-  if (schedule.dose?.trim().isNotEmpty == true) values.add(schedule.dose!.trim());
-  if (schedule.timeSlot?.trim().isNotEmpty == true) values.add(schedule.timeSlot!.trim());
+  if (schedule.dose?.trim().isNotEmpty == true) {
+    values.add(schedule.dose!.trim());
+  }
+  if (schedule.timeSlot?.trim().isNotEmpty == true) {
+    values.add(schedule.timeSlot!.trim());
+  }
   return values.isEmpty ? '-' : values.join(' · ');
 }

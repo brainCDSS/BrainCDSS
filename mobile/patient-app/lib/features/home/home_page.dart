@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/api/api_client.dart';
@@ -45,6 +47,9 @@ class HomePageState extends State<HomePage> {
   List<MedicationScheduleSummary> _todaySchedules = const [];
   List<TestResultSummary> _testResults = const [];
   bool _showTodaySchedule = true;
+  int _healthTipPage = 0;
+  final PageController _healthTipController = PageController();
+  Timer? _healthTipTimer;
 
   @override
   void initState() {
@@ -60,6 +65,35 @@ class HomePageState extends State<HomePage> {
     _loadAppointments();
     _loadNotifications();
     _loadHomeSummaries();
+    _startHealthTipAutoSlide();
+  }
+
+  void _startHealthTipAutoSlide() {
+    _healthTipTimer?.cancel();
+    _healthTipTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) {
+        if (!mounted || !_healthTipController.hasClients) {
+          return;
+        }
+
+        const pageCount = 3;
+        final nextPage = (_healthTipPage + 1) % pageCount;
+
+        _healthTipController.animateToPage(
+          nextPage,
+          duration: const Duration(milliseconds: 420),
+          curve: Curves.easeInOut,
+        );
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _healthTipTimer?.cancel();
+    _healthTipController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadHomeSummaries() async {
@@ -267,17 +301,11 @@ class HomePageState extends State<HomePage> {
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [
-            const Expanded(
-                child: Text('건강 요약',
-                    style: TextStyle(
-                        color: _textPrimary,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800))),
-            TextButton(
-                onPressed: widget.onOpenAppointments,
-                child: const Text('자세히 보기')),
-          ]),
+          const Text('건강 요약',
+              style: TextStyle(
+                  color: _textPrimary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800)),
           const SizedBox(height: 8),
           Row(children: [
             Expanded(
@@ -387,40 +415,133 @@ class HomePageState extends State<HomePage> {
   }
 
   Widget _buildHealthTip() {
-    const tips = <List<String>>[
-      ['충분한 수분 섭취가 건강의 작은 시작이에요.', '하루 6~8잔의 물로, 더 가벼운 하루를 만들어보세요!'],
-      ['가벼운 스트레칭으로 하루를 시작해보세요.', '잠깐의 움직임도 몸에 활력을 더해줄 수 있어요.'],
-      ['규칙적인 휴식도 건강 관리의 한 부분이에요.', '바쁜 하루에도 잠시 숨을 고르는 시간을 가져보세요.'],
+    const tips = <Map<String, dynamic>>[
+      {
+        'title': '충분한 수분 섭취가 건강의 작은 시작이에요.',
+        'description': '하루 6~8잔의 물로, 더 가벼운 하루를 만들어보세요!',
+        'icon': Icons.water_drop_rounded,
+        'iconColor': Color(0xFF35B7D5),
+      },
+      {
+        'title': '가벼운 스트레칭으로 하루를 시작해보세요.',
+        'description': '잠깐의 움직임도 몸에 활력을 더해줄 수 있어요.',
+        'icon': Icons.self_improvement_rounded,
+        'iconColor': Color(0xFF8B96E8),
+      },
+      {
+        'title': '규칙적인 휴식도 건강 관리의 한 부분이에요.',
+        'description': '바쁜 하루에도 잠시 숨을 고르는 시간을 가져보세요.',
+        'icon': Icons.nightlight_round,
+        'iconColor': Color(0xFF7C8BB8),
+      },
     ];
-    final tip = tips[DateTime.now().day % tips.length];
+
+    final todayIndex = DateTime.now().day % tips.length;
+    final orderedTips = [
+      tips[todayIndex],
+      ...List.generate(
+        tips.length - 1,
+        (index) => tips[(todayIndex + index + 1) % tips.length],
+      ),
+    ];
+
     return Container(
-      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-          color: const Color(0xFFF0F1FF),
-          borderRadius: BorderRadius.circular(22)),
-      child: Row(children: [
-        Expanded(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('오늘의 건강 한마디',
-              style: TextStyle(
-                  color: Color(0xFF8B96E8), fontWeight: FontWeight.w800)),
-          const SizedBox(height: 9),
-          Text(tip[0],
-              style: const TextStyle(
-                  color: _textPrimary,
-                  fontSize: 17,
-                  height: 1.3,
-                  fontWeight: FontWeight.w800)),
-          const SizedBox(height: 6),
-          Text(tip[1],
-              style: const TextStyle(
-                  color: _textSecondary, fontSize: 12, height: 1.4)),
-        ])),
-        const SizedBox(width: 8),
-        const Icon(Icons.water_drop_rounded,
-            color: Color(0xFF35B7D5), size: 50),
-      ]),
+        color: const Color(0xFFF0F1FF),
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: SizedBox(
+        height: 154,
+        child: Stack(
+          children: [
+            PageView.builder(
+              controller: _healthTipController,
+              itemCount: orderedTips.length,
+              onPageChanged: (index) {
+                setState(() => _healthTipPage = index);
+              },
+              itemBuilder: (context, index) {
+                final tip = orderedTips[index];
+
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        right: 54,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              '오늘의 건강 한마디',
+                              style: TextStyle(
+                                color: Color(0xFF8B96E8),
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              tip['title'] as String,
+                              style: const TextStyle(
+                                color: _textPrimary,
+                                fontSize: 16, //하단 배너 큰글씨
+                                height: 1.35, //하단 배너 작은글씨(설명)
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              tip['description'] as String,
+                              style: const TextStyle(
+                                color: _textSecondary,
+                                fontSize: 12,
+                                height: 1.45,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Positioned(
+                        right: 2,
+                        top: 40,
+                        child: Icon(
+                          tip['icon'] as IconData,
+                          color: tip['iconColor'] as Color,
+                          size: 42,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+            Positioned(
+              bottom: 8,
+              left: 0,
+              right: 0,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  orderedTips.length,
+                  (index) => Container(
+                    width: index == _healthTipPage ? 14 : 5,
+                    height: 5,
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    decoration: BoxDecoration(
+                      color: index == _healthTipPage
+                          ? const Color(0xFF8B96E8)
+                          : const Color(0xFFD0D4ED),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -428,17 +549,17 @@ class HomePageState extends State<HomePage> {
   Widget _buildGreeting() {
     return Container(
       height: 164,
-      padding: const EdgeInsets.fromLTRB(20, 20, 12, 3), //카드여백(마지막)
+      padding: const EdgeInsets.fromLTRB(18, 18, 10, 12),
       decoration: BoxDecoration(
         color: const Color(0xFFF0F1FF),
         borderRadius: BorderRadius.circular(24),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
+      child: Stack(
         children: [
-          Expanded(
+          Positioned.fill(
+            right: 112,
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10),
+              padding: const EdgeInsets.symmetric(vertical: 8),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -448,16 +569,17 @@ class HomePageState extends State<HomePage> {
                         ? '오늘도 건강한 하루 되세요!'
                         : '$_patientName님,\n오늘도 건강한 하루 되세요!',
                     maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                    overflow: TextOverflow.visible,
                     style: const TextStyle(
                       color: _textPrimary,
-                      fontSize: 20,
+                      fontSize: 18,
                       fontWeight: FontWeight.w800,
+                      height: 1.25,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
                   const Text(
-                    '오늘도 건강한 하루 보내세요.\n호짱이 함께할게요.',
+                    '호짱이 함께할게요.',
                     style: TextStyle(
                       color: _textSecondary,
                       fontSize: 14,
@@ -468,12 +590,13 @@ class HomePageState extends State<HomePage> {
               ),
             ),
           ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 138,
-            height: 90, //상단이미지 크기 변경(호짱)
+          Positioned(
+            right: 0,
+            bottom: 0,
             child: Image.asset(
               'assets/images/hojjang_main.png',
+              width: 118,
+              height: 128,
               fit: BoxFit.contain,
               alignment: Alignment.bottomCenter,
             ),

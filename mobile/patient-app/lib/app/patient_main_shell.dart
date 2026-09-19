@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/api/api_client.dart';
 import '../features/appointments/appointments_page.dart';
 import '../features/auth/auth_session.dart';
+import '../features/assistant/assistant_page.dart';
 import '../features/emergency/fast_emergency_page.dart';
 import '../features/home/home_page.dart';
 import '../features/home/home_api.dart';
@@ -28,18 +29,19 @@ class PatientMainShell extends StatefulWidget {
 }
 
 class _PatientMainShellState extends State<PatientMainShell> {
-  int _selectedIndex = 0;
+  int _selectedIndex = 2;
   bool _isReservationFlow = false;
   bool _isProfileNotificationSettings = false;
+  String? _clinicalHistoryEncounterId;
   final _homeKey = GlobalKey<HomePageState>();
   final _appointmentsKey = GlobalKey<AppointmentsPageState>();
 
   late final List<Widget> _pages;
 
   static const List<String> _titles = [
-    '호닥',
     '예약',
-    '검사 · 결과',
+    '진료기록',
+    '호닥',
     '복약관리',
     '마이페이지',
   ];
@@ -49,37 +51,59 @@ class _PatientMainShellState extends State<PatientMainShell> {
     super.initState();
 
     _pages = [
-      HomePage(
-        key: _homeKey,
-        apiClient: widget.apiClient,
-        session: widget.session,
-        onOpenAppointments: () => _selectTab(1),
-        onOpenAppointmentDetail: _openAppointmentDetail,
-        onOpenNotifications: _openNotifications,
-      ),
       AppointmentsPage(
         key: _appointmentsKey,
         apiClient: widget.apiClient,
         onOpenReservation: _openReservation,
       ),
-      TestResultsPage(apiClient: widget.apiClient),
+      _testResultsPage(),
+      HomePage(
+        key: _homeKey,
+        apiClient: widget.apiClient,
+        session: widget.session,
+        onOpenAppointments: () => _selectTab(0),
+        onOpenAppointmentDetail: _openAppointmentDetail,
+        onOpenNotifications: _openNotifications,
+      ),
       MedicationsPage(apiClient: widget.apiClient),
       ProfilePage(
         session: widget.session,
         onLogout: widget.onLogout,
         apiClient: widget.apiClient,
         onOpenNotificationSettings: _openProfileNotificationSettings,
+        onOpenChatbot: _openChatbot,
       ),
     ];
   }
+
+  Widget _testResultsPage() => TestResultsPage(
+        key: ValueKey(_clinicalHistoryEncounterId),
+        apiClient: widget.apiClient,
+        selectedEncounterId: _clinicalHistoryEncounterId,
+        onOpenDetail: (encounterId) {
+          setState(() {
+            _clinicalHistoryEncounterId = encounterId;
+            _pages[1] = _testResultsPage();
+          });
+        },
+        onCloseDetail: () {
+          setState(() {
+            _clinicalHistoryEncounterId = null;
+            _pages[1] = _testResultsPage();
+          });
+        },
+        onOpenMedications: () => _selectTab(3),
+      );
 
   void _selectTab(int index) {
     setState(() {
       _selectedIndex = index;
       _isReservationFlow = false;
       _isProfileNotificationSettings = false;
+      _clinicalHistoryEncounterId = null;
+      _pages[1] = _testResultsPage();
     });
-    if (index == 0) {
+    if (index == 2) {
       _homeKey.currentState?.refreshAppointments();
     }
   }
@@ -91,7 +115,7 @@ class _PatientMainShellState extends State<PatientMainShell> {
 
   void _openReservation() {
     setState(() {
-      _selectedIndex = 1;
+      _selectedIndex = 0;
       _isReservationFlow = true;
     });
   }
@@ -134,17 +158,30 @@ class _PatientMainShellState extends State<PatientMainShell> {
     _homeKey.currentState?.refreshNotifications();
   }
 
+  Future<void> _openChatbot() => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const AssistantPage()),
+      );
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leading: _isReservationFlow || _isProfileNotificationSettings
+        leading: _isReservationFlow ||
+                _isProfileNotificationSettings ||
+                _clinicalHistoryEncounterId != null
             ? IconButton(
                 tooltip: '뒤로가기',
                 icon: const Icon(Icons.arrow_back_rounded),
                 onPressed: _isReservationFlow
                     ? _closeReservation
-                    : _closeProfileNotificationSettings,
+                    : _isProfileNotificationSettings
+                        ? _closeProfileNotificationSettings
+                        : () {
+                            setState(() {
+                              _clinicalHistoryEncounterId = null;
+                              _pages[1] = _testResultsPage();
+                            });
+                          },
               )
             : Builder(
                 builder: (context) => IconButton(
@@ -158,32 +195,27 @@ class _PatientMainShellState extends State<PatientMainShell> {
               ? '진료 예약'
               : _isProfileNotificationSettings
                   ? '알림 설정'
-                  : _titles[_selectedIndex],
+                  : _clinicalHistoryEncounterId != null
+                      ? '진료내역 상세'
+                      : _titles[_selectedIndex],
         ),
-        actions: _isReservationFlow
-            ? [
-                Builder(
-                  builder: (context) => IconButton(
-                    tooltip: '메뉴',
-                    icon: const Icon(Icons.menu_rounded),
-                    onPressed: () => Scaffold.of(context).openDrawer(),
-                  ),
-                ),
-              ]
-            : _selectedIndex == 0
-                ? [
-                    IconButton(
-                      onPressed: _openNotifications,
-                      tooltip: '알림센터',
-                      icon: const Icon(
-                        Icons.notifications_outlined,
-                      ),
-                    ),
-                  ]
-                : null,
+        actions: [
+          if (_isReservationFlow)
+            Builder(
+              builder: (context) => IconButton(
+                tooltip: '메뉴',
+                icon: const Icon(Icons.menu_rounded),
+                onPressed: () => Scaffold.of(context).openDrawer(),
+              ),
+            ),
+          IconButton(
+            onPressed: _openNotifications,
+            tooltip: '알림센터',
+            icon: const Icon(Icons.notifications_outlined),
+          ),
+        ],
       ),
       drawer: _PatientDrawer(
-        apiClient: widget.apiClient,
         session: widget.session,
         selectedIndex: _selectedIndex,
         onSelectTab: (index) {
@@ -196,41 +228,37 @@ class _PatientMainShellState extends State<PatientMainShell> {
             if (mounted) openPage(context);
           });
         },
-        onOpenReservation: () {
-          Navigator.of(context).pop();
-          _openReservation();
-        },
-        onShowAppointmentSection: (showPast) {
-          Navigator.of(context).pop();
-          _selectTab(1);
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (showPast) {
-              _appointmentsKey.currentState?.showPast();
-            } else {
-              _appointmentsKey.currentState?.showUpcoming();
-            }
-          });
-        },
-        onAppointmentsChanged: _refreshAppointmentViews,
-        onOpenProfileNotificationSettings: () {
-          Navigator.of(context).pop();
-          _openProfileNotificationSettings();
-        },
+        onOpenChatbot: _openChatbot,
         onLogout: widget.onLogout,
       ),
       body: SafeArea(
-        child: _isReservationFlow
-            ? AppointmentReservationFlow(
-                apiClient: widget.apiClient,
-                embedded: true,
-                onComplete: _closeReservation,
-              )
-            : _isProfileNotificationSettings
-                ? NotificationSettingsContent(apiClient: widget.apiClient)
-            : IndexedStack(
-                index: _selectedIndex,
-                children: _pages,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: _isReservationFlow
+                  ? AppointmentReservationFlow(
+                      apiClient: widget.apiClient,
+                      embedded: true,
+                      onComplete: _closeReservation,
+                    )
+                  : _isProfileNotificationSettings
+                      ? NotificationSettingsContent(apiClient: widget.apiClient)
+                      : IndexedStack(
+                          index: _selectedIndex,
+                          children: _pages,
+                        ),
+            ),
+            if (_selectedIndex != 4)
+              Positioned(
+                right: 16,
+                bottom: 20,
+                child: GestureDetector(
+                  onTap: _openChatbot,
+                  child: const _FloatingHojjangBadge(),
+                ),
               ),
+          ],
+        ),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
@@ -238,15 +266,6 @@ class _PatientMainShellState extends State<PatientMainShell> {
           _selectTab(index);
         },
         destinations: const [
-          NavigationDestination(
-            icon: Icon(
-              Icons.home_outlined,
-            ),
-            selectedIcon: Icon(
-              Icons.home,
-            ),
-            label: '홈',
-          ),
           NavigationDestination(
             icon: Icon(
               Icons.calendar_month_outlined,
@@ -258,12 +277,21 @@ class _PatientMainShellState extends State<PatientMainShell> {
           ),
           NavigationDestination(
             icon: Icon(
-              Icons.assignment_outlined,
+              Icons.description_outlined,
             ),
             selectedIcon: Icon(
-              Icons.assignment,
+              Icons.description,
             ),
-            label: '검사 · 결과',
+            label: '진료기록',
+          ),
+          NavigationDestination(
+            icon: Icon(
+              Icons.home_outlined,
+            ),
+            selectedIcon: Icon(
+              Icons.home,
+            ),
+            label: '홈',
           ),
           NavigationDestination(
             icon: Icon(
@@ -289,29 +317,33 @@ class _PatientMainShellState extends State<PatientMainShell> {
   }
 }
 
+class _FloatingHojjangBadge extends StatelessWidget {
+  const _FloatingHojjangBadge();
+
+  @override
+  Widget build(BuildContext context) => Image.asset(
+        'assets/images/floating.png',
+        width: 68,
+        height: 68,
+        fit: BoxFit.contain,
+      );
+}
+
 class _PatientDrawer extends StatelessWidget {
   const _PatientDrawer({
-    required this.apiClient,
     required this.session,
     required this.selectedIndex,
     required this.onSelectTab,
     required this.onOpenPage,
-    required this.onOpenReservation,
-    required this.onShowAppointmentSection,
-    required this.onAppointmentsChanged,
-    required this.onOpenProfileNotificationSettings,
+    required this.onOpenChatbot,
     required this.onLogout,
   });
 
   final AuthSession session;
-  final ApiClient apiClient;
   final int selectedIndex;
   final ValueChanged<int> onSelectTab;
   final ValueChanged<void Function(BuildContext)> onOpenPage;
-  final VoidCallback onOpenReservation;
-  final ValueChanged<bool> onShowAppointmentSection;
-  final VoidCallback onAppointmentsChanged;
-  final VoidCallback onOpenProfileNotificationSettings;
+  final VoidCallback onOpenChatbot;
   final Future<void> Function() onLogout;
 
   static const _primaryDark = Color(0xFF5665B8);
@@ -325,46 +357,44 @@ class _PatientDrawer extends StatelessWidget {
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                child: Container(
-                  padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF0F2FF),
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                padding: const EdgeInsets.fromLTRB(20, 28, 14, 18),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     const CircleAvatar(
-                      radius: 22,
-                      backgroundColor: Colors.white,
+                      radius: 28,
+                      backgroundColor: Color(0xFFF0F2FF),
                       child: ClipOval(
                         child: Image(
                           image: AssetImage('assets/images/image1.png'),
-                          width: 44,
-                          height: 44,
+                          width: 56,
+                          height: 56,
                           fit: BoxFit.contain,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 14),
                     Expanded(
                       child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('호닥',
-                              style: TextStyle(
-                                  color: _text,
-                                  fontSize: 19,
-                                  fontWeight: FontWeight.w900)),
-                          const SizedBox(height: 6),
-                          Text(session.user.name,
-                              style: const TextStyle(
-                                  color: _text, fontWeight: FontWeight.w800)),
-                          const SizedBox(height: 2),
-                          Text(session.user.loginId,
-                              style: const TextStyle(
-                                  color: _secondary, fontSize: 12)),
+                          Text(
+                            session.user.name,
+                            style: const TextStyle(
+                              color: _text,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            session.user.loginId,
+                            style: const TextStyle(
+                              color: _secondary,
+                              fontSize: 12,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -374,7 +404,7 @@ class _PatientDrawer extends StatelessWidget {
                       icon: const Icon(Icons.close_rounded),
                     ),
                   ],
-                )),
+                ),
               ),
               const Divider(height: 1),
               Expanded(
@@ -383,96 +413,46 @@ class _PatientDrawer extends StatelessWidget {
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                   children: [
                     _topLevelTile(
-                        icon: Icons.home_outlined, title: '홈', index: 0),
-                    _section(
+                        icon: Icons.home_outlined, title: '홈', index: 2),
+                    _topLevelTile(
                       icon: Icons.calendar_month_outlined,
                       title: '예약',
-                      index: 1,
-                      children: [
-                        _subTile('진료 예약하기', onOpenReservation),
-                        _subTile(
-                            '예정된 예약', () => onShowAppointmentSection(false)),
-                        _subTile('지난 예약', () => onShowAppointmentSection(true)),
-                      ],
+                      index: 0,
                     ),
-                    _section(
+                    _topLevelTile(
                       icon: Icons.health_and_safety_outlined,
-                      title: '건강정보',
-                      index: 2,
-                      children: [
-                        _subTile(
-                            '검사 결과',
-                            () => onOpenPage((context) =>
-                                TestResultsPage.openResults(
-                                    context, apiClient))),
-                        _subTile('진료 내역',
-                            () => onOpenPage(TestResultsPage.openVisits)),
-                        _subTile(
-                            '처방 정보',
-                            () => onOpenPage((context) =>
-                                TestResultsPage.openPrescriptions(
-                                    context, apiClient))),
-                      ],
+                      title: '검사결과',
+                      index: 1,
                     ),
-                    _section(
+                    _topLevelTile(
                       icon: Icons.medication_outlined,
                       title: '복약관리',
                       index: 3,
-                      children: [
-                        _subTile('오늘의 복약', () => onSelectTab(3)),
-                        _subTile(
-                            '복약 일정',
-                            () => onOpenPage((context) =>
-                                MedicationsPage.openSchedule(
-                                    context, apiClient))),
-                        _subTile(
-                            '복약 기록',
-                            () => onOpenPage((context) =>
-                                MedicationsPage.openHistory(
-                                    context, apiClient))),
-                        _subTile(
-                            '복약 알림 설정',
-                            () => onOpenPage(
-                                MedicationsPage.openNotificationSettings)),
-                      ],
                     ),
                     _actionTile(
                       icon: Icons.smart_toy_outlined,
                       title: 'AI 건강도우미',
                       onTap: () {
                         Navigator.of(context).pop();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('AI 건강도우미 기능은 준비 중입니다.'),
-                          ),
-                        );
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          onOpenChatbot();
+                        });
                       },
                     ),
-                    _section(
+                    _topLevelTile(
                       icon: Icons.person_outline_rounded,
-                      title: '내 정보',
+                      title: '마이페이지',
                       index: 4,
-                      children: [
-                        _subTile(
-                            '내 정보',
-                            () => onOpenPage((context) =>
-                                ProfilePage.openMyInfo(context, apiClient))),
-                        _subTile('연결 설정',
-                            () => onOpenPage(ProfilePage.openConnections)),
-                        _subTile(
-                            '알림 설정',
-                            onOpenProfileNotificationSettings),
-                        _subTile(
-                            '동의 · 약관', () => onOpenPage(ProfilePage.openTerms)),
-                      ],
                     ),
                   ],
                 ),
               ),
               const Divider(height: 1),
               ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 2),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 22, vertical: 2),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
                 tileColor: const Color(0xFFFFF1F3),
                 leading: const Icon(Icons.emergency_outlined,
                     color: Color(0xFFE94E4E)),
@@ -515,73 +495,25 @@ class _PatientDrawer extends StatelessWidget {
         onTap: () => onSelectTab(index),
       );
 
-  Widget _section({
-    required IconData icon,
-    required String title,
-    required int index,
-    required List<Widget> children,
-  }) =>
-      Container(
-        margin: const EdgeInsets.only(bottom: 4),
-        decoration: BoxDecoration(
-          color: selectedIndex == index
-              ? const Color(0xFFF4F3FF)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: ExpansionTile(
-          shape: const Border(),
-          collapsedShape: const Border(),
-          initiallyExpanded: selectedIndex == index,
-          tilePadding: const EdgeInsets.symmetric(horizontal: 14),
-          childrenPadding: const EdgeInsets.only(left: 32, right: 10, bottom: 7),
-          iconColor: _primaryDark,
-          collapsedIconColor: _secondary,
-          leading: Icon(icon,
-              color: selectedIndex == index ? _primaryDark : _secondary),
-          title: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => onSelectTab(index),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              child: Text(title,
-                  style: TextStyle(
-                      color: selectedIndex == index ? _primaryDark : _text,
-                      fontWeight: FontWeight.w800)),
-            ),
-          ),
-          children: children,
-        ),
-      );
-
   Widget _actionTile({
     required IconData icon,
     required String title,
     required VoidCallback onTap,
-  }) => Padding(
+  }) =>
+      Padding(
         padding: const EdgeInsets.only(bottom: 4),
         child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 1),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 1),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           leading: Icon(icon, color: _secondary),
           title: Text(title,
-              style: const TextStyle(color: _text, fontWeight: FontWeight.w700)),
+              style:
+                  const TextStyle(color: _text, fontWeight: FontWeight.w700)),
           trailing: const Icon(Icons.chevron_right_rounded, color: _secondary),
           onTap: onTap,
         ),
-      );
-
-  Widget _subTile(String title, VoidCallback onTap) => ListTile(
-        dense: true,
-        visualDensity: VisualDensity.compact,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-        leading: const Icon(Icons.circle, size: 6, color: _primaryDark),
-        title: Text(title,
-            style: const TextStyle(
-                color: _secondary, fontSize: 13, fontWeight: FontWeight.w600)),
-        trailing: const Icon(Icons.chevron_right_rounded, size: 18, color: _secondary),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        onTap: onTap,
       );
 
   Future<void> _confirmLogout(BuildContext context) async {

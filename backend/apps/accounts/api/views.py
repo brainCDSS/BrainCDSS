@@ -22,6 +22,7 @@ from apps.accounts.api.permissions import (
 )
 from apps.accounts.api.serializers import (
     LoginRequestSerializer,
+    PatientSignupRequestSerializer,
     LogoutRequestSerializer,
     PaginatedUserSummaryResponseSerializer,
     PasswordChangeRequestSerializer,
@@ -34,7 +35,11 @@ from apps.accounts.api.serializers import (
     UserSummarySerializer,
     UserUpdateRequestSerializer,
 )
-from apps.accounts.models import Role
+from apps.accounts.models import Role, User
+from apps.patients.models import Patient
+from apps.patients.services.patients import generate_patient_no
+from django.db import IntegrityError, transaction
+from datetime import date
 from apps.accounts.selectors.accounts import (
     permission_payloads_for_role,
     user_detail_payload,
@@ -98,6 +103,37 @@ class LoginView(APIView):
             result,
             status=status.HTTP_200_OK,
         )
+
+
+class PatientSignupView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = PatientSignupRequestSerializer(data=request.data)
+        data = _validate(serializer)
+        if User.objects.filter(login_id=data["login_id"].strip()).exists():
+            raise ContractAPIException("LOGIN_ID_DUPLICATE", "login_id already exists.", 400)
+        email = data.get("email", "").strip() or None
+        if email and User.objects.filter(email__iexact=email).exists():
+            raise ContractAPIException("EMAIL_DUPLICATE", "email already exists.", 400)
+        rrn = data["resident_registration_number"]
+        year = (1900 if rrn[6] in "1256" else 2000) + int(rrn[:2])
+        try:
+            birth_date = date(year, int(rrn[2:4]), int(rrn[4:6]))
+        except ValueError:
+            raise ContractAPIException("VALIDATION_ERROR", "Invalid resident registration number.", 400)
+        sex = "M" if rrn[6] in "1357" else "F"
+        try:
+            with transaction.atomic():
+                role = Role.objects.get(code="PATIENT")
+                user = User.objects.create_user(data["login_id"], data["password"], name=data["name"], email=email, role=role)
+                patient = Patient.objects.create(user=user, patient_no=generate_patient_no(temporary=False), name=data["name"], birth_date=birth_date, sex=sex, phone=data["phone"], status="ACTIVE", created_by=user)
+        except Role.DoesNotExist:
+            raise ContractAPIException("PATIENT_ROLE_NOT_FOUND", "Patient role is not configured.", 500)
+        except IntegrityError:
+            raise ContractAPIException("VALIDATION_ERROR", "Unable to create patient account.", 400)
+        return Response({"user_id": str(user.id), "patient_id": str(patient.id), "login_id": user.login_id, "name": patient.name}, status=status.HTTP_201_CREATED)
 
 
 class RefreshView(APIView):

@@ -9,6 +9,7 @@ from apps.accounts.api.views import (
     LoginView,
     LogoutView,
     PasswordChangeView,
+    PatientSignupView,
     RefreshView,
 )
 
@@ -24,6 +25,7 @@ urlpatterns = [
         LoginView.as_view(),
         name="api-auth-001",
     ),
+    path("api/v1/auth/patient-signup", PatientSignupView.as_view(), name="api-patient-signup"),
     path(
         "api/v1/auth/refresh",
         RefreshView.as_view(),

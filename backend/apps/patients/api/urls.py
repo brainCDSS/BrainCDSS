@@ -11,9 +11,23 @@ from apps.patients.api.views import (
 )
 from apps.patients.api.patient_profile_views import PatientProfileView
 from apps.patients.api.timeline_views import PatientTimelineView
+from apps.patients.api.clinical_history_views import (
+    PatientClinicalHistoryDetailView,
+    PatientClinicalHistoryListView,
+)
 
 
 urlpatterns = [
+    path(
+        "me/clinical-history",
+        PatientClinicalHistoryListView.as_view(),
+        name="patient-clinical-history-list",
+    ),
+    path(
+        "me/clinical-history/<uuid:encounter_id>",
+        PatientClinicalHistoryDetailView.as_view(),
+        name="patient-clinical-history-detail",
+    ),
     path(
         "me/profile",
         PatientProfileView.as_view(),

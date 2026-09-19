@@ -93,6 +93,7 @@ class ApiClient {
   Future<Map<String, dynamic>> patch(
     String path, {
     Map<String, dynamic>? body,
+    void Function(int statusCode, Map<String, dynamic> body)? onSuccess,
   }) async {
     final uri = Uri.parse('$baseUrl$path');
     final response = await _requestWithRefresh(
@@ -102,7 +103,9 @@ class ApiClient {
         body: jsonEncode(body ?? {}),
       ),
     );
-    return _decodeResponse(response);
+    final data = _decodeResponse(response);
+    onSuccess?.call(response.statusCode, data);
+    return data;
   }
 
   Future<http.Response> _requestWithRefresh(

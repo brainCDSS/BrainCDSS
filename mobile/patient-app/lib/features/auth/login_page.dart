@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/api/api_client.dart';
 import 'auth_api.dart';
 import 'auth_session.dart';
+import 'signup_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({
@@ -109,9 +110,7 @@ class _LoginPageState extends State<LoginPage> {
                     size: 64,
                     color: theme.colorScheme.primary,
                   ),
-
                   const SizedBox(height: 20),
-
                   Text(
                     'BrainOn',
                     textAlign: TextAlign.center,
@@ -119,9 +118,7 @@ class _LoginPageState extends State<LoginPage> {
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-
                   const SizedBox(height: 8),
-
                   Text(
                     '환자용 건강관리 서비스',
                     textAlign: TextAlign.center,
@@ -129,9 +126,7 @@ class _LoginPageState extends State<LoginPage> {
                       color: const Color(0xFF75849A),
                     ),
                   ),
-
                   const SizedBox(height: 40),
-
                   TextField(
                     controller: _loginIdController,
                     enabled: !_isLoading,
@@ -144,9 +139,7 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 16),
-
                   TextField(
                     controller: _passwordController,
                     enabled: !_isLoading,
@@ -165,8 +158,7 @@ class _LoginPageState extends State<LoginPage> {
                       suffixIcon: IconButton(
                         onPressed: () {
                           setState(() {
-                            _obscurePassword =
-                                !_obscurePassword;
+                            _obscurePassword = !_obscurePassword;
                           });
                         },
                         icon: Icon(
@@ -177,7 +169,6 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ),
                   ),
-
                   if (_errorMessage != null) ...[
                     const SizedBox(height: 14),
                     Text(
@@ -188,9 +179,7 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ),
                   ],
-
                   const SizedBox(height: 24),
-
                   FilledButton(
                     onPressed: _isLoading ? null : _login,
                     child: Padding(
@@ -212,6 +201,22 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                             ),
                     ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: _isLoading
+                        ? null
+                        : () async {
+                            final signedUp = await Navigator.of(context)
+                                .push<bool>(MaterialPageRoute(
+                                    builder: (_) => SignupPage(
+                                        apiClient: widget.apiClient)));
+                            if (signedUp == true && mounted)
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text('회원가입이 완료되었습니다.')));
+                          },
+                    child: const Text('계정이 없으신가요? 회원가입'),
                   ),
                 ],
               ),

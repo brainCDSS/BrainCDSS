@@ -11,7 +11,7 @@ from django.apps import apps
 from django.conf import settings
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_datetime
 from rest_framework.exceptions import APIException, AuthenticationFailed, NotFound, PermissionDenied, ValidationError
@@ -704,6 +704,22 @@ def _appointment_slot_payload(slot):
     }
 
 
+def _appointment_reschedule_history_payload(appointment):
+    history_manager = getattr(appointment, "reschedule_history", None)
+    if history_manager is None:
+        return []
+
+    return [
+        {
+            "previous_slot": _appointment_slot_payload(history.previous_slot),
+            "changed_slot": _appointment_slot_payload(history.changed_slot),
+            "rescheduled_at": _safe_value(history.rescheduled_at),
+            "reschedule_reason": history.reschedule_reason,
+        }
+        for history in history_manager.all()
+    ]
+
+
 def _appointment_payload(appointment):
     slot = _appointment_slot_payload(appointment.slot)
 
@@ -741,6 +757,9 @@ def _appointment_payload(appointment):
         "reschedule_requested_at": _safe_value(
             appointment.reschedule_requested_at
         ),
+        "reschedule_history": _appointment_reschedule_history_payload(
+            appointment
+        ),
         "confirmed_at": _safe_value(appointment.confirmed_at),
         "cancelled_at": _safe_value(appointment.cancelled_at),
         "completed_at": _safe_value(appointment.completed_at),
@@ -765,6 +784,19 @@ def _appointment_queryset(spec, request):
         "slot",
         "requested_slot",
         "handled_by",
+    )
+    history_model = apps.get_model(
+        "appointments",
+        "AppointmentRescheduleHistory",
+    )
+    queryset = queryset.prefetch_related(
+        Prefetch(
+            "reschedule_history",
+            queryset=history_model.objects.select_related(
+                "previous_slot",
+                "changed_slot",
+            ).order_by("-rescheduled_at"),
+        )
     )
     return _owner_scope(queryset, model, request)
 
@@ -841,6 +873,66 @@ def _slot_query_boundary(value, parameter, *, end_of_day=False):
     return timezone.make_aware(datetime.combine(parsed_date, boundary_time))
 
 
+def _appointment_generate_available_slots(clinician, target_date):
+    """Idempotently fill a date's schedule-derived slots without touching rows."""
+    schedule_model = apps.get_model("appointments", "ClinicianSchedule")
+    slot_model = apps.get_model("appointments", "AppointmentSlot")
+    schedules = schedule_model.objects.filter(
+        clinician=clinician,
+        weekday=target_date.weekday(),
+        is_active=True,
+        effective_from__lte=target_date,
+    ).filter(
+        Q(effective_to__isnull=True) | Q(effective_to__gte=target_date),
+    )
+
+    candidates = {}
+    for schedule in schedules.order_by("effective_from", "id"):
+        schedule_start = timezone.make_aware(
+            datetime.combine(target_date, schedule.start_time),
+        )
+        schedule_end = timezone.make_aware(
+            datetime.combine(target_date, schedule.end_time),
+        )
+        if schedule_end <= schedule_start:
+            continue
+
+        start_at = schedule_start
+        while start_at < timezone.make_aware(datetime.combine(target_date, time(9))):
+            start_at += timedelta(minutes=schedule.slot_minutes)
+
+        while (
+            timezone.localtime(start_at).time().replace(tzinfo=None) <= time(18)
+            and start_at + timedelta(minutes=schedule.slot_minutes) <= schedule_end
+        ):
+            candidates.setdefault(start_at, schedule)
+            start_at += timedelta(minutes=schedule.slot_minutes)
+
+    if not candidates:
+        return
+
+    existing_starts = set(
+        slot_model.objects.filter(
+            clinician=clinician,
+            start_at__in=candidates,
+        ).values_list("start_at", flat=True),
+    )
+    slot_model.objects.bulk_create(
+        [
+            slot_model(
+                clinician=clinician,
+                schedule=schedule,
+                start_at=start_at,
+                end_at=start_at + timedelta(minutes=schedule.slot_minutes),
+                status="AVAILABLE",
+            )
+            for start_at, schedule in candidates.items()
+            if start_at not in existing_starts
+        ],
+        ignore_conflicts=True,
+    )
+
+
 def _appointment_available_slots(request, spec, kwargs):
     """Return only a clinician's AVAILABLE slots for an explicit time range."""
     del spec
@@ -876,6 +968,7 @@ def _appointment_available_slots(request, spec, kwargs):
                 "code": "VALIDATION_ERROR",
                 "date": "must be an ISO-8601 date",
             })
+        _appointment_generate_available_slots(clinician, target_date)
         queryset = slot_model.objects.filter(
             clinician_id=clinician.id,
             status="AVAILABLE",
@@ -1186,31 +1279,155 @@ def _schedule_put(request, spec, kwargs):
     return Response(payload, status=200)
 
 
+def _appointment_validate_start_time(start_at):
+    local_start = timezone.localtime(start_at)
+    if not time(9) <= local_start.time().replace(tzinfo=None) <= time(18):
+        raise ContractError({
+            "code": "VALIDATION_ERROR",
+            "start_at": "Appointment times must be between 09:00 and 18:00.",
+        })
+
+
+def _appointment_slot_for_create(request):
+    """Lock an existing slot or create one from an active clinician schedule."""
+    data = request.data
+    slot_model = apps.get_model("appointments", "AppointmentSlot")
+
+    if data.get("slot_id"):
+        try:
+            slot = (
+                slot_model.objects.select_for_update()
+                .select_related("clinician__department__hospital")
+                .get(pk=data["slot_id"])
+            )
+        except (
+            slot_model.DoesNotExist,
+            DjangoValidationError,
+            ValueError,
+            TypeError,
+        ) as exc:
+            raise NotFound({"code": "SLOT_NOT_FOUND"}) from exc
+        _appointment_validate_start_time(slot.start_at)
+        return slot
+
+    clinician_id = data.get("clinician_id")
+    start_at_value = data.get("start_at") or data.get("scheduled_at")
+    if not clinician_id or not start_at_value:
+        raise ContractError({
+            "code": "VALIDATION_ERROR",
+            "slot_id": "slot_id or clinician_id and start_at are required.",
+        })
+
+    start_at = parse_datetime(str(start_at_value))
+    if start_at is None:
+        raise ContractError({
+            "code": "VALIDATION_ERROR",
+            "start_at": "must be an ISO-8601 datetime.",
+        })
+    if timezone.is_naive(start_at):
+        start_at = timezone.make_aware(start_at)
+    _appointment_validate_start_time(start_at)
+
+    clinician_model = apps.get_model("organizations", "Clinician")
+    try:
+        clinician = clinician_model.objects.select_related(
+            "department__hospital",
+        ).get(pk=clinician_id)
+    except (
+        clinician_model.DoesNotExist,
+        DjangoValidationError,
+        ValueError,
+        TypeError,
+    ) as exc:
+        raise NotFound({"code": "CLINICIAN_NOT_FOUND"}) from exc
+
+    slot = (
+        slot_model.objects.select_for_update()
+        .select_related("clinician__department__hospital")
+        .filter(clinician=clinician, start_at=start_at)
+        .first()
+    )
+    if slot is not None:
+        return slot
+
+    local_start = timezone.localtime(start_at)
+    schedule_model = apps.get_model("appointments", "ClinicianSchedule")
+    schedule = (
+        schedule_model.objects.filter(
+            clinician=clinician,
+            weekday=local_start.weekday(),
+            is_active=True,
+            effective_from__lte=local_start.date(),
+        )
+        .filter(Q(effective_to__isnull=True) | Q(effective_to__gte=local_start.date()))
+        .order_by("effective_from", "id")
+        .first()
+    )
+    if schedule is None:
+        raise ContractError({
+            "code": "SLOT_SCHEDULE_NOT_FOUND",
+            "detail": "No active clinician schedule covers this appointment time.",
+        })
+
+    start_time = local_start.time().replace(tzinfo=None)
+    end_at = start_at + timedelta(minutes=schedule.slot_minutes)
+    local_end = timezone.localtime(end_at)
+    minutes_from_schedule_start = (
+        datetime.combine(date.min, start_time)
+        - datetime.combine(date.min, schedule.start_time)
+    ).total_seconds() / 60
+    if (
+        start_time < schedule.start_time
+        or local_end.date() != local_start.date()
+        or local_end.time().replace(tzinfo=None) > schedule.end_time
+        or minutes_from_schedule_start % schedule.slot_minutes != 0
+    ):
+        raise ContractError({
+            "code": "VALIDATION_ERROR",
+            "start_at": "The appointment time does not match the clinician schedule.",
+        })
+
+    try:
+        with transaction.atomic():
+            slot = slot_model.objects.create(
+                clinician=clinician,
+                schedule=schedule,
+                start_at=start_at,
+                end_at=end_at,
+                status="AVAILABLE",
+            )
+    except IntegrityError:
+        slot = (
+            slot_model.objects.select_for_update()
+            .select_related("clinician__department__hospital")
+            .get(clinician=clinician, start_at=start_at)
+        )
+    else:
+        slot = (
+            slot_model.objects.select_for_update()
+            .select_related("clinician__department__hospital")
+            .get(pk=slot.pk)
+        )
+    return slot
+
+
 @transaction.atomic
 def _appointment_create(request, spec, kwargs):
     del kwargs
     model = _model(spec)
     if model is None:
         raise ContractError({"code": "APPOINTMENT_MODEL_NOT_CONFIGURED"})
-    if not isinstance(request.data, dict) or not request.data.get("slot_id"):
+    if not isinstance(request.data, dict):
         raise ContractError({
             "code": "VALIDATION_ERROR",
-            "slot_id": "This field is required.",
+            "slot_id": "slot_id or clinician_id and start_at are required.",
         })
 
     patient = _patient_for_user(request.user)
     if patient is None:
         raise ContractError({"code": "PATIENT_PROFILE_REQUIRED"})
 
-    slot_model = apps.get_model("appointments", "AppointmentSlot")
-    try:
-        slot = (
-            slot_model.objects.select_for_update()
-            .select_related("clinician__department__hospital")
-            .get(pk=request.data["slot_id"])
-        )
-    except (slot_model.DoesNotExist, DjangoValidationError, ValueError, TypeError) as exc:
-        raise NotFound({"code": "SLOT_NOT_FOUND"}) from exc
+    slot = _appointment_slot_for_create(request)
 
     if slot.status != "AVAILABLE":
         raise ContractConflict({
@@ -1388,6 +1605,7 @@ def _appointment_accept(request, spec, kwargs):
 
     previous = appointment.status
     before = serialize_instance(appointment)
+    reason = _appointment_action_reason(request, "memo", "reason")
     if requested_slot is not None:
         current_slot.status = "AVAILABLE"
         current_slot.held_until = None
@@ -1409,7 +1627,19 @@ def _appointment_accept(request, spec, kwargs):
         "status", "slot", "requested_slot", "confirmed_at", "handled_by",
         "reschedule_requested_at", "updated_at",
     ])
-    reason = _appointment_action_reason(request, "memo", "reason")
+    if requested_slot is not None:
+        reschedule_history_model = apps.get_model(
+            "appointments",
+            "AppointmentRescheduleHistory",
+        )
+        reschedule_history_model.objects.create(
+            appointment=appointment,
+            previous_slot=current_slot,
+            changed_slot=requested_slot,
+            rescheduled_at=now,
+            reschedule_reason=reason,
+            changed_by=request.user,
+        )
     _appointment_history(appointment, previous, "CONFIRMED", request, reason)
     appointment = _appointment_refresh(appointment)
     after = _appointment_payload(appointment)
@@ -4484,6 +4714,136 @@ def _ensure_consultation_action_scope(request, kwargs, action):
         })
 
 
+def _medication_schedule_payload(schedule, intake=None):
+    item = schedule.prescription_item
+    return {
+        "schedule_id": str(schedule.id),
+        "prescription_id": str(item.prescription_id),
+        "medication_name": item.medication_name,
+        "scheduled_at": _safe_value(schedule.scheduled_at),
+        "time_slot": schedule.time_slot,
+        "dose": _safe_value(schedule.dose),
+        "status": intake.status if intake is not None else "PENDING",
+        "intake_id": str(intake.id) if intake is not None else None,
+        "taken_at": _safe_value(intake.taken_at) if intake is not None else None,
+    }
+
+
+def _patient_medication_schedules(request):
+    patient = _patient_for_user(request.user)
+    if patient is None:
+        raise PermissionDenied({"code": "FORBIDDEN_ROLE"})
+
+    schedule_model = apps.get_model("medications", "MedicationSchedule")
+    return schedule_model.objects.filter(
+        prescription_item__prescription__encounter__patient_id=patient.id,
+        prescription_item__prescription__status="FINAL",
+    ).select_related("prescription_item__prescription")
+
+
+def _patient_medication_schedules_get(request, spec, kwargs):
+    del spec, kwargs
+    date_value = request.query_params.get("date")
+    if not date_value:
+        raise ContractError({"code": "VALIDATION_ERROR", "date": "is required"})
+
+    target_date = parse_date(date_value)
+    if target_date is None:
+        raise ContractError({"code": "VALIDATION_ERROR", "date": "must be an ISO-8601 date"})
+
+    schedules = list(
+        _patient_medication_schedules(request)
+        .filter(scheduled_at__date=target_date)
+        .order_by("scheduled_at")
+    )
+    intake_model = apps.get_model("medications", "MedicationIntake")
+    intakes = {
+        intake.schedule_id: intake
+        for intake in intake_model.objects.filter(schedule_id__in=[row.id for row in schedules])
+    }
+    taken_count = sum(1 for intake in intakes.values() if intake.status == "TAKEN")
+
+    return Response({
+        "summary": {
+            "scheduled_count": len(schedules),
+            "taken_count": taken_count,
+            "adherence_rate": (taken_count / len(schedules) * 100) if schedules else 0,
+        },
+        "items": [
+            _medication_schedule_payload(row, intakes.get(row.id))
+            for row in schedules
+        ],
+    }, status=200)
+
+
+def _patient_medication_intake_create(request, spec, kwargs):
+    del spec, kwargs
+    schedule_id = request.data.get("medication_schedule_id")
+    status_value = request.data.get("status")
+    if not schedule_id or status_value not in {"TAKEN", "SKIPPED"}:
+        raise ContractError({"code": "VALIDATION_ERROR"})
+
+    try:
+        schedule = _patient_medication_schedules(request).get(pk=schedule_id)
+    except apps.get_model("medications", "MedicationSchedule").DoesNotExist as exc:
+        raise NotFound({"code": "MEDICATION_SCHEDULE_NOT_FOUND"}) from exc
+
+    intake_model = apps.get_model("medications", "MedicationIntake")
+    if intake_model.objects.filter(schedule_id=schedule.id).exists():
+        raise ContractConflict({"code": "MEDICATION_INTAKE_DUPLICATED"})
+
+    now = timezone.now()
+    intake = intake_model.objects.create(
+        schedule_id=schedule.id,
+        recorded_by_id=request.user.id,
+        status=status_value,
+        taken_at=now if status_value == "TAKEN" else None,
+        note=request.data.get("note") or None,
+        created_at=now,
+        updated_at=now,
+    )
+    return Response({
+        "intake_id": str(intake.id),
+        "schedule_id": str(schedule.id),
+        "status": intake.status,
+        "taken_at": _safe_value(intake.taken_at),
+        "note": intake.note,
+    }, status=201)
+
+
+def _patient_medication_intake_update(request, spec, kwargs):
+    del spec
+    intake_id = kwargs.get("intake_id")
+    status_value = request.data.get("status")
+    if status_value not in {"TAKEN", "SKIPPED"}:
+        raise ContractError({"code": "VALIDATION_ERROR"})
+
+    intake_model = apps.get_model("medications", "MedicationIntake")
+    try:
+        intake = intake_model.objects.select_for_update().get(pk=intake_id)
+    except intake_model.DoesNotExist as exc:
+        raise NotFound({"code": "MEDICATION_INTAKE_NOT_FOUND"}) from exc
+
+    allowed_schedule_ids = _patient_medication_schedules(request).filter(
+        pk=intake.schedule_id,
+    ).values_list("id", flat=True)
+    if not allowed_schedule_ids:
+        raise NotFound({"code": "MEDICATION_INTAKE_NOT_FOUND"})
+
+    intake.status = status_value
+    intake.taken_at = timezone.now() if status_value == "TAKEN" else None
+    intake.updated_at = timezone.now()
+    intake.save(update_fields=["status", "taken_at", "updated_at"])
+    return Response({
+        "intake_id": str(intake.id),
+        "schedule_id": str(intake.schedule_id),
+        "status": intake.status,
+        "taken_at": _safe_value(intake.taken_at),
+        "note": intake.note,
+        "updated_at": _safe_value(intake.updated_at),
+    }, status=200)
+
+
 CUSTOM_HANDLERS = {
     "API-RX-001": _batchb_rx_create,
     "API-CON-004": _consultation_accept_strict,
@@ -4513,6 +4873,9 @@ CUSTOM_HANDLERS = {
     "API-ASM-005": _assessment_complete,
     "API-FCM-001": _fcm_create,
     "API-MEDSAFE-001": _medication_safety_check,
+    "API-MED-001": _patient_medication_schedules_get,
+    "API-MED-002": _patient_medication_intake_create,
+    "API-MED-003": _patient_medication_intake_update,
     "API-CDS-001": _cds_discovery,
     "API-NOTE-001": _clinical_note_create,
     "API-NOTE-004": _clinical_note_update,

@@ -255,10 +255,9 @@ class AppointmentRescheduleHistoryTests(TestCase):
 
 class AppointmentCreateSlotResolutionTests(TestCase):
     def setUp(self):
-        self.patient_role = Role.objects.create(code="PATIENT", name="Patient")
-        self.clinician_role = Role.objects.create(
+        self.patient_role = Role.objects.get(code="PATIENT")
+        self.clinician_role = Role.objects.get(
             code="NEUROLOGIST",
-            name="Clinician",
         )
         self.request_permission = Permission.objects.create(
             code="appointment.request",
@@ -415,10 +414,9 @@ class AppointmentCreateSlotResolutionTests(TestCase):
 
 class AppointmentAvailableSlotGenerationTests(TestCase):
     def setUp(self):
-        patient_role = Role.objects.create(code="PATIENT", name="Patient")
-        clinician_role = Role.objects.create(
+        patient_role = Role.objects.get(code="PATIENT")
+        clinician_role = Role.objects.get(
             code="NEUROLOGIST",
-            name="Clinician",
         )
         self.patient_user = User.objects.create_user(
             login_id="available-slot-patient",

@@ -312,12 +312,19 @@ export interface EmergencyRedFlag {
   note: string | null;
 }
 
+export interface EmergencyAbnormalFinding {
+  item_code: string;
+  label: string;
+  detail: string;
+}
+
 export interface EmergencyWorklistItem {
   assessment_id: string;
   encounter_id: string;
   patient_summary: EmergencyPatientSummary;
   total_score: number | null;
-  triage_priority: string;
+  triage_priority: TriagePriority;
+  effective_priority: TriagePriority;
   onset_at: string | null;
   lkw_at: string | null;
   completed_at: string | null;
@@ -326,6 +333,7 @@ export interface EmergencyWorklistItem {
     id: string;
     name: string;
   } | null;
+  abnormal_findings: EmergencyAbnormalFinding[];
   red_flags: EmergencyRedFlag[];
   event: {
     id: string;

@@ -255,10 +255,9 @@ class AppointmentRescheduleHistoryTests(TestCase):
 
 class AppointmentCreateSlotResolutionTests(TestCase):
     def setUp(self):
-        self.patient_role = Role.objects.create(code="PATIENT", name="Patient")
-        self.clinician_role = Role.objects.create(
+        self.patient_role = Role.objects.get(code="PATIENT")
+        self.clinician_role = Role.objects.get(
             code="NEUROLOGIST",
-            name="Clinician",
         )
         self.request_permission = Permission.objects.create(
             code="appointment.request",
@@ -415,10 +414,9 @@ class AppointmentCreateSlotResolutionTests(TestCase):
 
 class AppointmentAvailableSlotGenerationTests(TestCase):
     def setUp(self):
-        patient_role = Role.objects.create(code="PATIENT", name="Patient")
-        clinician_role = Role.objects.create(
+        patient_role = Role.objects.get(code="PATIENT")
+        clinician_role = Role.objects.get(
             code="NEUROLOGIST",
-            name="Clinician",
         )
         self.patient_user = User.objects.create_user(
             login_id="available-slot-patient",
@@ -506,10 +504,7 @@ class AppointmentAvailableSlotGenerationTests(TestCase):
 
 class StaffAppointmentResponseTests(TestCase):
     def setUp(self):
-        role = Role.objects.create(
-            code="NURSE",
-            name="간호사",
-        )
+        role = Role.objects.get(code="NURSE")
         permission = Permission.objects.create(
             code="appointment.read.staff",
             name="예약 업무 조회",
@@ -591,7 +586,7 @@ class StaffAppointmentResponseTests(TestCase):
 
 class AppointmentCorrectionTests(TestCase):
     def setUp(self):
-        role = Role.objects.create(code="NURSE", name="Nurse")
+        role = Role.objects.get(code="NURSE")
         permission = Permission.objects.create(
             code="appointment.correct",
             name="Correct appointment status",
@@ -726,7 +721,7 @@ class AppointmentCorrectionTests(TestCase):
         self.assertEqual(slot.status, "AVAILABLE")
 
     def test_role_without_access_is_forbidden(self):
-        patient_role = Role.objects.create(code="PATIENT", name="Patient")
+        patient_role = Role.objects.get(code="PATIENT")
         unauthorized_user = User.objects.create_user(
             login_id="appointment-correction-patient",
             password="test-password",

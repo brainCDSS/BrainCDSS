@@ -321,6 +321,41 @@ class EmergencyWorklistAPITests(APITestCase):
         self.acknowledge_url = reverse("api-evt-001-real", args=[self.event.id])
 
     def test_assigned_neurologist_receives_emergency_worklist(self):
+        now = timezone.now()
+        AssessmentItem.objects.create(
+            assessment=self.assessment,
+            item_group="FAST",
+            item_code="FAST_FACE",
+            value_text="ABNORMAL",
+            is_red_flag=False,
+            recorded_at=now,
+        )
+        AssessmentItem.objects.create(
+            assessment=self.assessment,
+            item_group="INITIAL_SCREENING",
+            item_code="BALANCE",
+            value_numeric=4,
+            score=4,
+            is_red_flag=False,
+            recorded_at=now,
+        )
+        AssessmentItem.objects.create(
+            assessment=self.assessment,
+            item_group="INITIAL_SCREENING",
+            item_code="EYES",
+            value_numeric=1,
+            score=1,
+            is_red_flag=False,
+            recorded_at=now,
+        )
+        TriageReview.objects.create(
+            assessment=self.assessment,
+            reviewer=self.neurologist,
+            reviewer_role="NEUROLOGIST",
+            priority="NON_EMERGENCY",
+            reason="Symptoms improved after reassessment.",
+        )
+
         self.client.force_authenticate(self.neurologist)
 
         response = self.client.get(self.worklist_url)
@@ -332,6 +367,22 @@ class EmergencyWorklistAPITests(APITestCase):
         self.assertEqual(item["encounter_id"], str(self.encounter.id))
         self.assertEqual(item["patient_summary"]["patient_no"], "EMERGENCY-001")
         self.assertEqual(item["triage_priority"], "EMERGENCY")
+        self.assertEqual(item["effective_priority"], "NON_EMERGENCY")
+        self.assertEqual(
+            item["abnormal_findings"],
+            [
+                {
+                    "item_code": "FAST_FACE",
+                    "label": "FAST Face",
+                    "detail": "이상",
+                },
+                {
+                    "item_code": "BALANCE",
+                    "label": "Balance / 균형",
+                    "detail": "뚜렷",
+                },
+            ],
+        )
         self.assertEqual(item["event"]["id"], str(self.event.id))
 
     def test_other_neurologist_does_not_receive_assigned_event(self):

@@ -115,6 +115,20 @@ function lkwElapsedLabel(value: string | null, now: number) {
     : `${days}일 전`;
 }
 
+function lkwDateTimeLabel(value: string | null) {
+  if (!value) return "-";
+
+  const timestamp = new Date(value);
+  if (Number.isNaN(timestamp.getTime())) return "-";
+
+  return timestamp.toLocaleString("ko-KR", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function PatientRail({ selectedId, patients, onSelect }: { selectedId: string | null; patients: Patient[]; onSelect?: (patient: Patient) => void }) {
   const [search, setSearch] = useState(""); const [page, setPage] = useState(1); const [encounterBadges, setEncounterBadges] = useState<Record<string, { label: string; tone: string }>>({});
   const filtered = useMemo(() => { const query = search.trim().toLowerCase(); return query ? patients.filter((item) => item.name.toLowerCase().includes(query) || item.patient_no.toLowerCase().includes(query)) : patients; }, [patients, search]);
@@ -247,12 +261,7 @@ function TriageSummaryBar({
   ].filter((item): item is string => Boolean(item));
 
   const lkwElapsed = lkwElapsedLabel(parsed?.lkwAt ?? null, now);
-  const lkwClock = parsed?.lkwAt
-    ? new Date(parsed.lkwAt).toLocaleTimeString("ko-KR", {
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : "-";
+  const lkwClock = lkwDateTimeLabel(parsed?.lkwAt ?? null);
 
   const effectivePriority =
     reviewData?.effective_priority ??
@@ -296,7 +305,7 @@ function TriageSummaryBar({
           </div>
 
           <div className="patient-triage-metric">
-            <span>LKW</span>
+            <span>LKW 경과</span>
             <strong>{lkwElapsed}</strong>
             <small>{lkwClock}</small>
           </div>

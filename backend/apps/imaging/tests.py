@@ -13,7 +13,7 @@ from apps.patients.models import Patient
 class PatientTestResultsViewTests(TestCase):
     def setUp(self):
         self.factory = APIRequestFactory()
-        role = Role.objects.create(code="PATIENT", name="Patient")
+        role = Role.objects.get(code="PATIENT")
         self.user = User.objects.create_user(
             login_id="test-result-patient",
             password="test-password",

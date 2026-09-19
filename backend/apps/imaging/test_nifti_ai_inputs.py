@@ -17,7 +17,7 @@ from apps.patients.models import Patient, PatientCareAssignment
 class NiftiAIInputTests(TestCase):
     def setUp(self):
         now = timezone.now()
-        role = Role.objects.create(code="RADIOLOGY", name="Synthetic Radiology")
+        role = Role.objects.get(code="RADIOLOGY")
         self.user = User.objects.create_user(
             login_id="synthetic-imaging-user", password="test-only-password",
             name="Synthetic Imaging User", role=role,

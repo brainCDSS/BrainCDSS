@@ -92,7 +92,7 @@ export default function EmergencyWorklist({ onOpenPatient, onOpenPrescription }:
     <section className="clinical-page">
       <header className="clinical-page__heading">
         <h2>응급 Worklist</h2>
-        <p>초기평가에서 긴급·응급으로 분류되어 현재 사용자에게 배정된 환자입니다.</p>
+        <p>초기 긴급·응급 이벤트를 기준으로 표시하며, 의사 재평가가 있으면 현재 우선순위를 별도로 보여줍니다.</p>
       </header>
 
       {error && (
@@ -113,7 +113,7 @@ export default function EmergencyWorklist({ onOpenPatient, onOpenPrescription }:
           ) : (
             <div className="clinical-table-wrap">
               <table className="clinical-table">
-                <thead><tr><th>환자</th><th>환자번호/MRN</th><th>성별/나이</th><th>응급도</th><th>점수</th><th>LKW</th><th>알림 시각</th><th>현재 상태</th><th>확인 여부</th><th>작업</th></tr></thead>
+                <thead><tr><th>환자</th><th>환자번호/MRN</th><th>성별/나이</th><th>초기 우선순위</th><th>현재 우선순위</th><th>점수</th><th>LKW</th><th>알림 시각</th><th>이벤트 상태</th><th>확인 여부</th><th>작업</th></tr></thead>
                 <tbody>{worklist.results.map((item) => {
                   const patientId = patientIdOf(item);
                   const acknowledged = item.event.status === "ACKNOWLEDGED" || Boolean(item.event.acknowledged_at);
@@ -122,6 +122,11 @@ export default function EmergencyWorklist({ onOpenPatient, onOpenPrescription }:
                     <td>{item.patient_summary.patient_no ?? "-"}</td>
                     <td>{patientDetailOf(item)}</td>
                     <td><span className={`clinical-badge clinical-badge--${item.triage_priority.toLowerCase()}`}>{item.triage_priority}</span></td>
+                    <td>
+                      {item.effective_priority === item.triage_priority
+                        ? item.effective_priority
+                        : `${item.effective_priority} (재평가)`}
+                    </td>
                     <td>{item.total_score ?? "-"}</td>
                     <td>{formatDateTime(item.lkw_at)}</td>
                     <td>{formatDateTime(item.event.notified_at)}</td>

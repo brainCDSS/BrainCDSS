@@ -7,7 +7,7 @@ from apps.organizations.models import Clinician, Department, Hospital
 
 class OrganizationStaffReferenceAPITests(APITestCase):
     def setUp(self):
-        nurse_role = Role.objects.create(code=RoleCode.NURSE, name="간호사")
+        nurse_role = Role.objects.get(code=RoleCode.NURSE)
         neurologist_role = Role.objects.create(
             code=RoleCode.NEUROLOGIST,
             name="신경과",

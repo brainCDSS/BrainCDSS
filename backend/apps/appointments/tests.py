@@ -80,10 +80,7 @@ class AppointmentPayloadTests(SimpleTestCase):
 
 class StaffAppointmentResponseTests(TestCase):
     def setUp(self):
-        role = Role.objects.create(
-            code="NURSE",
-            name="간호사",
-        )
+        role = Role.objects.get(code="NURSE")
         permission = Permission.objects.create(
             code="appointment.read.staff",
             name="예약 업무 조회",
@@ -165,7 +162,7 @@ class StaffAppointmentResponseTests(TestCase):
 
 class AppointmentCorrectionTests(TestCase):
     def setUp(self):
-        role = Role.objects.create(code="NURSE", name="Nurse")
+        role = Role.objects.get(code="NURSE")
         permission = Permission.objects.create(
             code="appointment.correct",
             name="Correct appointment status",
@@ -300,7 +297,7 @@ class AppointmentCorrectionTests(TestCase):
         self.assertEqual(slot.status, "AVAILABLE")
 
     def test_role_without_access_is_forbidden(self):
-        patient_role = Role.objects.create(code="PATIENT", name="Patient")
+        patient_role = Role.objects.get(code="PATIENT")
         unauthorized_user = User.objects.create_user(
             login_id="appointment-correction-patient",
             password="test-password",

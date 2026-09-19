@@ -8,10 +8,7 @@ from apps.organizations.models import Clinician, Department, Hospital
 class OrganizationStaffReferenceAPITests(APITestCase):
     def setUp(self):
         nurse_role = Role.objects.get(code=RoleCode.NURSE)
-        neurologist_role = Role.objects.create(
-            code=RoleCode.NEUROLOGIST,
-            name="신경과",
-        )
+        neurologist_role = Role.objects.get(code=RoleCode.NEUROLOGIST)
         self.nurse = User.objects.create_user(
             login_id="organization-nurse",
             password="test-password",
@@ -24,20 +21,14 @@ class OrganizationStaffReferenceAPITests(APITestCase):
             name="테스트 신경과",
             role=neurologist_role,
         )
-        neurosurgeon_role = Role.objects.create(
-            code=RoleCode.NEUROSURGEON,
-            name="신경외과",
-        )
+        neurosurgeon_role = Role.objects.get(code=RoleCode.NEUROSURGEON)
         self.neurosurgeon = User.objects.create_user(
             login_id="organization-neurosurgeon",
             password="test-password",
             name="테스트 신경외과",
             role=neurosurgeon_role,
         )
-        patient_role = Role.objects.create(
-            code=RoleCode.PATIENT,
-            name="환자",
-        )
+        patient_role = Role.objects.get(code=RoleCode.PATIENT)
         self.patient = User.objects.create_user(
             login_id="organization-patient",
             password="test-password",

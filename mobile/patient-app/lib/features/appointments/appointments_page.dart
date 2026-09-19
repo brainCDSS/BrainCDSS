@@ -681,6 +681,10 @@ class _AppointmentTile extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 8),
+                        if (appointment.requestType == 'RESCHEDULE') ...[
+                          const _AppointmentChangedBadge(),
+                          const SizedBox(width: 4),
+                        ],
                         _AppointmentStatusBadge(status: appointment.status),
                       ],
                     ),
@@ -791,6 +795,11 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
 
     final date = DateTime.tryParse(_detail!['scheduled_at']?.toString() ?? '')
         ?.toLocal();
+    final rescheduleHistory = AppointmentRescheduleHistory.fromJsonList(
+      _detail!['reschedule_history'],
+    );
+    final latestReschedule =
+        rescheduleHistory.isEmpty ? null : rescheduleHistory.first;
     return Scaffold(
       appBar: AppBar(
         title: const Text('예약 상세'),
@@ -810,6 +819,16 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
                 children: [
+                  if (_detail!['request_type']?.toString() == 'RESCHEDULE') ...[
+                    const _AppointmentRescheduleNoticeCard(),
+                    const SizedBox(height: 12),
+                  ],
+                  if (latestReschedule != null) ...[
+                    _AppointmentRescheduleHistoryCard(
+                      history: latestReschedule,
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   _AppointmentDetailCard(
                     status: _detail!['status']?.toString() ?? '',
                     scheduledAt: date,
@@ -978,7 +997,8 @@ class AppointmentReservationFlow extends StatelessWidget {
   Widget build(BuildContext context) => _SlotSelectionPage(
         apiClient: apiClient,
         title: '진료 예약',
-        onSubmit: (slotId) => AppointmentsApi(apiClient).create(slotId),
+        onSubmit: (slotId, {rescheduleReason}) =>
+            AppointmentsApi(apiClient).create(slotId),
         onChanged: onChanged,
         onComplete: onComplete,
         embedded: embedded,
@@ -996,8 +1016,14 @@ class _ReservationChangePage extends StatelessWidget {
         apiClient: apiClient,
         title: '예약 변경',
         fixedClinicianId: appointment.clinicianId,
-        onSubmit: (slotId) => AppointmentsApi(apiClient)
-            .reschedule(appointment.appointmentId, slotId),
+        rescheduleAppointmentId: appointment.appointmentId,
+        rescheduleAppointment: appointment,
+        onSubmit: (slotId, {rescheduleReason}) =>
+            AppointmentsApi(apiClient).reschedule(
+          appointment.appointmentId,
+          slotId,
+          rescheduleReason: rescheduleReason,
+        ),
       );
 }
 
@@ -1097,6 +1123,258 @@ class _ReservationCompletedPage extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      );
+}
+
+class _ReservationRescheduleCompletedPage extends StatelessWidget {
+  const _ReservationRescheduleCompletedPage({
+    required this.previousAt,
+    required this.changedAt,
+    required this.department,
+    required this.clinicianName,
+    required this.rescheduleReason,
+  });
+
+  final DateTime? previousAt;
+  final DateTime? changedAt;
+  final String department;
+  final String clinicianName;
+  final String? rescheduleReason;
+
+  @override
+  Widget build(BuildContext context) => PopScope(
+        canPop: false,
+        child: Scaffold(
+          body: SafeArea(
+            child: Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+                    child: Column(
+                      children: [
+                        Stack(
+                          clipBehavior: Clip.none,
+                          alignment: Alignment.topCenter,
+                          children: [
+                            SizedBox(
+                              width: 160,
+                              height: 160,
+                              child: Image.asset(
+                                'assets/images/image1.png',
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                            Positioned(
+                              top: -4,
+                              child: Container(
+                                width: 36,
+                                height: 36,
+                                decoration: const BoxDecoration(
+                                  color: _primary,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.check_rounded,
+                                  color: Colors.white,
+                                  size: 22,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        const Text(
+                          '예약이 변경되었습니다!',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: _text,
+                            fontSize: 23,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        const Text(
+                          '선택하신 일정으로 예약 변경이 완료되었어요.\n변경된 예약 내용은 내 예약에서 확인할 수 있습니다.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: _muted,
+                            fontSize: 14,
+                            height: 1.55,
+                          ),
+                        ),
+                        const SizedBox(height: 28),
+                        _ReservationRescheduleCompletedSummary(
+                          previousAt: previousAt,
+                          changedAt: changedAt,
+                          department: department,
+                          clinicianName: clinicianName,
+                          rescheduleReason: rescheduleReason,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: FilledButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      child: const Text('확인'),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+}
+
+class _ReservationRescheduleCompletedSummary extends StatelessWidget {
+  const _ReservationRescheduleCompletedSummary({
+    required this.previousAt,
+    required this.changedAt,
+    required this.department,
+    required this.clinicianName,
+    required this.rescheduleReason,
+  });
+
+  final DateTime? previousAt;
+  final DateTime? changedAt;
+  final String department;
+  final String clinicianName;
+  final String? rescheduleReason;
+
+  @override
+  Widget build(BuildContext context) {
+    final reason = rescheduleReason?.trim();
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: _border),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        children: [
+          _ReservationRescheduleTimeCard(
+            label: '기존 예약',
+            value: _formatLocalAppointmentDate(previousAt),
+            icon: Icons.calendar_month_outlined,
+            color: const Color(0xFFC95555),
+            backgroundColor: const Color(0xFFFFF3F3),
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Icon(Icons.arrow_downward_rounded, color: _primary),
+          ),
+          _ReservationRescheduleTimeCard(
+            label: '변경된 예약',
+            value: _formatLocalAppointmentDate(changedAt),
+            icon: Icons.calendar_month_outlined,
+            color: Color(0xFF3677C9),
+            backgroundColor: Color(0xFFF1F7FF),
+          ),
+          if (department.isNotEmpty) ...[
+            const Divider(height: 24, color: Color(0xFFE6E8F2)),
+            _ReservationCompletedRow(
+              icon: Icons.account_tree_outlined,
+              label: '진료과',
+              value: department,
+            ),
+          ],
+          if (clinicianName.isNotEmpty) ...[
+            const Divider(height: 24, color: Color(0xFFE6E8F2)),
+            _ReservationCompletedRow(
+              icon: Icons.person_outline_rounded,
+              label: '의료진',
+              value: clinicianName,
+            ),
+          ],
+          if (reason != null && reason.isNotEmpty) ...[
+            const Divider(height: 24, color: Color(0xFFE6E8F2)),
+            _ReservationCompletedRow(
+              icon: Icons.edit_note_rounded,
+              label: '변경 사유',
+              value: reason,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ReservationRescheduleTimeCard extends StatelessWidget {
+  const _ReservationRescheduleTimeCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+    required this.backgroundColor,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+  final Color backgroundColor;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: Icon(icon, color: color, size: 22),
+            ),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    '예약 날짜 / 시간',
+                    style: TextStyle(color: _muted, fontSize: 12),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    value,
+                    style: const TextStyle(
+                      color: _text,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       );
 }
@@ -1204,6 +1482,8 @@ class _SlotSelectionPage extends StatefulWidget {
       required this.title,
       required this.onSubmit,
       this.fixedClinicianId,
+      this.rescheduleAppointmentId,
+      this.rescheduleAppointment,
       this.onChanged,
       this.onComplete,
       this.embedded = false,
@@ -1211,7 +1491,12 @@ class _SlotSelectionPage extends StatefulWidget {
   final ApiClient apiClient;
   final String title;
   final String? fixedClinicianId;
-  final Future<void> Function(String slotId) onSubmit;
+  final String? rescheduleAppointmentId;
+  final HomeAppointment? rescheduleAppointment;
+  final Future<Map<String, dynamic>> Function(
+    String slotId, {
+    String? rescheduleReason,
+  }) onSubmit;
   final VoidCallback? onChanged;
   final VoidCallback? onComplete;
   final bool embedded;
@@ -1233,10 +1518,16 @@ class _SlotSelectionPageState extends State<_SlotSelectionPage> {
   bool _loading = true;
   bool _submitting = false;
   String? _error;
+  String? _selectedRescheduleReason;
+  final TextEditingController _rescheduleReasonController =
+      TextEditingController();
 
   @override
   void initState() {
     super.initState();
+    if (widget.rescheduleAppointmentId == null) {
+      debugPrint('RESERVATION PAGE INIT');
+    }
     _clinicianId = widget.fixedClinicianId?.isNotEmpty == true
         ? widget.fixedClinicianId
         : null;
@@ -1247,9 +1538,17 @@ class _SlotSelectionPageState extends State<_SlotSelectionPage> {
     }
   }
 
+  @override
+  void dispose() {
+    _rescheduleReasonController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadClinicians() async {
+    debugPrint('LOAD CLINICIANS START');
     try {
       final values = await _api.clinicians();
+      debugPrint('LOAD CLINICIANS SUCCESS: ${values.length}');
       if (!mounted) {
         return;
       }
@@ -1258,13 +1557,18 @@ class _SlotSelectionPageState extends State<_SlotSelectionPage> {
         _loading = false;
       });
     } on ApiException catch (error) {
+      debugPrint(
+        'LOAD CLINICIANS API ERROR: '
+        'status=${error.statusCode}, message=${error.message}',
+      );
       if (mounted) {
         setState(() {
           _error = error.message;
           _loading = false;
         });
       }
-    } catch (_) {
+    } catch (error) {
+      debugPrint('LOAD CLINICIANS UNKNOWN ERROR: $error');
       if (mounted) {
         setState(() {
           _error = '의료진 목록을 불러오지 못했습니다.';
@@ -1285,7 +1589,12 @@ class _SlotSelectionPageState extends State<_SlotSelectionPage> {
       _selectedSlotId = null;
     });
     try {
+      debugPrint(
+        'Loading appointment slots: clinicianId=$clinicianId, '
+        'date=${_date.toIso8601String()}',
+      );
       final values = await _api.slots(clinicianId, _date);
+      debugPrint('Appointment slots loaded: ${values.length}');
       if (mounted) {
         setState(() {
           _slots = values;
@@ -1293,6 +1602,7 @@ class _SlotSelectionPageState extends State<_SlotSelectionPage> {
         });
       }
     } on ApiException catch (error) {
+      debugPrint('Appointment slots failed: $error');
       if (mounted) {
         setState(() {
           _slots = const [];
@@ -1300,7 +1610,8 @@ class _SlotSelectionPageState extends State<_SlotSelectionPage> {
           _loading = false;
         });
       }
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Appointment slots failed: $error');
       if (mounted) {
         setState(() {
           _slots = const [];
@@ -1351,10 +1662,60 @@ class _SlotSelectionPageState extends State<_SlotSelectionPage> {
   Future<void> _submit() async {
     final slotId = _selectedSlotId;
     if (slotId == null || _submitting) return;
+    final appointmentId = widget.rescheduleAppointmentId;
+    if (appointmentId != null) {
+      debugPrint('RESCHEDULE SUBMIT START');
+      debugPrint('appointmentId: $appointmentId');
+      debugPrint('selected slot id: $slotId');
+    }
     setState(() => _submitting = true);
     try {
-      await widget.onSubmit(slotId);
-      if (widget.showCompletion && mounted) {
+      final selectedRescheduleReason = _selectedRescheduleReason == '기타'
+          ? _rescheduleReasonController.text.trim()
+          : _selectedRescheduleReason;
+      final rescheduleReason = selectedRescheduleReason?.trim();
+      final response = await widget.onSubmit(
+        slotId,
+        rescheduleReason:
+            rescheduleReason?.isNotEmpty == true ? rescheduleReason : null,
+      );
+      if (appointmentId != null && mounted) {
+        final history = AppointmentRescheduleHistory.fromJsonList(
+          response['reschedule_history'],
+        );
+        AppointmentRescheduleHistory? latestHistory;
+        for (final item in history) {
+          if (item.changedSlot?.id == slotId) {
+            latestHistory = item;
+            break;
+          }
+        }
+        final previousSlot = latestHistory?.previousSlot ??
+            _slotFromResponse(response['current_slot'] ?? response['slot']);
+        final changedSlot = latestHistory?.changedSlot ??
+            _slotFromResponse(response['requested_slot']) ??
+            _selectedSlot;
+        final confirmed = await Navigator.of(context).push<bool>(
+          MaterialPageRoute(
+            builder: (_) => _ReservationRescheduleCompletedPage(
+              previousAt: previousSlot?.startAt ??
+                  widget.rescheduleAppointment?.scheduledAt,
+              changedAt: changedSlot?.startAt,
+              department: widget.rescheduleAppointment?.departmentName ??
+                  _selectedClinician?.department ??
+                  '',
+              clinicianName: widget.rescheduleAppointment?.clinicianName ??
+                  _selectedClinician?.name ??
+                  '',
+              rescheduleReason: latestHistory?.rescheduleReason ??
+                  (rescheduleReason?.isNotEmpty == true
+                      ? rescheduleReason
+                      : null),
+            ),
+          ),
+        );
+        if (!mounted || confirmed != true) return;
+      } else if (widget.showCompletion && mounted) {
         final confirmed = await Navigator.of(context).push<bool>(
           MaterialPageRoute(
             builder: (_) => _ReservationCompletedPage(
@@ -1370,20 +1731,51 @@ class _SlotSelectionPageState extends State<_SlotSelectionPage> {
       if (widget.embedded) {
         widget.onComplete?.call();
       } else if (mounted) {
+        if (appointmentId != null) {
+          debugPrint('RESCHEDULE navigation success');
+        }
         Navigator.pop(context, true);
       }
     } on ApiException catch (error) {
+      if (appointmentId != null) {
+        debugPrint('RESCHEDULE API status: ${error.statusCode}');
+        debugPrint('RESCHEDULE API response: ${error.message}');
+      }
       if (mounted) {
         setState(() {
           _error = error.message;
           _submitting = false;
         });
+        _showSubmitError();
       }
     } catch (_) {
-      if (mounted) setState(() => _error = '요청을 처리하지 못했습니다.');
+      if (appointmentId != null) {
+        debugPrint('RESCHEDULE API response: request failed unexpectedly');
+      }
+      if (mounted) {
+        setState(() => _error = '요청을 처리하지 못했습니다.');
+        _showSubmitError();
+      }
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  AppointmentSlot? _slotFromResponse(dynamic value) {
+    if (value is Map) {
+      return AppointmentSlot.fromJson(value);
+    }
+    return null;
+  }
+
+  void _showSubmitError() {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('요청을 처리하지 못했습니다. 다시 시도해 주세요.'),
+        ),
+      );
   }
 
   @override
@@ -1543,7 +1935,6 @@ class _SlotSelectionPageState extends State<_SlotSelectionPage> {
                     clinician: clinician,
                     selected: clinician.id == _clinicianId,
                     onTap: () {
-                      if (_clinicianId == clinician.id) return;
                       setState(() => _clinicianId = clinician.id);
                       _loadSlots();
                     },
@@ -1614,12 +2005,16 @@ class _SlotSelectionPageState extends State<_SlotSelectionPage> {
   Widget _buildConfirmStep() {
     final clinician = _selectedClinician;
     final slot = _selectedSlot;
+    final isReschedule = widget.rescheduleAppointmentId != null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _ReservationStepTitle(
-          title: '예약 정보를 확인해 주세요.',
-          description: '예약 내용을 확인한 뒤 예약하기를 눌러 주세요.',
+        _ReservationStepTitle(
+          title: isReschedule ? '예약 변경정보를 확인해 주세요.' : '예약 정보를 확인해 주세요.',
+          description: isReschedule
+              ? '예약 변경내용을 확인한 뒤 변경하기를 눌러 주세요.'
+              : '예약 내용을 확인한 뒤 예약하기를 눌러 주세요.',
         ),
         const SizedBox(height: 18),
         _ReservationConfirmCard(
@@ -1628,6 +2023,89 @@ class _SlotSelectionPageState extends State<_SlotSelectionPage> {
           clinicianName: clinician?.name ?? '',
           time: _formatSlotTime(slot?.startAt),
         ),
+        if (isReschedule) ...[
+          const SizedBox(height: 16),
+          const Text(
+            '변경 사유 (선택)',
+            style: TextStyle(
+              color: _text,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<String>(
+            value: _selectedRescheduleReason,
+            isExpanded: true,
+            hint: const Text('변경 사유를 선택해 주세요.'),
+            items: const [
+              '개인 일정 변경',
+              '진료 일정 조정',
+              '건강 사유',
+              '교통/이동 문제',
+              '기타',
+            ]
+                .map(
+                  (reason) => DropdownMenuItem<String>(
+                    value: reason,
+                    child: Text(reason),
+                  ),
+                )
+                .toList(),
+            onChanged: (reason) {
+              setState(() {
+                _selectedRescheduleReason = reason;
+                if (reason != '기타') {
+                  _rescheduleReasonController.clear();
+                }
+              });
+            },
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: _border),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: _border),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: _primary, width: 1.5),
+              ),
+            ),
+          ),
+          if (_selectedRescheduleReason == '기타') ...[
+            const SizedBox(height: 10),
+            TextField(
+              controller: _rescheduleReasonController,
+              maxLines: 2,
+              maxLength: 255,
+              decoration: InputDecoration(
+                hintText: '변경 사유를 입력해 주세요.',
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.all(14),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(color: _border),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(color: _border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(color: _primary, width: 1.5),
+                ),
+              ),
+            ),
+          ],
+        ],
         const SizedBox(height: 22),
         Row(
           children: [
@@ -1643,7 +2121,13 @@ class _SlotSelectionPageState extends State<_SlotSelectionPage> {
               child: FilledButton(
                 onPressed:
                     _selectedSlotId == null || _submitting ? null : _submit,
-                child: Text(_submitting ? '처리 중...' : '예약하기'),
+                child: Text(
+                  _submitting
+                      ? '처리 중...'
+                      : isReschedule
+                          ? '변경하기'
+                          : '예약하기',
+                ),
               ),
             ),
           ],
@@ -2063,6 +2547,163 @@ class _AppointmentDetailRow extends StatelessWidget {
       );
 }
 
+class _AppointmentChangedBadge extends StatelessWidget {
+  const _AppointmentChangedBadge();
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1ECFF),
+          borderRadius: BorderRadius.circular(99),
+        ),
+        child: const Text(
+          '변경됨',
+          style: TextStyle(
+            color: _primary,
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      );
+}
+
+class _AppointmentRescheduleNoticeCard extends StatelessWidget {
+  const _AppointmentRescheduleNoticeCard();
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: _soft,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: _border),
+        ),
+        child: const Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.event_repeat_rounded, color: _primary, size: 20),
+            SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '예약 일정이 변경되었습니다',
+                    style: TextStyle(
+                      color: _text,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    '변경된 예약 정보를 확인해 주세요.',
+                    style: TextStyle(color: _muted, fontSize: 13, height: 1.4),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+}
+
+class _AppointmentRescheduleHistoryCard extends StatelessWidget {
+  const _AppointmentRescheduleHistoryCard({required this.history});
+
+  final AppointmentRescheduleHistory history;
+
+  @override
+  Widget build(BuildContext context) {
+    final reason = history.rescheduleReason?.trim();
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.event_repeat_rounded, color: _primary, size: 20),
+              SizedBox(width: 8),
+              Text(
+                '변경 정보',
+                style: TextStyle(
+                  color: _text,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _AppointmentRescheduleHistoryRow(
+            label: '이전 예약 날짜 / 시간',
+            value: _formatLocalAppointmentDate(history.previousSlot?.startAt),
+          ),
+          const Divider(height: 22, color: Color(0xFFE6E8F2)),
+          _AppointmentRescheduleHistoryRow(
+            label: '변경된 예약 날짜 / 시간',
+            value: _formatLocalAppointmentDate(history.changedSlot?.startAt),
+          ),
+          const Divider(height: 22, color: Color(0xFFE6E8F2)),
+          _AppointmentRescheduleHistoryRow(
+            label: '변경 완료 일시',
+            value: _formatLocalAppointmentDate(history.rescheduledAt),
+          ),
+          if (reason != null && reason.isNotEmpty) ...[
+            const Divider(height: 22, color: Color(0xFFE6E8F2)),
+            _AppointmentRescheduleHistoryRow(
+              label: '변경 사유',
+              value: reason,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AppointmentRescheduleHistoryRow extends StatelessWidget {
+  const _AppointmentRescheduleHistoryRow({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(color: _muted, fontSize: 13),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            flex: 2,
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                color: _text,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      );
+}
+
 class _AppointmentNoticeCard extends StatelessWidget {
   const _AppointmentNoticeCard();
 
@@ -2257,6 +2898,9 @@ String _formatAppointmentDate(DateTime value) {
   final minute = value.minute.toString().padLeft(2, '0');
   return '${value.year}.$month.$day (${weekdays[value.weekday - 1]}) $hour:$minute';
 }
+
+String _formatLocalAppointmentDate(DateTime? value) =>
+    value == null ? '-' : _formatAppointmentDate(value.toLocal());
 
 String _statusLabel(String status) =>
     {

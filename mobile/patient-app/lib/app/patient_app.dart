@@ -232,15 +232,15 @@ class _PatientAppState extends State<PatientApp> {
               body: Center(child: CircularProgressIndicator()),
             )
           : _session == null
-          ? LoginPage(
-              apiClient: _apiClient,
-              onLoginSuccess: _handleLoginSuccess,
-            )
-          : PatientMainShell(
-              apiClient: _apiClient,
-              session: _session!,
-              onLogout: _logout,
-            ),
+              ? LoginPage(
+                  apiClient: _apiClient,
+                  onLoginSuccess: _handleLoginSuccess,
+                )
+              : PatientMainShell(
+                  apiClient: _apiClient,
+                  session: _session!,
+                  onLogout: _logout,
+                ),
     );
   }
 }

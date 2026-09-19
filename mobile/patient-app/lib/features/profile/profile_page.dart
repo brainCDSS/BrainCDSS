@@ -19,12 +19,14 @@ class ProfilePage extends StatelessWidget {
     required this.onLogout,
     required this.apiClient,
     required this.onOpenNotificationSettings,
+    required this.onOpenChatbot,
   });
 
   final AuthSession session;
   final Future<void> Function() onLogout;
   final ApiClient apiClient;
   final VoidCallback onOpenNotificationSettings;
+  final VoidCallback onOpenChatbot;
 
   static void openMyInfo(
     BuildContext context,
@@ -189,7 +191,7 @@ class ProfilePage extends StatelessWidget {
                 ),
                 const Spacer(),
                 const SizedBox(height: 20),
-                const _CustomerSupportCard(),
+                _CustomerSupportCard(onTap: onOpenChatbot),
                 const SizedBox(height: 12),
                 TextButton.icon(
                   style: TextButton.styleFrom(
@@ -342,10 +344,15 @@ class _ProfileMenu extends StatelessWidget {
 }
 
 class _CustomerSupportCard extends StatelessWidget {
-  const _CustomerSupportCard();
+  const _CustomerSupportCard({required this.onTap});
+
+  final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) => InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(17),
+        child: Ink(
         padding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 14,
@@ -393,8 +400,13 @@ class _CustomerSupportCard extends StatelessWidget {
                 ],
               ),
             ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: _primary,
+            ),
           ],
         ),
+      ),
       );
 }
 

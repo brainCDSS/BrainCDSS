@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/api/api_client.dart';
 import '../features/appointments/appointments_page.dart';
 import '../features/auth/auth_session.dart';
+import '../features/assistant/assistant_page.dart';
 import '../features/emergency/fast_emergency_page.dart';
 import '../features/home/home_page.dart';
 import '../features/home/home_api.dart';
@@ -70,6 +71,7 @@ class _PatientMainShellState extends State<PatientMainShell> {
         onLogout: widget.onLogout,
         apiClient: widget.apiClient,
         onOpenNotificationSettings: _openProfileNotificationSettings,
+        onOpenChatbot: _openChatbot,
       ),
     ];
   }
@@ -156,6 +158,10 @@ class _PatientMainShellState extends State<PatientMainShell> {
     _homeKey.currentState?.refreshNotifications();
   }
 
+  Future<void> _openChatbot() => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const AssistantPage()),
+      );
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -193,27 +199,21 @@ class _PatientMainShellState extends State<PatientMainShell> {
                       ? '진료내역 상세'
                       : _titles[_selectedIndex],
         ),
-        actions: _isReservationFlow
-            ? [
-                Builder(
-                  builder: (context) => IconButton(
-                    tooltip: '메뉴',
-                    icon: const Icon(Icons.menu_rounded),
-                    onPressed: () => Scaffold.of(context).openDrawer(),
-                  ),
-                ),
-              ]
-            : _selectedIndex == 2
-                ? [
-                    IconButton(
-                      onPressed: _openNotifications,
-                      tooltip: '알림센터',
-                      icon: const Icon(
-                        Icons.notifications_outlined,
-                      ),
-                    ),
-                  ]
-                : null,
+        actions: [
+          if (_isReservationFlow)
+            Builder(
+              builder: (context) => IconButton(
+                tooltip: '메뉴',
+                icon: const Icon(Icons.menu_rounded),
+                onPressed: () => Scaffold.of(context).openDrawer(),
+              ),
+            ),
+          IconButton(
+            onPressed: _openNotifications,
+            tooltip: '알림센터',
+            icon: const Icon(Icons.notifications_outlined),
+          ),
+        ],
       ),
       drawer: _PatientDrawer(
         session: widget.session,
@@ -228,21 +228,37 @@ class _PatientMainShellState extends State<PatientMainShell> {
             if (mounted) openPage(context);
           });
         },
+        onOpenChatbot: _openChatbot,
         onLogout: widget.onLogout,
       ),
       body: SafeArea(
-        child: _isReservationFlow
-            ? AppointmentReservationFlow(
-                apiClient: widget.apiClient,
-                embedded: true,
-                onComplete: _closeReservation,
-              )
-            : _isProfileNotificationSettings
-                ? NotificationSettingsContent(apiClient: widget.apiClient)
-            : IndexedStack(
-                index: _selectedIndex,
-                children: _pages,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: _isReservationFlow
+                  ? AppointmentReservationFlow(
+                      apiClient: widget.apiClient,
+                      embedded: true,
+                      onComplete: _closeReservation,
+                    )
+                  : _isProfileNotificationSettings
+                      ? NotificationSettingsContent(apiClient: widget.apiClient)
+                      : IndexedStack(
+                          index: _selectedIndex,
+                          children: _pages,
+                        ),
+            ),
+            if (_selectedIndex != 4)
+              Positioned(
+                right: 16,
+                bottom: 20,
+                child: GestureDetector(
+                  onTap: _openChatbot,
+                  child: const _FloatingHojjangBadge(),
+                ),
               ),
+          ],
+        ),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
@@ -251,32 +267,32 @@ class _PatientMainShellState extends State<PatientMainShell> {
         },
         destinations: const [
           NavigationDestination(
-                    icon: Icon(
-                      Icons.calendar_month_outlined,
+            icon: Icon(
+              Icons.calendar_month_outlined,
             ),
             selectedIcon: Icon(
               Icons.calendar_month,
-                    ),
-                    label: '예약',
-                  ),
-                  NavigationDestination(
-                    icon: Icon(
-                      Icons.description_outlined,
-                    ),
-                    selectedIcon: Icon(
-                      Icons.description,
-                    ),
-                    label: '진료기록',
-                  ),
-                  NavigationDestination(
-                    icon: Icon(
-                      Icons.home_outlined,
-                    ),
-                    selectedIcon: Icon(
-                      Icons.home,
-                    ),
-                    label: '홈',
-                  ),
+            ),
+            label: '예약',
+          ),
+          NavigationDestination(
+            icon: Icon(
+              Icons.description_outlined,
+            ),
+            selectedIcon: Icon(
+              Icons.description,
+            ),
+            label: '진료기록',
+          ),
+          NavigationDestination(
+            icon: Icon(
+              Icons.home_outlined,
+            ),
+            selectedIcon: Icon(
+              Icons.home,
+            ),
+            label: '홈',
+          ),
           NavigationDestination(
             icon: Icon(
               Icons.medication_outlined,
@@ -301,12 +317,25 @@ class _PatientMainShellState extends State<PatientMainShell> {
   }
 }
 
+class _FloatingHojjangBadge extends StatelessWidget {
+  const _FloatingHojjangBadge();
+
+  @override
+  Widget build(BuildContext context) => Image.asset(
+        'assets/images/floating.png',
+        width: 68,
+        height: 68,
+        fit: BoxFit.contain,
+      );
+}
+
 class _PatientDrawer extends StatelessWidget {
   const _PatientDrawer({
     required this.session,
     required this.selectedIndex,
     required this.onSelectTab,
     required this.onOpenPage,
+    required this.onOpenChatbot,
     required this.onLogout,
   });
 
@@ -314,6 +343,7 @@ class _PatientDrawer extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onSelectTab;
   final ValueChanged<void Function(BuildContext)> onOpenPage;
+  final VoidCallback onOpenChatbot;
   final Future<void> Function() onLogout;
 
   static const _primaryDark = Color(0xFF5665B8);
@@ -327,46 +357,44 @@ class _PatientDrawer extends StatelessWidget {
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(12, 28, 12, 16),
-                child: Container(
-                  padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF0F2FF),
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                padding: const EdgeInsets.fromLTRB(20, 28, 14, 18),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     const CircleAvatar(
-                      radius: 22,
-                      backgroundColor: Colors.white,
+                      radius: 28,
+                      backgroundColor: Color(0xFFF0F2FF),
                       child: ClipOval(
                         child: Image(
                           image: AssetImage('assets/images/image1.png'),
-                          width: 44,
-                          height: 44,
+                          width: 56,
+                          height: 56,
                           fit: BoxFit.contain,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 14),
                     Expanded(
                       child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('호닥',
-                              style: TextStyle(
-                                  color: _text,
-                                  fontSize: 19,
-                                  fontWeight: FontWeight.w900)),
-                          const SizedBox(height: 6),
-                          Text(session.user.name,
-                              style: const TextStyle(
-                                  color: _text, fontWeight: FontWeight.w800)),
-                          const SizedBox(height: 2),
-                          Text(session.user.loginId,
-                              style: const TextStyle(
-                                  color: _secondary, fontSize: 12)),
+                          Text(
+                            session.user.name,
+                            style: const TextStyle(
+                              color: _text,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            session.user.loginId,
+                            style: const TextStyle(
+                              color: _secondary,
+                              fontSize: 12,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -376,7 +404,7 @@ class _PatientDrawer extends StatelessWidget {
                       icon: const Icon(Icons.close_rounded),
                     ),
                   ],
-                )),
+                ),
               ),
               const Divider(height: 1),
               Expanded(
@@ -406,11 +434,9 @@ class _PatientDrawer extends StatelessWidget {
                       title: 'AI 건강도우미',
                       onTap: () {
                         Navigator.of(context).pop();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('AI 건강도우미 기능은 준비 중입니다.'),
-                          ),
-                        );
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          onOpenChatbot();
+                        });
                       },
                     ),
                     _topLevelTile(
@@ -423,8 +449,10 @@ class _PatientDrawer extends StatelessWidget {
               ),
               const Divider(height: 1),
               ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 2),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 22, vertical: 2),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
                 tileColor: const Color(0xFFFFF1F3),
                 leading: const Icon(Icons.emergency_outlined,
                     color: Color(0xFFE94E4E)),
@@ -471,14 +499,18 @@ class _PatientDrawer extends StatelessWidget {
     required IconData icon,
     required String title,
     required VoidCallback onTap,
-  }) => Padding(
+  }) =>
+      Padding(
         padding: const EdgeInsets.only(bottom: 4),
         child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 1),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 1),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           leading: Icon(icon, color: _secondary),
           title: Text(title,
-              style: const TextStyle(color: _text, fontWeight: FontWeight.w700)),
+              style:
+                  const TextStyle(color: _text, fontWeight: FontWeight.w700)),
           trailing: const Icon(Icons.chevron_right_rounded, color: _secondary),
           onTap: onTap,
         ),

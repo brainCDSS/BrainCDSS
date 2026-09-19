@@ -11,12 +11,15 @@ from rest_framework.test import APIRequestFactory, force_authenticate
 from apps.accounts.models import Permission, Role, RolePermission, User
 from apps.appointments.api.generated_real_149 import (
     ContractView000,
+    ContractView001,
+    ContractView002,
     ContractView008,
     ContractView012,
 )
 from apps.appointments.api.views import AppointmentCorrectView
 from apps.appointments.models import (
     Appointment,
+    AppointmentRescheduleHistory,
     AppointmentSlot,
     AppointmentStatusHistory,
     ClinicianSchedule,
@@ -81,6 +84,173 @@ class AppointmentPayloadTests(SimpleTestCase):
         self.assertNotIn("patient_id", payload)
         self.assertNotIn("department_id", payload)
         self.assertNotIn("clinician_id", payload)
+        self.assertEqual(payload["reschedule_history"], [])
+
+
+class AppointmentRescheduleHistoryTests(TestCase):
+    def setUp(self):
+        self.patient_role, _ = Role.objects.get_or_create(
+            code="PATIENT",
+            defaults={"name": "Patient"},
+        )
+        self.nurse_role, _ = Role.objects.get_or_create(
+            code="NURSE",
+            defaults={"name": "Nurse"},
+        )
+        clinician_role, _ = Role.objects.get_or_create(
+            code="NEUROLOGIST",
+            defaults={"name": "Clinician"},
+        )
+        read_permission, _ = Permission.objects.get_or_create(
+            code="appointment.read.own",
+            defaults={
+                "name": "Read own appointments",
+                "domain": "appointments",
+            },
+        )
+        accept_permission, _ = Permission.objects.get_or_create(
+            code="appointment.accept",
+            defaults={
+                "name": "Accept appointments",
+                "domain": "appointments",
+            },
+        )
+        RolePermission.objects.get_or_create(
+            role=self.patient_role,
+            permission=read_permission,
+        )
+        RolePermission.objects.get_or_create(
+            role=self.nurse_role,
+            permission=accept_permission,
+        )
+        self.patient_user = User.objects.create_user(
+            login_id="reschedule-history-patient",
+            password="test-password",
+            name="Patient",
+            role=self.patient_role,
+        )
+        self.nurse_user = User.objects.create_user(
+            login_id="reschedule-history-nurse",
+            password="test-password",
+            name="Nurse",
+            role=self.nurse_role,
+        )
+        clinician_user = User.objects.create_user(
+            login_id="reschedule-history-clinician",
+            password="test-password",
+            name="Clinician",
+            role=clinician_role,
+        )
+        hospital = Hospital.objects.create(
+            name="Reschedule History Hospital",
+            address="Appointment Address",
+        )
+        department = Department.objects.create(
+            hospital=hospital,
+            code="RESCHEDULE-HISTORY",
+            name="Appointment Department",
+        )
+        clinician = Clinician.objects.create(
+            user=clinician_user,
+            department=department,
+        )
+        patient = Patient.objects.create(
+            user=self.patient_user,
+            patient_no="RESCHEDULE-HISTORY-PATIENT",
+            name="Patient",
+            created_by=clinician_user,
+        )
+        start_at = django_timezone.make_aware(
+            datetime.combine(date.today() + timedelta(days=1), time(9)),
+        )
+        self.previous_slot = AppointmentSlot.objects.create(
+            clinician=clinician,
+            start_at=start_at,
+            end_at=start_at + timedelta(minutes=30),
+            status="BOOKED",
+        )
+        self.changed_slot = AppointmentSlot.objects.create(
+            clinician=clinician,
+            start_at=start_at + timedelta(hours=1),
+            end_at=start_at + timedelta(hours=1, minutes=30),
+            status="HELD",
+            held_until=django_timezone.now() + timedelta(minutes=10),
+        )
+        self.appointment = Appointment.objects.create(
+            patient=patient,
+            hospital=hospital,
+            department=department,
+            clinician=clinician,
+            slot=self.previous_slot,
+            requested_slot=self.changed_slot,
+            status="CONFIRMED",
+            request_type="RESCHEDULE",
+            requested_at=django_timezone.now(),
+            reschedule_requested_at=django_timezone.now(),
+            confirmed_at=django_timezone.now(),
+        )
+
+    def test_accepting_reschedule_preserves_history_for_patient_detail(self):
+        accept_request = APIRequestFactory().post(
+            f"/api/v1/appointments/{self.appointment.id}/accept",
+            {"memo": "Requested schedule change approved"},
+            format="json",
+        )
+        force_authenticate(accept_request, user=self.nurse_user)
+
+        response = ContractView002.as_view()(
+            accept_request,
+            appointment_id=self.appointment.id,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        history = AppointmentRescheduleHistory.objects.get(
+            appointment=self.appointment,
+        )
+        self.assertEqual(history.previous_slot_id, self.previous_slot.id)
+        self.assertEqual(history.changed_slot_id, self.changed_slot.id)
+        self.assertEqual(
+            history.reschedule_reason,
+            "Requested schedule change approved",
+        )
+        self.assertEqual(history.changed_by_id, self.nurse_user.id)
+
+        detail_request = APIRequestFactory().get(
+            f"/api/v1/appointments/{self.appointment.id}",
+        )
+        force_authenticate(detail_request, user=self.patient_user)
+        detail_response = ContractView001.as_view()(
+            detail_request,
+            appointment_id=self.appointment.id,
+        )
+
+        self.assertEqual(detail_response.status_code, 200)
+        payload = detail_response.data["reschedule_history"]
+        self.assertEqual(len(payload), 1)
+        self.assertEqual(
+            payload[0]["previous_slot"]["id"],
+            str(self.previous_slot.id),
+        )
+        self.assertEqual(
+            payload[0]["changed_slot"]["id"],
+            str(self.changed_slot.id),
+        )
+        self.assertEqual(
+            payload[0]["reschedule_reason"],
+            "Requested schedule change approved",
+        )
+        self.assertIsNotNone(payload[0]["rescheduled_at"])
+
+        list_request = APIRequestFactory().get("/api/v1/appointments")
+        force_authenticate(list_request, user=self.patient_user)
+        list_response = ContractView000.as_view()(list_request)
+
+        self.assertEqual(list_response.status_code, 200)
+        self.assertEqual(
+            list_response.data["results"][0]["reschedule_history"][0]
+            ["previous_slot"]["id"],
+            str(self.previous_slot.id),
+        )
 
 
 class AppointmentCreateSlotResolutionTests(TestCase):

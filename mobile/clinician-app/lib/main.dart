@@ -1,8 +1,8 @@
-import 'package:brainon_mobile_core/brainon_mobile_core.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 
+import 'app/clinician_app.dart';
 import 'firebase_options.dart';
 
 @pragma('vm:entry-point')
@@ -76,36 +76,5 @@ Future<void> main() async {
 
   await initializeFirebaseMessaging();
 
-  runApp(
-    const ClinicianApp(),
-  );
-}
-
-class ClinicianApp extends StatelessWidget {
-  const ClinicianApp({
-    super.key,
-  });
-
-  @override
-  Widget build(
-    BuildContext context,
-  ) =>
-      MaterialApp(
-        title: 'BrainOn Clinician',
-        home: Scaffold(
-          appBar: AppBar(
-            title: const Text(
-              'BrainOn Clinician',
-            ),
-          ),
-          body: const Center(
-            child: Text(
-              'Clinician app shell is ready.',
-            ),
-          ),
-        ),
-        navigatorObservers: [
-          NoopNavigationObserver(),
-        ],
-      );
+  runApp(const ClinicianApp());
 }

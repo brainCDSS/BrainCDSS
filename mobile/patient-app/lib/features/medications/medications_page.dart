@@ -115,8 +115,6 @@ class _MedicationsPageState extends State<MedicationsPage> {
                 onTapItem: _openPrescriptionDetail,
                 onViewAll: _openActiveMedicationList,
               ),
-            const SizedBox(height: 14),
-            const _MedicationSupportCard(),
           ],
         ),
       );
@@ -580,37 +578,6 @@ class _EmptyTodayMedicationContent extends StatelessWidget {
                   color: _primary, fontSize: 12, fontWeight: FontWeight.w700)),
         ])),
       ]);
-}
-
-class _MedicationSupportCard extends StatelessWidget {
-  const _MedicationSupportCard();
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF0F4FF),
-          border: Border.all(color: const Color(0xFFDDE6FA)),
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: const Row(children: [
-          Icon(Icons.support_agent_rounded, color: _primary, size: 27),
-          SizedBox(width: 12),
-          Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                Text('궁금한 점이 있으신가요?',
-                    style:
-                        TextStyle(color: _text, fontWeight: FontWeight.w800)),
-                SizedBox(height: 3),
-                Text('고객센터로 문의하시면 빠르게 도와드릴게요.',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: _muted, fontSize: 12)),
-              ])),
-        ]),
-      );
 }
 
 String _todayLabel() {

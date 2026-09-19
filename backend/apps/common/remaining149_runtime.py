@@ -11,7 +11,7 @@ from django.apps import apps
 from django.conf import settings
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_datetime
 from rest_framework.exceptions import APIException, AuthenticationFailed, NotFound, PermissionDenied, ValidationError
@@ -704,6 +704,22 @@ def _appointment_slot_payload(slot):
     }
 
 
+def _appointment_reschedule_history_payload(appointment):
+    history_manager = getattr(appointment, "reschedule_history", None)
+    if history_manager is None:
+        return []
+
+    return [
+        {
+            "previous_slot": _appointment_slot_payload(history.previous_slot),
+            "changed_slot": _appointment_slot_payload(history.changed_slot),
+            "rescheduled_at": _safe_value(history.rescheduled_at),
+            "reschedule_reason": history.reschedule_reason,
+        }
+        for history in history_manager.all()
+    ]
+
+
 def _appointment_payload(appointment):
     slot = _appointment_slot_payload(appointment.slot)
 
@@ -741,6 +757,9 @@ def _appointment_payload(appointment):
         "reschedule_requested_at": _safe_value(
             appointment.reschedule_requested_at
         ),
+        "reschedule_history": _appointment_reschedule_history_payload(
+            appointment
+        ),
         "confirmed_at": _safe_value(appointment.confirmed_at),
         "cancelled_at": _safe_value(appointment.cancelled_at),
         "completed_at": _safe_value(appointment.completed_at),
@@ -765,6 +784,19 @@ def _appointment_queryset(spec, request):
         "slot",
         "requested_slot",
         "handled_by",
+    )
+    history_model = apps.get_model(
+        "appointments",
+        "AppointmentRescheduleHistory",
+    )
+    queryset = queryset.prefetch_related(
+        Prefetch(
+            "reschedule_history",
+            queryset=history_model.objects.select_related(
+                "previous_slot",
+                "changed_slot",
+            ).order_by("-rescheduled_at"),
+        )
     )
     return _owner_scope(queryset, model, request)
 
@@ -1573,6 +1605,7 @@ def _appointment_accept(request, spec, kwargs):
 
     previous = appointment.status
     before = serialize_instance(appointment)
+    reason = _appointment_action_reason(request, "memo", "reason")
     if requested_slot is not None:
         current_slot.status = "AVAILABLE"
         current_slot.held_until = None
@@ -1594,7 +1627,19 @@ def _appointment_accept(request, spec, kwargs):
         "status", "slot", "requested_slot", "confirmed_at", "handled_by",
         "reschedule_requested_at", "updated_at",
     ])
-    reason = _appointment_action_reason(request, "memo", "reason")
+    if requested_slot is not None:
+        reschedule_history_model = apps.get_model(
+            "appointments",
+            "AppointmentRescheduleHistory",
+        )
+        reschedule_history_model.objects.create(
+            appointment=appointment,
+            previous_slot=current_slot,
+            changed_slot=requested_slot,
+            rescheduled_at=now,
+            reschedule_reason=reason,
+            changed_by=request.user,
+        )
     _appointment_history(appointment, previous, "CONFIRMED", request, reason)
     appointment = _appointment_refresh(appointment)
     after = _appointment_payload(appointment)

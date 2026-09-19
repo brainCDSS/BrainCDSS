@@ -34,6 +34,23 @@ class MedicationSchedulesApi {
         .map(MedicationScheduleSummary.fromJson)
         .toList();
   }
+
+  Future<void> markTaken(String scheduleId) async {
+    await _client.post(
+      '/api/v1/medication-intakes',
+      body: {
+        'medication_schedule_id': scheduleId,
+        'status': 'TAKEN',
+      },
+    );
+  }
+
+  Future<void> updateIntake(String intakeId, String status) async {
+    await _client.patch(
+      '/api/v1/medication-intakes/$intakeId',
+      body: {'status': status},
+    );
+  }
 }
 
 String _dateQuery(DateTime date) =>
@@ -48,6 +65,8 @@ class MedicationScheduleSummary {
     required this.timeSlot,
     required this.dose,
     required this.status,
+    required this.intakeId,
+    required this.takenAt,
   });
 
   final String scheduleId;
@@ -57,17 +76,22 @@ class MedicationScheduleSummary {
   final String? timeSlot;
   final String? dose;
   final String? status;
+  final String? intakeId;
+  final DateTime? takenAt;
 
   factory MedicationScheduleSummary.fromJson(Map<dynamic, dynamic> json) =>
       MedicationScheduleSummary(
         scheduleId: json['schedule_id']?.toString() ?? '',
         prescriptionId: json['prescription_id']?.toString() ?? '',
         medicationName: json['medication_name']?.toString() ?? '',
-        scheduledAt:
-            DateTime.tryParse(json['scheduled_at']?.toString() ?? '')?.toLocal(),
+        scheduledAt: DateTime.tryParse(json['scheduled_at']?.toString() ?? '')
+            ?.toLocal(),
         timeSlot: json['time_slot']?.toString(),
         dose: json['dose']?.toString(),
         status: json['status']?.toString(),
+        intakeId: json['intake_id']?.toString(),
+        takenAt:
+            DateTime.tryParse(json['taken_at']?.toString() ?? '')?.toLocal(),
       );
 }
 

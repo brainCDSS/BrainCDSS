@@ -13,6 +13,21 @@ class LoginRequestSerializer(serializers.Serializer):
     )
 
 
+class PatientSignupRequestSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    resident_registration_number = serializers.CharField(write_only=True, trim_whitespace=False)
+    email = serializers.EmailField(required=False, allow_blank=True)
+    phone = serializers.CharField()
+    login_id = serializers.CharField()
+    password = serializers.CharField(write_only=True, trim_whitespace=False)
+
+    def validate_resident_registration_number(self, value):
+        digits = value.replace("-", "")
+        if len(digits) != 13 or not digits.isdigit() or digits[6] not in "12345678":
+            raise serializers.ValidationError("Invalid resident registration number.")
+        return digits
+
+
 class RefreshRequestSerializer(serializers.Serializer):
     refresh = serializers.CharField(
         write_only=True,

@@ -45,6 +45,7 @@ class HomePageState extends State<HomePage> {
   List<MedicationScheduleSummary> _todaySchedules = const [];
   List<TestResultSummary> _testResults = const [];
   bool _showTodaySchedule = true;
+  int _healthTipPage = 0;
 
   @override
   void initState() {
@@ -392,35 +393,88 @@ class HomePageState extends State<HomePage> {
       ['가벼운 스트레칭으로 하루를 시작해보세요.', '잠깐의 움직임도 몸에 활력을 더해줄 수 있어요.'],
       ['규칙적인 휴식도 건강 관리의 한 부분이에요.', '바쁜 하루에도 잠시 숨을 고르는 시간을 가져보세요.'],
     ];
-    final tip = tips[DateTime.now().day % tips.length];
+    final todayIndex = DateTime.now().day % tips.length;
+    final orderedTips = [
+      tips[todayIndex],
+      ...List.generate(
+        tips.length - 1,
+        (index) => tips[(todayIndex + index + 1) % tips.length],
+      ),
+    ];
     return Container(
-      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
           color: const Color(0xFFF0F1FF),
           borderRadius: BorderRadius.circular(22)),
-      child: Row(children: [
-        Expanded(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('오늘의 건강 한마디',
-              style: TextStyle(
-                  color: Color(0xFF8B96E8), fontWeight: FontWeight.w800)),
-          const SizedBox(height: 9),
-          Text(tip[0],
-              style: const TextStyle(
-                  color: _textPrimary,
-                  fontSize: 17,
-                  height: 1.3,
-                  fontWeight: FontWeight.w800)),
-          const SizedBox(height: 6),
-          Text(tip[1],
-              style: const TextStyle(
-                  color: _textSecondary, fontSize: 12, height: 1.4)),
-        ])),
-        const SizedBox(width: 8),
-        const Icon(Icons.water_drop_rounded,
-            color: Color(0xFF35B7D5), size: 50),
-      ]),
+      child: SizedBox(
+        height: 154,
+        child: Stack(
+          children: [
+            PageView.builder(
+              itemCount: orderedTips.length,
+              onPageChanged: (index) => setState(() => _healthTipPage = index),
+              itemBuilder: (context, index) {
+                final tip = orderedTips[index];
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 18, 18, 26),
+                  child: Row(children: [
+                    Expanded(
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                          const Text('오늘의 건강 한마디',
+                              style: TextStyle(
+                                  color: Color(0xFF8B96E8),
+                                  fontWeight: FontWeight.w800)),
+                          const SizedBox(height: 9),
+                          Text(tip[0],
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  color: _textPrimary,
+                                  fontSize: 17,
+                                  height: 1.3,
+                                  fontWeight: FontWeight.w800)),
+                          const SizedBox(height: 6),
+                          Text(tip[1],
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  color: _textSecondary,
+                                  fontSize: 12,
+                                  height: 1.4)),
+                        ])),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.water_drop_rounded,
+                        color: Color(0xFF35B7D5), size: 50),
+                  ]),
+                );
+              },
+            ),
+            Positioned(
+              bottom: 10,
+              left: 0,
+              right: 0,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  orderedTips.length,
+                  (index) => Container(
+                    width: index == _healthTipPage ? 14 : 5,
+                    height: 5,
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    decoration: BoxDecoration(
+                      color: index == _healthTipPage
+                          ? const Color(0xFF8B96E8)
+                          : const Color(0xFFD0D4ED),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

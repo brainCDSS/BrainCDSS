@@ -28,18 +28,19 @@ class PatientMainShell extends StatefulWidget {
 }
 
 class _PatientMainShellState extends State<PatientMainShell> {
-  int _selectedIndex = 0;
+  int _selectedIndex = 2;
   bool _isReservationFlow = false;
   bool _isProfileNotificationSettings = false;
+  String? _clinicalHistoryEncounterId;
   final _homeKey = GlobalKey<HomePageState>();
   final _appointmentsKey = GlobalKey<AppointmentsPageState>();
 
   late final List<Widget> _pages;
 
   static const List<String> _titles = [
-    '호닥',
     '예약',
-    '검사 · 결과',
+    '진료기록',
+    '호닥',
     '복약관리',
     '마이페이지',
   ];
@@ -49,20 +50,20 @@ class _PatientMainShellState extends State<PatientMainShell> {
     super.initState();
 
     _pages = [
-      HomePage(
-        key: _homeKey,
-        apiClient: widget.apiClient,
-        session: widget.session,
-        onOpenAppointments: () => _selectTab(1),
-        onOpenAppointmentDetail: _openAppointmentDetail,
-        onOpenNotifications: _openNotifications,
-      ),
       AppointmentsPage(
         key: _appointmentsKey,
         apiClient: widget.apiClient,
         onOpenReservation: _openReservation,
       ),
-      TestResultsPage(apiClient: widget.apiClient),
+      _testResultsPage(),
+      HomePage(
+        key: _homeKey,
+        apiClient: widget.apiClient,
+        session: widget.session,
+        onOpenAppointments: () => _selectTab(0),
+        onOpenAppointmentDetail: _openAppointmentDetail,
+        onOpenNotifications: _openNotifications,
+      ),
       MedicationsPage(apiClient: widget.apiClient),
       ProfilePage(
         session: widget.session,
@@ -73,13 +74,34 @@ class _PatientMainShellState extends State<PatientMainShell> {
     ];
   }
 
+  Widget _testResultsPage() => TestResultsPage(
+        key: ValueKey(_clinicalHistoryEncounterId),
+        apiClient: widget.apiClient,
+        selectedEncounterId: _clinicalHistoryEncounterId,
+        onOpenDetail: (encounterId) {
+          setState(() {
+            _clinicalHistoryEncounterId = encounterId;
+            _pages[1] = _testResultsPage();
+          });
+        },
+        onCloseDetail: () {
+          setState(() {
+            _clinicalHistoryEncounterId = null;
+            _pages[1] = _testResultsPage();
+          });
+        },
+        onOpenMedications: () => _selectTab(3),
+      );
+
   void _selectTab(int index) {
     setState(() {
       _selectedIndex = index;
       _isReservationFlow = false;
       _isProfileNotificationSettings = false;
+      _clinicalHistoryEncounterId = null;
+      _pages[1] = _testResultsPage();
     });
-    if (index == 0) {
+    if (index == 2) {
       _homeKey.currentState?.refreshAppointments();
     }
   }
@@ -91,7 +113,7 @@ class _PatientMainShellState extends State<PatientMainShell> {
 
   void _openReservation() {
     setState(() {
-      _selectedIndex = 1;
+      _selectedIndex = 0;
       _isReservationFlow = true;
     });
   }
@@ -138,13 +160,22 @@ class _PatientMainShellState extends State<PatientMainShell> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leading: _isReservationFlow || _isProfileNotificationSettings
+        leading: _isReservationFlow ||
+                _isProfileNotificationSettings ||
+                _clinicalHistoryEncounterId != null
             ? IconButton(
                 tooltip: '뒤로가기',
                 icon: const Icon(Icons.arrow_back_rounded),
                 onPressed: _isReservationFlow
                     ? _closeReservation
-                    : _closeProfileNotificationSettings,
+                    : _isProfileNotificationSettings
+                        ? _closeProfileNotificationSettings
+                        : () {
+                            setState(() {
+                              _clinicalHistoryEncounterId = null;
+                              _pages[1] = _testResultsPage();
+                            });
+                          },
               )
             : Builder(
                 builder: (context) => IconButton(
@@ -158,7 +189,9 @@ class _PatientMainShellState extends State<PatientMainShell> {
               ? '진료 예약'
               : _isProfileNotificationSettings
                   ? '알림 설정'
-                  : _titles[_selectedIndex],
+                  : _clinicalHistoryEncounterId != null
+                      ? '진료내역 상세'
+                      : _titles[_selectedIndex],
         ),
         actions: _isReservationFlow
             ? [
@@ -170,7 +203,7 @@ class _PatientMainShellState extends State<PatientMainShell> {
                   ),
                 ),
               ]
-            : _selectedIndex == 0
+            : _selectedIndex == 2
                 ? [
                     IconButton(
                       onPressed: _openNotifications,
@@ -183,7 +216,6 @@ class _PatientMainShellState extends State<PatientMainShell> {
                 : null,
       ),
       drawer: _PatientDrawer(
-        apiClient: widget.apiClient,
         session: widget.session,
         selectedIndex: _selectedIndex,
         onSelectTab: (index) {
@@ -195,26 +227,6 @@ class _PatientMainShellState extends State<PatientMainShell> {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) openPage(context);
           });
-        },
-        onOpenReservation: () {
-          Navigator.of(context).pop();
-          _openReservation();
-        },
-        onShowAppointmentSection: (showPast) {
-          Navigator.of(context).pop();
-          _selectTab(1);
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (showPast) {
-              _appointmentsKey.currentState?.showPast();
-            } else {
-              _appointmentsKey.currentState?.showUpcoming();
-            }
-          });
-        },
-        onAppointmentsChanged: _refreshAppointmentViews,
-        onOpenProfileNotificationSettings: () {
-          Navigator.of(context).pop();
-          _openProfileNotificationSettings();
         },
         onLogout: widget.onLogout,
       ),
@@ -239,32 +251,32 @@ class _PatientMainShellState extends State<PatientMainShell> {
         },
         destinations: const [
           NavigationDestination(
-            icon: Icon(
-              Icons.home_outlined,
-            ),
-            selectedIcon: Icon(
-              Icons.home,
-            ),
-            label: '홈',
-          ),
-          NavigationDestination(
-            icon: Icon(
-              Icons.calendar_month_outlined,
+                    icon: Icon(
+                      Icons.calendar_month_outlined,
             ),
             selectedIcon: Icon(
               Icons.calendar_month,
-            ),
-            label: '예약',
-          ),
-          NavigationDestination(
-            icon: Icon(
-              Icons.assignment_outlined,
-            ),
-            selectedIcon: Icon(
-              Icons.assignment,
-            ),
-            label: '검사 · 결과',
-          ),
+                    ),
+                    label: '예약',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(
+                      Icons.description_outlined,
+                    ),
+                    selectedIcon: Icon(
+                      Icons.description,
+                    ),
+                    label: '진료기록',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(
+                      Icons.home_outlined,
+                    ),
+                    selectedIcon: Icon(
+                      Icons.home,
+                    ),
+                    label: '홈',
+                  ),
           NavigationDestination(
             icon: Icon(
               Icons.medication_outlined,
@@ -291,27 +303,17 @@ class _PatientMainShellState extends State<PatientMainShell> {
 
 class _PatientDrawer extends StatelessWidget {
   const _PatientDrawer({
-    required this.apiClient,
     required this.session,
     required this.selectedIndex,
     required this.onSelectTab,
     required this.onOpenPage,
-    required this.onOpenReservation,
-    required this.onShowAppointmentSection,
-    required this.onAppointmentsChanged,
-    required this.onOpenProfileNotificationSettings,
     required this.onLogout,
   });
 
   final AuthSession session;
-  final ApiClient apiClient;
   final int selectedIndex;
   final ValueChanged<int> onSelectTab;
   final ValueChanged<void Function(BuildContext)> onOpenPage;
-  final VoidCallback onOpenReservation;
-  final ValueChanged<bool> onShowAppointmentSection;
-  final VoidCallback onAppointmentsChanged;
-  final VoidCallback onOpenProfileNotificationSettings;
   final Future<void> Function() onLogout;
 
   static const _primaryDark = Color(0xFF5665B8);
@@ -325,7 +327,7 @@ class _PatientDrawer extends StatelessWidget {
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                padding: const EdgeInsets.fromLTRB(12, 28, 12, 16),
                 child: Container(
                   padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
                   decoration: BoxDecoration(
@@ -383,58 +385,21 @@ class _PatientDrawer extends StatelessWidget {
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                   children: [
                     _topLevelTile(
-                        icon: Icons.home_outlined, title: '홈', index: 0),
-                    _section(
+                        icon: Icons.home_outlined, title: '홈', index: 2),
+                    _topLevelTile(
                       icon: Icons.calendar_month_outlined,
                       title: '예약',
-                      index: 1,
-                      children: [
-                        _subTile('진료 예약하기', onOpenReservation),
-                        _subTile(
-                            '예정된 예약', () => onShowAppointmentSection(false)),
-                        _subTile('지난 예약', () => onShowAppointmentSection(true)),
-                      ],
+                      index: 0,
                     ),
-                    _section(
+                    _topLevelTile(
                       icon: Icons.health_and_safety_outlined,
-                      title: '건강정보',
-                      index: 2,
-                      children: [
-                        _subTile(
-                            '검사 결과',
-                            () => onOpenPage((context) =>
-                                TestResultsPage.openResults(
-                                    context, apiClient))),
-                        _subTile('진료 내역',
-                            () => onOpenPage(TestResultsPage.openVisits)),
-                        _subTile(
-                            '처방 정보',
-                            () => onOpenPage((context) =>
-                                TestResultsPage.openPrescriptions(
-                                    context, apiClient))),
-                      ],
+                      title: '검사결과',
+                      index: 1,
                     ),
-                    _section(
+                    _topLevelTile(
                       icon: Icons.medication_outlined,
                       title: '복약관리',
                       index: 3,
-                      children: [
-                        _subTile('오늘의 복약', () => onSelectTab(3)),
-                        _subTile(
-                            '복약 일정',
-                            () => onOpenPage((context) =>
-                                MedicationsPage.openSchedule(
-                                    context, apiClient))),
-                        _subTile(
-                            '복약 기록',
-                            () => onOpenPage((context) =>
-                                MedicationsPage.openHistory(
-                                    context, apiClient))),
-                        _subTile(
-                            '복약 알림 설정',
-                            () => onOpenPage(
-                                MedicationsPage.openNotificationSettings)),
-                      ],
                     ),
                     _actionTile(
                       icon: Icons.smart_toy_outlined,
@@ -448,23 +413,10 @@ class _PatientDrawer extends StatelessWidget {
                         );
                       },
                     ),
-                    _section(
+                    _topLevelTile(
                       icon: Icons.person_outline_rounded,
-                      title: '내 정보',
+                      title: '마이페이지',
                       index: 4,
-                      children: [
-                        _subTile(
-                            '내 정보',
-                            () => onOpenPage((context) =>
-                                ProfilePage.openMyInfo(context, apiClient))),
-                        _subTile('연결 설정',
-                            () => onOpenPage(ProfilePage.openConnections)),
-                        _subTile(
-                            '알림 설정',
-                            onOpenProfileNotificationSettings),
-                        _subTile(
-                            '동의 · 약관', () => onOpenPage(ProfilePage.openTerms)),
-                      ],
                     ),
                   ],
                 ),
@@ -515,45 +467,6 @@ class _PatientDrawer extends StatelessWidget {
         onTap: () => onSelectTab(index),
       );
 
-  Widget _section({
-    required IconData icon,
-    required String title,
-    required int index,
-    required List<Widget> children,
-  }) =>
-      Container(
-        margin: const EdgeInsets.only(bottom: 4),
-        decoration: BoxDecoration(
-          color: selectedIndex == index
-              ? const Color(0xFFF4F3FF)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: ExpansionTile(
-          shape: const Border(),
-          collapsedShape: const Border(),
-          initiallyExpanded: selectedIndex == index,
-          tilePadding: const EdgeInsets.symmetric(horizontal: 14),
-          childrenPadding: const EdgeInsets.only(left: 32, right: 10, bottom: 7),
-          iconColor: _primaryDark,
-          collapsedIconColor: _secondary,
-          leading: Icon(icon,
-              color: selectedIndex == index ? _primaryDark : _secondary),
-          title: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => onSelectTab(index),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              child: Text(title,
-                  style: TextStyle(
-                      color: selectedIndex == index ? _primaryDark : _text,
-                      fontWeight: FontWeight.w800)),
-            ),
-          ),
-          children: children,
-        ),
-      );
-
   Widget _actionTile({
     required IconData icon,
     required String title,
@@ -569,19 +482,6 @@ class _PatientDrawer extends StatelessWidget {
           trailing: const Icon(Icons.chevron_right_rounded, color: _secondary),
           onTap: onTap,
         ),
-      );
-
-  Widget _subTile(String title, VoidCallback onTap) => ListTile(
-        dense: true,
-        visualDensity: VisualDensity.compact,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-        leading: const Icon(Icons.circle, size: 6, color: _primaryDark),
-        title: Text(title,
-            style: const TextStyle(
-                color: _secondary, fontSize: 13, fontWeight: FontWeight.w600)),
-        trailing: const Icon(Icons.chevron_right_rounded, size: 18, color: _secondary),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        onTap: onTap,
       );
 
   Future<void> _confirmLogout(BuildContext context) async {

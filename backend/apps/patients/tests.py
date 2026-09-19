@@ -1,11 +1,21 @@
 from datetime import date
+from unittest.mock import patch
 
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIRequestFactory, force_authenticate
 
 from apps.accounts.models import Role, User
+from apps.accounts.api.views import PatientSignupView
+from apps.clinical_records.models import ClinicalNote, Encounter
+from apps.imaging.models import ImagingOrder
+from apps.patients.api.clinical_history_views import (
+    PatientClinicalHistoryDetailView,
+    PatientClinicalHistoryListView,
+)
 from apps.patients.api.patient_profile_views import PatientProfileView
 from apps.patients.models import Patient, PatientCareAssignment
+from apps.prescriptions.models import Prescription
 from apps.patients.selectors.patients import can_view_patient, list_patients
 
 
@@ -98,3 +108,69 @@ class PatientCareAssignmentSelectorTests(TestCase):
     def test_clinician_without_assignments_cannot_access_patients(self):
         self.assertEqual(list(list_patients(actor=self.other_clinician)), [])
         self.assertFalse(can_view_patient(self.other_clinician, self.assigned.id))
+
+
+class PatientClinicalHistoryViewTests(TestCase):
+    def setUp(self):
+        self.factory = APIRequestFactory()
+        role = Role.objects.create(code="PATIENT", name="Patient")
+        self.user = User.objects.create_user("history-owner", "password", name="History owner", role=role)
+        self.other_user = User.objects.create_user("history-other", "password", name="History other", role=role)
+        self.patient = Patient.objects.create(patient_no="HISTORY-OWNER", name="Owner", user=self.user, created_by=self.user)
+        self.other_patient = Patient.objects.create(patient_no="HISTORY-OTHER", name="Other", user=self.other_user, created_by=self.other_user)
+        now = timezone.now()
+        self.encounter = Encounter.objects.create(patient=self.patient, encounter_no="HISTORY-1", encounter_type="OUTPATIENT", status="COMPLETED", arrived_at=now, started_at=now, created_at=now, updated_at=now)
+        self.other_encounter = Encounter.objects.create(patient=self.other_patient, encounter_no="HISTORY-2", encounter_type="OUTPATIENT", status="COMPLETED", arrived_at=now, created_at=now, updated_at=now)
+        ClinicalNote.objects.create(encounter=self.encounter, author=self.user, status="DRAFT", clinical_opinion="draft", created_at=now, updated_at=now)
+        ClinicalNote.objects.create(encounter=self.encounter, author=self.user, status="FINAL", clinical_opinion="final opinion", finalized_at=now, created_at=now, updated_at=now)
+        ImagingOrder.objects.create(patient=self.patient, encounter=self.encounter, procedure_code="MRI", procedure_name="Brain MRI", modality="MR", priority="ROUTINE", status="ORDERED", reason="test", requested_by=self.user, requested_at=now, created_at=now, updated_at=now)
+        Prescription.objects.create(encounter=self.encounter, prescribed_by=self.user, status="FINAL", finalized_at=now, created_at=now, updated_at=now)
+
+    def test_list_is_scoped_to_owner_and_exposes_final_record_data(self):
+        request = self.factory.get("/api/v1/me/clinical-history")
+        force_authenticate(request, user=self.user)
+        response = PatientClinicalHistoryListView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["exam_names"], ["Brain MRI"])
+        self.assertTrue(response.data["results"][0]["has_prescription"])
+        self.assertIsNone(response.data["results"][0]["diagnosis_name"])
+
+    def test_detail_exposes_final_opinion_and_blocks_other_patient(self):
+        request = self.factory.get(f"/api/v1/me/clinical-history/{self.encounter.id}")
+        force_authenticate(request, user=self.user)
+        response = PatientClinicalHistoryDetailView.as_view()(request, encounter_id=self.encounter.id)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["clinical_opinion"], "final opinion")
+        self.assertEqual(response.data["exams"][0]["name"], "Brain MRI")
+
+        request = self.factory.get(f"/api/v1/me/clinical-history/{self.other_encounter.id}")
+        force_authenticate(request, user=self.user)
+        response = PatientClinicalHistoryDetailView.as_view()(request, encounter_id=self.other_encounter.id)
+        self.assertEqual(response.status_code, 404)
+
+
+class PatientSignupViewTests(TestCase):
+    def setUp(self):
+        self.factory = APIRequestFactory()
+        self.role = Role.objects.create(code="PATIENT", name="Patient")
+        self.payload = {"name": "Signup patient", "resident_registration_number": "900512-1234567", "email": "signup@example.com", "phone": "010-1234-5678", "login_id": "signup-patient", "password": "SafePassword123!"}
+
+    @patch("apps.accounts.api.views.generate_patient_no", return_value="P-SIGNUP-1")
+    def test_signup_creates_patient_user_with_derived_birth_date_and_sex(self, _):
+        response = PatientSignupView.as_view()(self.factory.post("/api/v1/auth/patient-signup", self.payload, format="json"))
+        self.assertEqual(response.status_code, 201)
+        user = User.objects.get(login_id="signup-patient")
+        patient = Patient.objects.get(user=user)
+        self.assertEqual(user.role, self.role)
+        self.assertTrue(user.check_password("SafePassword123!"))
+        self.assertEqual(str(patient.birth_date), "1990-05-12")
+        self.assertEqual(patient.sex, "M")
+
+    @patch("apps.accounts.api.views.generate_patient_no", return_value="P-SIGNUP-1")
+    def test_signup_rejects_duplicate_identity_and_invalid_registration_number(self, _):
+        PatientSignupView.as_view()(self.factory.post("/api/v1/auth/patient-signup", self.payload, format="json"))
+        duplicate = PatientSignupView.as_view()(self.factory.post("/api/v1/auth/patient-signup", self.payload, format="json"))
+        self.assertEqual(duplicate.status_code, 400)
+        invalid = PatientSignupView.as_view()(self.factory.post("/api/v1/auth/patient-signup", {**self.payload, "login_id": "different", "email": "different@example.com", "resident_registration_number": "invalid"}, format="json"))
+        self.assertEqual(invalid.status_code, 400)

@@ -36,6 +36,23 @@ class AuthApi {
     return session;
   }
 
+  Future<void> patientSignup(
+      {required String name,
+      required String residentRegistrationNumber,
+      required String email,
+      required String phone,
+      required String loginId,
+      required String password}) async {
+    await apiClient.post('/api/v1/auth/patient-signup', body: {
+      'name': name,
+      'resident_registration_number': residentRegistrationNumber,
+      'email': email,
+      'phone': phone,
+      'login_id': loginId,
+      'password': password
+    });
+  }
+
   Future<String> refresh(String refreshToken) async {
     final response = await apiClient.post(
       '/api/v1/auth/refresh',

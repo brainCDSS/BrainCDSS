@@ -274,6 +274,18 @@ EMERGENCY_SCREENING_SEVERITY = {
     5: "심함",
 }
 
+EMERGENCY_FINDING_ORDER = {
+    "FAST_FACE": 0,
+    "FAST_ARM": 1,
+    "FAST_SPEECH": 2,
+    "BALANCE": 3,
+    "EYES": 4,
+    "FACE": 5,
+    "ARM": 6,
+    "SPEECH": 7,
+    "CONSCIOUSNESS": 8,
+}
+
 
 def _assessment_abnormal_findings(items):
     findings = []
@@ -321,6 +333,12 @@ def _assessment_abnormal_findings(items):
                     ),
                 })
 
+    findings.sort(
+        key=lambda item: EMERGENCY_FINDING_ORDER.get(
+            item["item_code"],
+            999,
+        )
+    )
     return findings
 
 

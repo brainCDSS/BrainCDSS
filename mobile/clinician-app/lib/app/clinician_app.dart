@@ -67,7 +67,11 @@ class _ClinicianAppState extends State<ClinicianApp> {
       );
     }
     if (session.user.role.code == 'NEUROLOGIST') {
-      return NeurologyMainShell(user: session.user, onLogout: _logout);
+      return NeurologyMainShell(
+        apiClient: _apiClient,
+        user: session.user,
+        onLogout: _logout,
+      );
     }
     return _UnsupportedRolePage(roleName: session.user.role.name);
   }

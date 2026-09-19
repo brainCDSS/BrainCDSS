@@ -19,7 +19,7 @@ class RadiologyNotificationsPage extends StatelessWidget {
         appBar: AppBar(title: const Text('알림')),
         body: ListView(
           padding: const EdgeInsets.all(20),
-          children: const [
+          children: [
             RadiologySectionTitle(title: '알림센터'),
             SizedBox(height: 8),
             Text(
@@ -100,8 +100,9 @@ class _NotificationCard extends StatelessWidget {
                       Text(
                         notification.isRead ? '읽음' : '읽지 않음',
                         style: TextStyle(
-                          color:
-                              notification.isRead ? radiologyMuted : radiologyBlue,
+                          color: notification.isRead
+                              ? radiologyMuted
+                              : radiologyBlue,
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                         ),

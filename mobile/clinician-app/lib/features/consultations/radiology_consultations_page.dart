@@ -12,6 +12,7 @@ class RadiologyConsultation {
     required this.status,
     required this.patientName,
     required this.requesterName,
+    required this.requesterDepartment,
     required this.requestedAt,
   });
 
@@ -45,12 +46,15 @@ class RadiologyConsultationsApi {
 
   final ClinicianApiClient _client;
 
-  Future<List<RadiologyConsultation>> list({String? status}) async {
+  Future<List<RadiologyConsultation>> list({
+    String? status,
+    String? viewerRelation = 'ASSIGNED_TO',
+  }) async {
     final response = await _client.get(
       '/api/v1/consultations',
       query: {
         if (status != null) 'status': status,
-        'viewer_relation': 'ASSIGNED_TO',
+        if (viewerRelation != null) 'viewer_relation': viewerRelation,
       },
     );
     return (response['results'] as List? ?? const [])
@@ -67,9 +71,14 @@ class RadiologyConsultationsApi {
 enum _ConsultationFilter { all, requested, inProgress, completed }
 
 class RadiologyConsultationsPage extends StatefulWidget {
-  const RadiologyConsultationsPage({super.key, required this.apiClient});
+  const RadiologyConsultationsPage({
+    super.key,
+    required this.apiClient,
+    this.viewerRelation = 'ASSIGNED_TO',
+  });
 
   final ClinicianApiClient apiClient;
+  final String? viewerRelation;
 
   @override
   State<RadiologyConsultationsPage> createState() =>
@@ -96,7 +105,10 @@ class _RadiologyConsultationsPageState
     });
     try {
       final consultations = await RadiologyConsultationsApi(widget.apiClient)
-          .list(status: _apiStatusFor(_filter));
+          .list(
+            status: _apiStatusFor(_filter),
+            viewerRelation: widget.viewerRelation,
+          );
       if (mounted) {
         setState(() => _consultations = consultations);
       }
@@ -158,7 +170,8 @@ class _RadiologyConsultationsPageState
           ),
           const SizedBox(height: 18),
           if (_isLoading)
-            const Center(child: Padding(
+            const Center(
+                child: Padding(
               padding: EdgeInsets.all(32),
               child: CircularProgressIndicator(),
             ))
@@ -204,38 +217,40 @@ class _ConsultationCard extends StatelessWidget {
         onTap: onTap,
         child: RadiologyInfoCard(
           child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    consultation.patientName.isEmpty
-                        ? '환자 정보 없음'
-                        : consultation.patientName,
-                    style: const TextStyle(
-                      color: radiologyNavy,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      consultation.patientName.isEmpty
+                          ? '환자 정보 없음'
+                          : consultation.patientName,
+                      style: const TextStyle(
+                        color: radiologyNavy,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
-                ),
-                RadiologyStatusChip(
-                  label: _statusLabel(consultation.status),
-                  color: _statusColor(consultation.status),
-                ),
-              ],
-            ),
-            const SizedBox(height: 11),
-            _DetailLine(
-              label: '요청 진료과',
-              value: consultation.requesterDepartment,
-            ),
-            const SizedBox(height: 6),
-            _DetailLine(label: '요청자', value: consultation.requesterName),
-            const SizedBox(height: 6),
-            _DetailLine(label: '요청 시간', value: _formatDateTime(consultation.requestedAt)),
-          ],
+                  RadiologyStatusChip(
+                    label: _statusLabel(consultation.status),
+                    color: _statusColor(consultation.status),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 11),
+              _DetailLine(
+                label: '요청 진료과',
+                value: consultation.requesterDepartment,
+              ),
+              const SizedBox(height: 6),
+              _DetailLine(label: '요청자', value: consultation.requesterName),
+              const SizedBox(height: 6),
+              _DetailLine(
+                  label: '요청 시간',
+                  value: _formatDateTime(consultation.requestedAt)),
+            ],
           ),
         ),
       );

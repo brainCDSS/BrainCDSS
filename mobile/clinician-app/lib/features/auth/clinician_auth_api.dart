@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../../core/api/clinician_api_client.dart';
 import 'clinician_session.dart';
 
@@ -15,6 +17,15 @@ class ClinicianAuthApi {
       authenticated: false,
       body: {'login_id': loginId, 'password': password},
     );
-    return ClinicianSession.fromJson(response);
+    try {
+      final session = ClinicianSession.fromJson(response);
+      debugPrint(
+        'CLINICIAN LOGIN PARSE SUCCESS: role=${session.user.role.code}',
+      );
+      return session;
+    } catch (error) {
+      debugPrint('CLINICIAN LOGIN PARSE ERROR: $error');
+      rethrow;
+    }
   }
 }

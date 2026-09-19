@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
 
+import '../core/api/clinician_api_client.dart';
 import '../features/auth/clinician_session.dart';
 import '../features/neurology/neurology_pages.dart';
+import '../features/patients/radiology_patients_page.dart';
 
 class NeurologyMainShell extends StatefulWidget {
   const NeurologyMainShell({
     super.key,
+    required this.apiClient,
     required this.user,
     required this.onLogout,
   });
 
+  final ClinicianApiClient apiClient;
   final ClinicianUser user;
   final VoidCallback onLogout;
 
@@ -25,9 +29,9 @@ class _NeurologyMainShellState extends State<NeurologyMainShell> {
   void initState() {
     super.initState();
     _pages = [
-      const NeurologyEmergencyPage(),
-      const NeurologyPatientsPage(),
-      const NeurologyHomePage(),
+      NeurologyEmergencyPage(apiClient: widget.apiClient),
+      RadiologyPatientsPage(apiClient: widget.apiClient),
+      NeurologyHomePage(apiClient: widget.apiClient),
       const NeurologyClinicalRecordsPage(),
       NeurologyProfilePage(user: widget.user, onLogout: widget.onLogout),
     ];

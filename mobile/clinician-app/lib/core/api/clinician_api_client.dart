@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+
 class ClinicianApiException implements Exception {
   const ClinicianApiException({
     required this.statusCode,
@@ -55,7 +57,7 @@ class ClinicianApiClient {
 
   Map<String, String> _headers({bool authenticated = true}) => {
         'Accept': 'application/json',
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json; charset=utf-8',
         if (authenticated && _accessToken != null)
           'Authorization': 'Bearer $_accessToken',
       };
@@ -67,23 +69,60 @@ class ClinicianApiClient {
     bool authenticated = true,
   }) async {
     final client = HttpClient();
+    final isLoginRequest = uri.path == '/api/v1/auth/login';
     try {
+      if (isLoginRequest) {
+        debugPrint('CLINICIAN LOGIN REQUEST URL: $uri');
+      }
       final request = await client.openUrl(method, uri);
       _headers(authenticated: authenticated).forEach(
         request.headers.set,
       );
       if (body != null) {
-        request.add(utf8.encode(jsonEncode(body)));
+        final bodyBytes = utf8.encode(jsonEncode(body));
+        request.contentLength = bodyBytes.length;
+        request.add(bodyBytes);
       }
       final response = await request.close();
       final bytes = <int>[];
       await for (final chunk in response) {
         bytes.addAll(chunk);
       }
+      if (isLoginRequest) {
+        debugPrint('CLINICIAN LOGIN HTTP STATUS: ${response.statusCode}');
+        debugPrint(
+          'CLINICIAN LOGIN RESPONSE BODY: ${_redactedResponseBody(bytes)}',
+        );
+      }
       return _ApiResponse(response.statusCode, bytes);
+    } catch (error) {
+      if (isLoginRequest) {
+        debugPrint('CLINICIAN LOGIN NETWORK ERROR: $error');
+      }
+      rethrow;
     } finally {
       client.close(force: true);
     }
+  }
+
+  String _redactedResponseBody(List<int> bytes) {
+    final text = utf8.decode(bytes, allowMalformed: true);
+    try {
+      final decoded = jsonDecode(text);
+      if (decoded is Map) {
+        final body = Map<String, dynamic>.from(decoded);
+        if (body.containsKey('access')) {
+          body['access'] = '[REDACTED]';
+        }
+        if (body.containsKey('refresh')) {
+          body['refresh'] = '[REDACTED]';
+        }
+        return jsonEncode(body);
+      }
+    } on FormatException {
+      // Error responses are logged as received when they are not JSON.
+    }
+    return text;
   }
 
   Map<String, dynamic> _decode(_ApiResponse response) {

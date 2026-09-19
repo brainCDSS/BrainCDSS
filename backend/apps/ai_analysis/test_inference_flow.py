@@ -36,7 +36,7 @@ class DevelopmentInferenceFlowTests(TestCase):
         self.assertEqual(response.data["results"], [])
 
     def test_system_admin_requires_ai_job_view_permission(self):
-        admin_role = Role.objects.create(code="SYSTEM_ADMIN", name="Synthetic Admin")
+        admin_role = Role.objects.get(code="SYSTEM_ADMIN")
         admin = User.objects.create_user(
             login_id="synthetic-ai-admin",
             password="test-only-password",
@@ -63,7 +63,7 @@ class DevelopmentInferenceFlowTests(TestCase):
 
     def setUp(self):
         now = timezone.now()
-        role = Role.objects.create(code="RADIOLOGY", name="Synthetic Radiology")
+        role = Role.objects.get(code="RADIOLOGY")
         self.user = User.objects.create_user(
             login_id="synthetic-inference-user",
             password="test-only-password",

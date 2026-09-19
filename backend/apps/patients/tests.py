@@ -22,7 +22,7 @@ from apps.patients.selectors.patients import can_view_patient, list_patients
 class PatientProfileViewTests(TestCase):
     def setUp(self):
         self.factory = APIRequestFactory()
-        patient_role = Role.objects.create(code="PATIENT", name="Patient")
+        patient_role = Role.objects.get(code="PATIENT")
         self.user = User.objects.create_user(
             login_id="profile-patient",
             password="test-password",
@@ -87,7 +87,7 @@ class PatientProfileViewTests(TestCase):
         self.assertTrue(all(value is None for value in response.data.values()))
 class PatientCareAssignmentSelectorTests(TestCase):
     def setUp(self):
-        role = Role.objects.create(code="NEUROLOGIST", name="Neurologist")
+        role = Role.objects.get(code="NEUROLOGIST")
         self.clinician = User.objects.create_user("neuro-test", "password", name="Neurologist", role=role)
         self.other_clinician = User.objects.create_user("neuro-other", "password", name="Other", role=role)
         self.assigned = Patient.objects.create(patient_no="P-ASSIGNED", name="Assigned", created_by=self.clinician)
@@ -113,7 +113,7 @@ class PatientCareAssignmentSelectorTests(TestCase):
 class PatientClinicalHistoryViewTests(TestCase):
     def setUp(self):
         self.factory = APIRequestFactory()
-        role = Role.objects.create(code="PATIENT", name="Patient")
+        role = Role.objects.get(code="PATIENT")
         self.user = User.objects.create_user("history-owner", "password", name="History owner", role=role)
         self.other_user = User.objects.create_user("history-other", "password", name="History other", role=role)
         self.patient = Patient.objects.create(patient_no="HISTORY-OWNER", name="Owner", user=self.user, created_by=self.user)
@@ -153,7 +153,7 @@ class PatientClinicalHistoryViewTests(TestCase):
 class PatientSignupViewTests(TestCase):
     def setUp(self):
         self.factory = APIRequestFactory()
-        self.role = Role.objects.create(code="PATIENT", name="Patient")
+        self.role = Role.objects.get(code="PATIENT")
         self.payload = {"name": "Signup patient", "resident_registration_number": "900512-1234567", "email": "signup@example.com", "phone": "010-1234-5678", "login_id": "signup-patient", "password": "SafePassword123!"}
 
     @patch("apps.accounts.api.views.generate_patient_no", return_value="P-SIGNUP-1")
@@ -174,3 +174,39 @@ class PatientSignupViewTests(TestCase):
         self.assertEqual(duplicate.status_code, 400)
         invalid = PatientSignupView.as_view()(self.factory.post("/api/v1/auth/patient-signup", {**self.payload, "login_id": "different", "email": "different@example.com", "resident_registration_number": "invalid"}, format="json"))
         self.assertEqual(invalid.status_code, 400)
+class NursePatientAccessSelectorTests(TestCase):
+    def setUp(self):
+        self.role = Role.objects.get(code="NURSE")
+        self.nurse = User.objects.create_user(
+            "nurse-access",
+            "password",
+            name="Nurse",
+            role=self.role,
+        )
+        self.active = Patient.objects.create(
+            patient_no="P-NURSE-ACTIVE",
+            name="Active patient",
+            created_by=self.nurse,
+        )
+        self.temp = Patient.objects.create(
+            patient_no="TMP-NURSE",
+            name="Temporary patient",
+            status="TEMP",
+            created_by=self.nurse,
+        )
+        self.merged = Patient.objects.create(
+            patient_no="P-NURSE-MERGED",
+            name="Merged patient",
+            status="MERGED",
+            created_by=self.nurse,
+        )
+
+    def test_nurse_can_access_non_merged_patients_without_assignment(self):
+        patients = list(list_patients(actor=self.nurse))
+
+        self.assertIn(self.active, patients)
+        self.assertIn(self.temp, patients)
+        self.assertNotIn(self.merged, patients)
+        self.assertTrue(can_view_patient(self.nurse, self.active.id))
+        self.assertTrue(can_view_patient(self.nurse, self.temp.id))
+        self.assertFalse(can_view_patient(self.nurse, self.merged.id))

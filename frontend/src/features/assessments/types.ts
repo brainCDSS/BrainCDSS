@@ -81,6 +81,12 @@ export interface AssessmentItem {
    초기평가 상세 조회 Response
    ========================================================= */
 
+export type TriagePriority =
+  | "EMERGENCY"
+  | "URGENT"
+  | "NON_EMERGENCY";
+
+
 export interface AssessmentDetailResponse {
   assessment_id: string;
 
@@ -92,13 +98,17 @@ export interface AssessmentDetailResponse {
 
   total_score: number | null;
 
-  triage_priority: string | null;
+  triage_priority: TriagePriority | null;
 
   onset_at?: string | null;
 
   lkw_at?: string | null;
 
   symptom_note?: string | null;
+
+  created_at?: string | null;
+
+  updated_at?: string | null;
 
   assigned_neurologist?: {
     id: string;
@@ -164,6 +174,7 @@ export interface UpdateAssessmentResponse {
 
 export interface CompleteAssessmentRequest {
   assigned_neurologist_id: string;
+  triage_priority: TriagePriority;
 }
 
 
@@ -174,7 +185,7 @@ export interface CompleteAssessmentResponse {
 
   total_score: number;
 
-  triage_priority: string;
+  triage_priority: TriagePriority;
 
   assigned_neurologist_id: string;
 
@@ -288,6 +299,17 @@ export interface EmergencyPatientSummary {
   sex?: string | null;
   age?: number | null;
   estimated_age?: number | null;
+  birth_date?: string | null;
+  allergy_info?: string | null;
+}
+
+export interface EmergencyRedFlag {
+  item_code: string;
+  value_text: string | null;
+  value_numeric: number | string | null;
+  unit: string | null;
+  score: number | null;
+  note: string | null;
 }
 
 export interface EmergencyWorklistItem {
@@ -296,7 +318,15 @@ export interface EmergencyWorklistItem {
   patient_summary: EmergencyPatientSummary;
   total_score: number | null;
   triage_priority: string;
+  onset_at: string | null;
   lkw_at: string | null;
+  completed_at: string | null;
+  symptom_note: string | null;
+  assigned_neurologist: {
+    id: string;
+    name: string;
+  } | null;
+  red_flags: EmergencyRedFlag[];
   event: {
     id: string;
     status: string;
@@ -312,3 +342,30 @@ export interface EmergencyWorklistResponse {
   results: EmergencyWorklistItem[];
 }
 // [추가 끝] 신경과 응급 Worklist 연결
+
+
+
+export interface TriageReview {
+  review_id: string;
+  assessment_id: string;
+  priority: TriagePriority;
+  reason: string;
+  reviewer: {
+    id: string;
+    name: string;
+  };
+  reviewer_role: string;
+  created_at: string;
+}
+
+export interface TriageReviewListResponse {
+  initial_priority: TriagePriority | null;
+  effective_priority: TriagePriority | null;
+  latest_review: TriageReview | null;
+  reviews: TriageReview[];
+}
+
+export interface CreateTriageReviewRequest {
+  priority: TriagePriority;
+  reason: string;
+}

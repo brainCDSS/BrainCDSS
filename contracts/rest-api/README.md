@@ -1,5 +1,15 @@
 # REST API versioning
 
+## Consultation messages
+
+`GET|POST /api/v1/consultations/{consultation_id}/messages` is the durable,
+participant-only collaboration message contract. GET accepts an optional
+`after` message UUID cursor and returns at most 100 chronological messages.
+POST accepts `{ "content": string }` with a trimmed length of 1–2000
+characters and is available while the consultation is `REQUESTED`, `ACCEPTED`,
+or `IN_PROGRESS`. The response schema is defined in
+`consultation-messages.schema.json`.
+
 ## Imaging NIfTI viewer manifest
 
 `GET /api/v1/imaging-studies/{study_id}/nifti-viewer` is an additive authenticated

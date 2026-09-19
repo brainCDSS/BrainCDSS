@@ -16,8 +16,15 @@ from apps.assessments.api.serializers import (
     AssessmentWorklistResponseSerializer,
     EmergencyEventAcknowledgeResponseSerializer,
     EmergencyWorklistResponseSerializer,
+    TriageReviewCreateSerializer,
+    TriageReviewListResponseSerializer,
 )
-from apps.assessments.models import AssessmentItem, EmergencyEvent, InitialAssessment
+from apps.assessments.models import (
+    AssessmentItem,
+    EmergencyEvent,
+    InitialAssessment,
+    TriageReview,
+)
 from apps.audit.services.audit_event import record_audit_event
 from apps.clinical_records.models import Encounter
 from apps.organizations.models import Department
@@ -159,27 +166,35 @@ class AssessmentWorklistView(APIView):
             encounter_id=OuterRef("pk"),
         ).order_by("-created_at")
 
+        status_filter = (request.query_params.get("status") or "").upper()
+
         queryset = (
             Encounter.objects.select_related("patient")
-            .exclude(status__in=("COMPLETED", "CANCELLED"))
+            .exclude(status="CANCELLED")
             .annotate(
                 worklist_assessment_id=Subquery(latest_assessment.values("id")[:1]),
                 worklist_assessment_status=Subquery(latest_assessment.values("status")[:1]),
                 worklist_triage_priority=Subquery(latest_assessment.values("triage_priority")[:1]),
                 worklist_assessment_created_at=Subquery(latest_assessment.values("created_at")[:1]),
             )
-            .filter(
+        )
+
+        if status_filter == "COMPLETED":
+            # Historical/completed view. Completed encounters remain visible
+            # here even after the encounter itself has been closed.
+            queryset = queryset.filter(worklist_assessment_status="COMPLETED")
+        else:
+            # Default endpoint behavior remains an active nursing worklist.
+            queryset = queryset.exclude(status="COMPLETED").filter(
                 Q(worklist_assessment_id__isnull=True)
                 | Q(worklist_assessment_status="DRAFT")
             )
-            .order_by("-arrived_at", "-created_at")
-        )
+            if status_filter == "WAITING":
+                queryset = queryset.filter(worklist_assessment_id__isnull=True)
+            elif status_filter:
+                queryset = queryset.filter(worklist_assessment_status=status_filter)
 
-        status_filter = request.query_params.get("status")
-        if status_filter == "WAITING":
-            queryset = queryset.filter(worklist_assessment_id__isnull=True)
-        elif status_filter:
-            queryset = queryset.filter(worklist_assessment_status=status_filter)
+        queryset = queryset.order_by("-arrived_at", "-created_at")
 
         date_filter = parse_date(request.query_params.get("date", ""))
         if date_filter:
@@ -249,6 +264,7 @@ class EmergencyWorklistView(APIView):
         queryset = (
             EmergencyEvent.objects.select_related(
                 "assessment",
+                "assessment__assigned_neurologist",
                 "encounter__patient",
             )
             .filter(
@@ -300,6 +316,22 @@ class EmergencyWorklistView(APIView):
     def _serialize_row(event):
         assessment = event.assessment
         patient = event.encounter.patient
+        assigned_neurologist = (
+            assessment.assigned_neurologist
+        )
+
+        red_flags = (
+            AssessmentItem.objects
+            .filter(
+                assessment=assessment,
+                is_red_flag=True,
+            )
+            .order_by(
+                "recorded_at",
+                "id",
+            )
+        )
+
         return {
             "assessment_id": assessment.id,
             "encounter_id": event.encounter_id,
@@ -308,16 +340,54 @@ class EmergencyWorklistView(APIView):
                 "patient_no": patient.patient_no,
                 "name": patient.name,
                 "sex": patient.sex,
-                "estimated_age": patient.estimated_age,
+                "estimated_age": (
+                    patient.estimated_age
+                ),
+                "birth_date": patient.birth_date,
+                "allergy_info": (
+                    patient.allergy_info
+                ),
             },
             "total_score": assessment.total_score,
-            "triage_priority": assessment.triage_priority,
+            "triage_priority": (
+                assessment.triage_priority
+            ),
+            "onset_at": assessment.onset_at,
             "lkw_at": assessment.lkw_at,
+            "completed_at": (
+                assessment.completed_at
+            ),
+            "symptom_note": (
+                assessment.symptom_note
+            ),
+            "assigned_neurologist": (
+                {
+                    "id": assigned_neurologist.id,
+                    "name": assigned_neurologist.name,
+                }
+                if assigned_neurologist
+                else None
+            ),
+            "red_flags": [
+                {
+                    "item_code": item.item_code,
+                    "value_text": item.value_text,
+                    "value_numeric": (
+                        item.value_numeric
+                    ),
+                    "unit": item.unit,
+                    "score": item.score,
+                    "note": item.note,
+                }
+                for item in red_flags
+            ],
             "event": {
                 "id": event.id,
                 "status": event.status,
                 "notified_at": event.notified_at,
-                "acknowledged_at": event.acknowledged_at,
+                "acknowledged_at": (
+                    event.acknowledged_at
+                ),
             },
         }
 
@@ -392,3 +462,173 @@ class EmergencyEventAcknowledgeView(APIView):
             "acknowledged_at": acknowledged_at,
         }
         return Response(EmergencyEventAcknowledgeResponseSerializer(payload).data)
+
+
+def _serialize_triage_review(review):
+    return {
+        "review_id": review.id,
+        "assessment_id": review.assessment_id,
+        "priority": review.priority,
+        "reason": review.reason,
+        "reviewer": {
+            "id": review.reviewer_id,
+            "name": review.reviewer.name,
+        },
+        "reviewer_role": review.reviewer_role,
+        "created_at": review.created_at,
+    }
+
+
+class TriageReviewView(APIView):
+    """Append-only neurologist reassessment; nurse initial priority is preserved."""
+
+    permission_classes = [IsAuthenticated]
+
+    @staticmethod
+    def _assessment_for_user(request, assessment_id):
+        if getattr(getattr(request.user, "role", None), "code", None) != "NEUROLOGIST":
+            raise PermissionDenied({
+                "code": "FORBIDDEN_ROLE",
+                "detail": "Only neurologists may review triage priority.",
+            })
+
+        try:
+            return (
+                InitialAssessment.objects
+                .select_related("encounter__patient", "assigned_neurologist")
+                .get(pk=assessment_id)
+            )
+        except InitialAssessment.DoesNotExist as exc:
+            raise NotFound({
+                "code": "ASSESSMENT_NOT_FOUND",
+                "detail": "Assessment was not found.",
+            }) from exc
+
+    def get(self, request, assessment_id):
+        assessment = self._assessment_for_user(request, assessment_id)
+
+        if assessment.assigned_neurologist_id != request.user.id:
+            raise PermissionDenied({
+                "code": "ASSESSMENT_NOT_ASSIGNED",
+                "detail": "Only the assigned neurologist may view physician triage reviews.",
+            })
+
+        reviews = list(
+            TriageReview.objects
+            .filter(assessment=assessment)
+            .select_related("reviewer")
+            .order_by("created_at", "id")
+        )
+        latest_review = reviews[-1] if reviews else None
+
+        payload = {
+            "initial_priority": assessment.triage_priority,
+            "effective_priority": (
+                latest_review.priority
+                if latest_review is not None
+                else assessment.triage_priority
+            ),
+            "latest_review": (
+                _serialize_triage_review(latest_review)
+                if latest_review is not None
+                else None
+            ),
+            "reviews": [
+                _serialize_triage_review(review)
+                for review in reviews
+            ],
+        }
+        return Response(
+            TriageReviewListResponseSerializer(payload).data,
+            status=200,
+        )
+
+    @transaction.atomic
+    def post(self, request, assessment_id):
+        assessment = self._assessment_for_user(request, assessment_id)
+
+        if assessment.status != "COMPLETED":
+            raise ValidationError({
+                "code": "ASSESSMENT_NOT_COMPLETED",
+                "detail": "Only completed assessments can be re-triaged.",
+            })
+        if (
+            assessment.encounter.status == "COMPLETED"
+            or assessment.encounter.ended_at is not None
+        ):
+            raise ValidationError({
+                "code": "TRIAGE_REVIEW_LOCKED",
+                "detail": "Triage reassessment is locked after encounter completion.",
+            })
+        if assessment.assigned_neurologist_id != request.user.id:
+            raise PermissionDenied({
+                "code": "ASSESSMENT_NOT_ASSIGNED",
+                "detail": "Only the assigned neurologist may re-triage this assessment.",
+            })
+
+        serializer = TriageReviewCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        latest_review = (
+            TriageReview.objects
+            .filter(assessment=assessment)
+            .order_by("-created_at", "-id")
+            .first()
+        )
+        previous_effective_priority = (
+            latest_review.priority
+            if latest_review is not None
+            else assessment.triage_priority
+        )
+
+        review = TriageReview.objects.create(
+            assessment=assessment,
+            reviewer=request.user,
+            reviewer_role="NEUROLOGIST",
+            priority=serializer.validated_data["priority"],
+            reason=serializer.validated_data["reason"],
+        )
+
+        # Reassessment is initiated by the assigned neurologist.  Keep the
+        # history/audit record, but do not create another EmergencyEvent or
+        # Notification here; the clinician must not receive a new-assignment
+        # popup for an action they just performed themselves.
+        record_audit_event(
+            source_service="assessments",
+            action="REVIEW_TRIAGE_PRIORITY",
+            resource_type="TriageReview",
+            resource_id=review.id,
+            patient_id=assessment.encounter.patient_id,
+            outcome="SUCCESS",
+            request=request,
+            reason=review.reason,
+            before_json={
+                "initial_priority": assessment.triage_priority,
+                "effective_priority": previous_effective_priority,
+            },
+            after_json={
+                "initial_priority": assessment.triage_priority,
+                "effective_priority": review.priority,
+                "review_id": str(review.id),
+            },
+        )
+
+        reviews = list(
+            TriageReview.objects
+            .filter(assessment=assessment)
+            .select_related("reviewer")
+            .order_by("created_at", "id")
+        )
+        payload = {
+            "initial_priority": assessment.triage_priority,
+            "effective_priority": review.priority,
+            "latest_review": _serialize_triage_review(review),
+            "reviews": [
+                _serialize_triage_review(item)
+                for item in reviews
+            ],
+        }
+        return Response(
+            TriageReviewListResponseSerializer(payload).data,
+            status=201,
+        )

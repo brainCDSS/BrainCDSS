@@ -3,6 +3,11 @@ import {
   onMessage,
 } from "firebase/messaging";
 
+import type {
+  MessagePayload,
+  Messaging,
+} from "firebase/messaging";
+
 import {
   firebaseVapidKey,
   firebaseWebConfig,
@@ -14,11 +19,18 @@ import {
   registerWebFcmToken,
 } from "./api";
 
+import {
+  emitNotificationStateChanged,
+} from "./events";
+
 
 const DEVICE_ID_KEY =
   "brainon-web-device-id";
 
 let foregroundListenerRegistered =
+  false;
+
+let serviceWorkerListenerRegistered =
   false;
 
 
@@ -49,37 +61,145 @@ function createServiceWorkerUrl() {
     new URLSearchParams({
       apiKey:
         String(
-          firebaseWebConfig.apiKey ?? "",
+          firebaseWebConfig.apiKey ??
+          "",
         ),
 
       authDomain:
         String(
-          firebaseWebConfig.authDomain ?? "",
+          firebaseWebConfig.authDomain ??
+          "",
         ),
 
       projectId:
         String(
-          firebaseWebConfig.projectId ?? "",
+          firebaseWebConfig.projectId ??
+          "",
         ),
 
       storageBucket:
         String(
-          firebaseWebConfig.storageBucket ?? "",
+          firebaseWebConfig.storageBucket ??
+          "",
         ),
 
       messagingSenderId:
         String(
-          firebaseWebConfig.messagingSenderId ?? "",
+          firebaseWebConfig.messagingSenderId ??
+          "",
         ),
 
       appId:
         String(
-          firebaseWebConfig.appId ?? "",
+          firebaseWebConfig.appId ??
+          "",
         ),
     });
 
   return (
     `/firebase-messaging-sw.js?${params.toString()}`
+  );
+}
+
+
+function installServiceWorkerBridge() {
+  if (
+    serviceWorkerListenerRegistered
+  ) {
+    return;
+  }
+
+  serviceWorkerListenerRegistered =
+    true;
+
+  navigator.serviceWorker.addEventListener(
+    "message",
+    (event) => {
+      if (
+        event.data?.type !==
+        "BRAINON_FCM_BACKGROUND"
+      ) {
+        return;
+      }
+
+      console.info(
+        "BRAINON_FCM_BACKGROUND_RECEIVED",
+        event.data.payload,
+      );
+
+      emitNotificationStateChanged();
+    },
+  );
+}
+
+
+function installForegroundListener(
+  messaging: Messaging,
+  registration: ServiceWorkerRegistration,
+) {
+  if (foregroundListenerRegistered) {
+    return;
+  }
+
+  foregroundListenerRegistered =
+    true;
+
+  onMessage(
+    messaging,
+    async (
+      payload: MessagePayload,
+    ) => {
+      console.info(
+        "BRAINON_FCM_FOREGROUND_RECEIVED",
+        payload,
+      );
+
+      emitNotificationStateChanged();
+
+      if (
+        Notification.permission !==
+        "granted"
+      ) {
+        return;
+      }
+
+      const title =
+        payload.notification?.title ??
+        payload.data?.title ??
+        "BrainOn";
+
+      const body =
+        payload.notification?.body ??
+        payload.data?.body ??
+        "";
+
+      const notificationId =
+        payload.data?.notification_id ??
+        crypto.randomUUID();
+
+      try {
+        await registration.showNotification(
+          title,
+          {
+            body,
+            data:
+              payload.data ?? {},
+            tag:
+              `brainon-${notificationId}`,
+          },
+        );
+
+        console.info(
+          "BRAINON_FOREGROUND_NOTIFICATION_SHOWN",
+          notificationId,
+        );
+      } catch (error) {
+        console.error(
+          "BRAINON_FOREGROUND_NOTIFICATION_FAILED",
+          error,
+        );
+      }
+    },
   );
 }
 
@@ -91,13 +211,17 @@ export async function connectWebPush() {
     );
   }
 
-  if (!("Notification" in window)) {
+  if (
+    !("Notification" in window)
+  ) {
     throw new Error(
       "WEB_NOTIFICATION_NOT_SUPPORTED",
     );
   }
 
-  if (!("serviceWorker" in navigator)) {
+  if (
+    !("serviceWorker" in navigator)
+  ) {
     throw new Error(
       "SERVICE_WORKER_NOT_SUPPORTED",
     );
@@ -106,7 +230,9 @@ export async function connectWebPush() {
   const permission =
     await Notification.requestPermission();
 
-  if (permission !== "granted") {
+  if (
+    permission !== "granted"
+  ) {
     throw new Error(
       `NOTIFICATION_PERMISSION_${permission.toUpperCase()}`,
     );
@@ -120,8 +246,24 @@ export async function connectWebPush() {
       },
     );
 
+  try {
+    await registration.update();
+  } catch (error) {
+    console.warn(
+      "BRAINON_SERVICE_WORKER_UPDATE_FAILED",
+      error,
+    );
+  }
+
   const messaging =
     await getFirebaseMessaging();
+
+  installServiceWorkerBridge();
+
+  installForegroundListener(
+    messaging,
+    registration,
+  );
 
   const token =
     await getToken(
@@ -152,28 +294,15 @@ export async function connectWebPush() {
       token,
     });
 
-  if (!foregroundListenerRegistered) {
-    foregroundListenerRegistered =
-      true;
-
-    onMessage(
-      messaging,
-      async (payload) => {
-        await registration.showNotification(
-          payload.notification?.title ??
-            "BrainOn",
-
-          {
-            body:
-              payload.notification?.body ??
-              "",
-            data:
-              payload.data ?? {},
-          },
-        );
-      },
-    );
-  }
+  console.info(
+    "BRAINON_WEB_PUSH_READY",
+    {
+      deviceId:
+        apiResult.device_id,
+      tokenLength:
+        token.length,
+    },
+  );
 
   return {
     tokenLength:

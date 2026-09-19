@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import {
+  latestCompletedAssessment,
+  parseInitialAssessment,
+} from "../assessments/viewModel";
 import { getPatientEncounters } from "../medication-safety/api";
 import type { EncounterListItem } from "../medication-safety/types";
 import { loadAuthSession } from "../auth/session";
@@ -7,7 +11,7 @@ import { PatientHeader, PatientRail } from "../patients/PatientChart";
 import { getPatients } from "../patients/api";
 import type { Patient } from "../patients/types";
 import { createClinicalNote, finalizeClinicalNote, getClinicalNote, getClinicalNotes, getInitialAssessmentsByEncounter, updateClinicalNote } from "./api";
-import type { ClinicalNote, ClinicalNoteDraftFields, InitialAssessment, InitialAssessmentItem } from "./types";
+import type { ClinicalNote, ClinicalNoteDraftFields, InitialAssessment } from "./types";
 import "./clinical-notes.css";
 
 const EMPTY_DRAFT: ClinicalNoteDraftFields = { subjective: "", objective: "", assessment: "", plan: "", clinicalOpinion: "" };
@@ -40,14 +44,6 @@ function operationError(error: unknown, fallback: string) {
   if (error.message.includes("CLINICAL_NOTE_INVALID_STATE")) return "DRAFT 상태의 진료기록만 수정하거나 확정할 수 있습니다.";
   return fallback;
 }
-function assessmentValue(item: InitialAssessmentItem | undefined) {
-  if (!item) return null;
-  const value = item.value_text ?? item.value_numeric ?? item.value;
-  return value === undefined || value === null || value === ""
-    ? null
-    : `${String(value)}${item.unit ? ` ${item.unit}` : ""}`;
-}
-
 interface ClinicalNotesPageProps {
   /** Optional parent selection; the current workspace does not yet supply it. */
   selectedPatient?: Patient | null;
@@ -142,14 +138,19 @@ export default function ClinicalNotesPage({ selectedPatient: contextPatient = nu
     setReferenceLoading(true);
     void getInitialAssessmentsByEncounter(referenceEncounterId).then((result) => {
       if (!active) return;
-      setAssessment(result.results[0] ?? null);
+      setAssessment(
+        latestCompletedAssessment(result.results),
+      );
     }).catch(() => {
       if (active) setAssessment(null);
     }).finally(() => { if (active) setReferenceLoading(false); });
     return () => { active = false; };
   }, [referenceEncounterId, selectedPatient]);
-  const assessmentItems = useMemo(
-    () => new Map((assessment?.items ?? []).map((item) => [item.item_code, item])),
+  const parsedAssessment = useMemo(
+    () =>
+      assessment
+        ? parseInitialAssessment(assessment)
+        : null,
     [assessment],
   );
 
@@ -218,7 +219,7 @@ export default function ClinicalNotesPage({ selectedPatient: contextPatient = nu
                 <div><dt>증상발생</dt><dd>{dateTime(assessment.onset_at)}</dd></div>
                 <div><dt>마지막 정상(LKW)</dt><dd>{dateTime(assessment.lkw_at)}</dd></div>
                 <div className="is-wide"><dt>주요 증상</dt><dd>{assessment.symptom_note || "-"}</dd></div>
-              </dl><div className="clinical-reference-metrics"><section><strong>FAST</strong>{(["FAST_FACE", "FAST_ARM"] as const).map((code) => <span key={code}><i>{code.replace("FAST_", "")}</i><b>{assessmentValue(assessmentItems.get(code)) ?? "-"}</b></span>)}</section><section><strong>Vital</strong>{(["BP_SYS", "HEART_RATE"] as const).map((code) => <span key={code}><i>{code === "BP_SYS" ? "수축기 혈압" : "심박수"}</i><b>{assessmentValue(assessmentItems.get(code)) ?? "-"}</b></span>)}</section></div></> : <p>현재 Encounter에서 조회 가능한 assessment_id가 없습니다.</p>}
+              </dl><div className="clinical-reference-metrics"><section><strong>FAST</strong><span><i>FACE</i><b>{parsedAssessment?.fastFace ?? "-"}</b></span><span><i>ARM</i><b>{parsedAssessment?.fastArm ?? "-"}</b></span><span><i>SPEECH</i><b>{parsedAssessment?.fastSpeech ?? "-"}</b></span></section><section><strong>Vital</strong><span><i>수축기 혈압</i><b>{parsedAssessment?.bpSys ?? "-"}</b></span><span><i>이완기 혈압</i><b>{parsedAssessment?.bpDia ?? "-"}</b></span><span><i>심박수</i><b>{parsedAssessment?.heartRate ?? "-"}</b></span><span><i>호흡수</i><b>{parsedAssessment?.respRate ?? "-"}</b></span><span><i>체온</i><b>{parsedAssessment?.bodyTemp ?? "-"}</b></span></section></div></> : <p>현재 Encounter에서 완료된 초기평가가 없습니다.</p>}
             </article>
           </>}
         </div>

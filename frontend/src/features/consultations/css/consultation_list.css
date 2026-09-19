@@ -9,6 +9,7 @@
 
 .consultation-list {
   width: 100%;
+  min-width: 0;
   max-width: 1440px;
 
   margin: 0 auto;
@@ -319,8 +320,12 @@
 
 .consultation-list__card {
   width: 100%;
-
-  overflow: hidden;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
 
   box-sizing: border-box;
 
@@ -394,6 +399,7 @@
 .consultation-list__items {
   display: flex;
   flex-direction: column;
+  min-width: max-content;
 }
 
 
@@ -1181,4 +1187,188 @@
 
   box-shadow:
     0 5px 12px rgba(0, 0, 0, 0.30);
+}
+
+/* =========================================================
+   Consultation List Responsive Card
+   ---------------------------------------------------------
+   좁은 화면에서도 가로 스크롤 없이
+   검토하기 버튼까지 항상 표시
+   ========================================================= */
+
+@media (max-width: 1200px) {
+
+  .consultation-list__card {
+    overflow-x: visible;
+  }
+
+  .consultation-list__column-header {
+    display: none;
+  }
+
+  .consultation-list-item {
+    min-width: 0;
+
+    grid-template-columns:
+      minmax(0, 1.6fr)
+      minmax(150px, 1fr)
+      auto
+      auto;
+
+    grid-template-areas:
+      "patient clinician priority action"
+      "patient clinician status action"
+      "date date date action";
+
+    gap: 10px 16px;
+
+    padding: 16px 18px;
+
+    min-height: 0;
+  }
+
+  .consultation-list-item__number {
+    display: none;
+  }
+
+  .consultation-list-item__patient {
+    grid-area: patient;
+  }
+
+  .consultation-list-item__clinician {
+    grid-area: clinician;
+  }
+
+  .consultation-list-item__priority {
+    grid-area: priority;
+    justify-content: flex-start;
+  }
+
+  .consultation-list-item__status {
+    grid-area: status;
+    justify-content: flex-start;
+  }
+
+  .consultation-list-item__date {
+    grid-area: date;
+  }
+
+  .consultation-list-item__action {
+    grid-area: action;
+    align-self: stretch;
+    min-width: 110px;
+  }
+
+  .consultation-review-button {
+    width: 100%;
+    min-width: 100px;
+  }
+}
+
+@media (max-width: 760px) {
+
+  .consultation-list-item {
+    grid-template-columns:
+      minmax(0, 1fr)
+      auto;
+
+    grid-template-areas:
+      "patient priority"
+      "clinician status"
+      "date date"
+      "action action";
+
+    gap: 12px;
+  }
+
+  .consultation-list-item__action {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .consultation-review-button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .consultation-list-item__date strong {
+    white-space: normal;
+  }
+
+  .consultation-list-item__patient-main {
+    flex-wrap: wrap;
+  }
+}
+
+/* =========================================================
+   Consultation List Header Action
+   ========================================================= */
+
+.consultation-list__header-actions {
+  grid-area: description;
+
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+
+  gap: 12px;
+
+  min-width: 0;
+}
+
+.consultation-list__header-actions p {
+  grid-area: auto;
+
+  margin: 0;
+  padding-left: 0;
+
+  text-align: right;
+}
+
+.consultation-list__request-button {
+  flex-shrink: 0;
+
+  height: 38px;
+
+  padding: 0 15px;
+
+  border: 1px solid var(--primary);
+  border-radius: 8px;
+
+  background: var(--primary);
+
+  color: #ffffff;
+
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 800;
+
+  white-space: nowrap;
+
+  cursor: pointer;
+
+  box-shadow:
+    0 2px 6px rgba(79, 130, 189, 0.18);
+}
+
+.consultation-list__request-button:hover {
+  filter: brightness(0.96);
+}
+
+@media (max-width: 700px) {
+
+  .consultation-list__header-actions {
+    align-items: flex-start;
+    flex-direction: column;
+
+    margin-top: 10px;
+  }
+
+  .consultation-list__header-actions p {
+    text-align: left;
+  }
+
+  .consultation-list__request-button {
+    width: auto;
+  }
 }

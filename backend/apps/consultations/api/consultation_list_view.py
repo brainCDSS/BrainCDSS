@@ -9,6 +9,7 @@ from apps.organizations.models import Clinician
 from apps.patients.selectors.patients import can_view_patient
 
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework.response import Response
 
@@ -20,6 +21,38 @@ from apps.notifications.services.consultations import (
 )
 
 LIST_SPEC = next(spec for spec in SPECS if spec["api_id"] == "API-CON-002")
+
+
+def _department_matches_consultation_type(
+    department,
+    consultation_type,
+):
+    code = (department.code or "").strip().upper()
+    name = (department.name or "").strip().lower()
+
+    if consultation_type == "RADIOLOGY":
+        return (
+            code in {
+                "RADIOLOGY",
+                "FT-RAD",
+                "LOCAL_CHAT_RADIOLOGY",
+            }
+            or "영상의학" in name
+            or "radiology" in name
+        )
+
+    if consultation_type == "NEUROSURGERY":
+        return (
+            code in {
+                "NEUROSURGERY",
+                "FT-NS",
+                "LOCAL_CHAT_NEUROSURGERY",
+            }
+            or "신경외과" in name
+            or "neurosurgery" in name
+        )
+
+    return False
 
 
 def _user_summary(user, clinicians_by_user_id):
@@ -35,32 +68,51 @@ def _user_summary(user, clinicians_by_user_id):
 
 
 def _allowed_actions(consultation, user):
-    role = _role_code(user)
+    """
+    Return actions available to the current participant.
+
+    Workflow authority is based on the actual consultation
+    relationship, not on re-inferring the assignee from a role.
+
+    - requester:
+        REQUESTED / ACCEPTED / IN_PROGRESS -> CANCEL
+        RESPONDED                         -> VIEW_RESPONSE
+
+    - assigned clinician:
+        REQUESTED   -> ACCEPT / REJECT
+        ACCEPTED    -> START / CANCEL
+        IN_PROGRESS -> RESPOND / CANCEL
+    """
+
+    # 요청 의료진
     if consultation.requested_by_id == user.id:
-        if consultation.status in {"REQUESTED", "ACCEPTED", "IN_PROGRESS"}:
+        if consultation.status in {
+            "REQUESTED",
+            "ACCEPTED",
+            "IN_PROGRESS",
+        }:
             return ["CANCEL"]
+
         if consultation.status == "RESPONDED":
             return ["VIEW_RESPONSE"]
+
         return []
 
-    is_target_role = (
-        (role == "NEUROSURGEON" and consultation.consultation_type == "NEUROSURGERY")
-        or (role == "RADIOLOGY" and consultation.consultation_type == "RADIOLOGY")
-    )
-    if not is_target_role:
-        return []
-    if consultation.status == "REQUESTED":
-        if consultation.assigned_to_id is None or consultation.assigned_to_id == user.id:
-            return ["ACCEPT", "REJECT"]
-        return []
+    # 실제 배정 의료진이 아니면 상태 변경 불가
     if consultation.assigned_to_id != user.id:
         return []
+
+    # 배정 의료진 Workflow
+    if consultation.status == "REQUESTED":
+        return ["ACCEPT", "REJECT"]
+
     if consultation.status == "ACCEPTED":
         return ["START", "CANCEL"]
+
     if consultation.status == "IN_PROGRESS":
         return ["RESPOND", "CANCEL"]
-    return []
 
+    return []
 
 class ConsultationListCreateView(ContractView000):
     @transaction.atomic
@@ -138,7 +190,11 @@ class ConsultationListCreateView(ContractView000):
         }[consultation_type]
         if (
             not assignee.is_active
-            or assignee.department.code != consultation_type
+            or not assignee.user.is_active
+            or not _department_matches_consultation_type(
+                assignee.department,
+                consultation_type,
+            )
             or _role_code(assignee.user) != expected_role
         ):
             raise ContractError({
@@ -150,7 +206,7 @@ class ConsultationListCreateView(ContractView000):
             encounter=encounter,
             consultation_type=consultation_type,
             assigned_to_id=assignee.user_id,
-            status__in={"REQUESTED", "ACCEPTED", "IN_PROGRESS", "RESPONDED"},
+            status="REQUESTED",
         ).exists():
             from apps.common.remaining149_runtime import ContractConflict
 
@@ -218,10 +274,24 @@ class ConsultationListCreateView(ContractView000):
             queryset = queryset.filter(status__in={"REQUESTED", "ACCEPTED", "IN_PROGRESS", "RESPONDED"})
 
         viewer_relation = request.query_params.get("viewer_relation")
+
         if viewer_relation == "REQUESTED_BY":
-            queryset = queryset.filter(requested_by_id=request.user.id)
+            queryset = queryset.filter(
+                requested_by_id=request.user.id,
+            )
+
         elif viewer_relation == "ASSIGNED_TO":
-            queryset = queryset.filter(assigned_to_id=request.user.id)
+            queryset = queryset.filter(
+                assigned_to_id=request.user.id,
+            )
+
+        else:
+            # 기본 협진 목록은 현재 사용자가
+            # 요청했거나 실제 배정된 협진만 노출한다.
+            queryset = queryset.filter(
+                Q(requested_by_id=request.user.id)
+                | Q(assigned_to_id=request.user.id)
+            )
 
         queryset = queryset.order_by("-requested_at", "-created_at")
         try:

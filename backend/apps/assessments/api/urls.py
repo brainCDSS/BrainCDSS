@@ -6,6 +6,7 @@ from apps.assessments.api.views import (
     AssessmentWorklistView,
     EmergencyEventAcknowledgeView,
     EmergencyWorklistView,
+    TriageReviewView,
 )
 
 
@@ -29,6 +30,11 @@ urlpatterns = [
         "api/v1/assessments/worklist",
         AssessmentWorklistView.as_view(),
         name="api-asm-001-real",
+    ),
+    path(
+        "api/v1/assessments/<uuid:assessment_id>/triage-reviews",
+        TriageReviewView.as_view(),
+        name="api-asm-triage-review",
     ),
     path(
         "api/v1/assessments/<uuid:assessment_id>",

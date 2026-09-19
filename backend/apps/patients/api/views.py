@@ -177,6 +177,8 @@ class PatientListCreateView(APIView):
             patient_no=data.get("patient_no"),
             birth_date=data.get("birth_date"),
             status=data.get("status"),
+            scope=data.get("scope", "all"),
+            user=request.user,
         )
 
         paginator = Paginator(qs, PAGE_SIZE)

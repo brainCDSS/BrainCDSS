@@ -2118,3 +2118,72 @@ textarea {
     justify-content: flex-end;
   }
 }
+
+
+/* =========================================================
+   Triage result - nurse-selected priority
+   ========================================================= */
+
+.triage-priority-select {
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+}
+
+.triage-priority-select > span {
+  color:#4b5870;
+  font-size:12px;
+  font-weight:800;
+}
+
+.triage-priority-select select {
+  width:100%;
+  height:42px;
+  padding:0 12px;
+  border:1px solid #d8e2ef;
+  border-radius:9px;
+  outline:0;
+  background:#fff;
+  color:#273854;
+  font:inherit;
+  font-size:12px;
+  font-weight:700;
+}
+
+.triage-priority-select select:focus {
+  border-color:#6ea6ef;
+  box-shadow:0 0 0 3px rgba(37,120,232,.10);
+}
+
+.triage-priority-select small {
+  color:#7b8798;
+  font-size:10px;
+  line-height:1.45;
+}
+
+.triage-priority-completed {
+  display:flex;
+  align-items:baseline;
+  gap:9px;
+  padding:10px 12px;
+  border:1px solid #e0e6ee;
+  border-radius:9px;
+  background:#f8fafc;
+}
+
+.triage-priority-completed strong {
+  color:#283a56;
+  font-size:16px;
+}
+
+.triage-priority-completed span {
+  color:#7a8799;
+  font-size:10px;
+  font-weight:700;
+}
+
+.triage-assignment-divider {
+  height:1px;
+  margin:14px 0;
+  background:#e7ebf1;
+}

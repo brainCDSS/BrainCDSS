@@ -7,7 +7,7 @@ from apps.notifications.services.notifications import create_notification_for_us
 
 class NotificationCreationPreferenceTests(TestCase):
     def setUp(self):
-        role = Role.objects.create(code="NEUROLOGIST", name="Neurologist")
+        role = Role.objects.get(code="NEUROLOGIST")
         self.user = User.objects.create_user(
             "notification-helper-user", "password", name="Notification user", role=role
         )

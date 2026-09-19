@@ -1,8 +1,8 @@
 {
   "id": null,
   "uid": "brainon-admin-overview",
-  "title": "BrainOn Admin · System Monitoring",
-  "description": "BrainOn SYSTEM_ADMIN 운영 대시보드. PostgreSQL, AuditLog, Integration, Runtime Loki 로그 및 request_id 추적.",
+  "title": "BrainOn Admin · Operations Dashboard",
+  "description": "BrainOn SYSTEM_ADMIN 운영 대시보드. 실제 PostgreSQL/Loki 데이터 기반 Overview, AI/Integration 운영 현황, Runtime 오류 및 request_id 통합 추적.",
   "tags": [
     "brainon",
     "admin",
@@ -10,14 +10,16 @@
   ],
   "timezone": "browser",
   "schemaVersion": 41,
-  "version": 1,
+  "version": 10,
   "editable": true,
   "refresh": "30s",
   "time": {
-    "from": "now-6h",
+    "from": "now-24h",
     "to": "now"
   },
-  "timepicker": {},
+  "timepicker": {
+    "hidden": false
+  },
   "templating": {
     "list": [
       {
@@ -48,7 +50,8 @@
         "current": {
           "text": "All",
           "value": "$__all"
-        }
+        },
+        "hide": 2
       }
     ]
   },
@@ -60,7 +63,7 @@
     {
       "id": 1,
       "type": "row",
-      "title": "01. System Overview",
+      "title": "01. Executive Overview",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -71,94 +74,880 @@
       "panels": []
     },
     {
-      "id": 2,
-      "type": "stat",
-      "title": "PostgreSQL",
+      "id": 5,
+      "type": "canvas",
+      "title": "전체 사용자",
       "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
+        "type": "postgres",
+        "uid": "brainon-postgres"
       },
       "gridPos": {
         "x": 0,
         "y": 1,
-        "w": 4,
-        "h": 4
+        "w": 5,
+        "h": 5
       },
       "fieldConfig": {
         "defaults": {
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": {
-                  "text": "DOWN"
-                },
-                "1": {
-                  "text": "UP"
-                }
-              }
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
-              }
-            ]
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#3B82F6"
           }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "auto"
+        "infinitePan": false,
+        "inlineEditing": false,
+        "panZoom": false,
+        "showAdvancedTypes": false,
+        "root": {
+          "name": "Root",
+          "type": "frame",
+          "elements": [
+            {
+              "name": "accent",
+              "type": "text",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#60A5FA"
+                },
+                "size": 1,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "​"
+                }
+              },
+              "placement": {
+                "top": 0,
+                "left": 0,
+                "width": 5,
+                "height": 126,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#60A5FA"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#60A5FA"
+                },
+                "width": 0,
+                "radius": 3
+              }
+            },
+            {
+              "name": "badge",
+              "type": "text",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#60A5FA"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "●  ACCOUNT"
+                }
+              },
+              "placement": {
+                "top": 6,
+                "left": 14,
+                "width": 100,
+                "height": 24,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#172554"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#172554"
+                },
+                "width": 0,
+                "radius": 12
+              }
+            },
+            {
+              "name": "total",
+              "type": "metric-value",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#DBEAFE"
+                },
+                "size": 40,
+                "text": {
+                  "mode": "field",
+                  "field": "value",
+                  "fixed": ""
+                }
+              },
+              "placement": {
+                "top": 34,
+                "left": 16,
+                "width": 185,
+                "height": 56,
+                "rotation": 0
+              }
+            },
+            {
+              "name": "unit",
+              "type": "text",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 12,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "명"
+                }
+              },
+              "placement": {
+                "top": 50,
+                "left": 184,
+                "width": 28,
+                "height": 24,
+                "rotation": 0
+              }
+            },
+            {
+              "name": "divider",
+              "type": "text",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#263449"
+                },
+                "size": 1,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "​"
+                }
+              },
+              "placement": {
+                "top": 94,
+                "left": 14,
+                "width": 270,
+                "height": 1,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#263449"
+                }
+              }
+            },
+            {
+              "name": "source",
+              "type": "text",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 10,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "ACTIVE DIRECTORY · DB VERIFIED"
+                }
+              },
+              "placement": {
+                "top": 101,
+                "left": 16,
+                "width": 245,
+                "height": 20,
+                "rotation": 0
+              }
+            }
+          ]
+        }
       },
       "targets": [
         {
           "refId": "A",
           "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
+            "type": "postgres",
+            "uid": "brainon-postgres"
           },
-          "expr": "pg_up{job=\"brainon-postgresql\"}",
-          "instant": true,
-          "range": false
+          "format": "table",
+          "rawSql": "\n    SELECT\n        COUNT(*)::bigint AS value\n    FROM accounts_user\n    "
         }
-      ]
+      ],
+      "transparent": false
     },
     {
-      "id": 3,
-      "type": "stat",
-      "title": "Database Size",
+      "id": 24,
+      "type": "canvas",
+      "title": "API / 시스템 상태",
+      "gridPos": {
+        "x": 5,
+        "y": 1,
+        "w": 5,
+        "h": 5
+      },
+      "options": {
+        "infinitePan": false,
+        "inlineEditing": false,
+        "panZoom": false,
+        "showAdvancedTypes": false,
+        "root": {
+          "name": "Root",
+          "type": "frame",
+          "elements": [
+            {
+              "name": "accent",
+              "type": "text",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#34D399"
+                },
+                "size": 1,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "​"
+                }
+              },
+              "placement": {
+                "top": 0,
+                "left": 0,
+                "width": 5,
+                "height": 126,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#34D399"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#34D399"
+                },
+                "width": 0,
+                "radius": 3
+              }
+            },
+            {
+              "name": "db",
+              "type": "text",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#34D399"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "●  POSTGRESQL HEALTHY"
+                }
+              },
+              "placement": {
+                "top": 7,
+                "left": 14,
+                "width": 175,
+                "height": 26,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#052E2B"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#052E2B"
+                },
+                "width": 0,
+                "radius": 13
+              }
+            },
+            {
+              "name": "http",
+              "type": "text",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 10,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "HTTP METRICS"
+                }
+              },
+              "placement": {
+                "top": 42,
+                "left": 16,
+                "width": 105,
+                "height": 20,
+                "rotation": 0
+              }
+            },
+            {
+              "name": "state",
+              "type": "text",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 10,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "NOT CONFIGURED"
+                }
+              },
+              "placement": {
+                "top": 40,
+                "left": 150,
+                "width": 126,
+                "height": 24,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#1E293B"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#263449"
+                },
+                "width": 1,
+                "radius": 12
+              }
+            },
+            {
+              "name": "RPSl",
+              "type": "text",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 9,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "RPS"
+                }
+              },
+              "placement": {
+                "top": 76,
+                "left": 14,
+                "width": 58,
+                "height": 16,
+                "rotation": 0
+              }
+            },
+            {
+              "name": "RPSv",
+              "type": "text",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 17,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "—"
+                }
+              },
+              "placement": {
+                "top": 92,
+                "left": 14,
+                "width": 58,
+                "height": 27,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#0B1220"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#263449"
+                },
+                "width": 1,
+                "radius": 7
+              }
+            },
+            {
+              "name": "4xxl",
+              "type": "text",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 9,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "4xx"
+                }
+              },
+              "placement": {
+                "top": 76,
+                "left": 80,
+                "width": 58,
+                "height": 16,
+                "rotation": 0
+              }
+            },
+            {
+              "name": "4xxv",
+              "type": "text",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 17,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "—"
+                }
+              },
+              "placement": {
+                "top": 92,
+                "left": 80,
+                "width": 58,
+                "height": 27,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#0B1220"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#263449"
+                },
+                "width": 1,
+                "radius": 7
+              }
+            },
+            {
+              "name": "5xxl",
+              "type": "text",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 9,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "5xx"
+                }
+              },
+              "placement": {
+                "top": 76,
+                "left": 146,
+                "width": 58,
+                "height": 16,
+                "rotation": 0
+              }
+            },
+            {
+              "name": "5xxv",
+              "type": "text",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 17,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "—"
+                }
+              },
+              "placement": {
+                "top": 92,
+                "left": 146,
+                "width": 58,
+                "height": 27,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#0B1220"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#263449"
+                },
+                "width": 1,
+                "radius": 7
+              }
+            },
+            {
+              "name": "LATl",
+              "type": "text",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 9,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "LAT"
+                }
+              },
+              "placement": {
+                "top": 76,
+                "left": 212,
+                "width": 58,
+                "height": 16,
+                "rotation": 0
+              }
+            },
+            {
+              "name": "LATv",
+              "type": "text",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 17,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "—"
+                }
+              },
+              "placement": {
+                "top": 92,
+                "left": 212,
+                "width": 58,
+                "height": 27,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#0B1220"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#263449"
+                },
+                "width": 1,
+                "radius": 7
+              }
+            }
+          ]
+        }
+      },
+      "description": "HTTP health/RPS/latency application metric은 현재 Prometheus에 없습니다.",
+      "transparent": false
+    },
+    {
+      "id": 25,
+      "type": "canvas",
+      "title": "AI 분석 건수",
       "datasource": {
         "type": "postgres",
         "uid": "brainon-postgres"
       },
       "gridPos": {
-        "x": 4,
+        "x": 10,
         "y": 1,
-        "w": 4,
-        "h": 4
+        "w": 5,
+        "h": 5
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "bytes"
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#8B5CF6"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "infinitePan": false,
+        "inlineEditing": false,
+        "panZoom": false,
+        "showAdvancedTypes": false,
+        "root": {
+          "name": "Root",
+          "type": "frame",
+          "elements": [
+            {
+              "name": "accent",
+              "type": "text",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#A78BFA"
+                },
+                "size": 1,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "​"
+                }
+              },
+              "placement": {
+                "top": 0,
+                "left": 0,
+                "width": 5,
+                "height": 126,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#A78BFA"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#A78BFA"
+                },
+                "width": 0,
+                "radius": 3
+              }
+            },
+            {
+              "name": "badge",
+              "type": "text",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#A78BFA"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "●  AI WORKLOAD"
+                }
+              },
+              "placement": {
+                "top": 6,
+                "left": 14,
+                "width": 118,
+                "height": 24,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#2E1065"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#2E1065"
+                },
+                "width": 0,
+                "radius": 12
+              }
+            },
+            {
+              "name": "count",
+              "type": "metric-value",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#EDE9FE"
+                },
+                "size": 40,
+                "text": {
+                  "mode": "field",
+                  "field": "value",
+                  "fixed": ""
+                }
+              },
+              "placement": {
+                "top": 34,
+                "left": 16,
+                "width": 185,
+                "height": 56,
+                "rotation": 0
+              }
+            },
+            {
+              "name": "unit",
+              "type": "text",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 12,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "건"
+                }
+              },
+              "placement": {
+                "top": 50,
+                "left": 184,
+                "width": 28,
+                "height": 24,
+                "rotation": 0
+              }
+            },
+            {
+              "name": "divider",
+              "type": "text",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#263449"
+                },
+                "size": 1,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "​"
+                }
+              },
+              "placement": {
+                "top": 94,
+                "left": 14,
+                "width": 270,
+                "height": 1,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#263449"
+                }
+              }
+            },
+            {
+              "name": "scope",
+              "type": "text",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 10,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "SELECTED RANGE · ANALYSIS REQUESTS"
+                }
+              },
+              "placement": {
+                "top": 101,
+                "left": 16,
+                "width": 258,
+                "height": 20,
+                "rotation": 0
+              }
+            }
+          ]
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "rawSql": "\nSELECT COUNT(*)::bigint AS value\nFROM ai_aianalysis\nWHERE $__timeFilter(requested_at)\n"
+        }
+      ],
+      "description": "현재 Grafana 시간 범위에 요청된 AIAnalysis 건수.",
+      "transparent": false
+    },
+    {
+      "id": 26,
+      "type": "gauge",
+      "title": "AI 성공률",
+      "datasource": {
+        "type": "postgres",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 15,
+        "y": 1,
+        "w": 5,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#94A3B8",
+                "value": null
+              },
+              {
+                "color": "#F87171",
+                "value": 0
+              },
+              {
+                "color": "#FBBF24",
+                "value": 70
+              },
+              {
+                "color": "#34D399",
+                "value": 90
+              }
+            ]
+          },
+          "noValue": "—",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "—",
+                  "color": "#94A3B8"
+                }
+              }
+            }
+          ]
         },
         "overrides": []
       },
@@ -171,10 +960,11 @@
           "fields": ""
         },
         "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto"
+        "showThresholdLabels": false,
+        "showThresholdMarkers": false,
+        "sizing": "auto",
+        "minVizHeight": 70,
+        "minVizWidth": 70
       },
       "targets": [
         {
@@ -184,152 +974,16 @@
             "uid": "brainon-postgres"
           },
           "format": "table",
-          "rawSql": "\n    SELECT\n        pg_database_size(\n            current_database()\n        )::bigint AS value\n    "
+          "rawSql": "\nSELECT\n    CASE\n        WHEN COUNT(*) FILTER (WHERE status IN ('COMPLETED', 'FAILED')) = 0\n            THEN NULL\n        ELSE ROUND(\n            100.0 * COUNT(*) FILTER (WHERE status = 'COMPLETED')\n            / NULLIF(\n                COUNT(*) FILTER (WHERE status IN ('COMPLETED', 'FAILED')),\n                0\n            ),\n            1\n        )\n    END AS value\nFROM ai_aianalysis\nWHERE $__timeFilter(requested_at)\n"
         }
-      ]
+      ],
+      "description": "종료 상태(COMPLETED/FAILED) 중 COMPLETED 비율.",
+      "transparent": false
     },
     {
-      "id": 4,
+      "id": 27,
       "type": "stat",
-      "title": "DB Sessions",
-      "datasource": {
-        "type": "postgres",
-        "uid": "brainon-postgres"
-      },
-      "gridPos": {
-        "x": 8,
-        "y": 1,
-        "w": 4,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "postgres",
-            "uid": "brainon-postgres"
-          },
-          "format": "table",
-          "rawSql": "\n    SELECT\n        COUNT(*)::bigint AS value\n    FROM pg_stat_activity\n    WHERE datname = current_database()\n    "
-        }
-      ]
-    },
-    {
-      "id": 5,
-      "type": "stat",
-      "title": "Total Users",
-      "datasource": {
-        "type": "postgres",
-        "uid": "brainon-postgres"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 1,
-        "w": 4,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "postgres",
-            "uid": "brainon-postgres"
-          },
-          "format": "table",
-          "rawSql": "\n    SELECT\n        COUNT(*)::bigint AS value\n    FROM monitoring.user_account\n    "
-        }
-      ]
-    },
-    {
-      "id": 6,
-      "type": "stat",
-      "title": "Active Users",
-      "datasource": {
-        "type": "postgres",
-        "uid": "brainon-postgres"
-      },
-      "gridPos": {
-        "x": 16,
-        "y": 1,
-        "w": 4,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "postgres",
-            "uid": "brainon-postgres"
-          },
-          "format": "table",
-          "rawSql": "\n    SELECT\n        COUNT(*)::bigint AS value\n    FROM monitoring.user_account\n    WHERE is_active = TRUE\n    "
-        }
-      ]
-    },
-    {
-      "id": 7,
-      "type": "stat",
-      "title": "Audit Events · 24h",
+      "title": "비정상 운영 이벤트",
       "datasource": {
         "type": "postgres",
         "uid": "brainon-postgres"
@@ -338,11 +992,32 @@
         "x": 20,
         "y": 1,
         "w": 4,
-        "h": 4
+        "h": 5
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "short"
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#34D399",
+                "value": null
+              },
+              {
+                "color": "#FBBF24",
+                "value": 1
+              },
+              {
+                "color": "#F87171",
+                "value": 10
+              }
+            ]
+          },
+          "noValue": "-"
         },
         "overrides": []
       },
@@ -355,10 +1030,11 @@
           "fields": ""
         },
         "orientation": "auto",
-        "textMode": "auto",
+        "textMode": "value",
         "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto"
+        "graphMode": "area",
+        "justifyMode": "center",
+        "wideLayout": false
       },
       "targets": [
         {
@@ -368,133 +1044,20 @@
             "uid": "brainon-postgres"
           },
           "format": "table",
-          "rawSql": "\n    SELECT\n        COUNT(*)::bigint AS value\n    FROM monitoring.audit_log\n    WHERE occurred_at\n        >= NOW() - INTERVAL '24 hours'\n    "
+          "rawSql": "\nSELECT ((SELECT COUNT(*) FROM audit_auditlog WHERE $__timeFilter(occurred_at) AND COALESCE(outcome,'UNKNOWN') NOT IN ('SUCCESS','SUCCEEDED','COMPLETED','OK')) + (SELECT COUNT(*) FROM ai_aianalysis WHERE $__timeFilter(requested_at) AND status IN ('FAILED','ERROR','TIMEOUT','CANCELLED')) + (SELECT COUNT(*) FROM interoperability_integrationtransaction WHERE $__timeFilter(started_at) AND status IN ('FAILED','ERROR','TIMEOUT')))::bigint AS value\n"
         }
-      ]
-    },
-    {
-      "id": 8,
-      "type": "row",
-      "title": "02. Account / Database",
-      "collapsed": false,
-      "gridPos": {
-        "x": 0,
-        "y": 5,
-        "w": 24,
-        "h": 1
-      },
-      "panels": []
-    },
-    {
-      "id": 9,
-      "type": "table",
-      "title": "Users by Role",
-      "datasource": {
-        "type": "postgres",
-        "uid": "brainon-postgres"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 6,
-        "w": 8,
-        "h": 8
-      },
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "postgres",
-            "uid": "brainon-postgres"
-          },
-          "format": "table",
-          "rawSql": "\n    SELECT\n        role_code,\n        COUNT(*) AS total,\n        COUNT(*) FILTER (\n            WHERE is_active = TRUE\n        ) AS active,\n        COUNT(*) FILTER (\n            WHERE is_active = FALSE\n        ) AS inactive\n    FROM monitoring.user_account\n    GROUP BY role_code\n    ORDER BY role_code\n    "
-        }
-      ]
-    },
-    {
-      "id": 10,
-      "type": "table",
-      "title": "DB Session State",
-      "datasource": {
-        "type": "postgres",
-        "uid": "brainon-postgres"
-      },
-      "gridPos": {
-        "x": 8,
-        "y": 6,
-        "w": 8,
-        "h": 8
-      },
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "postgres",
-            "uid": "brainon-postgres"
-          },
-          "format": "table",
-          "rawSql": "\n    SELECT\n        COALESCE(\n            state,\n            'UNKNOWN'\n        ) AS state,\n        COUNT(*) AS sessions\n    FROM pg_stat_activity\n    WHERE datname = current_database()\n    GROUP BY state\n    ORDER BY sessions DESC\n    "
-        }
-      ]
-    },
-    {
-      "id": 11,
-      "type": "table",
-      "title": "Audit Outcomes · 24h",
-      "datasource": {
-        "type": "postgres",
-        "uid": "brainon-postgres"
-      },
-      "gridPos": {
-        "x": 16,
-        "y": 6,
-        "w": 8,
-        "h": 8
-      },
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "postgres",
-            "uid": "brainon-postgres"
-          },
-          "format": "table",
-          "rawSql": "\n    SELECT\n        COALESCE(\n            outcome,\n            'UNKNOWN'\n        ) AS outcome,\n        COUNT(*) AS events\n    FROM monitoring.audit_log\n    WHERE occurred_at\n        >= NOW() - INTERVAL '24 hours'\n    GROUP BY outcome\n    ORDER BY events DESC\n    "
-        }
-      ]
+      ],
+      "description": "선택 기간의 Audit 비성공 + AI 실패 + Integration 실패 합계. Grafana/Loki 알림 건수와 동일한 의미가 아닙니다.",
+      "transparent": false
     },
     {
       "id": 12,
       "type": "row",
-      "title": "03. System Activity",
+      "title": "02. Main Activity",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 14,
+        "y": 6,
         "w": 24,
         "h": 1
       },
@@ -503,28 +1066,123 @@
     {
       "id": 13,
       "type": "timeseries",
-      "title": "Audit Activity by Service",
+      "title": "BrainOn 운영 Activity",
       "datasource": {
-        "type": "postgres",
-        "uid": "brainon-postgres"
+        "type": "datasource",
+        "uid": "-- Mixed --"
       },
       "gridPos": {
         "x": 0,
-        "y": 15,
-        "w": 12,
-        "h": 8
+        "y": 7,
+        "w": 19,
+        "h": 9
       },
       "fieldConfig": {
-        "defaults": {},
-        "overrides": []
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "barAlignment": 0,
+            "lineWidth": 3,
+            "fillOpacity": 14,
+            "gradientMode": "opacity",
+            "spanNulls": false,
+            "insertNulls": false,
+            "showPoints": "never",
+            "pointSize": 4,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisColorMode": "text",
+            "axisBorderShow": false,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Audit"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3B82F6"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "AI Analysis"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#8B5CF6"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Integration"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F59E0B"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/Runtime|Value/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#06B6D4"
+                }
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": {
-          "displayMode": "table",
-          "placement": "bottom"
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "targets": [
@@ -535,296 +1193,2610 @@
             "uid": "brainon-postgres"
           },
           "format": "time_series",
-          "rawSql": "\n    SELECT\n        $__timeGroupAlias(\n            occurred_at,\n            '5m'\n        ),\n        COALESCE(\n            source_service,\n            'unknown'\n        ) AS metric,\n        COUNT(*)::double precision\n            AS value\n    FROM monitoring.audit_log\n    WHERE $__timeFilter(\n        occurred_at\n    )\n    GROUP BY 1, 2\n    ORDER BY 1\n    "
+          "rawSql": "\nSELECT $__timeGroupAlias(occurred_at,'5m'), 'Audit' AS metric, COUNT(*)::double precision AS value FROM audit_auditlog WHERE $__timeFilter(occurred_at) GROUP BY 1 ORDER BY 1\n"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "format": "time_series",
+          "rawSql": "\nSELECT $__timeGroupAlias(requested_at,'5m'), 'AI Analysis' AS metric, COUNT(*)::double precision AS value FROM ai_aianalysis WHERE $__timeFilter(requested_at) GROUP BY 1 ORDER BY 1\n"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "format": "time_series",
+          "rawSql": "\nSELECT $__timeGroupAlias(started_at,'5m'), 'Integration' AS metric, COUNT(*)::double precision AS value FROM interoperability_integrationtransaction WHERE $__timeFilter(started_at) GROUP BY 1 ORDER BY 1\n"
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum(count_over_time({host=\"braincdss-rabbitmq\",container=~\"$runtime_container\"}[$__interval]))",
+          "queryType": "range",
+          "editorMode": "code"
         }
-      ]
+      ],
+      "description": "Audit, AI 요청, Integration 및 Loki runtime event의 실제 발생량입니다. HTTP request traffic으로 해석하지 않습니다.",
+      "transparent": false
     },
     {
       "id": 14,
-      "type": "timeseries",
-      "title": "Runtime Log Volume by Container",
+      "type": "canvas",
+      "title": "운영 Summary",
       "datasource": {
-        "type": "loki",
-        "uid": "loki"
+        "type": "postgres",
+        "uid": "brainon-postgres"
       },
       "gridPos": {
-        "x": 12,
-        "y": 15,
-        "w": 12,
-        "h": 8
+        "x": 19,
+        "y": 7,
+        "w": 5,
+        "h": 9
       },
       "fieldConfig": {
-        "defaults": {},
-        "overrides": []
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "item"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 135
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#64748B"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "state"
+            },
+            "properties": [
+              {
+                "id": "custom.align",
+                "value": "right"
+              },
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          }
+        ]
       },
       "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi"
+        "infinitePan": false,
+        "inlineEditing": false,
+        "panZoom": false,
+        "showAdvancedTypes": false,
+        "root": {
+          "name": "Root",
+          "type": "frame",
+          "elements": [
+            {
+              "name": "health",
+              "type": "text",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#34D399"
+                },
+                "size": 10,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "●  LIVE DATA SOURCES"
+                }
+              },
+              "placement": {
+                "top": 4,
+                "left": 10,
+                "width": 178,
+                "height": 25,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#052E2B"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#052E2B"
+                },
+                "width": 0,
+                "radius": 12
+              }
+            },
+            {
+              "name": "AUDIT EVENTS label",
+              "type": "text",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 10,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "AUDIT EVENTS"
+                }
+              },
+              "placement": {
+                "top": 36,
+                "left": 12,
+                "width": 145,
+                "height": 28,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#0B1220"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#263449"
+                },
+                "width": 1,
+                "radius": 7
+              }
+            },
+            {
+              "name": "AUDIT EVENTS value",
+              "type": "metric-value",
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#60A5FA"
+                },
+                "size": 17,
+                "text": {
+                  "mode": "field",
+                  "field": "Audit 이벤트",
+                  "fixed": ""
+                }
+              },
+              "placement": {
+                "top": 36,
+                "left": 158,
+                "width": 112,
+                "height": 28,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#0B1220"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#263449"
+                },
+                "width": 1,
+                "radius": 7
+              }
+            },
+            {
+              "name": "AI ANALYSIS label",
+              "type": "text",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 10,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "AI ANALYSIS"
+                }
+              },
+              "placement": {
+                "top": 76,
+                "left": 12,
+                "width": 145,
+                "height": 28,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#0B1220"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#263449"
+                },
+                "width": 1,
+                "radius": 7
+              }
+            },
+            {
+              "name": "AI ANALYSIS value",
+              "type": "metric-value",
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#A78BFA"
+                },
+                "size": 17,
+                "text": {
+                  "mode": "field",
+                  "field": "AI 분석 요청",
+                  "fixed": ""
+                }
+              },
+              "placement": {
+                "top": 76,
+                "left": 158,
+                "width": 112,
+                "height": 28,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#0B1220"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#263449"
+                },
+                "width": 1,
+                "radius": 7
+              }
+            },
+            {
+              "name": "INTEGRATION label",
+              "type": "text",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 10,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "INTEGRATION"
+                }
+              },
+              "placement": {
+                "top": 116,
+                "left": 12,
+                "width": 145,
+                "height": 28,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#0B1220"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#263449"
+                },
+                "width": 1,
+                "radius": 7
+              }
+            },
+            {
+              "name": "INTEGRATION value",
+              "type": "metric-value",
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#FBBF24"
+                },
+                "size": 17,
+                "text": {
+                  "mode": "field",
+                  "field": "Integration 거래",
+                  "fixed": ""
+                }
+              },
+              "placement": {
+                "top": 116,
+                "left": 158,
+                "width": 112,
+                "height": 28,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#0B1220"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#263449"
+                },
+                "width": 1,
+                "radius": 7
+              }
+            },
+            {
+              "name": "DB SESSIONS label",
+              "type": "text",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 10,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "DB SESSIONS"
+                }
+              },
+              "placement": {
+                "top": 156,
+                "left": 12,
+                "width": 145,
+                "height": 28,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#0B1220"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#263449"
+                },
+                "width": 1,
+                "radius": 7
+              }
+            },
+            {
+              "name": "DB SESSIONS value",
+              "type": "metric-value",
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#34D399"
+                },
+                "size": 17,
+                "text": {
+                  "mode": "field",
+                  "field": "DB 세션",
+                  "fixed": ""
+                }
+              },
+              "placement": {
+                "top": 156,
+                "left": 158,
+                "width": 112,
+                "height": 28,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#0B1220"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#263449"
+                },
+                "width": 1,
+                "radius": 7
+              }
+            },
+            {
+              "name": "HTTP RPS label",
+              "type": "text",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 10,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "HTTP RPS"
+                }
+              },
+              "placement": {
+                "top": 196,
+                "left": 12,
+                "width": 145,
+                "height": 28,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#0B1220"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#263449"
+                },
+                "width": 1,
+                "radius": 7
+              }
+            },
+            {
+              "name": "HTTP RPS value",
+              "type": "metric-value",
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 10,
+                "text": {
+                  "mode": "field",
+                  "field": "HTTP RPS",
+                  "fixed": ""
+                }
+              },
+              "placement": {
+                "top": 196,
+                "left": 143,
+                "width": 132,
+                "height": 34,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#0B1220"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#263449"
+                },
+                "width": 1,
+                "radius": 7
+              }
+            }
+          ]
         }
       },
       "targets": [
         {
           "refId": "A",
           "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "rawSql": "\nSELECT item,state FROM (SELECT 1 AS sort, 'Audit 이벤트' AS item, COUNT(*)::text AS state FROM audit_auditlog WHERE $__timeFilter(occurred_at) UNION ALL SELECT 2, 'AI 분석 요청', COUNT(*)::text FROM ai_aianalysis WHERE $__timeFilter(requested_at) UNION ALL SELECT 3, 'Integration 거래', COUNT(*)::text FROM interoperability_integrationtransaction WHERE $__timeFilter(started_at) UNION ALL SELECT 4, 'DB 세션', COUNT(*)::text FROM pg_stat_activity WHERE datname=current_database() UNION ALL SELECT 5, 'HTTP RPS', '미수집 · Metric 미연결') summary ORDER BY sort\n"
+        }
+      ],
+      "description": "선택 기간 DB 기반 운영 요약. HTTP RPS는 애플리케이션 Prometheus metric 미연결로 미수집입니다.",
+      "transparent": false,
+      "transformations": [
+        {
+          "id": "rowsToFields",
+          "options": {
+            "mappings": [
+              {
+                "fieldName": "item",
+                "handlerKey": "field.name"
+              },
+              {
+                "fieldName": "state",
+                "handlerKey": "field.value"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": 28,
+      "type": "canvas",
+      "title": "API 요청 / 오류 추이",
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 8,
+        "h": 6
+      },
+      "options": {
+        "infinitePan": false,
+        "inlineEditing": false,
+        "panZoom": false,
+        "showAdvancedTypes": false,
+        "root": {
+          "name": "Root",
+          "type": "frame",
+          "elements": [
+            {
+              "name": "badge",
+              "type": "text",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 10,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "○  HTTP TELEMETRY · NOT CONFIGURED"
+                }
+              },
+              "placement": {
+                "top": 5,
+                "left": 12,
+                "width": 235,
+                "height": 26,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#1E293B"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#263449"
+                },
+                "width": 1,
+                "radius": 13
+              }
+            },
+            {
+              "name": "RPSbox",
+              "type": "text",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 1,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "​"
+                }
+              },
+              "placement": {
+                "top": 43,
+                "left": 12,
+                "width": 172,
+                "height": 51,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#0B1220"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#263449"
+                },
+                "width": 1,
+                "radius": 9
+              }
+            },
+            {
+              "name": "RPSlabel",
+              "type": "text",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 9,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "RPS"
+                }
+              },
+              "placement": {
+                "top": 47,
+                "left": 22,
+                "width": 90,
+                "height": 18,
+                "rotation": 0
+              }
+            },
+            {
+              "name": "RPSvalue",
+              "type": "text",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 18,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "—"
+                }
+              },
+              "placement": {
+                "top": 63,
+                "left": 22,
+                "width": 90,
+                "height": 25,
+                "rotation": 0
+              }
+            },
+            {
+              "name": "4XXbox",
+              "type": "text",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 1,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "​"
+                }
+              },
+              "placement": {
+                "top": 43,
+                "left": 202,
+                "width": 172,
+                "height": 51,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#0B1220"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#263449"
+                },
+                "width": 1,
+                "radius": 9
+              }
+            },
+            {
+              "name": "4XXlabel",
+              "type": "text",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 9,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "4XX"
+                }
+              },
+              "placement": {
+                "top": 47,
+                "left": 212,
+                "width": 90,
+                "height": 18,
+                "rotation": 0
+              }
+            },
+            {
+              "name": "4XXvalue",
+              "type": "text",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 18,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "—"
+                }
+              },
+              "placement": {
+                "top": 63,
+                "left": 212,
+                "width": 90,
+                "height": 25,
+                "rotation": 0
+              }
+            },
+            {
+              "name": "5XXbox",
+              "type": "text",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 1,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "​"
+                }
+              },
+              "placement": {
+                "top": 105,
+                "left": 12,
+                "width": 172,
+                "height": 51,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#0B1220"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#263449"
+                },
+                "width": 1,
+                "radius": 9
+              }
+            },
+            {
+              "name": "5XXlabel",
+              "type": "text",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 9,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "5XX"
+                }
+              },
+              "placement": {
+                "top": 109,
+                "left": 22,
+                "width": 90,
+                "height": 18,
+                "rotation": 0
+              }
+            },
+            {
+              "name": "5XXvalue",
+              "type": "text",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 18,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "—"
+                }
+              },
+              "placement": {
+                "top": 125,
+                "left": 22,
+                "width": 90,
+                "height": 25,
+                "rotation": 0
+              }
+            },
+            {
+              "name": "LATENCYbox",
+              "type": "text",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 1,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "​"
+                }
+              },
+              "placement": {
+                "top": 105,
+                "left": 202,
+                "width": 172,
+                "height": 51,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#0B1220"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#263449"
+                },
+                "width": 1,
+                "radius": 9
+              }
+            },
+            {
+              "name": "LATENCYlabel",
+              "type": "text",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 9,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "LATENCY"
+                }
+              },
+              "placement": {
+                "top": 109,
+                "left": 212,
+                "width": 90,
+                "height": 18,
+                "rotation": 0
+              }
+            },
+            {
+              "name": "LATENCYvalue",
+              "type": "text",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 18,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "—"
+                }
+              },
+              "placement": {
+                "top": 125,
+                "left": 212,
+                "width": 90,
+                "height": 25,
+                "rotation": 0
+              }
+            }
+          ]
+        }
+      },
+      "description": "BrainOn HTTP request, error, latency metric이 현재 Prometheus에 수집되지 않습니다.",
+      "transparent": false
+    },
+    {
+      "id": 29,
+      "type": "row",
+      "title": "03. Recent Operations",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 30,
+      "type": "timeseries",
+      "title": "AI 상태 변화 추이",
+      "datasource": {
+        "type": "postgres",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 16,
+        "w": 8,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "bars",
+            "lineInterpolation": "linear",
+            "barAlignment": 0,
+            "lineWidth": 1,
+            "fillOpacity": 85,
+            "gradientMode": "none",
+            "spanNulls": false,
+            "insertNulls": false,
+            "showPoints": "never",
+            "pointSize": 3,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisColorMode": "text",
+            "axisBorderShow": false,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "NO AI STATUS EVENTS"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/SUCCESS|SUCCEEDED|COMPLETED/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#10B981"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/FAILURE|FAILED|ERROR|CANCELLED/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#EF4444"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "TIMEOUT"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F59E0B"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/PROCESSING|RETRYING|PENDING/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#8B5CF6"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "format": "time_series",
+          "rawSql": "\nSELECT\n    $__timeGroupAlias(occurred_at, '30m'),\n    status AS metric,\n    COUNT(*)::double precision AS value\nFROM ai_aianalysisstatushistory\nWHERE $__timeFilter(occurred_at)\nGROUP BY 1, 2\nORDER BY 1\n"
+        }
+      ],
+      "description": "AIAnalysisStatusHistory의 실제 상태 전이 이벤트를 30분 단위로 집계.",
+      "transparent": false
+    },
+    {
+      "id": 31,
+      "type": "stat",
+      "title": "Integration 상태 요약",
+      "datasource": {
+        "type": "postgres",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 16,
+        "w": 8,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "NO RECENT INTEGRATION ACTIVITY",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#34D399"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "avg_latency_ms"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(status|events|avg_latency_ms)$/"
+        },
+        "orientation": "horizontal",
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "percentChangeColorMode": "standard",
+        "text": {
+          "valueSize": 18,
+          "titleSize": 11
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "rawSql": "\nSELECT\n    source_system || ' → ' || target_system AS integration,\n    status,\n    COUNT(*) AS events,\n    MAX(started_at) AS last_seen,\n    ROUND(\n        AVG(EXTRACT(EPOCH FROM (completed_at - started_at)) * 1000)\n    )::bigint AS avg_latency_ms\nFROM interoperability_integrationtransaction\nWHERE $__timeFilter(started_at)\nGROUP BY 1, 2\nORDER BY last_seen DESC\n"
+        }
+      ],
+      "description": "실제 IntegrationTransaction을 source/target/status별로 집계.",
+      "transparent": false
+    },
+    {
+      "id": 17,
+      "type": "canvas",
+      "title": "비동기 작업 상태",
+      "gridPos": {
+        "x": 0,
+        "y": 23,
+        "w": 8,
+        "h": 6
+      },
+      "options": {
+        "infinitePan": false,
+        "inlineEditing": false,
+        "panZoom": false,
+        "showAdvancedTypes": false,
+        "root": {
+          "name": "Root",
+          "type": "frame",
+          "elements": [
+            {
+              "name": "badge",
+              "type": "text",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 10,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "○  QUEUE TELEMETRY · NOT CONFIGURED"
+                }
+              },
+              "placement": {
+                "top": 5,
+                "left": 12,
+                "width": 238,
+                "height": 26,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#1E293B"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#263449"
+                },
+                "width": 1,
+                "radius": 13
+              }
+            },
+            {
+              "name": "PENDINGbox",
+              "type": "text",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 1,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "​"
+                }
+              },
+              "placement": {
+                "top": 50,
+                "left": 10,
+                "width": 84,
+                "height": 78,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#0B1220"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#263449"
+                },
+                "width": 1,
+                "radius": 9
+              }
+            },
+            {
+              "name": "PENDINGlabel",
+              "type": "text",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 9,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "PENDING"
+                }
+              },
+              "placement": {
+                "top": 58,
+                "left": 15,
+                "width": 74,
+                "height": 18,
+                "rotation": 0
+              }
+            },
+            {
+              "name": "PENDINGvalue",
+              "type": "text",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 18,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "—"
+                }
+              },
+              "placement": {
+                "top": 82,
+                "left": 15,
+                "width": 74,
+                "height": 30,
+                "rotation": 0
+              }
+            },
+            {
+              "name": "RUNNINGbox",
+              "type": "text",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#60A5FA"
+                },
+                "size": 1,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "​"
+                }
+              },
+              "placement": {
+                "top": 50,
+                "left": 104,
+                "width": 84,
+                "height": 78,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#0B1220"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#263449"
+                },
+                "width": 1,
+                "radius": 9
+              }
+            },
+            {
+              "name": "RUNNINGlabel",
+              "type": "text",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#60A5FA"
+                },
+                "size": 9,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "RUNNING"
+                }
+              },
+              "placement": {
+                "top": 58,
+                "left": 109,
+                "width": 74,
+                "height": 18,
+                "rotation": 0
+              }
+            },
+            {
+              "name": "RUNNINGvalue",
+              "type": "text",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 18,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "—"
+                }
+              },
+              "placement": {
+                "top": 82,
+                "left": 109,
+                "width": 74,
+                "height": 30,
+                "rotation": 0
+              }
+            },
+            {
+              "name": "SUCCESSbox",
+              "type": "text",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#34D399"
+                },
+                "size": 1,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "​"
+                }
+              },
+              "placement": {
+                "top": 50,
+                "left": 198,
+                "width": 84,
+                "height": 78,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#0B1220"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#263449"
+                },
+                "width": 1,
+                "radius": 9
+              }
+            },
+            {
+              "name": "SUCCESSlabel",
+              "type": "text",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#34D399"
+                },
+                "size": 9,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "SUCCESS"
+                }
+              },
+              "placement": {
+                "top": 58,
+                "left": 203,
+                "width": 74,
+                "height": 18,
+                "rotation": 0
+              }
+            },
+            {
+              "name": "SUCCESSvalue",
+              "type": "text",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 18,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "—"
+                }
+              },
+              "placement": {
+                "top": 82,
+                "left": 203,
+                "width": 74,
+                "height": 30,
+                "rotation": 0
+              }
+            },
+            {
+              "name": "RETRYbox",
+              "type": "text",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#FBBF24"
+                },
+                "size": 1,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "​"
+                }
+              },
+              "placement": {
+                "top": 50,
+                "left": 292,
+                "width": 84,
+                "height": 78,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#0B1220"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#263449"
+                },
+                "width": 1,
+                "radius": 9
+              }
+            },
+            {
+              "name": "RETRYlabel",
+              "type": "text",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#FBBF24"
+                },
+                "size": 9,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "RETRY"
+                }
+              },
+              "placement": {
+                "top": 58,
+                "left": 297,
+                "width": 74,
+                "height": 18,
+                "rotation": 0
+              }
+            },
+            {
+              "name": "RETRYvalue",
+              "type": "text",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 18,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "—"
+                }
+              },
+              "placement": {
+                "top": 82,
+                "left": 297,
+                "width": 74,
+                "height": 30,
+                "rotation": 0
+              }
+            },
+            {
+              "name": "FAILEDbox",
+              "type": "text",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#F87171"
+                },
+                "size": 1,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "​"
+                }
+              },
+              "placement": {
+                "top": 50,
+                "left": 386,
+                "width": 84,
+                "height": 78,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#0B1220"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#263449"
+                },
+                "width": 1,
+                "radius": 9
+              }
+            },
+            {
+              "name": "FAILEDlabel",
+              "type": "text",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#F87171"
+                },
+                "size": 9,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "FAILED"
+                }
+              },
+              "placement": {
+                "top": 58,
+                "left": 391,
+                "width": 74,
+                "height": 18,
+                "rotation": 0
+              }
+            },
+            {
+              "name": "FAILEDvalue",
+              "type": "text",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#94A3B8"
+                },
+                "size": 18,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "—"
+                }
+              },
+              "placement": {
+                "top": 82,
+                "left": 391,
+                "width": 74,
+                "height": 30,
+                "rotation": 0
+              }
+            }
+          ]
+        }
+      },
+      "description": "RabbitMQ/Celery queue depth, processing, retry metric은 exporter 미연결 상태입니다.",
+      "transparent": false
+    },
+    {
+      "id": 32,
+      "type": "row",
+      "title": "08. Runtime / Platform Details",
+      "collapsed": true,
+      "gridPos": {
+        "x": 0,
+        "y": 30,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [
+        {
+          "id": 33,
+          "type": "text",
+          "title": "Async Queue Metrics",
+          "gridPos": {
+            "x": 0,
+            "y": 35,
+            "w": 8,
+            "h": 6
+          },
+          "options": {
+            "mode": "markdown",
+            "content": "### 미수집\nCelery/RabbitMQ **queue depth, 대기, 처리 중, retry** 지표는 아직 Prometheus/Exporter에 연결되지 않았습니다.\n\n실제 metric 연결 전까지 수치를 생성하지 않습니다."
+          }
+        },
+        {
+          "id": 19,
+          "type": "logs",
+          "title": "Runtime Errors · Backend / Celery / RabbitMQ / Assistant / MCP",
+          "datasource": {
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum by (container) (\n      count_over_time(\n        {\n          host=\"braincdss-rabbitmq\",\n          container=~\"$runtime_container\"\n        }[$__interval]\n      )\n    )",
-          "queryType": "range",
-          "editorMode": "code"
+          "gridPos": {
+            "x": 8,
+            "y": 35,
+            "w": 16,
+            "h": 9
+          },
+          "options": {
+            "showTime": true,
+            "showLabels": false,
+            "showCommonLabels": false,
+            "wrapLogMessage": true,
+            "prettifyLogMessage": false,
+            "enableLogDetails": true,
+            "sortOrder": "Descending"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "loki",
+                "uid": "loki"
+              },
+              "expr": "{\n      host=\"braincdss-rabbitmq\",\n      container=~\"$runtime_container\"\n    }\n    |~ \"(?i)(error|exception|failed|failure|critical|timeout|traceback)\"",
+              "queryType": "range",
+              "editorMode": "code"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "최근 장애 및 운영 알림",
+      "datasource": {
+        "type": "postgres",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 23,
+        "w": 8,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "NO RECENT FAILURE EVIDENCE",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#FBBF24"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(Status|Service|Event)$/"
+        },
+        "orientation": "horizontal",
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "percentChangeColorMode": "standard",
+        "text": {
+          "valueSize": 18,
+          "titleSize": 11
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "rawSql": "\nSELECT * FROM (SELECT occurred_at AS \"Time\", 'AUDIT' AS \"Layer\", source_service AS \"Service\", action AS \"Event\", outcome AS \"Status\", NULL::text AS \"Code\" FROM audit_auditlog WHERE $__timeFilter(occurred_at) AND COALESCE(outcome,'UNKNOWN') NOT IN ('SUCCESS','SUCCEEDED','COMPLETED','OK') UNION ALL SELECT COALESCE(completed_at,updated_at,requested_at), 'AI', 'ai-analysis', analysis_type, status, failure_code FROM ai_aianalysis WHERE $__timeFilter(requested_at) AND status IN ('FAILED','ERROR','TIMEOUT','CANCELLED') UNION ALL SELECT COALESCE(completed_at,started_at), 'INTEGRATION', source_system||' → '||target_system, message_type, status, error_code FROM interoperability_integrationtransaction WHERE $__timeFilter(started_at) AND status IN ('FAILED','ERROR','TIMEOUT')) alerts ORDER BY \"Time\" DESC LIMIT 100\n"
+        }
+      ],
+      "description": "DB에 기록된 비성공 Audit, AI 실패, Integration 실패만 표시합니다. 현재 없으면 No data입니다.",
+      "transparent": false
+    },
+    {
+      "id": 11,
+      "type": "table",
+      "title": "최근 관리자 작업 / AuditLog",
+      "datasource": {
+        "type": "postgres",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 23,
+        "w": 8,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Outcome"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "SUCCESS": {
+                        "text": "SUCCESS",
+                        "color": "#10B981"
+                      },
+                      "SUCCEEDED": {
+                        "text": "SUCCEEDED",
+                        "color": "#10B981"
+                      },
+                      "COMPLETED": {
+                        "text": "COMPLETED",
+                        "color": "#10B981"
+                      },
+                      "FAILED": {
+                        "text": "FAILED",
+                        "color": "#EF4444"
+                      },
+                      "FAILURE": {
+                        "text": "FAILURE",
+                        "color": "#EF4444"
+                      },
+                      "ERROR": {
+                        "text": "ERROR",
+                        "color": "#EF4444"
+                      },
+                      "TIMEOUT": {
+                        "text": "TIMEOUT",
+                        "color": "#F59E0B"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        },
+        "sortBy": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "rawSql": "\nSELECT occurred_at AS \"Time\", actor_login_id AS \"Actor\", actor_role_code AS \"Role\", source_service AS \"Service\", action AS \"Action\", outcome AS \"Outcome\", request_id::text AS request_id FROM audit_auditlog WHERE actor_role_code='SYSTEM_ADMIN' AND $__timeFilter(occurred_at) ORDER BY occurred_at DESC LIMIT 100\n"
+        }
+      ],
+      "description": "SYSTEM_ADMIN 감사 이벤트 최소 메타데이터. PHI, reason, before/after JSON, IP, user-agent는 제외합니다.",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Actor": true,
+              "Role": true,
+              "Service": true
+            },
+            "indexByName": {
+              "Time": 0,
+              "Action": 1,
+              "Outcome": 2,
+              "request_id": 3
+            },
+            "renameByName": {
+              "request_id": "Request ID"
+            }
+          }
+        }
+      ],
+      "transparent": false
+    },
+    {
+      "id": 8,
+      "type": "row",
+      "title": "09. Account / Database",
+      "collapsed": true,
+      "gridPos": {
+        "x": 0,
+        "y": 31,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [
+        {
+          "id": 3,
+          "type": "stat",
+          "title": "Database Size",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 36,
+            "w": 4,
+            "h": 4
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes"
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "values": false,
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": ""
+            },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "auto"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "postgres",
+                "uid": "brainon-postgres"
+              },
+              "format": "table",
+              "rawSql": "\n    SELECT\n        pg_database_size(\n            current_database()\n        )::bigint AS value\n    "
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "type": "stat",
+          "title": "DB Sessions",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "gridPos": {
+            "x": 4,
+            "y": 36,
+            "w": 4,
+            "h": 4
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "values": false,
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": ""
+            },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "auto"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "postgres",
+                "uid": "brainon-postgres"
+              },
+              "format": "table",
+              "rawSql": "\n    SELECT\n        COUNT(*)::bigint AS value\n    FROM pg_stat_activity\n    WHERE datname = current_database()\n    "
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "type": "stat",
+          "title": "Active Users",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "gridPos": {
+            "x": 8,
+            "y": 36,
+            "w": 4,
+            "h": 4
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "values": false,
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": ""
+            },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "auto"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "postgres",
+                "uid": "brainon-postgres"
+              },
+              "format": "table",
+              "rawSql": "\n    SELECT\n        COUNT(*)::bigint AS value\n    FROM accounts_user\n    WHERE is_active = TRUE\n    "
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "type": "text",
+          "title": "PostgreSQL Exporter Metric",
+          "gridPos": {
+            "x": 12,
+            "y": 36,
+            "w": 12,
+            "h": 4
+          },
+          "options": {
+            "mode": "markdown",
+            "content": "## 미수집\n`pg_up{job=\"brainon-postgresql\"}` series가 현재 Prometheus에 없습니다. PostgreSQL datasource 쿼리는 정상입니다."
+          },
+          "description": "Exporter series 부재를 DOWN으로 오해하지 않도록 미수집으로 표시합니다."
+        },
+        {
+          "id": 9,
+          "type": "table",
+          "title": "Users by Role",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 40,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "postgres",
+                "uid": "brainon-postgres"
+              },
+              "format": "table",
+              "rawSql": "\nSELECT\n    r.code AS role_code,\n    COUNT(*) AS total,\n    COUNT(*) FILTER (\n        WHERE u.is_active = TRUE\n    ) AS active,\n    COUNT(*) FILTER (\n        WHERE u.is_active = FALSE\n    ) AS inactive\nFROM accounts_user u\nJOIN roles r\n  ON r.id = u.role_id\nGROUP BY r.code\nORDER BY r.code\n"
+            }
+          ]
+        },
+        {
+          "id": 10,
+          "type": "table",
+          "title": "DB Session State",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 40,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "postgres",
+                "uid": "brainon-postgres"
+              },
+              "format": "table",
+              "rawSql": "\n    SELECT\n        COALESCE(\n            state,\n            'UNKNOWN'\n        ) AS state,\n        COUNT(*) AS sessions\n    FROM pg_stat_activity\n    WHERE datname = current_database()\n    GROUP BY state\n    ORDER BY sessions DESC\n    "
+            }
+          ]
         }
       ]
     },
     {
       "id": 15,
       "type": "row",
-      "title": "04. Admin / Integration Audit",
-      "collapsed": false,
+      "title": "10. Admin Audit Detail",
+      "collapsed": true,
       "gridPos": {
         "x": 0,
-        "y": 23,
+        "y": 32,
         "w": 24,
         "h": 1
       },
-      "panels": []
-    },
-    {
-      "id": 16,
-      "type": "table",
-      "title": "Recent SYSTEM_ADMIN Actions",
-      "datasource": {
-        "type": "postgres",
-        "uid": "brainon-postgres"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 24,
-        "w": 12,
-        "h": 10
-      },
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm"
-      },
-      "targets": [
+      "panels": [
         {
-          "refId": "A",
+          "id": 16,
+          "type": "table",
+          "title": "최근 SYSTEM_ADMIN 작업",
           "datasource": {
             "type": "postgres",
             "uid": "brainon-postgres"
           },
-          "format": "table",
-          "rawSql": "\n    SELECT\n        occurred_at AS time,\n        request_id,\n        source_service,\n        action,\n        resource_type,\n        resource_id,\n        outcome\n    FROM monitoring.audit_log\n    WHERE actor_role_code = 'SYSTEM_ADMIN'\n      AND $__timeFilter(\n            occurred_at\n          )\n    ORDER BY occurred_at DESC\n    LIMIT 200\n    "
-        }
-      ]
-    },
-    {
-      "id": 17,
-      "type": "table",
-      "title": "Recent Integration Transactions",
-      "datasource": {
-        "type": "postgres",
-        "uid": "brainon-postgres"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 24,
-        "w": 12,
-        "h": 10
-      },
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "postgres",
-            "uid": "brainon-postgres"
+          "gridPos": {
+            "x": 0,
+            "y": 37,
+            "w": 24,
+            "h": 8
           },
-          "format": "table",
-          "rawSql": "\n    SELECT\n        started_at AS time,\n        trace,\n        standard,\n        direction,\n        source_system,\n        target_system,\n        message_type,\n        status,\n        attempt_count,\n        error_code\n    FROM monitoring.integration_transaction\n    WHERE $__timeFilter(\n        started_at\n    )\n    ORDER BY started_at DESC\n    LIMIT 200\n    "
-        }
-      ]
-    },
-    {
-      "id": 18,
-      "type": "row",
-      "title": "05. Runtime Errors",
-      "collapsed": false,
-      "gridPos": {
-        "x": 0,
-        "y": 34,
-        "w": 24,
-        "h": 1
-      },
-      "panels": []
-    },
-    {
-      "id": 19,
-      "type": "logs",
-      "title": "Backend / Celery / RabbitMQ / Assistant / MCP Errors",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 35,
-        "w": 24,
-        "h": 10
-      },
-      "options": {
-        "showTime": true,
-        "showLabels": false,
-        "showCommonLabels": false,
-        "wrapLogMessage": true,
-        "prettifyLogMessage": false,
-        "enableLogDetails": true,
-        "sortOrder": "Descending"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "request_id"
+                },
+                "properties": [
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "title": "이 Request ID로 추적",
+                        "url": "/grafana/d/brainon-admin-overview/brainon-admin-system-monitoring?orgId=1&kiosk&var-request_id=${__value.raw}",
+                        "targetBlank": false
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
           },
-          "expr": "{\n      host=\"braincdss-rabbitmq\",\n      container=~\"$runtime_container\"\n    }\n    |~ \"(?i)(error|exception|failed|failure|critical|timeout|traceback)\"",
-          "queryType": "range",
-          "editorMode": "code"
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "postgres",
+                "uid": "brainon-postgres"
+              },
+              "format": "table",
+              "rawSql": "\n    SELECT\n        occurred_at AS time,\n        request_id,\n        source_service,\n        action,\n        resource_type,\n        resource_id,\n        outcome\n    FROM audit_auditlog\n    WHERE actor_role_code = 'SYSTEM_ADMIN'\n      AND $__timeFilter(\n            occurred_at\n          )\n    ORDER BY occurred_at DESC\n    LIMIT 200\n    "
+            }
+          ]
         }
       ]
     },
     {
       "id": 20,
       "type": "row",
-      "title": "06. Request ID Trace",
-      "collapsed": false,
+      "title": "07. Request ID 통합 추적",
+      "collapsed": true,
       "gridPos": {
         "x": 0,
-        "y": 45,
+        "y": 29,
         "w": 24,
         "h": 1
       },
-      "panels": []
-    },
-    {
-      "id": 21,
-      "type": "table",
-      "title": "AuditLog Trace",
-      "datasource": {
-        "type": "postgres",
-        "uid": "brainon-postgres"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 46,
-        "w": 12,
-        "h": 10
-      },
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm"
-      },
-      "targets": [
+      "panels": [
         {
-          "refId": "A",
+          "id": 21,
+          "type": "table",
+          "title": "Request Summary",
           "datasource": {
             "type": "postgres",
             "uid": "brainon-postgres"
           },
-          "format": "table",
-          "rawSql": "\n    SELECT\n        occurred_at AS time,\n        request_id,\n        source_service,\n        actor_role_code,\n        action,\n        resource_type,\n        resource_id,\n        outcome\n    FROM monitoring.audit_log\n    WHERE (\n        NULLIF(\n            ${request_id:sqlstring},\n            ''\n        ) IS NULL\n        OR request_id::text\n            = ${request_id:sqlstring}\n    )\n      AND $__timeFilter(\n            occurred_at\n          )\n    ORDER BY occurred_at ASC\n    LIMIT 500\n    "
-        }
-      ]
-    },
-    {
-      "id": 22,
-      "type": "table",
-      "title": "Integration Trace",
-      "datasource": {
-        "type": "postgres",
-        "uid": "brainon-postgres"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 46,
-        "w": 12,
-        "h": 10
-      },
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm"
-      },
-      "targets": [
+          "gridPos": {
+            "x": 0,
+            "y": 34,
+            "w": 8,
+            "h": 6
+          },
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "postgres",
+                "uid": "brainon-postgres"
+              },
+              "format": "table",
+              "rawSql": "\nWITH events AS (SELECT occurred_at t,'AUDIT' layer,outcome status FROM audit_auditlog WHERE NULLIF(${request_id:sqlstring},'') IS NOT NULL AND request_id::text=${request_id:sqlstring} UNION ALL SELECT requested_at,'AI',status FROM ai_aianalysis WHERE NULLIF(${request_id:sqlstring},'') IS NOT NULL AND trace_id=${request_id:sqlstring} UNION ALL SELECT started_at,'AI_ATTEMPT',status FROM ai_aianalysisattempt WHERE NULLIF(${request_id:sqlstring},'') IS NOT NULL AND trace_id=${request_id:sqlstring} UNION ALL SELECT h.occurred_at,'AI_STATUS',h.status FROM ai_aianalysisstatushistory h JOIN ai_aianalysis a ON a.id=h.analysis_id WHERE NULLIF(${request_id:sqlstring},'') IS NOT NULL AND a.trace_id=${request_id:sqlstring} UNION ALL SELECT started_at,'INTEGRATION',status FROM interoperability_integrationtransaction WHERE NULLIF(${request_id:sqlstring},'') IS NOT NULL AND trace_id=${request_id:sqlstring}), s AS (SELECT COUNT(*) total,MIN(t) first_event,MAX(t) last_event,COUNT(*) FILTER (WHERE layer='AUDIT') audit_count,COUNT(*) FILTER (WHERE layer LIKE 'AI%') ai_count,COUNT(*) FILTER (WHERE layer='INTEGRATION') integration_count,COUNT(*) FILTER (WHERE UPPER(COALESCE(status,'')) IN ('FAILED','FAILURE','ERROR','TIMEOUT','CANCELLED')) failure_count,COUNT(*) FILTER (WHERE UPPER(COALESCE(status,'')) IN ('SUCCESS','SUCCEEDED','COMPLETED','OK')) success_count FROM events) SELECT ${request_id:sqlstring} AS \"Request ID\",first_event AS \"First event\",last_event AS \"Last event\",audit_count AS \"Audit\",ai_count AS \"AI\",integration_count AS \"Integration\",failure_count AS \"Failures\",CASE WHEN total=0 THEN 'NO SERVER EVIDENCE' WHEN success_count>0 AND failure_count>0 THEN 'MIXED OUTCOMES' WHEN failure_count>0 THEN 'FAILURE EVIDENCE' WHEN success_count>0 THEN 'SUCCESS ONLY' ELSE 'NO TERMINAL OUTCOME' END AS \"Server evidence\" FROM s WHERE NULLIF(${request_id:sqlstring},'') IS NOT NULL\n"
+            }
+          ],
+          "description": "빈 request_id는 0행을 반환합니다. DB에 저장된 서버측 증거만 집계합니다."
+        },
         {
-          "refId": "A",
+          "id": 34,
+          "type": "table",
+          "title": "Outcome Divergence",
           "datasource": {
             "type": "postgres",
             "uid": "brainon-postgres"
           },
-          "format": "table",
-          "rawSql": "\n    SELECT\n        started_at AS time,\n        trace,\n        standard,\n        direction,\n        source_system,\n        target_system,\n        message_type,\n        status,\n        attempt_count,\n        error_code,\n        completed_at\n    FROM monitoring.integration_transaction\n    WHERE (\n        NULLIF(\n            ${request_id:sqlstring},\n            ''\n        ) IS NULL\n        OR trace\n            = ${request_id:sqlstring}\n    )\n      AND $__timeFilter(\n            started_at\n          )\n    ORDER BY started_at ASC\n    LIMIT 500\n    "
-        }
-      ]
-    },
-    {
-      "id": 23,
-      "type": "logs",
-      "title": "Runtime Logs · Request ID",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 56,
-        "w": 24,
-        "h": 10
-      },
-      "options": {
-        "showTime": true,
-        "showLabels": false,
-        "showCommonLabels": false,
-        "wrapLogMessage": true,
-        "prettifyLogMessage": false,
-        "enableLogDetails": true,
-        "sortOrder": "Descending"
-      },
-      "targets": [
+          "gridPos": {
+            "x": 8,
+            "y": 34,
+            "w": 8,
+            "h": 6
+          },
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "postgres",
+                "uid": "brainon-postgres"
+              },
+              "format": "table",
+              "rawSql": "\nWITH statuses AS (SELECT outcome status FROM audit_auditlog WHERE NULLIF(${request_id:sqlstring},'') IS NOT NULL AND request_id::text=${request_id:sqlstring} UNION ALL SELECT status FROM ai_aianalysis WHERE NULLIF(${request_id:sqlstring},'') IS NOT NULL AND trace_id=${request_id:sqlstring} UNION ALL SELECT at.status FROM ai_aianalysisattempt at LEFT JOIN ai_aianalysis a ON a.id=at.analysis_id WHERE NULLIF(${request_id:sqlstring},'') IS NOT NULL AND (at.trace_id=${request_id:sqlstring} OR a.trace_id=${request_id:sqlstring}) UNION ALL SELECT h.status FROM ai_aianalysisstatushistory h JOIN ai_aianalysis a ON a.id=h.analysis_id WHERE NULLIF(${request_id:sqlstring},'') IS NOT NULL AND a.trace_id=${request_id:sqlstring} UNION ALL SELECT status FROM interoperability_integrationtransaction WHERE NULLIF(${request_id:sqlstring},'') IS NOT NULL AND trace_id=${request_id:sqlstring}), c AS (SELECT COUNT(*) total,COUNT(*) FILTER (WHERE UPPER(COALESCE(status,'')) IN ('SUCCESS','SUCCEEDED','COMPLETED','OK')) successes,COUNT(*) FILTER (WHERE UPPER(COALESCE(status,'')) IN ('FAILED','FAILURE','ERROR','TIMEOUT','CANCELLED')) failures FROM statuses) SELECT CASE WHEN total=0 THEN 'NO SERVER EVIDENCE' WHEN successes>0 AND failures>0 THEN 'MIXED OUTCOMES' WHEN failures>0 THEN 'FAILURE EVIDENCE' WHEN successes>0 THEN 'SUCCESS ONLY' ELSE 'NO TERMINAL OUTCOME' END AS outcome FROM c WHERE NULLIF(${request_id:sqlstring},'') IS NOT NULL\n"
+            }
+          ],
+          "description": "동일 request_id에 성공과 실패 증거가 함께 있으면 MIXED OUTCOMES입니다."
+        },
         {
-          "refId": "A",
+          "id": 35,
+          "type": "table",
+          "title": "First Failure Signal",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "gridPos": {
+            "x": 16,
+            "y": 34,
+            "w": 8,
+            "h": 6
+          },
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "postgres",
+                "uid": "brainon-postgres"
+              },
+              "format": "table",
+              "rawSql": "\nWITH failures AS (SELECT occurred_at t,'AUDIT' layer,source_service service,action event,outcome status,NULL::text code FROM audit_auditlog WHERE NULLIF(${request_id:sqlstring},'') IS NOT NULL AND request_id::text=${request_id:sqlstring} AND UPPER(COALESCE(outcome,'')) IN ('FAILED','FAILURE','ERROR','TIMEOUT','CANCELLED') UNION ALL SELECT COALESCE(completed_at,updated_at,requested_at),'AI','ai-analysis',analysis_type,status,failure_code FROM ai_aianalysis WHERE NULLIF(${request_id:sqlstring},'') IS NOT NULL AND trace_id=${request_id:sqlstring} AND status IN ('FAILED','ERROR','TIMEOUT','CANCELLED') UNION ALL SELECT COALESCE(finished_at,started_at),'AI_ATTEMPT','ai-attempt','attempt '||attempt_number,status,error_code FROM ai_aianalysisattempt WHERE NULLIF(${request_id:sqlstring},'') IS NOT NULL AND trace_id=${request_id:sqlstring} AND status IN ('FAILED','ERROR','TIMEOUT','CANCELLED') UNION ALL SELECT COALESCE(completed_at,started_at),'INTEGRATION',source_system||' → '||target_system,message_type,status,error_code FROM interoperability_integrationtransaction WHERE NULLIF(${request_id:sqlstring},'') IS NOT NULL AND trace_id=${request_id:sqlstring} AND status IN ('FAILED','ERROR','TIMEOUT')) SELECT t AS \"Time\",layer AS \"Layer\",service AS \"Service\",event AS \"Event\",status AS \"Status\",code AS \"Code\" FROM failures UNION ALL SELECT NULL,'INFO','server','서버측 실패 신호 없음','NO FAILURE EVIDENCE',NULL WHERE NULLIF(${request_id:sqlstring},'') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM failures) ORDER BY \"Time\" ASC NULLS LAST LIMIT 1\n"
+            }
+          ],
+          "description": "서버 DB에 저장된 최초 실패 신호. 없으면 서버측 실패 신호 없음으로 표시합니다."
+        },
+        {
+          "id": 36,
+          "type": "table",
+          "title": "Unified Timeline",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 40,
+            "w": 24,
+            "h": 10
+          },
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "postgres",
+                "uid": "brainon-postgres"
+              },
+              "format": "table",
+              "rawSql": "\nSELECT * FROM (SELECT occurred_at AS \"Time\",'AUDIT' AS \"Layer\",COALESCE(source_service,'audit') AS \"Service\",action||COALESCE(' · '||resource_type,'') AS \"Event\",outcome AS \"Status\",NULL::text AS \"Error / Reason\" FROM audit_auditlog WHERE NULLIF(${request_id:sqlstring},'') IS NOT NULL AND request_id::text=${request_id:sqlstring} UNION ALL SELECT requested_at,'AI','ai-analysis',analysis_type||COALESCE(' · '||stage,''),status,failure_code FROM ai_aianalysis WHERE NULLIF(${request_id:sqlstring},'') IS NOT NULL AND trace_id=${request_id:sqlstring} UNION ALL SELECT at.started_at,'AI_ATTEMPT','ai-attempt','attempt '||at.attempt_number||COALESCE(' · '||at.stage,''),at.status,at.error_code FROM ai_aianalysisattempt at LEFT JOIN ai_aianalysis a ON a.id=at.analysis_id WHERE NULLIF(${request_id:sqlstring},'') IS NOT NULL AND (at.trace_id=${request_id:sqlstring} OR a.trace_id=${request_id:sqlstring}) UNION ALL SELECT h.occurred_at,'AI_STATUS','ai-status',COALESCE(h.previous_status,'∅')||' → '||h.status||COALESCE(' · '||h.stage,''),h.status,h.reason_code FROM ai_aianalysisstatushistory h JOIN ai_aianalysis a ON a.id=h.analysis_id WHERE NULLIF(${request_id:sqlstring},'') IS NOT NULL AND a.trace_id=${request_id:sqlstring} UNION ALL SELECT started_at,'INTEGRATION',source_system||' → '||target_system,message_type,status,error_code FROM interoperability_integrationtransaction WHERE NULLIF(${request_id:sqlstring},'') IS NOT NULL AND trace_id=${request_id:sqlstring}) timeline ORDER BY \"Time\" ASC LIMIT 1000\n"
+            }
+          ],
+          "description": "Audit, AI Analysis, AI Attempt, AI Status, Integration 서버 이벤트의 시간순 통합 뷰입니다."
+        },
+        {
+          "id": 37,
+          "type": "table",
+          "title": "AuditLog Trace",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 50,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "postgres",
+                "uid": "brainon-postgres"
+              },
+              "format": "table",
+              "rawSql": "\nSELECT occurred_at AS \"Time\",request_id::text AS \"Request ID\",actor_login_id AS \"Actor\",actor_role_code AS \"Role\",source_service AS \"Service\",action AS \"Action\",resource_type AS \"Resource type\",resource_id AS \"Resource ID\",outcome AS \"Outcome\" FROM audit_auditlog WHERE NULLIF(${request_id:sqlstring},'') IS NOT NULL AND request_id::text=${request_id:sqlstring} ORDER BY occurred_at ASC LIMIT 500\n"
+            }
+          ],
+          "description": "최소 감사 메타데이터만 표시하며 PHI/reason/before_json/after_json/IP/user-agent는 제외합니다."
+        },
+        {
+          "id": 22,
+          "type": "table",
+          "title": "AI Analysis Trace",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 50,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "postgres",
+                "uid": "brainon-postgres"
+              },
+              "format": "table",
+              "rawSql": "\nSELECT requested_at AS \"Requested\",started_at AS \"Started\",completed_at AS \"Completed\",trace_id AS \"Trace ID\",id AS \"Analysis ID\",analysis_type AS \"Type\",status AS \"Status\",stage AS \"Stage\",priority AS \"Priority\",attempt_count AS \"Attempts\",failure_code AS \"Failure code\" FROM ai_aianalysis WHERE NULLIF(${request_id:sqlstring},'') IS NOT NULL AND trace_id=${request_id:sqlstring} ORDER BY requested_at ASC LIMIT 500\n"
+            }
+          ],
+          "description": "AIAnalysis의 실제 trace_id, 상태, 단계, 시각, 실패 코드입니다."
+        },
+        {
+          "id": 38,
+          "type": "table",
+          "title": "AI Attempt Trace",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 58,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "postgres",
+                "uid": "brainon-postgres"
+              },
+              "format": "table",
+              "rawSql": "\nSELECT at.started_at AS \"Started\",at.finished_at AS \"Finished\",COALESCE(at.trace_id,a.trace_id) AS \"Trace ID\",at.analysis_id AS \"Analysis ID\",at.attempt_number AS \"Attempt\",at.status AS \"Status\",at.stage AS \"Stage\",at.error_code AS \"Error code\" FROM ai_aianalysisattempt at LEFT JOIN ai_aianalysis a ON a.id=at.analysis_id WHERE NULLIF(${request_id:sqlstring},'') IS NOT NULL AND (at.trace_id=${request_id:sqlstring} OR a.trace_id=${request_id:sqlstring}) ORDER BY at.attempt_number ASC,at.started_at ASC LIMIT 500\n"
+            }
+          ],
+          "description": "AIAnalysisAttempt와 상위 Analysis trace_id를 함께 조회합니다."
+        },
+        {
+          "id": 39,
+          "type": "table",
+          "title": "AI Status History",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 58,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "postgres",
+                "uid": "brainon-postgres"
+              },
+              "format": "table",
+              "rawSql": "\nSELECT h.occurred_at AS \"Time\",a.trace_id AS \"Trace ID\",h.analysis_id AS \"Analysis ID\",h.previous_status AS \"Previous\",h.status AS \"Status\",h.stage AS \"Stage\",h.reason_code AS \"Reason code\" FROM ai_aianalysisstatushistory h JOIN ai_aianalysis a ON a.id=h.analysis_id WHERE NULLIF(${request_id:sqlstring},'') IS NOT NULL AND a.trace_id=${request_id:sqlstring} ORDER BY h.occurred_at ASC LIMIT 500\n"
+            }
+          ],
+          "description": "analysis_id로 AIAnalysis를 연결하여 request trace에 상태 이력을 포함합니다."
+        },
+        {
+          "id": 40,
+          "type": "table",
+          "title": "Integration Trace",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 66,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "postgres",
+                "uid": "brainon-postgres"
+              },
+              "format": "table",
+              "rawSql": "\nSELECT started_at AS \"Started\",completed_at AS \"Completed\",trace_id AS \"Trace ID\",direction AS \"Direction\",standard AS \"Standard\",source_system AS \"Source\",target_system AS \"Target\",message_type AS \"Message type\",status AS \"Status\",attempt_count AS \"Attempts\",error_code AS \"Error code\" FROM interoperability_integrationtransaction WHERE NULLIF(${request_id:sqlstring},'') IS NOT NULL AND trace_id=${request_id:sqlstring} ORDER BY started_at ASC LIMIT 500\n"
+            }
+          ],
+          "description": "IntegrationTransaction의 실제 trace_id와 처리 결과입니다."
+        },
+        {
+          "id": 23,
+          "type": "logs",
+          "title": "Runtime Logs · Request ID",
           "datasource": {
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{\n      host=\"braincdss-rabbitmq\",\n      container=~\"$runtime_container\"\n    }\n    |~ \"${request_id:regex}\"",
-          "queryType": "range",
-          "editorMode": "code"
+          "gridPos": {
+            "x": 12,
+            "y": 66,
+            "w": 12,
+            "h": 8
+          },
+          "options": {
+            "showTime": true,
+            "showLabels": false,
+            "showCommonLabels": false,
+            "wrapLogMessage": true,
+            "prettifyLogMessage": false,
+            "enableLogDetails": true,
+            "sortOrder": "Ascending"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "loki",
+                "uid": "loki"
+              },
+              "expr": "{host=\"braincdss-rabbitmq\",container=~\"$runtime_container\"} | regexp \"(?P<trace_request_id>[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\" | trace_request_id = \"${request_id:raw}\"",
+              "queryType": "range",
+              "editorMode": "code"
+            }
+          ],
+          "description": "모든 레벨 로그에서 UUID를 추출하고 입력 request_id와 정확히 비교합니다. 빈 입력은 일치하지 않습니다."
+        },
+        {
+          "id": 41,
+          "type": "timeseries",
+          "title": "Prometheus Metrics Context · Collector 자체",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 74,
+            "w": 24,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "up{job=\"prometheus\"}",
+              "legendFormat": "Prometheus up",
+              "range": true,
+              "instant": false,
+              "editorMode": "code"
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "prometheus_tsdb_head_series",
+              "legendFormat": "TSDB head series",
+              "range": true,
+              "instant": false,
+              "editorMode": "code"
+            },
+            {
+              "refId": "C",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "prometheus_target_scrape_pool_targets",
+              "legendFormat": "Scrape targets",
+              "range": true,
+              "instant": false,
+              "editorMode": "code"
+            }
+          ],
+          "description": "request_id label을 만들지 않습니다. 현재 실제 존재하는 Prometheus 자체 지표만 시간 문맥으로 표시하며 BrainOn HTTP 트래픽이 아닙니다."
+        },
+        {
+          "id": 42,
+          "type": "text",
+          "title": "HTTP Status Evidence Boundary",
+          "gridPos": {
+            "x": 0,
+            "y": 82,
+            "w": 24,
+            "h": 4
+          },
+          "options": {
+            "mode": "markdown",
+            "content": "**브라우저/F12 HTTP status는 현재 서버측 datasource에 request_id와 함께 저장되지 않습니다.** 따라서 F12 실패와 서버 SUCCESS가 다르면 이 화면은 DB Audit/AI/Integration/Loki 증거만 비교하며, 브라우저 응답 status 자체를 확정하지 않습니다. HTTP access log + request_id 수집이 후속으로 필요합니다."
+          }
         }
       ]
     }
-  ]
+  ],
+  "graphTooltip": 1,
+  "liveNow": true,
+  "style": "dark"
 }

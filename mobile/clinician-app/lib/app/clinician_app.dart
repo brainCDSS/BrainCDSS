@@ -36,10 +36,10 @@ class _ClinicianAppState extends State<ClinicianApp> {
         theme: ThemeData(
           useMaterial3: true,
           colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF2563B8),
+            seedColor: const Color(0xFF4F8FE8),
             brightness: Brightness.light,
           ),
-          scaffoldBackgroundColor: const Color(0xFFF6F8FC),
+          scaffoldBackgroundColor: const Color(0xFFF3F7FC),
           appBarTheme: const AppBarTheme(
             backgroundColor: Colors.white,
             foregroundColor: Color(0xFF172B4D),

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api/clinician_api_client.dart';
+import '../radiology/widgets/radiology_navigation_drawer.dart';
 import '../radiology/widgets/radiology_ui.dart';
-import 'radiology_consultation_detail_page.dart';
 
 class RadiologyConsultation {
   const RadiologyConsultation({
@@ -191,14 +191,8 @@ class _RadiologyConsultationsPageState
                 padding: const EdgeInsets.only(bottom: 10),
                 child: _ConsultationCard(
                   consultation: consultation,
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => RadiologyConsultationDetailPage(
-                        apiClient: widget.apiClient,
-                        consultationId: consultation.id,
-                      ),
-                    ),
-                  ),
+                  onTap: () =>
+                      RadiologyNavigation.openConsultation(consultation.id),
                 ),
               ),
             ),

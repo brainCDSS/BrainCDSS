@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../radiology/widgets/radiology_ui.dart';
+import '../radiology/widgets/radiology_navigation_drawer.dart';
 
 /// Notification transport is intentionally not connected yet: the current
 /// backend runtime does not reliably scope RADIOLOGY notifications by recipient.
@@ -16,6 +17,7 @@ class RadiologyNotificationsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
+        drawer: const RadiologyNavigationDrawer(),
         appBar: AppBar(title: const Text('알림')),
         body: ListView(
           padding: const EdgeInsets.all(20),

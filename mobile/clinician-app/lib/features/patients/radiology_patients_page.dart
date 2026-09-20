@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/api/clinician_api_client.dart';
+import '../radiology/widgets/radiology_navigation_drawer.dart';
 import '../radiology/widgets/radiology_ui.dart';
-import 'radiology_patient_detail_page.dart';
 
 class RadiologyPatient {
   const RadiologyPatient({
@@ -163,14 +163,7 @@ class _RadiologyPatientsPageState extends State<RadiologyPatientsPage> {
                 padding: const EdgeInsets.only(bottom: 10),
                 child: _PatientCard(
                   patient: patient,
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => RadiologyPatientDetailPage(
-                        apiClient: widget.apiClient,
-                        patientId: patient.id,
-                      ),
-                    ),
-                  ),
+                  onTap: () => RadiologyNavigation.openPatient(patient.id),
                 ),
               ),
             ),

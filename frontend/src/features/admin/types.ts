@@ -146,3 +146,17 @@ export interface MLModelOverview {
   versions: MLModelVersionSummary[];
   routing_configs: MLRoutingConfig[];
 }
+
+export interface MLflowSyncResult {
+  discovered: number;
+  created: number;
+  updated: number;
+  skipped: number;
+  errors: number;
+  error_details: Array<{
+    registered_model_name: string;
+    model_version: string;
+    code: string;
+    message: string;
+  }>;
+}

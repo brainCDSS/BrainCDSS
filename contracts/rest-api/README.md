@@ -1,5 +1,11 @@
 # REST API versioning
 
+## MLflow Registry synchronization
+
+The read-only MLflow Registry import contract is defined in
+`mlflow-registry-sync.md`. It uses a Cloud Run ID token and does not alter the
+approval or routing workflow.
+
 ## Consultation messages
 
 `GET|POST /api/v1/consultations/{consultation_id}/messages` is the durable,

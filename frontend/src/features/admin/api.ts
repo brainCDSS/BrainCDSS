@@ -13,6 +13,7 @@ import type {
   MLModelOverview,
   MLRoutingConfig,
   MLModelVersionSummary,
+  MLflowSyncResult,
 } from "./types";
 
 
@@ -132,6 +133,13 @@ export function getBackendHealth() {
 
 export function getMLModelOverview() {
   return apiRequest<MLModelOverview>("/api/v1/admin/ml/overview");
+}
+
+export function syncMLflowModelVersions() {
+  return apiRequest<MLflowSyncResult>(
+    "/api/v1/admin/ml/mlflow/sync",
+    { method: "POST" },
+  );
 }
 
 export function approveMLModelVersion(versionId: string, reason: string) {

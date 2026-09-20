@@ -229,6 +229,7 @@
 }
 
 .ml-management-page{padding-bottom:28px}
+.ml-header-actions{display:flex;gap:8px;align-items:center}
 .ml-current-routing{padding:16px}
 .ml-routing-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
 .ml-routing-grid article{display:grid;gap:5px;padding:12px;border:1px solid #cfe0fa;border-radius:8px;background:#f7fbff}

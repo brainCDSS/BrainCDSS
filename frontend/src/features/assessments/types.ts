@@ -92,6 +92,8 @@ export interface AssessmentDetailResponse {
 
   encounter_id: string;
 
+  patient_id?: string;
+
   neurology_department_id?: string | null;
 
   status: string;

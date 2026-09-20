@@ -11,6 +11,16 @@ import type {
   UpdateAssessmentRequest,
 } from "./types";
 
+import {
+  createPatientAllergy,
+  getPatientAllergies,
+} from "../patients/api";
+
+import type {
+  AllergySeverity,
+  PatientAllergy,
+} from "../patients/api";
+
 import TriageResult from "./TriageResult";
 
 import "./css/triage_assessment.css";
@@ -249,6 +259,32 @@ export default function TriageAssessment({
     setTemperature,
   ] = useState("");
 
+  const [
+    spO2,
+    setSpO2,
+  ] = useState("");
+
+  const [
+    heightCm,
+    setHeightCm,
+  ] = useState("");
+
+  const [
+    weightKg,
+    setWeightKg,
+  ] = useState("");
+
+  const bmi = useMemo(() => {
+    const height = Number(heightCm);
+    const weight = Number(weightKg);
+
+    if (!heightCm || !weightKg || height <= 0 || weight <= 0) {
+      return null;
+    }
+
+    return weight / ((height / 100) ** 2);
+  }, [heightCm, weightKg]);
+
 
   /* ========================================================
      5. 추가 메모
@@ -258,6 +294,14 @@ export default function TriageAssessment({
     symptomNote,
     setSymptomNote,
   ] = useState("");
+
+  const [allergies, setAllergies] = useState<PatientAllergy[]>([]);
+  const [allergySubstance, setAllergySubstance] = useState("");
+  const [allergyReaction, setAllergyReaction] = useState("");
+  const [allergySeverity, setAllergySeverity] = useState<AllergySeverity>("MODERATE");
+  const [allergyLoading, setAllergyLoading] = useState(false);
+  const [allergySaving, setAllergySaving] = useState(false);
+  const [allergyError, setAllergyError] = useState<string | null>(null);
 
   const initialScreeningTotal = useMemo(
     () => Object.values(initialScreeningScores).reduce<number>(
@@ -306,6 +350,9 @@ export default function TriageAssessment({
         ?? itemNumber("TEMPERATURE")?.toString()
         ?? "",
       );
+      setSpO2(itemNumber("SPO2")?.toString() ?? "");
+      setHeightCm(itemNumber("HEIGHT_CM")?.toString() ?? "");
+      setWeightKg(itemNumber("WEIGHT_KG")?.toString() ?? "");
       setSymptomNote(assessment.symptom_note ?? "");
       setInitialScreeningScores(() => {
         const next = emptyInitialScreeningScores();
@@ -342,6 +389,33 @@ export default function TriageAssessment({
     };
   }, [assessmentId]);
 
+  const patientId = assessmentResult?.patient_id ?? null;
+
+  useEffect(() => {
+    let active = true;
+    setAllergyError(null);
+
+    if (!patientId) {
+      setAllergies([]);
+      setAllergyLoading(false);
+      return () => { active = false; };
+    }
+
+    setAllergyLoading(true);
+    void getPatientAllergies(patientId)
+      .then((response) => {
+        if (active) setAllergies(response.results ?? []);
+      })
+      .catch(() => {
+        if (active) setAllergyError("알레르기 정보를 불러오지 못했습니다.");
+      })
+      .finally(() => {
+        if (active) setAllergyLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [patientId]);
+
 
   /* ========================================================
      날짜 입력 제한
@@ -350,6 +424,31 @@ export default function TriageAssessment({
 
      연도가 4자리를 넘어가는 입력을 막는다.
      ======================================================== */
+
+  async function handleAddAllergy() {
+    if (!patientId || !allergySubstance.trim() || readOnly) {
+      return;
+    }
+
+    setAllergySaving(true);
+    setAllergyError(null);
+
+    try {
+      const allergy = await createPatientAllergy(patientId, {
+        substance: allergySubstance.trim(),
+        reaction: allergyReaction.trim() || undefined,
+        severity: allergySeverity,
+      });
+      setAllergies((current) => [...current, allergy]);
+      setAllergySubstance("");
+      setAllergyReaction("");
+      setAllergySeverity("MODERATE");
+    } catch {
+      setAllergyError("알레르기 저장에 실패했습니다. 입력값과 권한을 확인해 주세요.");
+    } finally {
+      setAllergySaving(false);
+    }
+  }
 
   function handleDateTimeChange(
     value: string,
@@ -500,6 +599,30 @@ export default function TriageAssessment({
         item_code: "BODY_TEMP",
         value_numeric: Number(temperature),
         unit: "°C",
+      });
+    }
+
+    if (spO2 !== "") {
+      items.push({
+        item_code: "SPO2",
+        value_numeric: Number(spO2),
+        unit: "%",
+      });
+    }
+
+    if (heightCm !== "") {
+      items.push({
+        item_code: "HEIGHT_CM",
+        value_numeric: Number(heightCm),
+        unit: "cm",
+      });
+    }
+
+    if (weightKg !== "") {
+      items.push({
+        item_code: "WEIGHT_KG",
+        value_numeric: Number(weightKg),
+        unit: "kg",
       });
     }
 
@@ -825,6 +948,10 @@ export default function TriageAssessment({
       bpDia,
       heartRate,
       temperature,
+      spO2,
+      heightCm,
+      weightKg,
+      bmi,
       lkwAt,
     };
 
@@ -1094,6 +1221,75 @@ export default function TriageAssessment({
 
                 </section>
 
+                <section className="triage-assessment__section triage-allergy-section">
+                  <div className="triage-section-heading">
+                    <div className="triage-section-number">2</div>
+                    <div>
+                      <h2>알레르기</h2>
+                      <p>확인된 약물·물질 알레르기를 등록합니다. 저장된 정보는 환자 차트와 처방 안전성 검사에 반영됩니다.</p>
+                    </div>
+                  </div>
+
+                  {allergyLoading ? (
+                    <p className="triage-allergy-state">알레르기 정보를 불러오는 중입니다.</p>
+                  ) : (
+                    <>
+                      {allergies.length > 0 && (
+                        <ul className="triage-allergy-list">
+                          {allergies.map((allergy) => (
+                            <li key={allergy.id}>
+                              <strong>{allergy.substance ?? "알레르겐 미상"}</strong>
+                              <span>{allergy.reaction || "반응 미기록"}</span>
+                              <em>{allergy.severity}</em>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+
+                      {!readOnly && (
+                        <div className="triage-allergy-form">
+                          <label>
+                            <span>알레르겐</span>
+                            <input
+                              value={allergySubstance}
+                              onChange={(event) => setAllergySubstance(event.target.value)}
+                              placeholder="예: Penicillin"
+                            />
+                          </label>
+                          <label>
+                            <span>반응 (선택)</span>
+                            <input
+                              value={allergyReaction}
+                              onChange={(event) => setAllergyReaction(event.target.value)}
+                              placeholder="예: 두드러기"
+                            />
+                          </label>
+                          <label>
+                            <span>중증도</span>
+                            <select
+                              value={allergySeverity}
+                              onChange={(event) => setAllergySeverity(event.target.value as AllergySeverity)}
+                            >
+                              <option value="MILD">경증</option>
+                              <option value="MODERATE">중등도</option>
+                              <option value="SEVERE">중증</option>
+                            </select>
+                          </label>
+                          <button
+                            type="button"
+                            disabled={!patientId || !allergySubstance.trim() || allergySaving}
+                            onClick={handleAddAllergy}
+                          >
+                            {allergySaving ? "저장 중..." : "알레르기 추가"}
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {allergyError && <p className="triage-allergy-error">{allergyError}</p>}
+                </section>
+
           {/* ===================================================
                     2. FAST
                     =================================================== */}
@@ -1103,7 +1299,7 @@ export default function TriageAssessment({
                   <div className="triage-section-heading">
 
                     <div className="triage-section-number">
-                      2
+                      3
                     </div>
 
 
@@ -1369,7 +1565,7 @@ export default function TriageAssessment({
                   <div className="triage-section-heading">
 
                     <div className="triage-section-number">
-                      3
+                      4
                     </div>
 
 
@@ -1400,7 +1596,7 @@ export default function TriageAssessment({
                   <div className="triage-section-heading">
 
                     <div className="triage-section-number">
-                      4
+                      5
                     </div>
 
 
@@ -1420,7 +1616,7 @@ export default function TriageAssessment({
                   </div>
 
 
-                  <div className="triage-assessment__grid">
+                  <div className="triage-assessment__grid triage-vital-grid">
 
 
                     {/* 수축기 혈압 */}
@@ -1564,6 +1760,82 @@ export default function TriageAssessment({
 
                     </label>
 
+                    <label>
+
+                      <span>
+                        SpO₂
+                      </span>
+
+                      <div className="triage-input-with-unit">
+
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={spO2}
+                          onChange={(event) =>
+                            setSpO2(event.target.value)
+                          }
+                        />
+
+                        <span>
+                          %
+                        </span>
+
+                      </div>
+
+                    </label>
+
+                  </div>
+
+                  <div className="triage-measurement-heading">
+                    <strong>신체 계측</strong>
+                    <span>처방·용량 확인을 위한 선택 입력입니다.</span>
+                  </div>
+
+                  <div className="triage-assessment__grid triage-measurement-grid">
+
+                    <label>
+                      <span>키</span>
+                      <div className="triage-input-with-unit">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.1"
+                          value={heightCm}
+                          onChange={(event) => setHeightCm(event.target.value)}
+                        />
+                        <span>cm</span>
+                      </div>
+                    </label>
+
+                    <label>
+                      <span>몸무게</span>
+                      <div className="triage-input-with-unit">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.1"
+                          value={weightKg}
+                          onChange={(event) => setWeightKg(event.target.value)}
+                        />
+                        <span>kg</span>
+                      </div>
+                    </label>
+
+                    <label>
+                      <span>BMI</span>
+                      <div className="triage-input-with-unit">
+                        <input
+                          type="text"
+                          readOnly
+                          value={bmi === null ? "-" : bmi.toFixed(1)}
+                          aria-label="자동 계산된 BMI"
+                        />
+                        <span>kg/m²</span>
+                      </div>
+                    </label>
+
                   </div>
 
                 </section>
@@ -1582,7 +1854,7 @@ export default function TriageAssessment({
                   <div className="triage-section-heading">
 
                     <div className="triage-section-number">
-                      5
+                      6
                     </div>
 
 
@@ -1725,7 +1997,7 @@ export default function TriageAssessment({
         <dl className="triage-system-summary__list">
           <div><dt>FAST</dt><dd>{completedFastCount === 3 ? "입력 완료" : "미입력"}</dd></div>
           <div><dt>빠른 신경 선별</dt><dd>{completedInitialScreeningCount ? `${initialScreeningTotal}점` : "미평가"}</dd></div>
-          <div><dt>Vital</dt><dd>{bpSys && bpDia && heartRate && temperature ? "입력 완료" : "입력 대기"}</dd></div>
+          <div><dt>Vital</dt><dd>{bpSys && bpDia && heartRate && temperature && spO2 ? "입력 완료" : "입력 대기"}</dd></div>
           <div><dt>LKW</dt><dd>{lkwAt ? "입력 완료" : "입력 대기"}</dd></div>
           <div><dt>전달 상태</dt><dd>{completedInitialScreeningCount === 6 ? "신경 선별 완료" : "작성중"}</dd></div>
         </dl>

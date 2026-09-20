@@ -103,3 +103,46 @@ export interface AnalysisStatusItem {
   running: number | null;
   failed: number | null;
 }
+
+export interface MLModelSummary {
+  model_id: string;
+  code: string;
+  display_name: string;
+  task_type: string;
+  disease_scope: string;
+  supported_modalities: string[];
+  is_enabled: boolean;
+}
+
+export interface MLModelVersionSummary {
+  version_id: string;
+  model_id: string;
+  model_code: string;
+  model_name: string;
+  version: string;
+  mlflow_registered_model_name: string;
+  mlflow_model_version: string;
+  mlflow_run_id: string;
+  artifact_uri: string;
+  validation_status: "DRAFT" | "VALIDATED" | "APPROVED" | "RETIRED";
+  is_active: boolean;
+  performance_metrics: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MLRoutingConfig {
+  routing_id: string;
+  version: string;
+  modality: "CT" | "MR" | "MRA";
+  analysis_type: string;
+  is_active: boolean;
+  created_at: string;
+  target_model_version: MLModelVersionSummary | null;
+}
+
+export interface MLModelOverview {
+  models: MLModelSummary[];
+  versions: MLModelVersionSummary[];
+  routing_configs: MLRoutingConfig[];
+}

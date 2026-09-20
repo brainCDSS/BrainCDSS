@@ -34,8 +34,8 @@ import ClinicalNotesReadOnly from "../clinical-notes/ClinicalNotesReadOnly";
 import { getCurrentMedications, getPatientEncounters } from "../medication-safety/api";
 import type { CurrentMedicationItem, EncounterListItem } from "../medication-safety/types";
 import { loadAuthSession } from "../auth/session";
-import { getPatient, getPatientTimeline, getPatients } from "./api";
-import type { PatientTimelineEvent } from "./api";
+import { getPatient, getPatientAllergies, getPatientTimeline, getPatients } from "./api";
+import type { PatientAllergy, PatientTimelineEvent } from "./api";
 import type { Patient, PatientDetail } from "./types";
 import "./css/patient_chart.css";
 
@@ -155,7 +155,7 @@ export function PatientRail({ selectedId, patients, onSelect }: { selectedId: st
   return <aside className="patient-context-rail"><header className="patient-context-rail__header"><div><span>PATIENT LIST</span><strong>환자 목록</strong></div><small>{patients.length}명</small></header><label className="patient-context-search"><span aria-hidden="true">⌕</span><input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="이름 또는 등록번호 검색" /></label><div className="patient-context-list">{rows.map((item) => { const demographics = [sex(item.sex), age(item)].filter((value) => value !== "-").join(" · "); const badge = encounterBadges[item.id]; return <button key={item.id} type="button" className={`patient-context-item${item.id === selectedId ? " is-selected" : ""}`} onClick={() => onSelect?.(item)} aria-current={item.id === selectedId ? "true" : undefined}><span className="patient-context-item__avatar" aria-hidden="true">{item.name.slice(0, 1)}</span><span className="patient-context-item__topline"><strong>{item.name}</strong>{badge && <span className={`patient-mini-status is-${badge.tone}`}>{badge.label}</span>}</span>{demographics && <span className="patient-context-item__demographics">{demographics}</span>}<span className="patient-context-item__meta">환자번호 {item.patient_no}</span></button>; })}{rows.length === 0 && <div className="patient-context-empty">검색 결과가 없습니다.</div>}</div><nav className="patient-context-pagination"><button type="button" disabled={current === 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>‹</button><span><strong>{current}</strong> / {pages}</span><button type="button" disabled={current === pages} onClick={() => setPage((value) => Math.min(pages, value + 1))}>›</button></nav></aside>;
 }
 
-export function PatientHeader({ patient, care, onOpenDetails }: { patient: Patient; care?: { department?: string | null; clinician?: string | null; latestVisit?: string | null; diagnosis?: string | null; encounterStatus?: string | null; encounterType?: string | null; arrivedAt?: string | null; endedAt?: string | null }; onOpenDetails?: () => void }) {
+export function PatientHeader({ patient, care, allergySummary, onOpenDetails }: { patient: Patient; care?: { department?: string | null; clinician?: string | null; latestVisit?: string | null; diagnosis?: string | null; encounterStatus?: string | null; encounterType?: string |null; arrivedAt?: string | null; endedAt?: string | null }; allergySummary?: string; onOpenDetails?: () => void }) {
   const badge = encounterBadge({ status: care?.encounterStatus, endedAt: care?.endedAt });
   return <header className="patient-context-header patient-context-header--compact">
     <div className="patient-context-header__identity">
@@ -177,7 +177,7 @@ export function PatientHeader({ patient, care, onOpenDetails }: { patient: Patie
     </div>
     <div className="patient-context-allergy" aria-label="알레르기 정보">
       <strong>⚠ 알레르기</strong>
-      <span>-</span>
+      <span>{allergySummary ?? "기록 없음"}</span>
     </div>
     <dl className="patient-context-care">
       {care?.encounterStatus || care?.encounterType || care?.arrivedAt ? <>
@@ -510,6 +510,7 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
   const [patientList, setPatientList] = useState<Patient[]>(patients); const [data, setData] = useState<ChartData>({ studies: [], analyses: [], consultations: [] });
   const [isPermissionModalOpen, setIsPermissionModalOpen] = useState(false);
   const [patientDetail, setPatientDetail] = useState<PatientDetail | null>(null); const [loading, setLoading] = useState(false); const [error, setError] = useState<string | null>(null); const [selectedStudyId, setSelectedStudyId] = useState<string | null>(null); const [analysisResults, setAnalysisResults] = useState<Record<string, AIAnalysisResult>>({}); const [analysisLoading, setAnalysisLoading] = useState(false); const [analysisError, setAnalysisError] = useState<string | null>(null); const clinicalRequestId = useRef(0); const analysisRequestId = useRef(0);
+  const [allergies, setAllergies] = useState<PatientAllergy[]>([]); const [allergiesError, setAllergiesError] = useState(false);
   const [accessDenied, setAccessDenied] = useState(false);
   const [encounter, setEncounter] = useState<EncounterListItem | null>(null); const [encounterLoading, setEncounterLoading] = useState(false); const [encounterError, setEncounterError] = useState<string | null>(null); const encounterRequestId = useRef(0);
   const [latestAssessment, setLatestAssessment] = useState<AssessmentDetailResponse | null>(null); const [vitalLoading, setVitalLoading] = useState(false); const [vitalError, setVitalError] = useState(false); const vitalRequestId = useRef(0);
@@ -574,6 +575,16 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
     });
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    setAllergies([]); setAllergiesError(false);
+    if (!patient) return () => { active = false; };
+    void getPatientAllergies(patient.id)
+      .then((response) => { if (active) setAllergies(response.results ?? []); })
+      .catch(() => { if (active) setAllergiesError(true); });
+    return () => { active = false; };
+  }, [patient?.id]);
 
   useEffect(() => {
     const requestId = ++clinicalRequestId.current;
@@ -905,7 +916,7 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
   return <section className="patient-context-dashboard">
     <div className="patient-workspace">
       <PatientRail selectedId={patient?.id ?? null} patients={patientList.length ? patientList : patients} onSelect={selectPatient} />
-      {displayPatient && <PatientHeader patient={displayPatient} care={encounter ? { arrivedAt: encounter.arrived_at, endedAt: encounter.ended_at, encounterStatus: encounter.status, encounterType: encounter.encounter_type } : undefined} />}
+      {displayPatient && <PatientHeader patient={displayPatient} care={encounter ? { arrivedAt: encounter.arrived_at, endedAt: encounter.ended_at, encounterStatus: encounter.status, encounterType: encounter.encounter_type } : undefined} allergySummary={allergiesError ? "확인 불가" : allergies.map((allergy) => allergy.substance).filter(Boolean).join(", ") || undefined} />}
       {patient && !accessDenied ? <main className={`patient-context-main${activeTab === "clinical" ? " is-clinical" : ""}`}>
         {activeTab === "summary" && (
           <TriageSummaryBar

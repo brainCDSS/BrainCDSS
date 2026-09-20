@@ -10,4 +10,5 @@ gunicorn>=23,<24
 python-dotenv==1.1.1
 google-auth>=2.38,<3
 google-cloud-storage>=3.1,<4
+mlflow>=3.16,<3.17
 firebase-admin==7.5.0

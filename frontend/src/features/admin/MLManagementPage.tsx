@@ -6,8 +6,9 @@ import {
   createMLRoutingConfig,
   getMLModelOverview,
   retireMLModelVersion,
+  syncMLflowModelVersions,
 } from "./api";
-import type { MLModelOverview, MLModelVersionSummary } from "./types";
+import type { MLModelOverview, MLModelVersionSummary, MLflowSyncResult } from "./types";
 import "./admin.css";
 
 const statusLabel: Record<MLModelVersionSummary["validation_status"], string> = {
@@ -37,6 +38,7 @@ export default function MLManagementPage() {
   const [routingAnalysisType, setRoutingAnalysisType] = useState("");
   const [routingTargetId, setRoutingTargetId] = useState("");
   const [routingReason, setRoutingReason] = useState("");
+  const [syncResult, setSyncResult] = useState<MLflowSyncResult | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -81,6 +83,21 @@ export default function MLManagementPage() {
     return value?.trim() || null;
   };
 
+  const syncMLflow = async () => {
+    setWorkingId("mlflow-sync");
+    setError(null);
+    setSyncResult(null);
+    try {
+      const result = await syncMLflowModelVersions();
+      setSyncResult(result);
+      await load();
+    } catch {
+      setError("MLflow 동기화에 실패했습니다. Cloud Run 연결 및 관리자 권한을 확인해 주세요.");
+    } finally {
+      setWorkingId(null);
+    }
+  };
+
   const submitRouting = async () => {
     if (!routingVersion.trim() || !routingAnalysisType.trim() || !routingTargetId || !routingReason.trim()) {
       setError("라우팅 버전, 분석 유형, 대상 모델 버전, 변경 사유를 모두 입력해 주세요.");
@@ -107,10 +124,14 @@ export default function MLManagementPage() {
         <h2>ML 관리</h2>
         <p>운영 모델 버전과 AI 라우팅을 관리합니다. MLflow 원본 등록·학습은 여기서 수행하지 않습니다.</p>
       </div>
-      <button type="button" className="admin-action" disabled={loading} onClick={() => void load()}>새로고침</button>
+      <div className="ml-header-actions">
+        <button type="button" className="admin-action admin-action--primary" disabled={loading || workingId === "mlflow-sync"} onClick={() => void syncMLflow()}>{workingId === "mlflow-sync" ? "동기화 중..." : "MLflow 동기화"}</button>
+        <button type="button" className="admin-action" disabled={loading} onClick={() => void load()}>새로고침</button>
+      </div>
     </header>
 
     {error && <p className="admin-message admin-message--error">{error}</p>}
+    {syncResult && <p className={`admin-message ${syncResult.errors ? "admin-message--error" : "admin-message--success"}`}>발견 {syncResult.discovered} / 신규 {syncResult.created} / 업데이트 {syncResult.updated} / 건너뜀 {syncResult.skipped} / 오류 {syncResult.errors}</p>}
     {loading && <div className="clinical-card admin-table-empty">ML 관리 정보를 불러오는 중입니다.</div>}
 
     {!loading && overview && <>

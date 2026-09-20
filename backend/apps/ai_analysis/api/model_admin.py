@@ -9,6 +9,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.ai_analysis.models import AIModel, AIModelConfigVersion, AIRoutingConfigVersion, ModelVersion
+from apps.ai_analysis.services.mlflow_registry import MLflowRegistryError
+from apps.ai_analysis.services.mlflow_sync import MLflowModelVersionSyncService
 from apps.audit.services.audit_event import record_audit_event
 
 
@@ -90,6 +92,26 @@ class MLModelOverviewView(APIView):
             "versions": [_model_version_payload(version) for version in versions],
             "routing_configs": [_routing_payload(routing) for routing in routings],
         })
+
+
+class MLflowModelVersionSyncView(APIView):
+    """Import Registry metadata without changing model approval or routing."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        _require_system_admin(request)
+        try:
+            result = MLflowModelVersionSyncService().sync(request=request)
+        except MLflowRegistryError:
+            return Response(
+                {
+                    "code": "MLFLOW_UNAVAILABLE",
+                    "detail": "MLflow Registry synchronization is unavailable.",
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        return Response(result.as_dict())
 
 
 class MLModelVersionApproveView(APIView):

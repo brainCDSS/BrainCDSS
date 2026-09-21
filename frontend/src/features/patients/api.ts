@@ -19,6 +19,47 @@ export interface PatientTimelineResponse {
   results: PatientTimelineEvent[];
 }
 
+export type AllergySeverity = "MILD" | "MODERATE" | "SEVERE";
+
+export interface PatientAllergy {
+  id: string;
+  patient_id?: string;
+  substance: string | null;
+  reaction: string | null;
+  severity: AllergySeverity;
+  status: "ACTIVE" | "INACTIVE";
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface PatientAllergyListResponse {
+  results: PatientAllergy[];
+}
+
+export function getPatientAllergies(patientId: string): Promise<PatientAllergyListResponse> {
+  return apiRequest<PatientAllergyListResponse>(
+    `/api/v1/patients/${encodeURIComponent(patientId)}/allergies`,
+  );
+}
+
+export function createPatientAllergy(
+  patientId: string,
+  payload: {
+    substance: string;
+    reaction?: string;
+    severity: AllergySeverity;
+  },
+): Promise<PatientAllergy> {
+  return apiRequest<PatientAllergy>(
+    `/api/v1/patients/${encodeURIComponent(patientId)}/allergies`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
 
 /**
  * 환자 목록 조회

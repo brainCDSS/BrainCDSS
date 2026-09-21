@@ -51,6 +51,7 @@ class AssessmentDetailItemSerializer(serializers.Serializer):
 class AssessmentEncounterListItemSerializer(serializers.Serializer):
     assessment_id = serializers.UUIDField()
     encounter_id = serializers.UUIDField()
+    patient_id = serializers.UUIDField()
     status = serializers.CharField()
     total_score = serializers.IntegerField(allow_null=True)
     triage_priority = serializers.CharField(allow_null=True)

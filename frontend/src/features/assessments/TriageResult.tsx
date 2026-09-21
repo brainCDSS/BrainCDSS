@@ -27,6 +27,10 @@ interface TriageSummary {
   bpDia: string;
   heartRate: string;
   temperature: string;
+  spO2: string;
+  heightCm: string;
+  weightKg: string;
+  bmi: number | null;
   lkwAt: string;
 }
 
@@ -576,6 +580,66 @@ export default function TriageResult({
                   "-"
                 }
                 {" mmHg"}
+              </dd>
+
+            </div>
+
+            <div>
+
+              <dt>
+                SpO₂
+              </dt>
+
+              <dd>
+                {summary.spO2 || "-"}
+                {summary.spO2 ? " %" : ""}
+              </dd>
+
+            </div>
+
+            <div>
+
+              <dt>
+                신체 계측
+              </dt>
+
+              <dd>
+                {summary.heightCm || "-"}
+                {summary.heightCm ? " cm" : ""}
+                {" / "}
+                {summary.weightKg || "-"}
+                {summary.weightKg ? " kg" : ""}
+                {summary.bmi === null ? "" : ` · BMI ${summary.bmi.toFixed(1)}`}
+              </dd>
+
+            </div>
+
+            <div>
+
+              <dt>
+                SpO₂
+              </dt>
+
+              <dd>
+                {summary.spO2 || "-"}
+                {summary.spO2 ? " %" : ""}
+              </dd>
+
+            </div>
+
+            <div>
+
+              <dt>
+                신체 계측
+              </dt>
+
+              <dd>
+                {summary.heightCm || "-"}
+                {summary.heightCm ? " cm" : ""}
+                {" / "}
+                {summary.weightKg || "-"}
+                {summary.weightKg ? " kg" : ""}
+                {summary.bmi === null ? "" : ` · BMI ${summary.bmi.toFixed(1)}`}
               </dd>
 
             </div>

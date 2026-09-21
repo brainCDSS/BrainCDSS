@@ -30,6 +30,7 @@ const NEW_WORK_GROUPS: Array<{
     label: "관리자",
     items: [
       { key: "admin-users", icon: "관리" },
+      { key: "admin-ml", icon: "ML" },
       { key: "admin-settings", icon: "설정" },
     ],
   },

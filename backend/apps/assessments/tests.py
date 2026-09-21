@@ -1,5 +1,6 @@
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from rest_framework.test import APITestCase
 
 from apps.accounts.models import Role, RoleCode, User
@@ -397,7 +398,10 @@ class EmergencyWorklistAPITests(APITestCase):
             ],
         )
         self.assertEqual(item["event"]["id"], str(self.event.id))
-        self.assertEqual(item["arrived_at"], self.encounter.arrived_at.isoformat().replace("+00:00", "Z"))
+        self.assertEqual(
+            parse_datetime(item["arrived_at"]),
+            self.encounter.arrived_at,
+        )
         self.assertEqual(item["assessor"]["name"], "Assessment nurse")
         bp = next(value for value in item["assessment_items"] if value["item_code"] == "BP_SYS")
         self.assertEqual(bp["value_numeric"], "0.00")

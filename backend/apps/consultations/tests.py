@@ -447,6 +447,8 @@ class ConsultationListResponseTests(APITestCase):
         self.assertEqual(response.status_code, 201)
         notification = Notification.objects.get(
             recipient_user=self.assignee,
+            data_json__event_type="CONSULTATION_REQUESTED",
+            data_json__consultation_id=response.json()["consultation_id"],
         )
         self.assertEqual(notification.category, "CONSULTATION")
         self.assertEqual(notification.severity, "WARNING")

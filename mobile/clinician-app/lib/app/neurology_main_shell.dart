@@ -35,6 +35,7 @@ class _NeurologyMainShellState extends State<NeurologyMainShell> {
   Widget? _detailPage;
   Widget? _detailBackPage;
   int _emergencyRefreshVersion = 0;
+  int _consultationRefreshVersion = 0;
   late final List<Widget> _pages;
 
   @override
@@ -49,6 +50,7 @@ class _NeurologyMainShellState extends State<NeurologyMainShell> {
       NeurologyPatientsPage(
         apiClient: widget.apiClient,
         currentUserId: widget.user.id,
+        onOpenConsultationDetail: _openConsultationDetail,
       ),
       NeurologyHomePage(
         apiClient: widget.apiClient,
@@ -59,6 +61,7 @@ class _NeurologyMainShellState extends State<NeurologyMainShell> {
         onOpenConsultationDetail: _openConsultationDetail,
       ),
       NeurologyConsultationsPage(
+        key: ValueKey('neurology-consultations-$_consultationRefreshVersion'),
         apiClient: widget.apiClient,
         onOpenDetail: _openConsultationDetail,
       ),
@@ -147,6 +150,12 @@ class _NeurologyMainShellState extends State<NeurologyMainShell> {
       _assistantPage = null;
       _selectedIndex = 3;
       _detailBackPage = null;
+      _consultationRefreshVersion++;
+      _pages[3] = NeurologyConsultationsPage(
+        key: ValueKey('neurology-consultations-$_consultationRefreshVersion'),
+        apiClient: widget.apiClient,
+        onOpenDetail: _openConsultationDetail,
+      );
       _detailPage = NeurologyConsultationDetailPage(
         key: ValueKey('neurology-consultation-$consultationId'),
         apiClient: widget.apiClient,

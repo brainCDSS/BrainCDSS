@@ -212,6 +212,7 @@ class _NeurologyConsultationsPageState
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
                                         color: radiologyNavy,
+                                        fontSize: 16,
                                         fontWeight: FontWeight.w800,
                                       ),
                                     ),
@@ -219,26 +220,25 @@ class _NeurologyConsultationsPageState
                                   _StatusChip(status: consultation.status),
                                 ],
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                [
-                                  if (consultation.patientNo.isNotEmpty)
-                                    consultation.patientNo,
-                                  _consultationTypeLabel(consultation.type),
-                                ].join(' · '),
-                                style: const TextStyle(
-                                  color: radiologyMuted,
-                                  fontSize: 12,
+                              if (consultation.patientNo.isNotEmpty) ...[
+                                const SizedBox(height: 3),
+                                Text(
+                                  consultation.patientNo,
+                                  style: const TextStyle(
+                                    color: radiologyMuted,
+                                    fontSize: 12,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 5),
+                              ],
+                              const SizedBox(height: 7),
                               Text(
                                 _assigneeLabel(consultation),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   color: radiologyNavy,
-                                  fontSize: 12,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                               const SizedBox(height: 4),
@@ -537,21 +537,25 @@ class _RetryCard extends StatelessWidget {
 
 String _assigneeLabel(NeurologyConsultation consultation) {
   final values = [
-    consultation.assigneeDepartment,
-    consultation.assigneeName,
+    if (consultation.type.isNotEmpty) _consultationTypeLabel(consultation.type),
+    if (consultation.assigneeName.isNotEmpty)
+      consultation.assigneeName
+    else if (consultation.assigneeDepartment.isNotEmpty)
+      _consultationTypeLabel(consultation.assigneeDepartment),
   ].where((value) => value.isNotEmpty).toList(growable: false);
-  return values.isEmpty ? '배정 의료진 정보 없음' : values.join(' ');
+  return values.isEmpty ? '배정 의료진 정보 없음' : values.join(' · ');
 }
 
 String _consultationTypeLabel(String value) => switch (value) {
-      'RADIOLOGY' => '영상의학과 협진',
-      'NEUROSURGERY' => '신경외과 협진',
+      'RADIOLOGY' => '영상의학과',
+      'NEUROSURGERY' => '신경외과',
+      'NEUROSURGEON' => '신경외과',
       _ => value.isEmpty ? '협진 대상 정보 없음' : value,
     };
 
 String _priorityLabel(String value) => switch (value) {
       'STAT' => '긴급',
-      'URGENT' => '우선',
+      'URGENT' => '응급',
       'ROUTINE' => '일반',
       _ => value.isEmpty ? '우선순위 정보 없음' : value,
     };

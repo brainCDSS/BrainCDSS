@@ -199,66 +199,50 @@ textarea {
 .header-product {
   display: flex;
 
+  width: 100%;
+  height: 100%;
+
   align-items: center;
 
   gap: 10px;
 
   min-width: 0;
+
+  overflow: hidden;
 }
 
-
-/* B Logo */
-
-.brand-mark {
-  display: flex;
+.header-brand-logo {
+  display: block;
 
   width: 40px;
   height: 40px;
 
   flex-shrink: 0;
 
-  align-items: center;
-  justify-content: center;
-
-  border-radius: 10px;
-
-  background: rgba(255, 255, 255, 0.16);
-
-  color: #ffffff;
-
-  font-size: 18px;
-  font-weight: 800;
+  object-fit: contain;
+  object-position: center;
 }
-
-
-/* Brand Text */
 
 .header-product-text {
   display: flex;
-
   min-width: 0;
-
   flex-direction: column;
+  justify-content: center;
 }
-
 
 .header-product-text strong {
   color: #ffffff;
-
   font-size: 14px;
   font-weight: 800;
-
+  line-height: 1.2;
   white-space: nowrap;
 }
 
-
 .header-product-text span {
-  margin-top: 2px;
-
-  color: rgba(255, 255, 255, 0.68);
-
+  margin-top: 3px;
+  color: rgba(255, 255, 255, 0.72);
   font-size: 9px;
-
+  line-height: 1.2;
   white-space: nowrap;
 }
 

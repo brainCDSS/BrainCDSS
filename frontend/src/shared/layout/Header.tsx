@@ -577,33 +577,33 @@ export default function Header({
   return (
     <header className="header">
 
-      {/* =====================================================
-          1. Brand
-          ===================================================== */}
+{/* =====================================================
+    1. Brand
+    ===================================================== */}
 
-      <div className="header-brand-slot">
+<div className="header-brand-slot">
+  <div className="header-product">
 
-        <div className="header-product">
+    <img
+      src="/brainon-logo.png"
+      alt="Brain On logo"
+      className="header-brand-logo"
+    />
 
-          <div className="brand-mark">
-            B
-          </div>
+    <div className="header-product-text">
+      <strong>
+        Brain On
+      </strong>
 
-          <div className="header-product-text">
+      <span>
+        Clinical Decision Support System
+      </span>
+    </div>
 
-            <strong>
-              Brain CDSS
-            </strong>
+  </div>
+</div>
 
-            <span>
-              Clinical Decision Support
-            </span>
 
-          </div>
-
-        </div>
-
-      </div>
 
 
       {/* =====================================================

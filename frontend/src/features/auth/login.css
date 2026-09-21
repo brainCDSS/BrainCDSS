@@ -96,19 +96,15 @@
   margin-bottom: 58px;
 }
 
-.login-introduction-mark {
-  display: flex;
-  width: 64px;
-  height: 64px;
-  flex: 0 0 64px;
-  align-items: center;
-  justify-content: center;
+.login-introduction-logo {
+  width: 72px;
+  height: 72px;
+  flex: 0 0 72px;
+  padding: 8px;
   border-radius: 16px;
-  background: linear-gradient(145deg, #5fa1f1, var(--login-primary));
-  color: #fff;
-  font-size: 29px;
-  font-weight: 800;
-  box-shadow: 0 10px 24px rgba(79, 143, 232, 0.22);
+  border: 1px solid #cbdff8;
+  background: #dfeeff;
+  object-fit: contain;
 }
 
 .login-introduction-brand > div:last-child { display: flex; min-width: 0; flex-direction: column; }
@@ -194,7 +190,7 @@
 .login-card {
   position: relative;
   width: 100%;
-  transform: translateX(28px);
+  transform: translate(28px, 56px);
   padding: 50px 46px 40px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.92);
@@ -226,20 +222,15 @@
 }
 
 .login-brand { display: flex; flex-direction: column; align-items: center; margin-bottom: 32px; text-align: center; }
-.login-brand::before {
-  display: flex;
-  width: 58px;
-  height: 58px;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 14px;
-  border-radius: 15px;
-  background: linear-gradient(145deg, #5fa1f1, var(--login-primary));
-  color: #fff;
-  content: "B";
-  font-size: 27px;
-  font-weight: 800;
-  box-shadow: 0 10px 24px rgba(79, 143, 232, 0.2);
+.login-card-logo {
+  width: 68px;
+  height: 68px;
+  margin-bottom: 12px;
+  padding: 8px;
+  border-radius: 16px;
+  border: 1px solid #cbdff8;
+  background: #dfeeff;
+  object-fit: contain;
 }
 
 .login-brand-name { color: var(--login-text); font-size: 27px; font-weight: 800; line-height: 1; letter-spacing: -0.04em; }
@@ -393,7 +384,7 @@
   .login-introduction-description { margin-top: 22px; font-size: 15px; }
   .login-feature-list { margin-top: 34px; }
   .login-feature-item { padding: 0 15px; font-size: 13px; }
-  .login-card { transform: translateX(14px); padding: 36px 34px 30px; }
+  .login-card { transform: translate(14px, 52px); padding: 36px 34px 30px; }
 }
 
 @media (max-width: 1100px) {
@@ -408,7 +399,7 @@
 
 @media (max-width: 600px) {
   .login-page { padding: 24px 16px; }
-  .login-introduction-mark { width: 50px; height: 50px; flex-basis: 50px; font-size: 23px; }
+  .login-introduction-logo { width: 50px; height: 50px; flex-basis: 50px; }
   .login-introduction-brand strong { font-size: 25px; }
   .login-introduction-copy h1 { font-size: 29px; }
   .login-introduction-description { font-size: 13px; }

@@ -98,3 +98,106 @@ otelcol.receiver.otlp "default" {
     traces  = []
   }
 }
+
+
+
+// ==========================================================
+// BRAINON_DOCKER_LOG_PIPELINE
+//
+// Local operational logs only.
+//
+// Orthanc/DICOM container logs are intentionally excluded until
+// PHI-specific log redaction rules are formally defined.
+// ==========================================================
+
+discovery.docker "brainon_logs" {
+  host = "unix:///var/run/docker.sock"
+}
+
+
+discovery.relabel "brainon_logs" {
+  targets = discovery.docker.brainon_logs.targets
+
+  // BrainOn operational containers only.
+  rule {
+    source_labels = [
+      "__meta_docker_container_label_com_docker_compose_service",
+    ]
+
+    regex = "(backend|frontend|celery-worker|celery-inference-worker|celery-beat|celery-monitor|service-probe|rabbitmq|prometheus|grafana)"
+
+    action = "keep"
+  }
+
+
+  rule {
+    source_labels = [
+      "__meta_docker_container_label_com_docker_compose_service",
+    ]
+
+    target_label = "service"
+  }
+
+
+  rule {
+    source_labels = [
+      "__meta_docker_container_name",
+    ]
+
+    regex       = "/(.*)"
+    replacement = "$1"
+    target_label = "container"
+  }
+}
+
+
+loki.source.docker "brainon" {
+  host = "unix:///var/run/docker.sock"
+
+  targets = discovery.relabel.brainon_logs.output
+
+  labels = {
+    environment = "local",
+    system      = "brainon",
+  }
+
+  forward_to = [
+    loki.process.brainon.receiver,
+  ]
+}
+
+
+loki.process "brainon" {
+
+  // Never retain obvious secret-bearing log lines.
+  stage.drop {
+    expression = "(?i).*(authorization|bearer|password|secret|api[_-]?key).*"
+
+    drop_counter_reason = "sensitive_line"
+  }
+
+
+  // Avoid accidental large payload / request-body ingestion.
+  stage.drop {
+    longer_than = "64KB"
+
+    drop_counter_reason = "oversized_line"
+  }
+
+
+  forward_to = [
+    loki.write.brainon_local.receiver,
+  ]
+}
+
+
+loki.write "brainon_local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+
+  external_labels = {
+    environment = "local",
+    system      = "brainon",
+  }
+}

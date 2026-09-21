@@ -503,18 +503,23 @@
       },
       "fieldConfig": {
         "defaults": {
-          "noValue": "N/A",
+          "unit": "short",
+          "decimals": 0,
           "mappings": [
             {
               "type": "value",
               "options": {
-                "0": {
-                  "text": "장애",
-                  "color": "#DC2626"
-                },
                 "1": {
-                  "text": "정상",
-                  "color": "#059669"
+                  "text": "UP",
+                  "color": "green"
+                },
+                "0": {
+                  "text": "DOWN",
+                  "color": "red"
+                },
+                "-1": {
+                  "text": "AUTH N/A",
+                  "color": "orange"
                 }
               }
             }
@@ -523,14 +528,17 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#DC2626",
+                "color": "red",
                 "value": null
               },
               {
-                "color": "#059669",
+                "color": "green",
                 "value": 1
               }
             ]
+          },
+          "color": {
+            "mode": "thresholds"
           }
         },
         "overrides": []
@@ -544,11 +552,10 @@
           "fields": ""
         },
         "orientation": "auto",
-        "textMode": "value",
+        "textMode": "value_and_name",
         "colorMode": "background",
         "graphMode": "none",
-        "justifyMode": "center",
-        "wideLayout": false
+        "justifyMode": "center"
       },
       "targets": [
         {
@@ -558,12 +565,12 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "max(brainon_service_up{service=\"backend\"})",
+          "expr": "max(up{job=\"brainon-backend\"})",
           "instant": true,
           "range": false
         }
       ],
-      "description": "BrainOn Django Backend Prometheus scrape 상태.",
+      "description": "Prometheus가 실제 Backend metrics endpoint를 scrape한 상태.",
       "transparent": false
     },
     {
@@ -582,18 +589,43 @@
       },
       "fieldConfig": {
         "defaults": {
-          "noValue": "N/A",
+          "unit": "short",
+          "decimals": 0,
           "mappings": [
             {
               "type": "value",
               "options": {
                 "1": {
-                  "text": "정상",
-                  "color": "#059669"
+                  "text": "UP",
+                  "color": "green"
+                },
+                "0": {
+                  "text": "DOWN",
+                  "color": "red"
+                },
+                "-1": {
+                  "text": "AUTH N/A",
+                  "color": "orange"
                 }
               }
             }
-          ]
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
         },
         "overrides": []
       },
@@ -606,11 +638,10 @@
           "fields": ""
         },
         "orientation": "auto",
-        "textMode": "value",
+        "textMode": "value_and_name",
         "colorMode": "background",
         "graphMode": "none",
-        "justifyMode": "center",
-        "wideLayout": false
+        "justifyMode": "center"
       },
       "targets": [
         {
@@ -620,12 +651,12 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "max(brainon_service_up{service=\"postgresql\"})",
+          "expr": "max(brainon_service_health_state{job=\"brainon-service-probe\",service=\"postgresql\"})",
           "instant": true,
           "range": false
         }
       ],
-      "description": "Grafana PostgreSQL datasource 실제 연결 상태.",
+      "description": "Read-only SELECT 1 기반 실제 PostgreSQL 연결 상태.",
       "transparent": false
     },
     {
@@ -644,22 +675,43 @@
       },
       "fieldConfig": {
         "defaults": {
-          "noValue": "N/A",
+          "unit": "short",
+          "decimals": 0,
           "mappings": [
             {
               "type": "value",
               "options": {
-                "0": {
-                  "text": "장애",
-                  "color": "#DC2626"
-                },
                 "1": {
-                  "text": "정상",
-                  "color": "#059669"
+                  "text": "UP",
+                  "color": "green"
+                },
+                "0": {
+                  "text": "DOWN",
+                  "color": "red"
+                },
+                "-1": {
+                  "text": "AUTH N/A",
+                  "color": "orange"
                 }
               }
             }
-          ]
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
         },
         "overrides": []
       },
@@ -672,7 +724,7 @@
           "fields": ""
         },
         "orientation": "auto",
-        "textMode": "value",
+        "textMode": "value_and_name",
         "colorMode": "background",
         "graphMode": "none",
         "justifyMode": "center"
@@ -685,13 +737,12 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "max(up{job=\"celery-worker\"})",
-          "legendFormat": "",
-          "range": false,
-          "instant": true
+          "expr": "max(brainon_celery_workers_online{job=\"celery-monitor\"}) > bool 0",
+          "instant": true,
+          "range": false
         }
       ],
-      "description": "Celery exporter/worker metric 연결 후 실제 Worker 상태 표시.",
+      "description": "Celery heartbeat/event 기반 실제 worker 상태.",
       "transparent": false
     },
     {
@@ -710,18 +761,23 @@
       },
       "fieldConfig": {
         "defaults": {
-          "noValue": "N/A",
+          "unit": "short",
+          "decimals": 0,
           "mappings": [
             {
               "type": "value",
               "options": {
-                "0": {
-                  "text": "장애",
-                  "color": "#DC2626"
-                },
                 "1": {
-                  "text": "정상",
-                  "color": "#059669"
+                  "text": "UP",
+                  "color": "green"
+                },
+                "0": {
+                  "text": "DOWN",
+                  "color": "red"
+                },
+                "-1": {
+                  "text": "AUTH N/A",
+                  "color": "orange"
                 }
               }
             }
@@ -730,14 +786,17 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#DC2626",
+                "color": "red",
                 "value": null
               },
               {
-                "color": "#059669",
+                "color": "green",
                 "value": 1
               }
             ]
+          },
+          "color": {
+            "mode": "thresholds"
           }
         },
         "overrides": []
@@ -751,11 +810,10 @@
           "fields": ""
         },
         "orientation": "auto",
-        "textMode": "value",
+        "textMode": "value_and_name",
         "colorMode": "background",
         "graphMode": "none",
-        "justifyMode": "center",
-        "wideLayout": false
+        "justifyMode": "center"
       },
       "targets": [
         {
@@ -765,12 +823,12 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "max(brainon_service_up{service=\"prometheus\"})",
+          "expr": "max(up{job=\"prometheus\"})",
           "instant": true,
           "range": false
         }
       ],
-      "description": "Prometheus self-scrape 상태.",
+      "description": "Prometheus 자체 실제 scrape 상태.",
       "transparent": false
     },
     {
@@ -865,7 +923,7 @@
   "timezone": "browser",
   "title": "BrainOn · 운영 Overview",
   "uid": "brainon-admin-overview",
-  "version": 20,
+  "version": 21,
   "weekStart": "",
   "description": "BrainOn 시스템 핵심 KPI, 서비스 상태 및 최근 운영 이상 현황."
 }

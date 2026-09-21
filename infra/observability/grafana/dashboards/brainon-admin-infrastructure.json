@@ -95,20 +95,23 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "none",
+          "unit": "short",
           "decimals": 0,
-          "noValue": "0",
           "mappings": [
             {
               "type": "value",
               "options": {
+                "1": {
+                  "text": "UP",
+                  "color": "green"
+                },
                 "0": {
                   "text": "DOWN",
                   "color": "red"
                 },
-                "1": {
-                  "text": "UP",
-                  "color": "green"
+                "-1": {
+                  "text": "AUTH N/A",
+                  "color": "orange"
                 }
               }
             }
@@ -117,13 +120,17 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red"
+                "color": "red",
+                "value": null
               },
               {
                 "color": "green",
                 "value": 1
               }
             ]
+          },
+          "color": {
+            "mode": "thresholds"
           }
         },
         "overrides": []
@@ -145,12 +152,17 @@
       "targets": [
         {
           "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "editorMode": "code",
-          "expr": "max(brainon_service_up{service=\"backend\"})",
+          "expr": "max(up{job=\"brainon-backend\"})",
           "instant": true,
           "range": false
         }
-      ]
+      ],
+      "description": "Prometheus가 실제 Backend metrics endpoint를 scrape한 상태."
     },
     {
       "id": 3,
@@ -168,20 +180,23 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "none",
+          "unit": "short",
           "decimals": 0,
-          "noValue": "0",
           "mappings": [
             {
               "type": "value",
               "options": {
+                "1": {
+                  "text": "UP",
+                  "color": "green"
+                },
                 "0": {
                   "text": "DOWN",
                   "color": "red"
                 },
-                "1": {
-                  "text": "UP",
-                  "color": "green"
+                "-1": {
+                  "text": "AUTH N/A",
+                  "color": "orange"
                 }
               }
             }
@@ -190,13 +205,17 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red"
+                "color": "red",
+                "value": null
               },
               {
                 "color": "green",
                 "value": 1
               }
             ]
+          },
+          "color": {
+            "mode": "thresholds"
           }
         },
         "overrides": []
@@ -218,12 +237,17 @@
       "targets": [
         {
           "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "editorMode": "code",
-          "expr": "max(brainon_service_up{service=\"postgresql\"})",
+          "expr": "max(brainon_service_health_state{job=\"brainon-service-probe\",service=\"postgresql\"})",
           "instant": true,
           "range": false
         }
-      ]
+      ],
+      "description": "Read-only SELECT 1 기반 실제 PostgreSQL 연결 상태."
     },
     {
       "id": 4,
@@ -241,20 +265,23 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "none",
+          "unit": "short",
           "decimals": 0,
-          "noValue": "0",
           "mappings": [
             {
               "type": "value",
               "options": {
+                "1": {
+                  "text": "UP",
+                  "color": "green"
+                },
                 "0": {
                   "text": "DOWN",
                   "color": "red"
                 },
-                "1": {
-                  "text": "UP",
-                  "color": "green"
+                "-1": {
+                  "text": "AUTH N/A",
+                  "color": "orange"
                 }
               }
             }
@@ -263,13 +290,17 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red"
+                "color": "red",
+                "value": null
               },
               {
                 "color": "green",
                 "value": 1
               }
             ]
+          },
+          "color": {
+            "mode": "thresholds"
           }
         },
         "overrides": []
@@ -291,12 +322,17 @@
       "targets": [
         {
           "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "editorMode": "code",
-          "expr": "max(brainon_service_up{service=\"rabbitmq\"})",
+          "expr": "max(up{job=~\"rabbitmq|rabbitmq-per-object\"})",
           "instant": true,
           "range": false
         }
-      ]
+      ],
+      "description": "RabbitMQ Prometheus endpoint 실제 scrape 상태."
     },
     {
       "id": 5,
@@ -387,20 +423,23 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "none",
+          "unit": "short",
           "decimals": 0,
-          "noValue": "0",
           "mappings": [
             {
               "type": "value",
               "options": {
+                "1": {
+                  "text": "UP",
+                  "color": "green"
+                },
                 "0": {
                   "text": "DOWN",
                   "color": "red"
                 },
-                "1": {
-                  "text": "UP",
-                  "color": "green"
+                "-1": {
+                  "text": "AUTH N/A",
+                  "color": "orange"
                 }
               }
             }
@@ -409,13 +448,17 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red"
+                "color": "red",
+                "value": null
               },
               {
                 "color": "green",
                 "value": 1
               }
             ]
+          },
+          "color": {
+            "mode": "thresholds"
           }
         },
         "overrides": []
@@ -437,12 +480,17 @@
       "targets": [
         {
           "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "editorMode": "code",
-          "expr": "max(brainon_service_up{service=\"ai_inference\"})",
+          "expr": "max(brainon_service_health_state{job=\"brainon-service-probe\",service=\"ai_inference\"})",
           "instant": true,
           "range": false
         }
-      ]
+      ],
+      "description": "실제 inference /health 상태. 로컬 환경에 Cloud Run ID-token credentials가 없으면 AUTH N/A로 표시될 수 있음."
     },
     {
       "id": 7,
@@ -460,20 +508,23 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "none",
+          "unit": "short",
           "decimals": 0,
-          "noValue": "0",
           "mappings": [
             {
               "type": "value",
               "options": {
+                "1": {
+                  "text": "UP",
+                  "color": "green"
+                },
                 "0": {
                   "text": "DOWN",
                   "color": "red"
                 },
-                "1": {
-                  "text": "UP",
-                  "color": "green"
+                "-1": {
+                  "text": "AUTH N/A",
+                  "color": "orange"
                 }
               }
             }
@@ -482,13 +533,17 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red"
+                "color": "red",
+                "value": null
               },
               {
                 "color": "green",
                 "value": 1
               }
             ]
+          },
+          "color": {
+            "mode": "thresholds"
           }
         },
         "overrides": []
@@ -510,12 +565,17 @@
       "targets": [
         {
           "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "editorMode": "code",
-          "expr": "max(brainon_service_up{service=\"prometheus\"})",
+          "expr": "max(up{job=\"prometheus\"})",
           "instant": true,
           "range": false
         }
-      ]
+      ],
+      "description": "Prometheus 자체 실제 scrape 상태."
     },
     {
       "id": 8,
@@ -533,20 +593,23 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "none",
+          "unit": "short",
           "decimals": 0,
-          "noValue": "0",
           "mappings": [
             {
               "type": "value",
               "options": {
+                "1": {
+                  "text": "UP",
+                  "color": "green"
+                },
                 "0": {
                   "text": "DOWN",
                   "color": "red"
                 },
-                "1": {
-                  "text": "UP",
-                  "color": "green"
+                "-1": {
+                  "text": "AUTH N/A",
+                  "color": "orange"
                 }
               }
             }
@@ -555,13 +618,17 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red"
+                "color": "red",
+                "value": null
               },
               {
                 "color": "green",
                 "value": 1
               }
             ]
+          },
+          "color": {
+            "mode": "thresholds"
           }
         },
         "overrides": []
@@ -583,12 +650,17 @@
       "targets": [
         {
           "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "editorMode": "code",
-          "expr": "max(brainon_service_up{service=\"loki\"})",
+          "expr": "max(up{job=\"loki\"})",
           "instant": true,
           "range": false
         }
-      ]
+      ],
+      "description": "Loki /metrics 실제 scrape 상태."
     },
     {
       "id": 9,
@@ -1239,6 +1311,229 @@
         }
       ],
       "description": "Docker stdout/stderr → Grafana Alloy → Loki 실시간 로그."
+    },
+    {
+      "id": 25,
+      "type": "row",
+      "title": "실제 서비스 / DB 상태",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 44,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 26,
+      "type": "stat",
+      "title": "Frontend",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 45,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max(brainon_service_health_state{job=\"brainon-service-probe\",service=\"frontend\"})",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "description": "실제 Frontend HTTP 응답 상태.",
+      "transparent": false
+    },
+    {
+      "id": 27,
+      "type": "stat",
+      "title": "PostgreSQL Connections",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 45,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max(brainon_postgres_connections{job=\"brainon-service-probe\"})",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "description": "현재 BrainOn DB 실제 connection 수.",
+      "transparent": false
+    },
+    {
+      "id": 28,
+      "type": "stat",
+      "title": "PostgreSQL DB Size",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 45,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "decimals": 1,
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max(brainon_postgres_database_size_bytes{job=\"brainon-service-probe\"})",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "description": "현재 BrainOn PostgreSQL 실제 DB 크기.",
+      "transparent": false
+    },
+    {
+      "id": 29,
+      "type": "timeseries",
+      "title": "서비스 Probe 응답시간",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 49,
+        "w": 24,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 3,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "brainon_service_probe_duration_seconds{job=\"brainon-service-probe\"}",
+          "legendFormat": "{{service}}",
+          "range": true
+        }
+      ],
+      "description": "Backend / PostgreSQL / Orthanc / AI / Frontend / Grafana / Loki / Prometheus의 실제 probe latency.",
+      "transparent": false
     }
   ],
   "refresh": "30s",
@@ -1293,7 +1588,7 @@
   "timezone": "browser",
   "title": "BrainOn · Infrastructure",
   "uid": "brainon-admin-infrastructure",
-  "version": 2,
+  "version": 3,
   "weekStart": "",
   "description": "Backend, DB, Messaging, PACS, AI, Observability 서비스 상태."
 }

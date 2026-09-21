@@ -42,9 +42,31 @@ TASK_QUEUES = tuple(
 # Add a domain route here when a new asynchronous feature is introduced.
 # Celery evaluates these patterns in order.
 TASK_ROUTES = {
-    "apps.ai_analysis.tasks.*": {"queue": INFERENCE_QUEUE},
-    "apps.ai_analysis.run_*": {"queue": INFERENCE_QUEUE},
-    "apps.notifications.tasks.*": {"queue": NOTIFICATIONS_QUEUE},
-    "apps.common.outbox_tasks.*": {"queue": INTEGRATIONS_QUEUE},
-    "medication_safety.sync_mfds_dur_data": {"queue": INTEGRATIONS_QUEUE},
+    "apps.ai_analysis.tasks.*": {
+        "queue": INFERENCE_QUEUE,
+    },
+
+    "apps.ai_analysis.run_*": {
+        "queue": INFERENCE_QUEUE,
+    },
+
+    "apps.notifications.tasks.*": {
+        "queue": NOTIFICATIONS_QUEUE,
+    },
+
+    "apps.appointments.tasks.*": {
+        "queue": NOTIFICATIONS_QUEUE,
+    },
+
+    "apps.medications.tasks.*": {
+        "queue": NOTIFICATIONS_QUEUE,
+    },
+
+    "apps.common.outbox_tasks.*": {
+        "queue": INTEGRATIONS_QUEUE,
+    },
+
+    "medication_safety.sync_mfds_dur_data": {
+        "queue": INTEGRATIONS_QUEUE,
+    },
 }

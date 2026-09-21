@@ -308,6 +308,31 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+
+  service-probe:
+    profiles: ["observability"]
+    build:
+      context: ./backend
+    command:
+      - sh
+      - -c
+      - >-
+        unset PROMETHEUS_MULTIPROC_DIR;
+        exec python /opt/brainon-observability/service_probe.py
+    environment:
+      <<: *backend-env
+      BACKEND_URL: "http://backend:8080"
+      FRONTEND_URL: "http://frontend:8080"
+      GRAFANA_URL: "http://grafana:3000"
+      LOKI_URL: "http://loki:3100"
+      PROMETHEUS_URL: "http://prometheus:9090"
+      SERVICE_PROBE_PORT: "9810"
+    volumes:
+      - ./infra/observability/service-probe/service_probe.py:/opt/brainon-observability/service_probe.py:ro
+    expose:
+      - "9810"
+    restart: unless-stopped
+
   prometheus:
     profiles: ["observability"]
     image: prom/prometheus:v3.1.0
@@ -332,6 +357,7 @@ services:
     image: grafana/alloy:v1.5.1
     volumes:
       - ./infra/observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     command:
       - run
       - /etc/alloy/config.alloy

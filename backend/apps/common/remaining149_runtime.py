@@ -1564,9 +1564,42 @@ def _appointment_refresh(appointment):
     )
 
 
-def _create_appointment_notification(*, appointment, recipient_user, request, title, body):
-    """Notify only a concrete appointment owner; never infer a role-wide recipient."""
-    from apps.notifications.services.notifications import create_notification_for_user
+def _create_appointment_notification(
+    *,
+    appointment,
+    recipient_user,
+    request,
+    title,
+    body,
+    event_type=None,
+):
+    """
+    Appointment 관련 Notification 생성.
+
+    Notification DB row만 생성한다.
+    실제 FCM 발송은 기존 notifications signal / Celery 경로가 담당한다.
+
+    recipient_user는 반드시 구체적인 User 객체여야 하며
+    역할 전체에 알림을 뿌리지 않는다.
+    """
+    from apps.notifications.services.notifications import (
+        create_notification_for_user,
+    )
+
+    if recipient_user is None:
+        return None
+
+    data_json = {
+        "patient_id": str(appointment.patient_id),
+        "resource_type": "Appointment",
+        "resource_id": str(appointment.id),
+        "actor_user_id": str(request.user.id),
+        "appointment_status": str(appointment.status),
+        "request_type": str(appointment.request_type),
+    }
+
+    if event_type:
+        data_json["event_type"] = event_type
 
     return create_notification_for_user(
         recipient_user=recipient_user,
@@ -1574,77 +1607,152 @@ def _create_appointment_notification(*, appointment, recipient_user, request, ti
         severity="INFO",
         title=title,
         body=body,
-        data_json={
-            "patient_id": str(appointment.patient_id),
-            "resource_type": "Appointment",
-            "resource_id": str(appointment.id),
-            "actor_user_id": str(request.user.id),
-        },
+        data_json=data_json,
     )
 
 
 @transaction.atomic
 def _appointment_accept(request, spec, kwargs):
     appointment = _appointment_locked(kwargs)
+
     is_new_request = appointment.status == "REQUESTED"
+
     is_reschedule = (
         appointment.status == "CONFIRMED"
         and appointment.requested_slot_id is not None
     )
+
     if not is_new_request and not is_reschedule:
         raise ContractConflict({
             "code": "APPOINTMENT_ALREADY_PROCESSED",
-            "detail": "The appointment has no request that can be accepted.",
+            "detail": (
+                "The appointment has no request "
+                "that can be accepted."
+            ),
         })
-    slots = _appointment_slots_locked(appointment)
-    current_slot = slots[appointment.slot_id]
+
+    slots = _appointment_slots_locked(
+        appointment
+    )
+
+    current_slot = slots[
+        appointment.slot_id
+    ]
+
     requested_slot = (
         slots[appointment.requested_slot_id]
         if is_reschedule
         else None
     )
-    slot_to_book = requested_slot or current_slot
+
+    slot_to_book = (
+        requested_slot
+        or current_slot
+    )
+
     now = timezone.now()
+
     if (
         slot_to_book.status != "HELD"
         or slot_to_book.held_until is None
         or slot_to_book.held_until <= now
-        or (is_reschedule and current_slot.status != "BOOKED")
+        or (
+            is_reschedule
+            and current_slot.status != "BOOKED"
+        )
     ):
         raise ContractConflict({
             "code": "APPOINTMENT_SLOT_CONFLICT",
-            "detail": "The appointment slot is not actively held.",
+            "detail": (
+                "The appointment slot "
+                "is not actively held."
+            ),
         })
 
     previous = appointment.status
-    before = serialize_instance(appointment)
-    reason = _appointment_action_reason(request, "memo", "reason")
+
+    before = serialize_instance(
+        appointment
+    )
+
+    reason = _appointment_action_reason(
+        request,
+        "memo",
+        "reason",
+    )
+
+    # ------------------------------------------------------
+    # 예약 변경 승인인 경우
+    # 기존 BOOKED Slot을 해제한다.
+    # ------------------------------------------------------
+
     if requested_slot is not None:
         current_slot.status = "AVAILABLE"
         current_slot.held_until = None
         current_slot.version += 1
-        current_slot.save(update_fields=["status", "held_until", "version"])
+
+        current_slot.save(
+            update_fields=[
+                "status",
+                "held_until",
+                "version",
+            ]
+        )
+
+    # ------------------------------------------------------
+    # 신규 예약 또는 변경 요청 Slot 확정
+    # HELD -> BOOKED
+    # ------------------------------------------------------
+
     slot_to_book.status = "BOOKED"
     slot_to_book.held_until = None
     slot_to_book.version += 1
-    slot_to_book.save(update_fields=["status", "held_until", "version"])
+
+    slot_to_book.save(
+        update_fields=[
+            "status",
+            "held_until",
+            "version",
+        ]
+    )
+
+    # ------------------------------------------------------
+    # Appointment 확정
+    # ------------------------------------------------------
+
     appointment.status = "CONFIRMED"
+
     if requested_slot is not None:
         appointment.slot = requested_slot
         appointment.requested_slot = None
+
     appointment.confirmed_at = now
     appointment.handled_by = request.user
     appointment.reschedule_requested_at = None
     appointment.updated_at = now
-    appointment.save(update_fields=[
-        "status", "slot", "requested_slot", "confirmed_at", "handled_by",
-        "reschedule_requested_at", "updated_at",
-    ])
+
+    appointment.save(
+        update_fields=[
+            "status",
+            "slot",
+            "requested_slot",
+            "confirmed_at",
+            "handled_by",
+            "reschedule_requested_at",
+            "updated_at",
+        ]
+    )
+
+    # ------------------------------------------------------
+    # 예약 변경 이력
+    # ------------------------------------------------------
+
     if requested_slot is not None:
         reschedule_history_model = apps.get_model(
             "appointments",
             "AppointmentRescheduleHistory",
         )
+
         reschedule_history_model.objects.create(
             appointment=appointment,
             previous_slot=current_slot,
@@ -1653,79 +1761,328 @@ def _appointment_accept(request, spec, kwargs):
             reschedule_reason=reason,
             changed_by=request.user,
         )
-    _appointment_history(appointment, previous, "CONFIRMED", request, reason)
-    appointment = _appointment_refresh(appointment)
-    after = _appointment_payload(appointment)
-    after["confirmed_by"] = _appointment_user_payload(request.user)
-    _audit(request, spec, appointment, before, after)
-    _outbox(spec, appointment, after)
-    return Response(after, status=200)
 
+    # ------------------------------------------------------
+    # 상태 이력
+    # ------------------------------------------------------
+
+    _appointment_history(
+        appointment,
+        previous,
+        "CONFIRMED",
+        request,
+        reason,
+    )
+
+    appointment = _appointment_refresh(
+        appointment
+    )
+
+    after = _appointment_payload(
+        appointment
+    )
+
+    after["confirmed_by"] = (
+        _appointment_user_payload(
+            request.user
+        )
+    )
+
+    # ------------------------------------------------------
+    # Audit + Outbox
+    # ------------------------------------------------------
+
+    _audit(
+        request,
+        spec,
+        appointment,
+        before,
+        after,
+    )
+
+    _outbox(
+        spec,
+        appointment,
+        after,
+    )
+
+    # ======================================================
+    # Patient Notification
+    # ======================================================
+    #
+    # 신규 예약 승인
+    #   REQUESTED -> CONFIRMED
+    #
+    # 예약 변경 승인
+    #   기존 CONFIRMED 예약의 Slot 변경
+    #
+    # 환자 본인 계정에만 Notification을 생성한다.
+    # 실제 FCM Push는 기존 Notification signal/Celery가 담당한다.
+    # ======================================================
+
+    patient_user = appointment.patient.user
+
+    if patient_user is not None:
+
+        if is_reschedule:
+            notification_title = (
+                "예약 변경이 승인되었습니다"
+            )
+
+            notification_body = (
+                "예약 변경 요청이 승인되었습니다. "
+                "변경된 예약 일정을 확인해 주세요."
+            )
+
+        else:
+            notification_title = (
+                "예약이 확정되었습니다"
+            )
+
+            notification_body = (
+                "예약 요청이 승인되었습니다. "
+                "예약 일정을 확인해 주세요."
+            )
+
+        _create_appointment_notification(
+            appointment=appointment,
+            recipient_user=patient_user,
+            request=request,
+            title=notification_title,
+            body=notification_body,
+            event_type="APPOINTMENT_ACCEPTED",
+        )
+
+    return Response(
+        after,
+        status=200,
+    )
 
 @transaction.atomic
 def _appointment_reject(request, spec, kwargs):
-    reason = _appointment_action_reason(request, "rejection_reason")
+    reason = _appointment_action_reason(
+        request,
+        "rejection_reason",
+    )
+
     if reason is None:
         raise ContractError({
             "code": "VALIDATION_ERROR",
-            "rejection_reason": "This field is required.",
+            "rejection_reason": (
+                "This field is required."
+            ),
         })
-    appointment = _appointment_locked(kwargs)
-    is_new_request = appointment.status == "REQUESTED"
+
+    appointment = _appointment_locked(
+        kwargs
+    )
+
+    is_new_request = (
+        appointment.status == "REQUESTED"
+    )
+
     is_reschedule = (
         appointment.status == "CONFIRMED"
-        and appointment.requested_slot_id is not None
+        and appointment.requested_slot_id
+        is not None
     )
-    if not is_new_request and not is_reschedule:
+
+    if (
+        not is_new_request
+        and not is_reschedule
+    ):
         raise ContractConflict({
             "code": "APPOINTMENT_INVALID_STATE",
-            "detail": "The appointment has no request that can be rejected.",
+            "detail": (
+                "The appointment has no request "
+                "that can be rejected."
+            ),
         })
-    slots = _appointment_slots_locked(appointment)
-    current_slot = slots[appointment.slot_id]
+
+    slots = _appointment_slots_locked(
+        appointment
+    )
+
+    current_slot = slots[
+        appointment.slot_id
+    ]
+
     slot_to_release = (
         slots[appointment.requested_slot_id]
         if is_reschedule
         else current_slot
     )
+
     now = timezone.now()
+
     if (
         slot_to_release.status != "HELD"
         or slot_to_release.held_until is None
         or slot_to_release.held_until <= now
-        or (is_reschedule and current_slot.status != "BOOKED")
+        or (
+            is_reschedule
+            and current_slot.status != "BOOKED"
+        )
     ):
         raise ContractConflict({
             "code": "APPOINTMENT_SLOT_CONFLICT",
-            "detail": "The appointment slot is not actively held.",
+            "detail": (
+                "The appointment slot "
+                "is not actively held."
+            ),
         })
 
     previous = appointment.status
-    before = serialize_instance(appointment)
+
+    before = serialize_instance(
+        appointment
+    )
+
+    # ------------------------------------------------------
+    # 거절된 HELD Slot 반환
+    # ------------------------------------------------------
+
     slot_to_release.status = "AVAILABLE"
     slot_to_release.held_until = None
     slot_to_release.version += 1
-    slot_to_release.save(update_fields=["status", "held_until", "version"])
-    appointment.status = "CONFIRMED" if is_reschedule else "REJECTED"
+
+    slot_to_release.save(
+        update_fields=[
+            "status",
+            "held_until",
+            "version",
+        ]
+    )
+
+    # ------------------------------------------------------
+    # 신규 예약 거절
+    #
+    # REQUESTED -> REJECTED
+    #
+    # 예약 변경 요청 거절
+    #
+    # 기존 예약 자체는 CONFIRMED 유지
+    # requested_slot만 해제
+    # ------------------------------------------------------
+
+    appointment.status = (
+        "CONFIRMED"
+        if is_reschedule
+        else "REJECTED"
+    )
+
     appointment.rejection_reason = reason
     appointment.handled_by = request.user
     appointment.requested_slot = None
     appointment.reschedule_requested_at = None
     appointment.updated_at = now
-    appointment.save(update_fields=[
-        "status", "rejection_reason", "handled_by", "requested_slot",
-        "reschedule_requested_at", "updated_at",
-    ])
-    _appointment_history(appointment, previous, appointment.status, request, reason)
-    appointment = _appointment_refresh(appointment)
-    after = _appointment_payload(appointment)
-    after["rejected_by"] = _appointment_user_payload(request.user)
-    after["rejected_at"] = _safe_value(now)
-    after["released_slot"] = _appointment_slot_payload(slot_to_release)
-    _audit(request, spec, appointment, before, after)
-    _outbox(spec, appointment, after)
-    return Response(after, status=200)
 
+    appointment.save(
+        update_fields=[
+            "status",
+            "rejection_reason",
+            "handled_by",
+            "requested_slot",
+            "reschedule_requested_at",
+            "updated_at",
+        ]
+    )
+
+    # ------------------------------------------------------
+    # 상태 이력
+    # ------------------------------------------------------
+
+    _appointment_history(
+        appointment,
+        previous,
+        appointment.status,
+        request,
+        reason,
+    )
+
+    appointment = _appointment_refresh(
+        appointment
+    )
+
+    after = _appointment_payload(
+        appointment
+    )
+
+    after["rejected_by"] = (
+        _appointment_user_payload(
+            request.user
+        )
+    )
+
+    after["rejected_at"] = (
+        _safe_value(now)
+    )
+
+    after["released_slot"] = (
+        _appointment_slot_payload(
+            slot_to_release
+        )
+    )
+
+    # ------------------------------------------------------
+    # Audit + Outbox
+    # ------------------------------------------------------
+
+    _audit(
+        request,
+        spec,
+        appointment,
+        before,
+        after,
+    )
+
+    _outbox(
+        spec,
+        appointment,
+        after,
+    )
+
+    # ======================================================
+    # Patient Notification
+    # ======================================================
+
+    patient_user = appointment.patient.user
+
+    if patient_user is not None:
+
+        if is_reschedule:
+            notification_title = (
+                "예약 변경 요청이 거절되었습니다"
+            )
+
+            notification_body = (
+                "예약 변경 요청이 승인되지 않았습니다. "
+                "기존 예약 일정은 그대로 유지됩니다."
+            )
+
+        else:
+            notification_title = (
+                "예약 요청이 거절되었습니다"
+            )
+
+            notification_body = (
+                "예약 요청이 승인되지 않았습니다. "
+                "앱에서 상세 내용을 확인해 주세요."
+            )
+
+        _create_appointment_notification(
+            appointment=appointment,
+            recipient_user=patient_user,
+            request=request,
+            title=notification_title,
+            body=notification_body,
+            event_type="APPOINTMENT_REJECTED",
+        )
+
+    return Response(
+        after,
+        status=200,
+    )
 
 @transaction.atomic
 def _appointment_cancel(request, spec, kwargs):

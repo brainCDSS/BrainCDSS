@@ -252,24 +252,96 @@ CELERY_CONTROL_QUEUE_EXCLUSIVE = True
 CELERY_EVENT_QUEUE_EXCLUSIVE = True
 
 # ---------------------------------------------------------------------
+# Appointment Reminder (예약알림)
+# ---------------------------------------------------------------------
+# Default:
+# - remind patients once when a CONFIRMED appointment enters
+#   the next 24-hour window.
+# - process at most 200 appointments per Beat execution.
+#
+# Production values can be overridden through environment variables.
+
+APPOINTMENT_REMINDER_HOURS = int(
+    os.getenv(
+        "APPOINTMENT_REMINDER_HOURS",
+        "24",
+    )
+)
+
+APPOINTMENT_REMINDER_BATCH_SIZE = int(
+    os.getenv(
+        "APPOINTMENT_REMINDER_BATCH_SIZE",
+        "200",
+    )
+)
+
+# ---------------------------------------------------------------------
+# Medication Reminder (복약알림)
+# ---------------------------------------------------------------------
+# Default:
+# - notify patients when a MedicationSchedule enters
+#   the next 10-minute window;
+# - Celery Beat checks every 5 minutes;
+# - each MedicationSchedule is notified only once.
+
+MEDICATION_REMINDER_MINUTES = int(
+    os.getenv(
+        "MEDICATION_REMINDER_MINUTES",
+        "10",
+    )
+)
+
+MEDICATION_REMINDER_BATCH_SIZE = int(
+    os.getenv(
+        "MEDICATION_REMINDER_BATCH_SIZE",
+        "300",
+    )
+)
+
+# ---------------------------------------------------------------------
 # Celery Beat
 # ---------------------------------------------------------------------
 # 1) Outbox: promptly retry PENDING/FAILED domain events.
 # 2) MFDS DUR: refresh all seven reviewed reference-data types daily.
 CELERY_BEAT_SCHEDULE = {
     "publish-pending-outbox-events": {
-        "task": "apps.common.outbox_tasks.publish_pending_outbox_events",
-        "schedule": crontab(minute="*"),
+        "task":
+            "apps.common.outbox_tasks.publish_pending_outbox_events",
+        "schedule":
+            crontab(
+                minute="*",
+            ),
         "kwargs": {
             "limit": 100,
         },
     },
+
+    "send-appointment-reminders": {
+        "task":
+            "apps.appointments.tasks.send_appointment_reminders",
+        "schedule":
+            crontab(
+                minute="*/10", # 10분마다 확인
+            ),
+    },
+
+    "send-medication-reminders": {
+        "task":
+            "apps.medications.tasks.send_medication_reminders",
+        "schedule":
+            crontab(
+                minute="*/5",
+            ),
+    },
+
     "sync-mfds-dur-daily": {
-        "task": "medication_safety.sync_mfds_dur_data",
-        "schedule": crontab(
-            hour=3,
-            minute=30,
-        ),
+        "task":
+            "medication_safety.sync_mfds_dur_data",
+        "schedule":
+            crontab(
+                hour=3,
+                minute=30,
+            ),
         "kwargs": {
             "kind": "ALL",
             "dry_run": False,

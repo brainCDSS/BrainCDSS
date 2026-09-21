@@ -159,7 +159,11 @@ class _PatientMainShellState extends State<PatientMainShell> {
   }
 
   Future<void> _openChatbot() => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const AssistantPage()),
+        MaterialPageRoute(
+          builder: (_) => AssistantPage(
+            apiClient: widget.apiClient,
+          ),
+        ),
       );
 
   @override

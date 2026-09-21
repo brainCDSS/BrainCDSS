@@ -221,108 +221,13 @@ class AssistantMessageView(APIView):
 
         context = data["context"]
 
-        patient_id = context.get(
-            "patient_id"
-        )
-
-        scope = str(
-            context.get(
-                "scope",
-                "",
-            )
-        ).strip().upper()
-
-
         # ======================================================
-        # Assistant Context 정책
+        # 로그인 사용자 역할 확정
         # ======================================================
         #
-        # TODAY
-        #   → 특정 환자를 선택하지 않은 상태를 허용한다.
-        #
-        # PATIENT / ENCOUNTER
-        #   → 특정 환자 Context가 필요하다.
-        #
-        # 즉 모든 질문에서 patient_id를 강제하는 것이 아니라
-        # 요청 Context 종류에 따라 환자 필요 여부를 결정한다.
+        # role / patient_scope는 Client가 결정하지 않는다.
+        # JWT 인증이 끝난 request.user를 기준으로 서버가 확정한다.
         # ======================================================
-
-        requires_patient = (
-            scope
-            in {
-                "PATIENT",
-                "ENCOUNTER",
-            }
-        )
-
-
-        if (
-            requires_patient
-            and patient_id is None
-        ):
-            return Response(
-                {
-                    "code":
-                        "PATIENT_CONTEXT_REQUIRED",
-
-                    "detail":
-                        (
-                            "환자 기반 질문은 "
-                            "환자를 선택한 후 요청하세요."
-                        ),
-                },
-                status=(
-                    status
-                    .HTTP_400_BAD_REQUEST
-                ),
-            )
-
-
-        # ======================================================
-        # 실제 Patient 확인
-        # ======================================================
-        #
-        # patient_id가 있을 때만 Patient DB를 조회한다.
-        #
-        # TODAY / Global / 일반 질문
-        #   patient_id 없음
-        #   → patient = None
-        #
-        # PATIENT / ENCOUNTER
-        #   patient_id 있음
-        #   → 실제 Patient 존재 여부 확인
-        # ======================================================
-
-        patient = None
-
-        if patient_id is not None:
-            patient = (
-                Patient.objects
-                .filter(
-                    id=patient_id
-                )
-                .first()
-            )
-
-            if patient is None:
-                return Response(
-                    {
-                        "code":
-                            "PATIENT_NOT_FOUND",
-                    },
-                    status=(
-                        status
-                        .HTTP_404_NOT_FOUND
-                    ),
-                )
-
-            if not can_view_patient(request.user, patient.id):
-                return Response(
-                    {
-                        "code": "PATIENT_CONTEXT_FORBIDDEN",
-                    },
-                    status=status.HTTP_403_FORBIDDEN,
-                )
 
         role_code = _role_code(
             request.user
@@ -345,22 +250,154 @@ class AssistantMessageView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        #
-        # PATIENT 역할의 patient-account ownership은
-        # 최종 Patient/User 관계 정책 확정 후 연결한다.
-        #
-        # 현재 임상 Web E2E 대상은
-        # NURSE / NEUROLOGIST / NEUROSURGEON /
-        # RADIOLOGY이다.
-        #
-        if assistant_role == "patient":
-            return Response(
-                {
-                    "code":
-                        "PATIENT_ASSISTANT_SCOPE_NOT_IMPLEMENTED",
-                },
-                status=status.HTTP_403_FORBIDDEN,
+        requested_patient_id = context.get(
+            "patient_id"
+        )
+
+        requested_scope = str(
+            context.get(
+                "scope",
+                "",
             )
+        ).strip().upper()
+
+        patient = None
+
+        # ======================================================
+        # PATIENT Assistant Scope
+        # ======================================================
+        #
+        # Patient App의 patient_id를 신뢰하지 않는다.
+        #
+        # JWT request.user
+        #   -> Patient.user
+        #   -> 로그인한 사용자의 본인 Patient 확정
+        #
+        # 최종 patient_id / patient_scope는 아래에서
+        # 서버가 확정한 Patient로만 구성한다.
+        # ======================================================
+
+        if assistant_role == "patient":
+            patient = (
+                Patient.objects
+                .filter(
+                    user_id=request.user.id
+                )
+                .first()
+            )
+
+            if patient is None:
+                return Response(
+                    {
+                        "code":
+                            "PATIENT_ACCOUNT_NOT_LINKED",
+                        "detail":
+                            (
+                                "로그인 계정과 연결된 "
+                                "환자 정보가 없습니다."
+                            ),
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            # 정상 Patient App 요청은 patient_id를 보내지 않는다.
+            #
+            # 호환성을 위해 patient_id가 포함된 요청 자체는 받되,
+            # 로그인한 본인의 Patient UUID와 다르면 즉시 차단한다.
+            if (
+                requested_patient_id is not None
+                and requested_patient_id != patient.id
+            ):
+                return Response(
+                    {
+                        "code":
+                            "PATIENT_CONTEXT_FORBIDDEN",
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            # Patient 역할은 Client가 TODAY/ENCOUNTER 등을 보내도
+            # 항상 본인 Patient Context로 고정한다.
+            scope = "PATIENT"
+
+        # ======================================================
+        # Clinician Assistant Scope
+        # ======================================================
+        #
+        # 기존 임상의 Assistant 동작은 그대로 유지한다.
+        #
+        # TODAY
+        #   -> 특정 환자를 선택하지 않은 상태 허용
+        #
+        # PATIENT / ENCOUNTER
+        #   -> patient_id 필수
+        #   -> 기존 can_view_patient() 권한 검사 유지
+        # ======================================================
+
+        else:
+            scope = requested_scope
+
+            requires_patient = (
+                scope
+                in {
+                    "PATIENT",
+                    "ENCOUNTER",
+                }
+            )
+
+            if (
+                requires_patient
+                and requested_patient_id is None
+            ):
+                return Response(
+                    {
+                        "code":
+                            "PATIENT_CONTEXT_REQUIRED",
+
+                        "detail":
+                            (
+                                "환자 기반 질문은 "
+                                "환자를 선택한 후 요청하세요."
+                            ),
+                    },
+                    status=(
+                        status
+                        .HTTP_400_BAD_REQUEST
+                    ),
+                )
+
+            if requested_patient_id is not None:
+                patient = (
+                    Patient.objects
+                    .filter(
+                        id=requested_patient_id
+                    )
+                    .first()
+                )
+
+                if patient is None:
+                    return Response(
+                        {
+                            "code":
+                                "PATIENT_NOT_FOUND",
+                        },
+                        status=(
+                            status
+                            .HTTP_404_NOT_FOUND
+                        ),
+                    )
+
+                if not can_view_patient(
+                    request.user,
+                    patient.id,
+                ):
+                    return Response(
+                        {
+                            "code":
+                                "PATIENT_CONTEXT_FORBIDDEN",
+                        },
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
 
         trace_id = _trace_id(
             request
@@ -622,13 +659,10 @@ class AssistantMessageView(APIView):
             ),
 
             after_json={
+                # Client 요청값이 아니라 서버에서 최종 확정한
+                # 실제 Assistant scope를 Audit에 남긴다.
                 "scope":
-                    str(
-                        context.get(
-                            "scope",
-                            "",
-                        )
-                    ),
+                    scope,
 
                 "context_sources":
                     result.get(

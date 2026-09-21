@@ -82,3 +82,11 @@ scrape_configs:
     static_configs:
       - targets:
           - infra-monitor:9810
+
+  - job_name: brainon-service-probe
+    metrics_path: /metrics
+    scrape_interval: 15s
+    scrape_timeout: 12s
+    static_configs:
+      - targets:
+          - service-probe:9810

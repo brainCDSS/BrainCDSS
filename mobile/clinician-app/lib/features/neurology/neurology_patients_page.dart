@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../core/api/clinician_api_client.dart';
 import '../radiology/widgets/radiology_ui.dart';
 import 'neurology_clinical_records_page.dart';
+import 'neurology_consultation_create_page.dart';
 import 'neurology_imaging_pages.dart';
 
 class NeurologyPatientsPage extends StatefulWidget {
@@ -12,10 +13,12 @@ class NeurologyPatientsPage extends StatefulWidget {
     super.key,
     required this.apiClient,
     required this.currentUserId,
+    required this.onOpenConsultationDetail,
   });
 
   final ClinicianApiClient apiClient;
   final String currentUserId;
+  final ValueChanged<String> onOpenConsultationDetail;
 
   @override
   State<NeurologyPatientsPage> createState() => _NeurologyPatientsPageState();
@@ -133,6 +136,8 @@ class _NeurologyPatientsPageState extends State<NeurologyPatientsPage> {
                         apiClient: widget.apiClient,
                         patientId: patient.id,
                         currentUserId: widget.currentUserId,
+                        onOpenConsultationDetail:
+                            widget.onOpenConsultationDetail,
                       ),
                     ),
                   ),
@@ -209,11 +214,13 @@ class NeurologyPatientDetailPage extends StatefulWidget {
     required this.apiClient,
     required this.patientId,
     required this.currentUserId,
+    required this.onOpenConsultationDetail,
   });
 
   final ClinicianApiClient apiClient;
   final String patientId;
   final String currentUserId;
+  final ValueChanged<String> onOpenConsultationDetail;
 
   @override
   State<NeurologyPatientDetailPage> createState() =>
@@ -273,143 +280,176 @@ class _NeurologyPatientDetailPageState
     }
   }
 
+  Future<void> _openConsultationCreate(_NeurologyPatient patient) async {
+    final consultationId = await Navigator.of(context).push<String>(
+      MaterialPageRoute<String>(
+        builder: (_) => NeurologyConsultationCreatePage(
+          apiClient: widget.apiClient,
+          patientId: patient.id,
+          patientName: patient.name,
+          patientNo: patient.patientNo,
+          demographics: patient.demographics,
+        ),
+      ),
+    );
+    if (!mounted || consultationId == null || consultationId.isEmpty) return;
+    Navigator.of(context).pop();
+    widget.onOpenConsultationDetail(consultationId);
+  }
+
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('환자 상세')),
-        body: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : _error != null
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: _RetryCard(message: _error!, onRetry: _load),
-                    ),
-                  )
-                : ListView(
-                    padding: const EdgeInsets.all(20),
-                    children: [
-                      _PatientSummary(patient: _patient!),
-                      const SizedBox(height: 14),
-                      const RadiologySectionTitle(title: '기본 정보'),
-                      const SizedBox(height: 10),
-                      RadiologyInfoCard(
-                        child: Column(
-                          children: [
-                            _InfoRow(label: '생년월일', value: _patient!.birthDate),
-                            _InfoRow(
-                              label: '나이',
-                              value: _patient!.estimatedAge == null
-                                  ? null
-                                  : '${_patient!.estimatedAge}세',
-                            ),
-                            _InfoRow(label: '성별', value: _patient!.sex),
-                            _InfoRow(label: '연락처', value: _patient!.phone),
-                            _InfoRow(label: '환자 상태', value: _patient!.status),
-                          ],
+  Widget build(BuildContext context) {
+    final patient = _patient;
+    return Scaffold(
+      appBar: AppBar(title: const Text('환자 상세')),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: _RetryCard(message: _error!, onRetry: _load),
+                  ),
+                )
+              : patient == null
+                  ? const Center(
+                      child: Text('환자 정보를 불러오지 못했습니다.'),
+                    )
+                  : ListView(
+                      padding: const EdgeInsets.all(20),
+                      children: [
+                        _PatientSummary(patient: patient),
+                        const SizedBox(height: 14),
+                        const RadiologySectionTitle(title: '기본 정보'),
+                        const SizedBox(height: 10),
+                        RadiologyInfoCard(
+                          child: Column(
+                            children: [
+                              _InfoRow(label: '생년월일', value: patient.birthDate),
+                              _InfoRow(
+                                label: '나이',
+                                value: patient.estimatedAge == null
+                                    ? null
+                                    : '${patient.estimatedAge}세',
+                              ),
+                              _InfoRow(label: '성별', value: patient.sex),
+                              _InfoRow(label: '연락처', value: patient.phone),
+                              _InfoRow(label: '환자 상태', value: patient.status),
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 18),
-                      NeurologyPatientClinicalRecordsSection(
-                        apiClient: widget.apiClient,
-                        patientId: widget.patientId,
-                        currentUserId: widget.currentUserId,
-                      ),
-                      const SizedBox(height: 18),
-                      const RadiologySectionTitle(title: '최근 영상검사'),
-                      const SizedBox(height: 10),
-                      if (_studies.isEmpty)
-                        const RadiologyEmptyState(
-                          icon: Icons.image_search_outlined,
-                          message: '조회 가능한 영상검사가 없습니다.',
-                        )
-                      else
-                        ..._studies.map(
-                          (study) => Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(18),
-                              onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute<void>(
-                                  builder: (_) =>
-                                      NeurologyImagingStudyDetailPage(
-                                    apiClient: widget.apiClient,
-                                    studyId: study.id,
+                        const SizedBox(height: 14),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: () => _openConsultationCreate(patient),
+                            icon: const Icon(Icons.send_outlined),
+                            label: const Text('협진 요청'),
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        NeurologyPatientClinicalRecordsSection(
+                          apiClient: widget.apiClient,
+                          patientId: widget.patientId,
+                          currentUserId: widget.currentUserId,
+                        ),
+                        const SizedBox(height: 18),
+                        const RadiologySectionTitle(title: '최근 영상검사'),
+                        const SizedBox(height: 10),
+                        if (_studies.isEmpty)
+                          const RadiologyEmptyState(
+                            icon: Icons.image_search_outlined,
+                            message: '조회 가능한 영상검사가 없습니다.',
+                          )
+                        else
+                          ..._studies.map(
+                            (study) => Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(18),
+                                onTap: () => Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) =>
+                                        NeurologyImagingStudyDetailPage(
+                                      apiClient: widget.apiClient,
+                                      studyId: study.id,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              child: RadiologyInfoCard(
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      study.criticalFinding
-                                          ? Icons.warning_amber_rounded
-                                          : Icons.image_outlined,
-                                      color: study.criticalFinding
-                                          ? const Color(0xFFB34B58)
-                                          : radiologyBlue,
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            study.modalities.isEmpty
-                                                ? '검사 종류 정보 없음'
-                                                : study.modalities,
-                                            style: const TextStyle(
-                                              color: radiologyNavy,
-                                              fontWeight: FontWeight.w800,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            _formatDateTime(
-                                                study.studyDateTime),
-                                            style: const TextStyle(
-                                              color: radiologyMuted,
-                                              fontSize: 13,
-                                            ),
-                                          ),
-                                          if (study
-                                              .accessionNumber.isNotEmpty) ...[
-                                            const SizedBox(height: 3),
+                                child: RadiologyInfoCard(
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        study.criticalFinding
+                                            ? Icons.warning_amber_rounded
+                                            : Icons.image_outlined,
+                                        color: study.criticalFinding
+                                            ? const Color(0xFFB34B58)
+                                            : radiologyBlue,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
                                             Text(
-                                              study.accessionNumber,
+                                              study.modalities.isEmpty
+                                                  ? '검사 종류 정보 없음'
+                                                  : study.modalities,
+                                              style: const TextStyle(
+                                                color: radiologyNavy,
+                                                fontWeight: FontWeight.w800,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              _formatDateTime(
+                                                  study.studyDateTime),
                                               style: const TextStyle(
                                                 color: radiologyMuted,
-                                                fontSize: 12,
+                                                fontSize: 13,
                                               ),
                                             ),
-                                          ],
-                                          if (study.summary.isNotEmpty) ...[
-                                            const SizedBox(height: 5),
-                                            Text(
-                                              study.summary,
-                                              style: const TextStyle(
-                                                color: radiologyBlue,
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w600,
+                                            if (study.accessionNumber
+                                                .isNotEmpty) ...[
+                                              const SizedBox(height: 3),
+                                              Text(
+                                                study.accessionNumber,
+                                                style: const TextStyle(
+                                                  color: radiologyMuted,
+                                                  fontSize: 12,
+                                                ),
                                               ),
-                                            ),
+                                            ],
+                                            if (study.summary.isNotEmpty) ...[
+                                              const SizedBox(height: 5),
+                                              Text(
+                                                study.summary,
+                                                style: const TextStyle(
+                                                  color: radiologyBlue,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ],
                                           ],
-                                        ],
+                                        ),
                                       ),
-                                    ),
-                                    const Icon(
-                                      Icons.chevron_right_rounded,
-                                      color: radiologyMuted,
-                                    ),
-                                  ],
+                                      const Icon(
+                                        Icons.chevron_right_rounded,
+                                        color: radiologyMuted,
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                    ],
-                  ),
-      );
+                      ],
+                    ),
+    );
+  }
 }
 
 class _NeurologyPatient {

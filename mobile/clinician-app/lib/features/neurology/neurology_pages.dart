@@ -77,12 +77,12 @@ class _NeurologyEmergencyPageState extends State<NeurologyEmergencyPage> {
                   onTap: () => _selectPriority(null)),
               const SizedBox(width: 8),
               _EmergencyFilterChip(
-                  label: 'EMERGENCY',
+                  label: '긴급',
                   selected: _selectedPriority == 'EMERGENCY',
                   onTap: () => _selectPriority('EMERGENCY')),
               const SizedBox(width: 8),
               _EmergencyFilterChip(
-                  label: 'URGENT',
+                  label: '응급',
                   selected: _selectedPriority == 'URGENT',
                   onTap: () => _selectPriority('URGENT')),
             ]),
@@ -169,9 +169,9 @@ class _NeurologyEmergencyDetailPageState
           _EmergencyPatientHeader(item: _item),
           const SizedBox(height: 14),
           const RadiologySectionTitle(title: '우선순위 및 점수'),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           RadiologyInfoCard(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(16),
             child: Column(children: [
               Row(children: [
                 Expanded(
@@ -182,12 +182,15 @@ class _NeurologyEmergencyDetailPageState
                     child: _PriorityInfo(
                         label: '현재 우선순위', priority: _item.effectivePriority)),
               ]),
+              const SizedBox(height: 14),
+              const Divider(height: 1, color: radiologyBorder),
               const SizedBox(height: 12),
               _DetailInfoRow(
                   label: '총점',
                   value:
                       _item.totalScore == null ? '-' : '${_item.totalScore}점',
-                  icon: Icons.fact_check_outlined),
+                  icon: Icons.fact_check_outlined,
+                  emphasizeValue: true),
             ]),
           ),
           const SizedBox(height: 14),
@@ -206,10 +209,12 @@ class _NeurologyEmergencyDetailPageState
             _EmergencyDetailCard(title: '추가 정보', children: [
               if (_item.abnormalFindings.isNotEmpty)
                 _DetailInfoRow(
-                    label: '비정상 소견', value: _item.abnormalFindings.join('\n')),
+                    label: '비정상 소견',
+                    value: _summarizeFindings(_item.abnormalFindings)),
               if (_item.redFlags.isNotEmpty)
                 _DetailInfoRow(
-                    label: 'Red Flags', value: _item.redFlags.join('\n')),
+                    label: 'Red Flags',
+                    value: _summarizeFindings(_item.redFlags)),
             ]),
           ],
           const SizedBox(height: 14),
@@ -428,27 +433,40 @@ class _EmergencyDetailCard extends StatelessWidget {
 }
 
 class _DetailInfoRow extends StatelessWidget {
-  const _DetailInfoRow({required this.label, required this.value, this.icon});
+  const _DetailInfoRow({
+    required this.label,
+    required this.value,
+    this.icon,
+    this.emphasizeValue = false,
+  });
   final String label;
   final String value;
   final IconData? icon;
+  final bool emphasizeValue;
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 5),
+        padding: const EdgeInsets.symmetric(vertical: 7),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           if (icon != null) ...[
             Icon(icon, color: radiologyBlue, size: 20),
             const SizedBox(width: 9)
           ],
           SizedBox(
-              width: icon == null ? 96 : 0,
+              width: 84,
               child: Text(label,
-                  style: const TextStyle(color: radiologyMuted, fontSize: 13))),
-          if (icon == null) const SizedBox(width: 10),
+                  style: const TextStyle(
+                      color: radiologyMuted,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500))),
+          const SizedBox(width: 10),
           Expanded(
               child: Text(value,
-                  style: const TextStyle(
-                      color: radiologyNavy, fontSize: 13, height: 1.4))),
+                  style: TextStyle(
+                      color: radiologyNavy,
+                      fontSize: emphasizeValue ? 16 : 14,
+                      fontWeight:
+                          emphasizeValue ? FontWeight.w800 : FontWeight.w700,
+                      height: 1.4))),
         ]),
       );
 }
@@ -609,6 +627,15 @@ List<String> _stringValues(dynamic value) => (value as List? ?? const [])
     .where((item) => item.isNotEmpty)
     .toList(growable: false);
 
+String _summarizeFindings(List<String> values) {
+  final unique = values
+      .map((value) => value.trim())
+      .where((value) => value.isNotEmpty)
+      .toSet()
+      .toList();
+  return unique.isEmpty ? '정보 없음' : unique.join(', ');
+}
+
 Color _priorityColor(String priority) => switch (priority) {
       'EMERGENCY' => const Color(0xFFB42318),
       'URGENT' => const Color(0xFFB45309),
@@ -622,9 +649,9 @@ Color _priorityBackground(String priority) => switch (priority) {
     };
 
 String _priorityLabel(String priority) => switch (priority) {
-      'EMERGENCY' => '응급',
-      'URGENT' => '긴급',
-      'NON_EMERGENCY' => '비응급',
+      'EMERGENCY' => '긴급',
+      'URGENT' => '응급',
+      'NON_EMERGENCY' => '일반',
       _ => priority.isEmpty ? '-' : priority,
     };
 
@@ -772,6 +799,10 @@ class _NeurologyHomePageState extends State<NeurologyHomePage> {
     }
   }
 
+  int get _consultationAttentionCount => _recentConsultations
+      .where((consultation) => consultation.status == 'RESPONDED')
+      .length;
+
   @override
   Widget build(BuildContext context) => ListView(
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 116),
@@ -796,13 +827,15 @@ class _NeurologyHomePageState extends State<NeurologyHomePage> {
               const SizedBox(width: 10),
               Expanded(
                 child: _SummaryCard(
-                  icon: Icons.description_outlined,
+                  icon: Icons.forum_outlined,
                   iconBackground: const Color(0xFFEAF2FF),
                   iconColor: radiologyBlue,
-                  label: '진행 중 진료기록',
-                  value: '-',
-                  caption: '확인 대기',
-                  onTap: widget.onOpenClinicalRecords,
+                  label: '협진 요청',
+                  value: _loadingConsultations
+                      ? '-'
+                      : _consultationAttentionCount.toString(),
+                  caption: '확인 필요',
+                  onTap: () => widget.onSelectTab(3),
                 ),
               ),
             ],
@@ -834,6 +867,7 @@ class _NeurologyHomePageState extends State<NeurologyHomePage> {
                   apiClient: widget.apiClient,
                   patientId: patientId,
                   currentUserId: widget.currentUserId,
+                  onOpenConsultationDetail: widget.onOpenConsultationDetail,
                 ),
               ),
             ),
@@ -868,7 +902,7 @@ class _SummaryCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         onTap: onTap,
         child: RadiologyInfoCard(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(16),
           child: Row(
             children: [
               Container(
@@ -887,20 +921,24 @@ class _SummaryCard extends StatelessWidget {
                   children: [
                     Text(label,
                         style: const TextStyle(
-                            color: radiologyMuted, fontSize: 12)),
-                    const SizedBox(height: 3),
+                            color: radiologyMuted,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 4),
                     Text(value,
                         style: const TextStyle(
                             color: radiologyNavy,
-                            fontSize: 22,
+                            fontSize: 24,
                             fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 4),
                     Text(caption,
                         style: const TextStyle(
                             color: radiologyMuted, fontSize: 11)),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded, color: radiologyMuted),
+              const Icon(Icons.chevron_right_rounded,
+                  color: radiologyMuted, size: 20),
             ],
           ),
         ),
@@ -1150,31 +1188,30 @@ class _ConsultationRow extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                     color: radiologyNavy,
+                                    fontSize: 16,
                                     fontWeight: FontWeight.w800))),
                         const SizedBox(width: 8),
                         _StatusBadge(status: consultation.status),
                       ],
                     ),
                     if (consultation.patientNo.isNotEmpty) ...[
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 3),
                       Text(consultation.patientNo,
                           style: const TextStyle(
                               color: radiologyMuted, fontSize: 12)),
                     ],
-                    if (consultation.targetLabel.isNotEmpty) ...[
-                      const SizedBox(height: 5),
-                      Text(consultation.targetLabel,
+                    if (consultation.destinationLabel.isNotEmpty) ...[
+                      const SizedBox(height: 7),
+                      Text(consultation.destinationLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                              color: radiologyNavy, fontSize: 13)),
-                    ],
-                    if (consultation.assigneeLabel.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(consultation.assigneeLabel,
-                          style: const TextStyle(
-                              color: radiologyMuted, fontSize: 12)),
+                              color: radiologyNavy,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600)),
                     ],
                     if (consultation.requestedAt != null) ...[
-                      const SizedBox(height: 5),
+                      const SizedBox(height: 4),
                       Text(_formatDateTime(consultation.requestedAt),
                           style: const TextStyle(
                               color: radiologyMuted, fontSize: 11)),
@@ -1473,9 +1510,12 @@ class _HomeConsultation {
 
   String get targetLabel => _consultationTypeLabel(type);
 
-  String get assigneeLabel => [
-        if (assigneeDepartment.isNotEmpty) assigneeDepartment,
-        if (assigneeName.isNotEmpty) assigneeName,
+  String get destinationLabel => [
+        if (targetLabel.isNotEmpty) targetLabel,
+        if (assigneeName.isNotEmpty)
+          assigneeName
+        else if (assigneeDepartment.isNotEmpty)
+          assigneeDepartment,
       ].join(' · ');
 }
 
@@ -1591,8 +1631,9 @@ String _formatDateTime(String? value) {
 }
 
 String _consultationTypeLabel(String value) => switch (value) {
-      'RADIOLOGY' => '영상의학과 협진',
-      'NEUROSURGERY' => '신경외과 협진',
+      'RADIOLOGY' => '영상의학과',
+      'NEUROSURGERY' => '신경외과',
+      'NEUROSURGEON' => '신경외과',
       _ => value,
     };
 
@@ -1602,6 +1643,9 @@ String _statusLabel(String value) => switch (value) {
       'IN_PROGRESS' => '진행 중',
       'RESPONDED' => '회신 완료',
       'CLOSED' => '완료',
+      'REJECTED' => '거절',
+      'CANCELLED' => '취소',
+      'EXPIRED' => '만료',
       'ACTIVE' => '진료 중',
       'INACTIVE' => '비활성',
       _ => value,

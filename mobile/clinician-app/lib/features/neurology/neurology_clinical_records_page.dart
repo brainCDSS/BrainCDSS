@@ -516,8 +516,10 @@ class _NeurologyClinicalNoteDetailPageState
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
           children: [
             Row(children: [
-              const RadiologySectionTitle(title: '진료기록 상세'),
-              const Spacer(),
+              const Expanded(
+                child: RadiologySectionTitle(title: '진료기록 상세'),
+              ),
+              const SizedBox(width: 8),
               _ClinicalStatusChip(status: note.status)
             ]),
             const SizedBox(height: 12),

@@ -1,3 +1,4 @@
+import { getPatientAge } from "../../lib/patientAge";
 import {
   useEffect,
   useMemo,
@@ -101,51 +102,7 @@ function formatSex(
 function getAge(
   patient: Patient,
 ) {
-  if (
-    patient.estimated_age !== null
-  ) {
-    return patient.estimated_age;
-  }
-
-  if (!patient.birth_date) {
-    return null;
-  }
-
-  const birth =
-    new Date(
-      patient.birth_date,
-    );
-
-  if (
-    Number.isNaN(
-      birth.getTime(),
-    )
-  ) {
-    return null;
-  }
-
-  const today =
-    new Date();
-
-  let age =
-    today.getFullYear() -
-    birth.getFullYear();
-
-  const beforeBirthday =
-    today.getMonth() <
-      birth.getMonth() ||
-    (
-      today.getMonth() ===
-        birth.getMonth() &&
-      today.getDate() <
-        birth.getDate()
-    );
-
-  if (beforeBirthday) {
-    age -= 1;
-  }
-
-  return age;
+  return getPatientAge(patient);
 }
 
 

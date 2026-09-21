@@ -336,6 +336,15 @@ class EmergencyWorklistAPITests(APITestCase):
         )
         AssessmentItem.objects.create(
             assessment=self.assessment,
+            item_group="VITAL",
+            item_code="BP_SYS",
+            value_numeric=0,
+            unit="mmHg",
+            is_red_flag=False,
+            recorded_at=now,
+        )
+        AssessmentItem.objects.create(
+            assessment=self.assessment,
             item_group="INITIAL_SCREENING",
             item_code="BALANCE",
             value_numeric=4,
@@ -388,6 +397,11 @@ class EmergencyWorklistAPITests(APITestCase):
             ],
         )
         self.assertEqual(item["event"]["id"], str(self.event.id))
+        self.assertEqual(item["arrived_at"], self.encounter.arrived_at.isoformat().replace("+00:00", "Z"))
+        self.assertEqual(item["assessor"]["name"], "Assessment nurse")
+        bp = next(value for value in item["assessment_items"] if value["item_code"] == "BP_SYS")
+        self.assertEqual(bp["value_numeric"], "0.00")
+        self.assertFalse(bp["is_red_flag"])
 
     def test_other_neurologist_does_not_receive_assigned_event(self):
         self.client.force_authenticate(self.other_neurologist)

@@ -1,3 +1,4 @@
+import { getPatientAge } from "../../lib/patientAge";
 import { useEffect, useMemo, useState } from "react";
 import { getAIAnalysisResult } from "../ai-analysis/api";
 import { getImagingStudies, getImagingStudy, getStudyAIAnalyses } from "../imaging/api";
@@ -98,7 +99,7 @@ export default function SurgicalPlanningPage() {
         name: selectedPatient.name,
         patientNo: selectedPatient.patient_no,
         sex: selectedPatient.sex ?? "제공 없음",
-        age: selectedPatient.estimated_age == null ? "제공 없음" : String(selectedPatient.estimated_age),
+        age: String(getPatientAge(selectedPatient) ?? "제공 없음"),
       },
       examination: {
         diagnosis: "임상 진단 연동 필요",
@@ -146,7 +147,7 @@ export default function SurgicalPlanningPage() {
         if (!active) return;
         setAnalysisId(latest?.analysis_id ?? null);
         setPlanningCase({
-          patient: { name: patient.name, patientNo: patient.patient_no, sex: patient.sex ?? "제공 없음", age: patient.estimated_age == null ? "제공 없음" : String(patient.estimated_age) },
+          patient: { name: patient.name, patientNo: patient.patient_no, sex: patient.sex ?? "제공 없음", age: String(getPatientAge(patient) ?? "제공 없음") },
           examination: { diagnosis: "제공 없음", studyName: study.accession_number, studyDate: study.study_datetime },
           assignment: { department: "제공 없음", clinician: "제공 없음", status: study.status },
           aiSummary: { finding: result ? JSON.stringify(result.structured_findings) : "AI 결과 없음", confidence: result?.confidence == null ? "제공 없음" : String(result.confidence), lesionLocation: result && "laterality" in result.structured_findings ? String(result.structured_findings.laterality) : "제공 없음" },

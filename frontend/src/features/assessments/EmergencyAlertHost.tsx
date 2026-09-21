@@ -1,3 +1,4 @@
+import { getPatientAge } from "../../lib/patientAge";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { getApiRequestStatus } from "../../api/client";
@@ -16,7 +17,7 @@ import EmergencyPatientAlert, {
   type EmergencyAlertTone,
   type EmergencyAlertValue,
 } from "./EmergencyPatientAlert";
-import type { EmergencyRedFlag, EmergencyWorklistItem } from "./types";
+import type { EmergencyAssessmentItem, EmergencyWorklistItem } from "./types";
 
 interface EmergencyAlertHostProps {
   currentUser: LoginUser;
@@ -98,20 +99,19 @@ function formatDateTime(value: string | null): string {
   });
 }
 
-function findFlag(flags: EmergencyRedFlag[], ...codes: string[]): EmergencyRedFlag | undefined {
+function findItem(items: EmergencyAssessmentItem[], ...codes: string[]): EmergencyAssessmentItem | undefined {
   const wanted = new Set(codes.map((code) => code.toUpperCase()));
-  return flags.find((flag) => wanted.has(flag.item_code.toUpperCase()));
+  return items.find((item) => wanted.has(item.item_code.toUpperCase()));
 }
 
-function flagTone(flag: EmergencyRedFlag | undefined): EmergencyAlertTone {
-  if (flag?.score === null || flag?.score === undefined) return "neutral";
-  return flag.score > 0 ? "danger" : "positive";
+function itemTone(item: EmergencyAssessmentItem | undefined): EmergencyAlertTone {
+  return item?.is_red_flag ? "danger" : "neutral";
 }
 
-function flagValue(flag: EmergencyRedFlag | undefined): EmergencyAlertValue {
+function itemValue(item: EmergencyAssessmentItem | undefined): EmergencyAlertValue {
   return {
-    value: flag?.value_text ?? flag?.value_numeric ?? flag?.note ?? null,
-    tone: flagTone(flag),
+    value: item?.value_text?.trim() || (item?.value_numeric ?? (item?.note?.trim() || null)),
+    tone: itemTone(item),
   };
 }
 
@@ -256,9 +256,9 @@ export default function EmergencyAlertHost({
   if (!canReceiveClinicalAlerts || !current || closed) return null;
 
   const item = current.worklistItem;
-  const flags = item.red_flags ?? [];
+  const assessmentItems = item.assessment_items ?? [];
   const patient = item.patient_summary;
-  const age = patient.estimated_age ?? patient.age;
+  const age = getPatientAge(patient);
 
   return (
     <EmergencyPatientAlert
@@ -270,23 +270,23 @@ export default function EmergencyAlertHost({
       sex={patient.sex}
       age={age}
       encounterId={current.encounterId}
-      visitAt={null}
+      visitAt={formatDateTime(item.arrived_at)}
       assessmentAt={formatDateTime(item.completed_at)}
       symptomOnsetAt={formatDateTime(item.onset_at)}
       lkwAt={formatDateTime(item.lkw_at)}
-      assessorName={null}
-      consciousness={flagValue(findFlag(flags, "CONSCIOUSNESS")).value}
+      assessorName={item.assessor?.name}
+      consciousness={itemValue(findItem(assessmentItems, "CONSCIOUSNESS")).value}
       fast={{
-        face: flagValue(findFlag(flags, "FAST_FACE", "FACE")),
-        arm: flagValue(findFlag(flags, "FAST_ARM", "ARM")),
-        speech: flagValue(findFlag(flags, "FAST_SPEECH", "SPEECH")),
+        face: itemValue(findItem(assessmentItems, "FAST_FACE", "FACE")),
+        arm: itemValue(findItem(assessmentItems, "FAST_ARM", "ARM")),
+        speech: itemValue(findItem(assessmentItems, "FAST_SPEECH", "SPEECH")),
       }}
       vitals={{
-        systolicBp: flagValue(findFlag(flags, "BP_SYS", "SBP")),
-        diastolicBp: flagValue(findFlag(flags, "BP_DIA", "DBP")),
-        heartRate: flagValue(findFlag(flags, "HEART_RATE", "HR")),
-        spo2: flagValue(findFlag(flags, "SPO2")),
-        bodyTemperature: flagValue(findFlag(flags, "BODY_TEMP", "TEMPERATURE", "BT")),
+        systolicBp: itemValue(findItem(assessmentItems, "BP_SYS", "SBP")),
+        diastolicBp: itemValue(findItem(assessmentItems, "BP_DIA", "DBP")),
+        heartRate: itemValue(findItem(assessmentItems, "HEART_RATE", "HR")),
+        spo2: itemValue(findItem(assessmentItems, "SPO2")),
+        bodyTemperature: itemValue(findItem(assessmentItems, "BODY_TEMP", "TEMPERATURE", "BT")),
       }}
       allergy={patient.allergy_info}
       mainSymptoms={item.symptom_note}

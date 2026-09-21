@@ -1,3 +1,4 @@
+import { formatPatientAge } from "../../lib/patientAge";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   checkPrescriptionSafety,
@@ -539,7 +540,7 @@ export default function MedicationSafetyPage({ context, onSelectPatient, onOpenP
             <div className="clinical-card__title medication-section-title"><h3><span aria-hidden="true">♧</span> 환자 임상정보</h3></div>
             <section className="medication-clinical-section">
               <div className="medication-clinical-section__heading"><strong>기본정보</strong></div>
-              <dl className="medication-detail-list"><div><dt>환자번호</dt><dd>{context.patient.patient_no}</dd></div><div><dt>환자명</dt><dd>{context.patient.name}</dd></div><div><dt>성별 / 나이</dt><dd>{context.patient.sex ?? "-"} / {context.patient.estimated_age == null ? "-" : `${context.patient.estimated_age}세`}</dd></div><div><dt>진료과 / 담당의</dt><dd>{prescription?.department ?? "-"} / {prescription?.doctor ?? "-"}</dd></div></dl>
+              <dl className="medication-detail-list"><div><dt>환자번호</dt><dd>{context.patient.patient_no}</dd></div><div><dt>환자명</dt><dd>{context.patient.name}</dd></div><div><dt>성별 / 나이</dt><dd>{context.patient.sex ?? "-"} / {formatPatientAge(context.patient)}</dd></div><div><dt>진료과 / 담당의</dt><dd>{prescription?.department ?? "-"} / {prescription?.doctor ?? "-"}</dd></div></dl>
             </section>
             <section className="medication-clinical-section">
               <div className="medication-clinical-section__heading"><strong>주요 임상소견</strong></div>

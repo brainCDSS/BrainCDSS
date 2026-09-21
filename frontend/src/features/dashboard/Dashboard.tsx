@@ -1,3 +1,4 @@
+import { getPatientAge } from "../../lib/patientAge";
 import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 
@@ -69,37 +70,7 @@ function formatSex(sex: string | null) {
 }
 
 function getAge(patient: Patient) {
-  if (patient.estimated_age !== null) {
-    return patient.estimated_age;
-  }
-
-  if (!patient.birth_date) {
-    return null;
-  }
-
-  const birth = new Date(patient.birth_date);
-
-  if (Number.isNaN(birth.getTime())) {
-    return null;
-  }
-
-  const today = new Date();
-
-  let age =
-    today.getFullYear() -
-    birth.getFullYear();
-
-  if (
-    today.getMonth() < birth.getMonth() ||
-    (
-      today.getMonth() === birth.getMonth() &&
-      today.getDate() < birth.getDate()
-    )
-  ) {
-    age -= 1;
-  }
-
-  return age;
+  return getPatientAge(patient);
 }
 
 function isToday(
@@ -458,24 +429,71 @@ function RiskPanel({
 }: {
   assessments: AssessmentWorklistItem[];
 }) {
-  const emergency = assessments.filter(
+  /*
+   * 운영/시연 DB에는 다음 두 triage 체계가 함께 존재할 수 있다.
+   *
+   * CRITICAL / EMERGENCY / URGENT / ROUTINE
+   * EMERGENCY / URGENT / NON_EMERGENCY
+   *
+   * 화면의 4개 그룹으로 안전하게 정규화한다.
+   */
+  const priorities = assessments.map(
     (item) =>
-      item.triage_priority === "EMERGENCY",
-  ).length;
+      (item.triage_priority ?? "")
+        .trim()
+        .toUpperCase(),
+  );
 
-  const urgent = assessments.filter(
-    (item) =>
-      item.triage_priority === "URGENT",
-  ).length;
+  const categories = [
+    {
+      key: "emergency",
+      label: "응급",
+      count: priorities.filter(
+        (value) =>
+          value === "CRITICAL" ||
+          value === "EMERGENCY",
+      ).length,
+      color: "#ef5350",
+    },
+    {
+      key: "urgent",
+      label: "긴급",
+      count: priorities.filter(
+        (value) => value === "URGENT",
+      ).length,
+      color: "#f39c3d",
+    },
+    {
+      key: "routine",
+      label: "비응급",
+      count: priorities.filter(
+        (value) =>
+          value === "ROUTINE" ||
+          value === "NON_EMERGENCY",
+      ).length,
+      color: "#4ba7e8",
+    },
+    {
+      key: "unclassified",
+      label: "미분류",
+      count: priorities.filter(
+        (value) =>
+          ![
+            "CRITICAL",
+            "EMERGENCY",
+            "URGENT",
+            "ROUTINE",
+            "NON_EMERGENCY",
+          ].includes(value),
+      ).length,
+      color: "#aab6c6",
+    },
+  ];
 
-  const nonEmergency = assessments.filter(
-    (item) =>
-      item.triage_priority === "NON_EMERGENCY",
-  ).length;
-
-  const unclassified = assessments.filter(
-    (item) => !item.triage_priority,
-  ).length;
+  const maxCount = Math.max(
+    ...categories.map((item) => item.count),
+    1,
+  );
 
   return (
     <article className="dash-chart-card dash-risk">
@@ -487,29 +505,22 @@ function RiskPanel({
       </header>
 
       <div className="dash-ai-bars">
-        <div>
-          <span>응급</span>
-          <div />
-          <strong>{emergency}</strong>
-        </div>
+        {categories.map((item) => (
+          <div key={item.key}>
+            <span>{item.label}</span>
 
-        <div>
-          <span>긴급</span>
-          <div />
-          <strong>{urgent}</strong>
-        </div>
+            <div>
+              <i
+                style={{
+                  width: `${(item.count / maxCount) * 100}%`,
+                  background: item.color,
+                }}
+              />
+            </div>
 
-        <div>
-          <span>비응급</span>
-          <div />
-          <strong>{nonEmergency}</strong>
-        </div>
-
-        <div>
-          <span>미분류</span>
-          <div />
-          <strong>{unclassified}</strong>
-        </div>
+            <strong>{item.count}</strong>
+          </div>
+        ))}
       </div>
 
       <p className="dash-source-note">
@@ -519,9 +530,119 @@ function RiskPanel({
   );
 }
 
-function DiseasePanel() {
+
+function DiseasePanel({
+  analyses,
+  studies,
+}: {
+  analyses: AIAnalysisItem[];
+  studies: ImagingStudy[];
+}) {
+  /*
+   * 확정 진단으로 오해하지 않도록 COMPLETED AI 분석의
+   * analysis_type을 기준으로 "분석된 환자 분포"를 표시한다.
+   *
+   * 같은 환자가 같은 질환 모델로 여러 번 분석된 경우에는
+   * 환자 1명으로만 집계한다.
+   */
+  const studyPatientMap =
+    new Map(
+      studies.map(
+        (study) => [
+          study.id,
+          study.patient_id,
+        ],
+      ),
+    );
+
+  const completed =
+    analyses.filter(
+      (analysis) =>
+        analysis.status === "COMPLETED",
+    );
+
+  const diseaseGroups =
+    MODEL_GROUPS.map((group) => {
+      const patientIds = new Set<string>();
+
+      completed.forEach((analysis) => {
+        if (
+          !includesModel(
+            analysis,
+            group.key,
+          )
+        ) {
+          return;
+        }
+
+        const patientId =
+          studyPatientMap.get(
+            analysis.study_id,
+          );
+
+        if (patientId) {
+          patientIds.add(patientId);
+        }
+      });
+
+      return {
+        ...group,
+        count: patientIds.size,
+      };
+    });
+
+  const segmentTotal =
+    diseaseGroups.reduce(
+      (sum, group) =>
+        sum + group.count,
+      0,
+    );
+
+  const allPatients =
+    new Set<string>();
+
+  completed.forEach((analysis) => {
+    const patientId =
+      studyPatientMap.get(
+        analysis.study_id,
+      );
+
+    if (patientId) {
+      allPatients.add(patientId);
+    }
+  });
+
+  let cursor = 0;
+
+  const gradientParts =
+    diseaseGroups.flatMap(
+      (group) => {
+        if (
+          segmentTotal === 0 ||
+          group.count === 0
+        ) {
+          return [];
+        }
+
+        const start = cursor;
+        const width =
+          (group.count /
+            segmentTotal) *
+          100;
+
+        cursor += width;
+
+        return [
+          `${group.color} ${start}% ${cursor}%`,
+        ];
+      },
+    );
+
   const style = {
-    "--donut-fill": "#e8edf4",
+    "--donut-fill":
+      gradientParts.length > 0
+        ? `conic-gradient(${gradientParts.join(", ")})`
+        : "#e8edf4",
   } as CSSProperties;
 
   return (
@@ -542,30 +663,49 @@ function DiseasePanel() {
         >
           <div>
             <small>총</small>
-            <strong>—</strong>
+            <strong>
+              {allPatients.size}
+            </strong>
           </div>
         </div>
 
-        <div className="dash-disease__empty">
-          <strong>
-            질환 분류 데이터 없음
-          </strong>
-
-          <p>
-            AI 분석 유형은 확정
-            진단으로 간주하지
-            않습니다.
-          </p>
-        </div>
+        {segmentTotal > 0 ? (
+          <div className="dash-legend">
+            {diseaseGroups.map(
+              (group) => (
+                <div key={group.key}>
+                  <i
+                    style={{
+                      background:
+                        group.color,
+                    }}
+                  />
+                  <span>
+                    {group.label}
+                  </span>
+                  <strong>
+                    {group.count}
+                  </strong>
+                </div>
+              ),
+            )}
+          </div>
+        ) : (
+          <div className="dash-disease__empty">
+            <strong>
+              완료된 AI 분석 데이터 없음
+            </strong>
+          </div>
+        )}
       </div>
 
       <p className="dash-source-note">
-        환자별 확정 질환 데이터
-        연동 예정
+        완료된 AI 분석 유형 기준 · 확정 진단 아님
       </p>
     </article>
   );
 }
+
 
 function AIStatusPanel({
   analyses,
@@ -1455,7 +1595,10 @@ export default function Dashboard({
             assessments={data.assessments}
           />
 
-          <DiseasePanel />
+          <DiseasePanel
+          analyses={data.analyses}
+          studies={data.studies}
+        />
 
           <AIStatusPanel
             analyses={

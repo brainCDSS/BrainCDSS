@@ -194,6 +194,10 @@ class PatientListItemSerializer(serializers.Serializer):
     estimated_age = serializers.IntegerField(allow_null=True)
     sex = serializers.CharField(allow_null=True)
     phone = serializers.CharField(allow_null=True)
+    allergy_info = serializers.CharField(
+        allow_null=True,
+        allow_blank=True,
+    )
     status = serializers.CharField()
 
 

@@ -1,3 +1,4 @@
+import { getPatientAge } from "../../lib/patientAge";
 import {
   useEffect,
   useMemo,
@@ -402,12 +403,8 @@ function worklistPatientInfo(
   item: AssessmentWorklistItem,
 ) {
   const age =
-    worklistValue(
+    getPatientAge(
       item.patient_summary,
-      [
-        "estimated_age",
-        "age",
-      ],
     );
 
   const sex =
@@ -454,51 +451,7 @@ function worklistEncounterType(
 function patientAgeNumber(
   patient: Patient,
 ) {
-  if (
-    patient.estimated_age !== null &&
-    patient.estimated_age !== undefined
-  ) {
-    return patient.estimated_age;
-  }
-
-  if (!patient.birth_date) {
-    return null;
-  }
-
-  const birth =
-    new Date(patient.birth_date);
-
-  const today =
-    new Date();
-
-  if (
-    Number.isNaN(
-      birth.getTime(),
-    )
-  ) {
-    return null;
-  }
-
-  let age =
-    today.getFullYear() -
-    birth.getFullYear();
-
-  const month =
-    today.getMonth() -
-    birth.getMonth();
-
-  if (
-    month < 0 ||
-    (
-      month === 0 &&
-      today.getDate() <
-        birth.getDate()
-    )
-  ) {
-    age -= 1;
-  }
-
-  return age;
+  return getPatientAge(patient);
 }
 
 

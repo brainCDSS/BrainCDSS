@@ -314,6 +314,10 @@ export interface EmergencyRedFlag {
   note: string | null;
 }
 
+export interface EmergencyAssessmentItem extends EmergencyRedFlag {
+  is_red_flag: boolean;
+}
+
 export interface EmergencyAbnormalFinding {
   item_code: string;
   label: string;
@@ -331,11 +335,17 @@ export interface EmergencyWorklistItem {
   lkw_at: string | null;
   completed_at: string | null;
   symptom_note: string | null;
+  arrived_at: string | null;
+  assessor: {
+    id: string;
+    name: string;
+  } | null;
   assigned_neurologist: {
     id: string;
     name: string;
   } | null;
   abnormal_findings: EmergencyAbnormalFinding[];
+  assessment_items: EmergencyAssessmentItem[];
   red_flags: EmergencyRedFlag[];
   event: {
     id: string;

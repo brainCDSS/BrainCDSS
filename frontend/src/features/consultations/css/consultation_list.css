@@ -348,7 +348,7 @@
   grid-template-columns:
     54px
     minmax(230px, 1.55fr)
-    minmax(170px, 1fr)
+    minmax(270px, 1.35fr)
     minmax(105px, 0.65fr)
     minmax(105px, 0.65fr)
     minmax(180px, 1fr)
@@ -413,7 +413,7 @@
   grid-template-columns:
     54px
     minmax(230px, 1.55fr)
-    minmax(170px, 1fr)
+    minmax(270px, 1.35fr)
     minmax(105px, 0.65fr)
     minmax(105px, 0.65fr)
     minmax(180px, 1fr)
@@ -645,6 +645,24 @@
   gap: 5px;
 
   min-width: 0;
+}
+
+.consultation-list-item__clinician > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.consultation-list-item__clinician small {
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.consultation-list-item__direction {
+  color: var(--primary);
+  font-weight: 800;
 }
 
 

@@ -78,6 +78,15 @@ class ImagingPatientSummarySerializer(serializers.Serializer):
     patient_id = serializers.UUIDField()
     patient_no = serializers.CharField()
     name = serializers.CharField()
+    birth_date = serializers.DateField(
+        allow_null=True
+    )
+    estimated_age = serializers.IntegerField(
+        allow_null=True
+    )
+    sex = serializers.CharField(
+        allow_null=True
+    )
 
 
 class ImagingStudyListItemSerializer(serializers.Serializer):

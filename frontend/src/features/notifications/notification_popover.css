@@ -48,6 +48,7 @@
   line-height: 18px;
 }
 
+/* 전체 팝업 */
 .notification-popover-panel {
   position: absolute;
   top: calc(100% + 10px);
@@ -57,7 +58,7 @@
   overflow: hidden;
   border: 1px solid var(--border-color);
   border-radius: 14px;
-  background: var(--bg-primary);
+  background: var(--bg-surface);
   box-shadow: 0 18px 48px rgba(17, 35, 62, 0.22);
 }
 
@@ -95,7 +96,7 @@
   gap: 8px;
   padding: 10px 12px 10px 14px;
   border-bottom: 1px solid var(--border-color);
-  background: var(--bg-primary);
+  background: var(--bg-surface);
 }
 
 .notification-popover-item.is-unread {
@@ -174,7 +175,7 @@
   padding: 0 9px;
   border: 1px solid var(--border-color);
   border-radius: 7px;
-  background: var(--bg-secondary);
+  background: var(--bg-surface);
   color: var(--text-primary);
   font-size: 10px;
   cursor: pointer;
@@ -187,7 +188,7 @@
 
 .notification-popover-footer {
   padding: 10px 12px;
-  background: var(--bg-secondary);
+  background: var(--bg-surface);
 }
 
 .notification-popover-footer button {

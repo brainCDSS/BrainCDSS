@@ -246,6 +246,7 @@ def _patient_list_item(patient):
         "estimated_age": patient.estimated_age,
         "sex": patient.sex,
         "phone": patient.phone,
+        "allergy_info": patient.allergy_info,
         "status": patient.status,
     }
 

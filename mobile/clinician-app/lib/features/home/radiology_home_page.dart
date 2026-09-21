@@ -41,32 +41,36 @@ class _RadiologyHomePageState extends State<RadiologyHomePage> {
     });
 
     try {
-      final requests = await RadiologyAnalysisApi(widget.apiClient).list();
+      final requests = await RadiologyAnalysisApi(
+        widget.apiClient,
+      ).list();
 
       final items = await Future.wait(
-        requests.asMap().entries.map((entry) async {
-          final request = entry.value;
+        requests.asMap().entries.map(
+          (entry) async {
+            final request = entry.value;
 
-          Map<String, dynamic>? study;
+            Map<String, dynamic>? study;
 
-          // 최근 3건만 Study 상세를 추가 조회해서
-          // 환자명 / 환자번호를 보강합니다.
-          if (entry.key < 3 && request.studyId.isNotEmpty) {
-            try {
-              study = await widget.apiClient.get(
-                '/api/v1/imaging-studies/${request.studyId}',
-              );
-            } on ClinicianApiException {
-              // Study 조회 실패가
-              // 분석 목록 표시 자체를 막지 않도록 합니다.
+            // 최근 3건만 Study 상세를 추가 조회해서
+            // 환자명 / 환자번호를 보강합니다.
+            if (entry.key < 3 && request.studyId.isNotEmpty) {
+              try {
+                study = await widget.apiClient.get(
+                  '/api/v1/imaging-studies/${request.studyId}',
+                );
+              } on ClinicianApiException {
+                // Study 조회 실패가
+                // 분석 목록 표시 자체를 막지 않도록 합니다.
+              }
             }
-          }
 
-          return _HomeAnalysis(
-            request,
-            study,
-          );
-        }),
+            return _HomeAnalysis(
+              request,
+              study,
+            );
+          },
+        ),
       );
 
       if (mounted) {
@@ -105,11 +109,9 @@ class _RadiologyHomePageState extends State<RadiologyHomePage> {
           .length;
     }
 
-    // 아직 완료되지 않은 분석
     final pendingCount =
         count('QUEUED') + count('PROCESSING') + count('RETRYING');
 
-    // 긴급 분석
     final urgentCount = _items
         .where(
           (item) => item.request.priority == 'CRITICAL',
@@ -124,18 +126,9 @@ class _RadiologyHomePageState extends State<RadiologyHomePage> {
         28,
       ),
       children: [
-        // ==========================================================
-        // 상단 인사
-        // ==========================================================
-
         _GreetingBanner(
           userName: widget.userName,
         ),
-
-        // ==========================================================
-        // 긴급 분석
-        // 긴급 건이 실제로 있을 때만 표시
-        // ==========================================================
 
         if (!_loading && _error == null && urgentCount > 0) ...[
           const SizedBox(height: 14),
@@ -145,10 +138,6 @@ class _RadiologyHomePageState extends State<RadiologyHomePage> {
         ],
 
         const SizedBox(height: 24),
-
-        // ==========================================================
-        // 오늘 업무 요약
-        // ==========================================================
 
         const RadiologySectionTitle(
           title: '오늘 업무 요약',
@@ -200,9 +189,10 @@ class _RadiologyHomePageState extends State<RadiologyHomePage> {
         // 최근 분석
         // ==========================================================
 
-        const RadiologySectionTitle(
+        RadiologySectionTitle(
           title: '최근 분석',
           action: '전체보기 ›',
+          onActionTap: RadiologyNavigation.openAnalysisRequests,
         ),
 
         const SizedBox(height: 10),
@@ -212,10 +202,6 @@ class _RadiologyHomePageState extends State<RadiologyHomePage> {
             items: _items.take(3).toList(),
             apiClient: widget.apiClient,
           ),
-
-        // ==========================================================
-        // 의료진 응원 배너
-        // ==========================================================
 
         const SizedBox(height: 24),
 
@@ -242,8 +228,6 @@ class _GreetingBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final rawName = userName.trim();
 
-    // 세션 이름이 "영상의학과 윤지호" 형태여도
-    // 홈에서는 "윤지호님,"으로 표시
     final displayName = rawName.isEmpty
         ? '의료진'
         : rawName
@@ -278,7 +262,10 @@ class _GreetingBanner extends StatelessWidget {
               alpha: 0.035,
             ),
             blurRadius: 14,
-            offset: const Offset(0, 5),
+            offset: const Offset(
+              0,
+              5,
+            ),
           ),
         ],
       ),
@@ -336,13 +323,20 @@ class _GreetingBanner extends StatelessWidget {
               maxWidth: 140,
               maxHeight: 140,
               child: Transform.translate(
-                offset: const Offset(4, 6),
+                offset: const Offset(
+                  4,
+                  6,
+                ),
                 child: Image.asset(
                   'asset/images/main1.png',
                   width: 140,
                   height: 140,
                   fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) {
+                  errorBuilder: (
+                    _,
+                    __,
+                    ___,
+                  ) {
                     return const SizedBox.shrink();
                   },
                 ),
@@ -354,6 +348,7 @@ class _GreetingBanner extends StatelessWidget {
     );
   }
 }
+
 // ============================================================================
 // 긴급 분석 배너
 // ============================================================================
@@ -374,10 +369,16 @@ class _UrgentAnalysisBanner extends StatelessWidget {
         vertical: 15,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF0EF),
-        borderRadius: BorderRadius.circular(18),
+        color: const Color(
+          0xFFFFF0EF,
+        ),
+        borderRadius: BorderRadius.circular(
+          18,
+        ),
         border: Border.all(
-          color: const Color(0xFFFFD8D5),
+          color: const Color(
+            0xFFFFD8D5,
+          ),
         ),
       ),
       child: Row(
@@ -600,8 +601,14 @@ class _AnalysisRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: () => RadiologyNavigation.openAnalysis(item.request),
+      borderRadius: BorderRadius.circular(
+        12,
+      ),
+      onTap: () {
+        RadiologyNavigation.openAnalysis(
+          item.request,
+        );
+      },
       child: Padding(
         padding: const EdgeInsets.symmetric(
           vertical: 12,
@@ -626,11 +633,9 @@ class _AnalysisRow extends StatelessWidget {
                 size: 20,
               ),
             ),
-
             const SizedBox(
               width: 11,
             ),
-
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -700,11 +705,7 @@ class _AnalysisRow extends StatelessWidget {
                 ],
               ),
             ),
-
-            // 상태 chip과 chevron이
-            // 오른쪽 벽에 너무 붙지 않도록 간격 조정
             const SizedBox(width: 10),
-
             RadiologyStatusChip(
               label: _statusLabel(
                 item.request.status,
@@ -713,15 +714,12 @@ class _AnalysisRow extends StatelessWidget {
                 item.request.status,
               ),
             ),
-
             const SizedBox(width: 8),
-
             const Icon(
               Icons.chevron_right_rounded,
               color: radiologyMuted,
               size: 19,
             ),
-
             const SizedBox(width: 2),
           ],
         ),
@@ -761,7 +759,9 @@ class _SupportBannerState extends State<_SupportBanner> {
     super.initState();
 
     _timer = Timer.periodic(
-      const Duration(seconds: 5),
+      const Duration(
+        seconds: 5,
+      ),
       (_) {
         if (!mounted) {
           return;
@@ -791,8 +791,12 @@ class _SupportBannerState extends State<_SupportBanner> {
         13,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFFF7FAFF),
-        borderRadius: BorderRadius.circular(18),
+        color: const Color(
+          0xFFF7FAFF,
+        ),
+        borderRadius: BorderRadius.circular(
+          18,
+        ),
         border: Border.all(
           color: radiologyBorder,
         ),
@@ -952,7 +956,9 @@ class _Retry extends StatelessWidget {
             message,
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 6),
+          const SizedBox(
+            height: 6,
+          ),
           TextButton(
             onPressed: onRetry,
             child: const Text(
@@ -969,7 +975,9 @@ class _Retry extends StatelessWidget {
 // 분석 유형 한글화
 // ============================================================================
 
-String _analysisType(String value) {
+String _analysisType(
+  String value,
+) {
   return switch (value) {
     'HEMORRHAGIC_STROKE_CT' => 'CT 뇌출혈 분석',
     'ISCHEMIC_STROKE_DWI_ADC' => 'MRI 허혈성 뇌졸중 분석',
@@ -982,7 +990,9 @@ String _analysisType(String value) {
 // 상태 한글화
 // ============================================================================
 
-String _statusLabel(String value) {
+String _statusLabel(
+  String value,
+) {
   return switch (value) {
     'QUEUED' => '분석 대기',
     'PROCESSING' => '분석 중',
@@ -998,7 +1008,9 @@ String _statusLabel(String value) {
 // 상태 색상
 // ============================================================================
 
-Color _statusColor(String value) {
+Color _statusColor(
+  String value,
+) {
   return switch (value) {
     'COMPLETED' => radiologySuccess,
     'PROCESSING' || 'RETRYING' => radiologyWarning,
@@ -1011,7 +1023,9 @@ Color _statusColor(String value) {
 // 날짜/시간
 // ============================================================================
 
-String _time(String? value) {
+String _time(
+  String? value,
+) {
   final date = value == null
       ? null
       : DateTime.tryParse(
@@ -1022,7 +1036,9 @@ String _time(String? value) {
     return value ?? '시간 정보 없음';
   }
 
-  String two(int number) {
+  String two(
+    int number,
+  ) {
     return number.toString().padLeft(
           2,
           '0',

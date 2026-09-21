@@ -15,8 +15,6 @@ class ClinicianRoleInfo {
   final String id;
   final String code;
   final String name;
-
-  Map<String, dynamic> toJson() => {'id': id, 'code': code, 'name': name};
 }
 
 class ClinicianUser {
@@ -48,11 +46,6 @@ class ClinicianUser {
   final String email;
   final ClinicianRoleInfo role;
   final List<String> permissions;
-
-  Map<String, dynamic> toJson() => {
-        'id': id, 'login_id': loginId, 'name': name, 'email': email,
-        'role': role.toJson(), 'permissions': permissions,
-      };
 }
 
 class ClinicianSession {

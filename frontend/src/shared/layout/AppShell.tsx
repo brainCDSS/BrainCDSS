@@ -46,6 +46,7 @@ import ClinicalNotesPage from "../../features/clinical-notes/ClinicalNotesPage";
 import AdminUsersPage from "../../features/admin/AdminUsersPage";
 import SystemMonitoringPage from "../../features/admin/SystemMonitoringPage";
 import AdminSettingsPage from "../../features/admin/AdminSettingsPage";
+import MLManagementPage from "../../features/admin/MLManagementPage";
 // [추가 끝] 관리자 화면 연결
 
 import type { Patient } from "../../features/patients/types";
@@ -119,7 +120,7 @@ const SIDEBAR_MENU_KEYS: SidebarMenuKey[] = [
   "dashboard", "patients", "worklist", "triage", "clinical-notes",
   "appointments", "imaging", "ai-results", "radiology-reports", "cdss",
   "consultations", "surgical-planning", "prescriptions", "notifications",
-  "admin-users", "admin-settings",
+  "admin-users", "admin-ml", "admin-settings",
 ];
 
 function isSidebarMenuKey(value: unknown): value is SidebarMenuKey {
@@ -814,6 +815,7 @@ export default function AppShell({
       menu !== "notifications" &&
       // [추가] 관리자 화면 연결
       menu !== "admin-users" &&
+      menu !== "admin-ml" &&
       menu !== "admin-settings"
       // [추가 끝] 관리자 화면 연결
     ) {
@@ -1737,6 +1739,7 @@ export default function AppShell({
     // [추가] 관리자 화면 연결
     if (currentUser.role.code === "SYSTEM_ADMIN") {
       if (activeMenu === "admin-users") return <AdminUsersPage />;
+      if (activeMenu === "admin-ml") return <MLManagementPage />;
       if (activeMenu === "admin-settings") return <AdminSettingsPage />;
       return <SystemMonitoringPage />;
     }

@@ -1,78 +1,171 @@
 import 'package:flutter/material.dart';
-import '../../core/api/clinician_api_client.dart';
-import 'notifications_api.dart';
 
-class RadiologyNotificationsPage extends StatefulWidget {
-  const RadiologyNotificationsPage({super.key, required this.apiClient});
-  final ClinicianApiClient apiClient;
+import '../radiology/widgets/radiology_ui.dart';
+
+/// Notification transport is intentionally not connected yet: the current
+/// backend runtime does not reliably scope RADIOLOGY notifications by recipient.
+class RadiologyNotificationsPage extends StatelessWidget {
+  const RadiologyNotificationsPage({
+    super.key,
+    this.notifications = const [],
+    this.isLoading = false,
+  });
+
+  final List<RadiologyNotificationItem> notifications;
+  final bool isLoading;
+
   @override
-  State<RadiologyNotificationsPage> createState() => _NotificationsPageState();
+  Widget build(BuildContext context) => ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+            RadiologySectionTitle(title: '알림센터'),
+            SizedBox(height: 8),
+            Text(
+              '업무 관련 알림을 확인할 수 있습니다.',
+              style: TextStyle(color: radiologyMuted, fontSize: 13),
+            ),
+            SizedBox(height: 18),
+            _NotificationFilterBar(),
+            SizedBox(height: 14),
+            if (isLoading)
+              Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: CircularProgressIndicator(),
+                ),
+              )
+            else if (notifications.isEmpty)
+              RadiologyEmptyState(
+                icon: Icons.notifications_none_rounded,
+                message: '표시할 알림이 없습니다.',
+              )
+            else
+              ...notifications.map(
+                (notification) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _NotificationCard(notification: notification),
+                ),
+              ),
+        ],
+      );
 }
 
-class _NotificationsPageState extends State<RadiologyNotificationsPage> {
-  late final ClinicianNotificationsApi api = ClinicianNotificationsApi(widget.apiClient);
-  List<Map<String, dynamic>> items = const [];
-  Map<String, dynamic>? preferences;
-  bool loading = true;
-  String? error;
+class RadiologyNotificationItem {
+  const RadiologyNotificationItem({
+    required this.category,
+    required this.title,
+    required this.body,
+    required this.isRead,
+    required this.createdAt,
+  });
+
+  final String category;
+  final String title;
+  final String body;
+  final bool isRead;
+  final String createdAt;
+}
+
+class _NotificationCard extends StatelessWidget {
+  const _NotificationCard({required this.notification});
+
+  final RadiologyNotificationItem notification;
 
   @override
-  void initState() { super.initState(); _load(); }
+  Widget build(BuildContext context) => RadiologyInfoCard(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              notification.isRead
+                  ? Icons.notifications_none_rounded
+                  : Icons.notifications_rounded,
+              color: notification.isRead ? radiologyMuted : radiologyBlue,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      RadiologyStatusChip(
+                        label: notification.category,
+                        color: radiologyBlue,
+                      ),
+                      const Spacer(),
+                      Text(
+                        notification.isRead ? '읽음' : '읽지 않음',
+                        style: TextStyle(
+                          color: notification.isRead
+                              ? radiologyMuted
+                              : radiologyBlue,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 9),
+                  Text(
+                    notification.title,
+                    style: const TextStyle(
+                      color: radiologyNavy,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    notification.body,
+                    style: const TextStyle(color: radiologyMuted, fontSize: 13),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    notification.createdAt,
+                    style: const TextStyle(color: radiologyMuted, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+}
 
-  Future<void> _load() async {
-    try {
-      final result = await api.list();
-      final prefs = await api.preferences();
-      if (!mounted) return;
-      setState(() {
-        items = (result['results'] as List? ?? const []).whereType<Map>()
-            .map((value) => Map<String, dynamic>.from(value)).toList();
-        preferences = prefs; loading = false; error = null;
-      });
-    } catch (_) {
-      if (mounted) setState(() { loading = false; error = '알림을 불러오지 못했습니다.'; });
-    }
-  }
-
-  Future<void> _read(Map<String, dynamic> item) async {
-    if (item['is_read'] != true) await api.markRead(item['id'].toString());
-    await _load();
-  }
-
-  Future<void> _toggleDnd(bool enabled) async {
-    final dnd = Map<String, dynamic>.from(preferences?['dnd'] as Map? ?? const {});
-    await api.updatePreferences({
-      'dnd_enabled': enabled,
-      'dnd_start': dnd['start'] ?? '22:00',
-      'dnd_end': dnd['end'] ?? '07:00',
-      'timezone': dnd['timezone'] ?? 'Asia/Seoul',
-    });
-    await _load();
-  }
+class _NotificationFilterBar extends StatelessWidget {
+  const _NotificationFilterBar();
 
   @override
-  Widget build(BuildContext context) {
-    final dnd = Map<String, dynamic>.from(preferences?['dnd'] as Map? ?? const {});
-    return Scaffold(
-      appBar: AppBar(title: const Text('알림 센터')),
-      body: RefreshIndicator(onRefresh: _load, child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.all(16),
-        children: [
-          if (preferences != null) SwitchListTile(
-            title: const Text('방해 금지'), value: dnd['enabled'] == true,
-            onChanged: _toggleDnd,
-          ),
-          if (loading) const Center(child: CircularProgressIndicator())
-          else if (error != null) TextButton(onPressed: _load, child: Text('$error 다시 시도'))
-          else if (items.isEmpty) const Padding(padding: EdgeInsets.all(32), child: Center(child: Text('새 알림이 없습니다.')))
-          else ...items.map((item) => Card(child: ListTile(
-            leading: Icon(item['is_read'] == true ? Icons.notifications_none : Icons.notifications_active),
-            title: Text(item['title']?.toString() ?? ''),
-            subtitle: Text(item['body']?.toString() ?? ''),
-            onTap: () => _read(item),
-          ))),
+  Widget build(BuildContext context) => Row(
+        children: const [
+          _FilterChip(label: '전체', selected: true),
+          SizedBox(width: 8),
+          _FilterChip(label: '읽지 않음'),
         ],
-      )),
-    );
-  }
+      );
+}
+
+class _FilterChip extends StatelessWidget {
+  const _FilterChip({required this.label, this.selected = false});
+
+  final String label;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFFEAF2FF) : Colors.white,
+          border: Border.all(color: radiologyBorder),
+          borderRadius: BorderRadius.circular(99),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? radiologyBlue : radiologyMuted,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      );
 }

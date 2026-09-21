@@ -4,12 +4,18 @@ import 'package:flutter/material.dart';
 
 import '../../core/api/clinician_api_client.dart';
 import '../radiology/widgets/radiology_ui.dart';
+import 'neurology_clinical_records_page.dart';
 import 'neurology_imaging_pages.dart';
 
 class NeurologyPatientsPage extends StatefulWidget {
-  const NeurologyPatientsPage({super.key, required this.apiClient});
+  const NeurologyPatientsPage({
+    super.key,
+    required this.apiClient,
+    required this.currentUserId,
+  });
 
   final ClinicianApiClient apiClient;
+  final String currentUserId;
 
   @override
   State<NeurologyPatientsPage> createState() => _NeurologyPatientsPageState();
@@ -126,6 +132,7 @@ class _NeurologyPatientsPageState extends State<NeurologyPatientsPage> {
                       builder: (_) => NeurologyPatientDetailPage(
                         apiClient: widget.apiClient,
                         patientId: patient.id,
+                        currentUserId: widget.currentUserId,
                       ),
                     ),
                   ),
@@ -201,10 +208,12 @@ class NeurologyPatientDetailPage extends StatefulWidget {
     super.key,
     required this.apiClient,
     required this.patientId,
+    required this.currentUserId,
   });
 
   final ClinicianApiClient apiClient;
   final String patientId;
+  final String currentUserId;
 
   @override
   State<NeurologyPatientDetailPage> createState() =>
@@ -300,6 +309,12 @@ class _NeurologyPatientDetailPageState
                         ),
                       ),
                       const SizedBox(height: 18),
+                      NeurologyPatientClinicalRecordsSection(
+                        apiClient: widget.apiClient,
+                        patientId: widget.patientId,
+                        currentUserId: widget.currentUserId,
+                      ),
+                      const SizedBox(height: 18),
                       const RadiologySectionTitle(title: '최근 영상검사'),
                       const SizedBox(height: 10),
                       if (_studies.isEmpty)
@@ -315,7 +330,8 @@ class _NeurologyPatientDetailPageState
                               borderRadius: BorderRadius.circular(18),
                               onTap: () => Navigator.of(context).push(
                                 MaterialPageRoute<void>(
-                                  builder: (_) => NeurologyImagingStudyDetailPage(
+                                  builder: (_) =>
+                                      NeurologyImagingStudyDetailPage(
                                     apiClient: widget.apiClient,
                                     studyId: study.id,
                                   ),
@@ -349,13 +365,15 @@ class _NeurologyPatientDetailPageState
                                           ),
                                           const SizedBox(height: 4),
                                           Text(
-                                            _formatDateTime(study.studyDateTime),
+                                            _formatDateTime(
+                                                study.studyDateTime),
                                             style: const TextStyle(
                                               color: radiologyMuted,
                                               fontSize: 13,
                                             ),
                                           ),
-                                          if (study.accessionNumber.isNotEmpty) ...[
+                                          if (study
+                                              .accessionNumber.isNotEmpty) ...[
                                             const SizedBox(height: 3),
                                             Text(
                                               study.accessionNumber,
@@ -477,7 +495,7 @@ class _PatientImagingStudy {
 
   String get summary {
     final values = <String>[
-      if (status.isNotEmpty) status,
+      if (status.isNotEmpty) _imagingStatusLabel(status),
       if (latestAnalysis != null && latestAnalysis!.isNotEmpty)
         'AI $latestAnalysis',
       if (currentReport != null && currentReport!.isNotEmpty)
@@ -486,6 +504,11 @@ class _PatientImagingStudy {
     return values.join(' · ');
   }
 }
+
+String _imagingStatusLabel(String status) => switch (status) {
+      'AVAILABLE' => '조회 가능',
+      _ => status,
+    };
 
 class _PatientSummary extends StatelessWidget {
   const _PatientSummary({required this.patient});

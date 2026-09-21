@@ -2,15 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../core/api/clinician_api_client.dart';
 import '../features/auth/clinician_session.dart';
-import '../features/emergency/neurology_emergency_worklist_page.dart';
-import '../features/notifications/radiology_notifications_page.dart';
 import '../features/assistant/clinician_ai_assistant_page.dart';
 import '../features/assistant/draggable_assistant_button.dart';
 import '../features/consultations/radiology_consultation_messages_page.dart';
+import '../features/neurology/neurology_clinical_records_page.dart';
 import '../features/neurology/neurology_consultations_page.dart';
 import '../features/neurology/neurology_pages.dart';
 import '../features/neurology/neurology_patients_page.dart';
 import '../features/neurology/widgets/neurology_navigation_drawer.dart';
+import '../features/notifications/radiology_notifications_page.dart';
+import '../features/profile/clinician_profile_pages.dart';
 
 class NeurologyMainShell extends StatefulWidget {
   const NeurologyMainShell({
@@ -33,26 +34,40 @@ class _NeurologyMainShellState extends State<NeurologyMainShell> {
   Widget? _assistantPage;
   Widget? _detailPage;
   Widget? _detailBackPage;
+  int _emergencyRefreshVersion = 0;
   late final List<Widget> _pages;
 
   @override
   void initState() {
     super.initState();
     _pages = [
-      NeurologyEmergencyWorklistPage(
+      NeurologyEmergencyPage(
+        key: ValueKey('neurology-emergency-$_emergencyRefreshVersion'),
         apiClient: widget.apiClient,
+        onOpenDetail: _openEmergencyDetail,
       ),
-      NeurologyPatientsPage(apiClient: widget.apiClient),
+      NeurologyPatientsPage(
+        apiClient: widget.apiClient,
+        currentUserId: widget.user.id,
+      ),
       NeurologyHomePage(
         apiClient: widget.apiClient,
+        userName: widget.user.name,
+        currentUserId: widget.user.id,
         onSelectTab: _selectTab,
         onOpenClinicalRecords: _openClinicalRecords,
+        onOpenConsultationDetail: _openConsultationDetail,
       ),
       NeurologyConsultationsPage(
         apiClient: widget.apiClient,
         onOpenDetail: _openConsultationDetail,
       ),
-      NeurologyProfilePage(user: widget.user, onLogout: widget.onLogout),
+      ClinicianProfilePage(
+        user: widget.user,
+        onLogout: widget.onLogout,
+        onOpenNotificationSettings: _openNotificationSettings,
+        onOpenProfileDetails: _openProfileDetails,
+      ),
     ];
     NeurologyNavigation.configure(
       onSelectTab: _selectTab,
@@ -75,7 +90,52 @@ class _NeurologyMainShellState extends State<NeurologyMainShell> {
     setState(() {
       _assistantPage = null;
       _detailBackPage = null;
-      _detailPage = const NeurologyClinicalRecordsPage();
+      _detailPage = NeurologyClinicalRecordsPage(
+        apiClient: widget.apiClient,
+        onOpenDetail: _openClinicalNoteDetail,
+      );
+    });
+  }
+
+  void _openClinicalNoteDetail(String noteId) {
+    if (noteId.isEmpty) return;
+    setState(() {
+      _assistantPage = null;
+      _detailBackPage = _detailPage;
+      _detailPage = NeurologyClinicalNoteDetailPage(
+        key: ValueKey('neurology-clinical-note-$noteId'),
+        apiClient: widget.apiClient,
+        noteId: noteId,
+        currentUserId: widget.user.id,
+      );
+    });
+  }
+
+  void _openEmergencyDetail(EmergencyWorklistItem item) {
+    if (item.assessmentId.isEmpty) {
+      return;
+    }
+    setState(() {
+      _assistantPage = null;
+      _selectedIndex = 0;
+      _detailBackPage = null;
+      _detailPage = NeurologyEmergencyDetailPage(
+        key: ValueKey('neurology-emergency-${item.assessmentId}'),
+        apiClient: widget.apiClient,
+        item: item,
+        onAcknowledged: _refreshEmergencyWorklist,
+      );
+    });
+  }
+
+  void _refreshEmergencyWorklist() {
+    setState(() {
+      _emergencyRefreshVersion++;
+      _pages[0] = NeurologyEmergencyPage(
+        key: ValueKey('neurology-emergency-$_emergencyRefreshVersion'),
+        apiClient: widget.apiClient,
+        onOpenDetail: _openEmergencyDetail,
+      );
     });
   }
 
@@ -130,23 +190,59 @@ class _NeurologyMainShellState extends State<NeurologyMainShell> {
 
   void _closeDetail() {
     setState(() {
+      if (_detailPage is RadiologyNotificationsPage &&
+          _detailBackPage is ClinicianAiAssistantPage) {
+        _assistantPage = _detailBackPage;
+        _detailPage = null;
+        _detailBackPage = null;
+        return;
+      }
       _detailPage = _detailBackPage;
       _detailBackPage = null;
     });
   }
 
+  void _openNotifications() {
+    setState(() {
+      _detailBackPage = _assistantPage ?? _detailPage;
+      _assistantPage = null;
+      _detailPage = const RadiologyNotificationsPage();
+    });
+  }
+
+  void _openNotificationSettings() {
+    setState(() {
+      _assistantPage = null;
+      _detailBackPage = null;
+      _detailPage = ClinicianNotificationSettingsPage(
+        apiClient: widget.apiClient,
+      );
+    });
+  }
+
+  void _openProfileDetails() {
+    setState(() {
+      _assistantPage = null;
+      _detailBackPage = null;
+      _detailPage = ClinicianProfileDetailsPage(
+        user: widget.user,
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
-        drawer: const NeurologyNavigationDrawer(),
+        drawer: NeurologyNavigationDrawer(
+          user: widget.user,
+        ),
         appBar: AppBar(
           leading: _assistantPage == null && _detailPage == null
               ? null
               : IconButton(
                   tooltip: '뒤로가기',
                   icon: const Icon(Icons.arrow_back_rounded),
-                  onPressed: _assistantPage != null
-                      ? _closeAssistant
-                      : _closeDetail,
+                  onPressed:
+                      _assistantPage != null ? _closeAssistant : _closeDetail,
                 ),
           titleSpacing: 20,
           title: const Column(
@@ -167,13 +263,7 @@ class _NeurologyMainShellState extends State<NeurologyMainShell> {
               const NeurologyDrawerButton(),
             IconButton(
               tooltip: '알림',
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => RadiologyNotificationsPage(
-                    apiClient: widget.apiClient,
-                  ),
-                ),
-              ),
+              onPressed: _openNotifications,
               icon: const Icon(Icons.notifications_none_rounded),
             ),
             const SizedBox(width: 4),

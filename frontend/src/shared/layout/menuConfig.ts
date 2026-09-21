@@ -18,6 +18,7 @@ export const MENU_LABELS: Record<SidebarMenuKey, string> = {
   notifications: "알림 센터",
   // [추가] 관리자 메뉴
   "admin-users": "사용자 · 권한",
+  "admin-ml": "ML 관리",
   "admin-settings": "설정",
   // [추가 끝] 관리자 메뉴
 };
@@ -155,6 +156,7 @@ export const MENU_ALLOWED_ROLES: Record<
   ],
   // [추가] 관리자 메뉴
   "admin-users": ["SYSTEM_ADMIN"],
+  "admin-ml": ["SYSTEM_ADMIN"],
   "admin-settings": ["SYSTEM_ADMIN"],
   // [추가 끝] 관리자 메뉴
 };

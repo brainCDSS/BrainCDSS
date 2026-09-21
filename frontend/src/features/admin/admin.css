@@ -228,6 +228,18 @@
   min-height:0;
 }
 
+.ml-management-page{padding-bottom:28px}
+.ml-header-actions{display:flex;gap:8px;align-items:center}
+.ml-current-routing{padding:16px}
+.ml-routing-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.ml-routing-grid article{display:grid;gap:5px;padding:12px;border:1px solid #cfe0fa;border-radius:8px;background:#f7fbff}
+.ml-routing-grid strong{color:#1e4e8f}.ml-routing-grid span{font-size:13px;font-weight:700}.ml-routing-grid small{color:var(--text-secondary)}
+.ml-model-tabs{display:flex;flex-wrap:wrap;gap:8px;padding:12px 0}.ml-model-tabs button{border:1px solid var(--border-color);border-radius:18px;padding:7px 11px;background:#fff;color:var(--text-primary);font:inherit;font-size:12px;font-weight:700;cursor:pointer}.ml-model-tabs button.is-active{border-color:var(--primary);background:rgba(37,99,235,.08);color:var(--primary)}
+.ml-version-table small,.clinical-table small{display:block;margin-top:3px;color:var(--text-secondary);font-size:11px}.ml-status{display:inline-flex;padding:4px 7px;border-radius:12px;background:#edf1f6;color:#526176;font-size:11px;font-weight:800}.ml-status.is-validated{background:#fff4d8;color:#956d00}.ml-status.is-approved{background:#dff6e7;color:#167344}.ml-status.is-retired{background:#f5e5e7;color:#9b3947}.ml-inline-actions{display:flex;gap:6px}.ml-inline-actions .admin-action{padding:6px 8px;font-size:11px;white-space:nowrap}
+.ml-routing-form{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:10px 0 16px}.ml-routing-form label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:700}.ml-routing-form input,.ml-routing-form select{min-height:36px;padding:7px 9px;border:1px solid var(--border-color);border-radius:6px;background:#fff;font:inherit}.ml-routing-form__wide{grid-column:span 2}.ml-routing-form button{align-self:end;height:36px}
+@media(max-width:980px){.ml-routing-form{grid-template-columns:repeat(2,minmax(0,1fr))}.ml-routing-form__wide{grid-column:span 2}}
+@media(max-width:620px){.ml-routing-form{grid-template-columns:1fr}.ml-routing-form__wide{grid-column:auto}.ml-inline-actions{flex-wrap:wrap}}
+
 .admin-grafana-card{
   flex:1;
   min-height:700px;

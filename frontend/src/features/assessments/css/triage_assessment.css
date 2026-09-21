@@ -1827,6 +1827,41 @@
   gap: 14px;
 }
 
+.triage-assessment__step--3
+.triage-assessment__section--vital
+.triage-vital-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.triage-assessment__step--3
+.triage-assessment__section--vital
+.triage-measurement-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.triage-measurement-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 2px 0 10px;
+}
+
+.triage-measurement-heading strong {
+  color: #43536a;
+  font-size: 12px;
+}
+
+.triage-measurement-heading span {
+  color: #8491a3;
+  font-size: 11px;
+}
+
+.triage-measurement-grid input[readonly] {
+  background: #f4f7fb;
+  color: #52637a;
+  cursor: default;
+}
+
 
 /* =========================================================
    STEP 3
@@ -2186,4 +2221,90 @@ textarea {
   height:1px;
   margin:14px 0;
   background:#e7ebf1;
+}
+
+.triage-allergy-list {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin:0 0 14px;
+  padding:0;
+  list-style:none;
+}
+
+.triage-allergy-list li {
+  display:flex;
+  align-items:center;
+  gap:7px;
+  padding:8px 10px;
+  border:1px solid #f0d6da;
+  border-radius:8px;
+  background:#fff8f8;
+  color:#5a3440;
+  font-size:12px;
+}
+
+.triage-allergy-list em {
+  color:#b04455;
+  font-size:10px;
+  font-style:normal;
+  font-weight:800;
+}
+
+.triage-allergy-form {
+  display:grid;
+  grid-template-columns:1.15fr 1fr .75fr auto;
+  gap:10px;
+  align-items:end;
+}
+
+.triage-allergy-form label {
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  color:#53627a;
+  font-size:11px;
+  font-weight:800;
+}
+
+.triage-allergy-form input,
+.triage-allergy-form select {
+  height:38px;
+  padding:0 10px;
+  border:1px solid #d8e2ef;
+  border-radius:8px;
+  background:#fff;
+  color:#283a56;
+  font:inherit;
+}
+
+.triage-allergy-form button {
+  height:38px;
+  padding:0 14px;
+  border:0;
+  border-radius:8px;
+  background:#2f78df;
+  color:#fff;
+  font:inherit;
+  font-size:12px;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.triage-allergy-form button:disabled {
+  cursor:not-allowed;
+  opacity:.55;
+}
+
+.triage-allergy-state,
+.triage-allergy-error {
+  margin:0;
+  color:#63718a;
+  font-size:12px;
+}
+
+.triage-allergy-error { color:#b83e4e; }
+
+@media (max-width: 900px) {
+  .triage-allergy-form { grid-template-columns:1fr 1fr; }
 }

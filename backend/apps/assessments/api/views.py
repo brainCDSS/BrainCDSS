@@ -50,6 +50,7 @@ def _serialize_assessment_detail(assessment, items):
     return {
         "assessment_id": assessment.id,
         "encounter_id": assessment.encounter_id,
+        "patient_id": assessment.encounter.patient_id,
         "status": assessment.status,
         "total_score": assessment.total_score,
         "triage_priority": assessment.triage_priority,
@@ -131,6 +132,15 @@ class AssessmentDetailView(ContractView002):
 
     def get(self, request, *args, **kwargs):
         response = super().get(request, *args, **kwargs)
+        assessment = (
+            InitialAssessment.objects
+            .select_related("encounter")
+            .filter(pk=kwargs["assessment_id"])
+            .first()
+        )
+        response.data["patient_id"] = (
+            str(assessment.encounter.patient_id) if assessment else None
+        )
         department = (
             Department.objects.filter(
                 Q(code__iexact="NEUROLOGY") | Q(name="신경과"),

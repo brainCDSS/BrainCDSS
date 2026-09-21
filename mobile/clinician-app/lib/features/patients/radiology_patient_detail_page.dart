@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api/clinician_api_client.dart';
+import '../auth/clinician_session.dart';
 import '../radiology/widgets/radiology_ui.dart';
 import '../radiology/widgets/radiology_navigation_drawer.dart';
+import '../consultations/radiology_consultation_detail_page.dart';
 
 class _PatientDetail {
   const _PatientDetail({
@@ -15,12 +17,10 @@ class _PatientDetail {
     required this.emergencyContact,
     required this.pregnancyStatus,
     required this.status,
-    required this.latestAssessment,
   });
 
   factory _PatientDetail.fromJson(Map<String, dynamic> json) {
     final birthDate = json['birth_date']?.toString();
-    final assessment = json['latest_assessment'];
 
     return _PatientDetail(
       name: json['name']?.toString() ?? '',
@@ -33,11 +33,6 @@ class _PatientDetail {
       emergencyContact: json['emergency_contact']?.toString(),
       pregnancyStatus: json['pregnancy_status']?.toString(),
       status: json['status']?.toString() ?? '',
-      latestAssessment: assessment is Map
-          ? _AssessmentSummary.fromJson(
-              Map<String, dynamic>.from(assessment),
-            )
-          : null,
     );
   }
 
@@ -50,38 +45,6 @@ class _PatientDetail {
   final String? emergencyContact;
   final String? pregnancyStatus;
   final String status;
-  final _AssessmentSummary? latestAssessment;
-}
-
-class _AssessmentSummary {
-  const _AssessmentSummary({
-    required this.encounterId,
-    required this.status,
-    required this.totalScore,
-    required this.triagePriority,
-    required this.onsetAt,
-    required this.lkwAt,
-    required this.symptomNote,
-  });
-
-  factory _AssessmentSummary.fromJson(Map<String, dynamic> json) =>
-      _AssessmentSummary(
-        encounterId: json['encounter_id']?.toString() ?? '',
-        status: json['status']?.toString() ?? '',
-        totalScore: _toInt(json['total_score']),
-        triagePriority: json['triage_priority']?.toString(),
-        onsetAt: json['onset_at']?.toString(),
-        lkwAt: json['lkw_at']?.toString(),
-        symptomNote: json['symptom_note']?.toString(),
-      );
-
-  final String encounterId;
-  final String status;
-  final int? totalScore;
-  final String? triagePriority;
-  final String? onsetAt;
-  final String? lkwAt;
-  final String? symptomNote;
 }
 
 class _ImagingStudyItem {
@@ -209,12 +172,14 @@ class RadiologyPatientDetailPage extends StatefulWidget {
     super.key,
     required this.apiClient,
     required this.patientId,
-    this.roleCode = 'RADIOLOGY',
+    required this.user,
+    required this.selectedIndex,
   });
 
   final ClinicianApiClient apiClient;
   final String patientId;
-  final String roleCode;
+  final ClinicianUser user;
+  final int selectedIndex;
 
   @override
   State<RadiologyPatientDetailPage> createState() =>
@@ -228,8 +193,6 @@ class _RadiologyPatientDetailPageState
   List<_ImagingStudyItem> _studies = [];
   _AiAnalysisSummary? _latestAnalysis;
   List<_ConsultationSummary> _consultations = [];
-  List<Map<String, dynamic>> _currentMedications = const [];
-  List<Map<String, dynamic>> _clinicalNotes = const [];
 
   bool _isLoading = true;
   String? _errorMessage;
@@ -253,40 +216,6 @@ class _RadiologyPatientDetailPageState
       );
 
       final patient = _PatientDetail.fromJson(patientResponse);
-
-      List<Map<String, dynamic>> currentMedications = const [];
-      try {
-        final medicationResponse = await widget.apiClient.get(
-          '/api/v1/patients/${widget.patientId}/current-medications',
-        );
-        currentMedications =
-            (medicationResponse['results'] as List? ?? const [])
-                .whereType<Map>()
-                .map((item) => Map<String, dynamic>.from(item))
-                .toList(growable: false);
-      } catch (_) {
-        // Medication failure must not hide the rest of patient detail.
-      }
-
-      List<Map<String, dynamic>> clinicalNotes = const [];
-      final encounterId = patient.latestAssessment?.encounterId;
-      if (widget.roleCode == 'NEUROLOGIST' &&
-          encounterId != null &&
-          encounterId.isNotEmpty) {
-        try {
-          final noteResponse = await widget.apiClient.get(
-            '/api/v1/clinical-notes',
-            query: {'encounter_id': encounterId},
-          );
-          clinicalNotes =
-              (noteResponse['results'] as List? ?? const [])
-                  .whereType<Map>()
-                  .map((item) => Map<String, dynamic>.from(item))
-                  .toList(growable: false);
-        } catch (_) {
-          // Note failure must not hide the rest of patient detail.
-        }
-      }
 
       // 2. 최근 영상검사
       List<_ImagingStudyItem> studies = [];
@@ -431,8 +360,6 @@ class _RadiologyPatientDetailPageState
         _studies = studies;
         _latestAnalysis = latestAnalysis;
         _consultations = consultations;
-        _currentMedications = currentMedications;
-        _clinicalNotes = clinicalNotes;
       });
     } on ClinicianApiException catch (error) {
       if (mounted) {
@@ -456,7 +383,17 @@ class _RadiologyPatientDetailPageState
   }
 
   @override
-  Widget build(BuildContext context) => _isLoading
+  Widget build(BuildContext context) => Scaffold(
+        drawer: RadiologyNavigationDrawer(
+          user: widget.user,
+          selectedIndex: widget.selectedIndex,
+        ),
+        appBar: AppBar(
+          leading: const BackButton(),
+          title: const Text('환자 상세'),
+          actions: const [RadiologyDrawerButton()],
+        ),
+        body: _isLoading
             ? const Center(
                 child: CircularProgressIndicator(),
               )
@@ -486,11 +423,8 @@ class _RadiologyPatientDetailPageState
                     studies: _studies,
                     latestAnalysis: _latestAnalysis,
                     consultations: _consultations,
-                    currentMedications: _currentMedications,
-                    clinicalNotes: _clinicalNotes,
-                    showClinicalNotes:
-                        widget.roleCode == 'NEUROLOGIST',
-                  );
+                  ),
+      );
 }
 
 class _PatientDetailBody extends StatelessWidget {
@@ -500,9 +434,6 @@ class _PatientDetailBody extends StatelessWidget {
     required this.studies,
     required this.latestAnalysis,
     required this.consultations,
-    required this.currentMedications,
-    required this.clinicalNotes,
-    required this.showClinicalNotes,
   });
 
   final ClinicianApiClient apiClient;
@@ -510,9 +441,6 @@ class _PatientDetailBody extends StatelessWidget {
   final List<_ImagingStudyItem> studies;
   final _AiAnalysisSummary? latestAnalysis;
   final List<_ConsultationSummary> consultations;
-  final List<Map<String, dynamic>> currentMedications;
-  final List<Map<String, dynamic>> clinicalNotes;
-  final bool showClinicalNotes;
 
   @override
   Widget build(BuildContext context) => ListView(
@@ -601,8 +529,22 @@ class _PatientDetailBody extends StatelessWidget {
           RadiologyInfoCard(
             child: Column(
               children: [
-              _InfoRow(
-                label: '연락처',
+                _InfoRow(
+                  label: '생년월일',
+                  value: patient.birthDate,
+                ),
+                _InfoRow(
+                  label: '나이',
+                  value: patient.estimatedAge == null
+                      ? null
+                      : '${patient.estimatedAge}세',
+                ),
+                _InfoRow(
+                  label: '성별',
+                  value: patient.sex,
+                ),
+                _InfoRow(
+                  label: '연락처',
                   value: patient.phone,
                 ),
                 if (_hasValue(patient.emergencyContact))
@@ -627,166 +569,6 @@ class _PatientDetailBody extends StatelessWidget {
 
           const SizedBox(height: 18),
 
-          // 최신 초기평가
-          const RadiologySectionTitle(
-            title: '최신 초기평가',
-          ),
-          const SizedBox(height: 10),
-
-          if (patient.latestAssessment == null)
-            const RadiologyEmptyState(
-              icon: Icons.fact_check_outlined,
-              message: '초기평가 기록이 없습니다.',
-            )
-          else
-            RadiologyInfoCard(
-              child: Column(
-                children: [
-                  _InfoRow(
-                    label: '평가 상태',
-                    value: patient.latestAssessment!.status,
-                  ),
-                  _InfoRow(
-                    label: '우선순위',
-                    value: patient.latestAssessment!.triagePriority,
-                  ),
-                  _InfoRow(
-                    label: '평가점수',
-                    value: patient.latestAssessment!.totalScore == null
-                        ? null
-                        : patient.latestAssessment!.totalScore.toString(),
-                  ),
-                  _InfoRow(
-                    label: '증상 발생',
-                    value: _formatDateTime(
-                      patient.latestAssessment!.onsetAt,
-                    ),
-                  ),
-                  _InfoRow(
-                    label: 'Last Known Well',
-                    value: _formatDateTime(
-                      patient.latestAssessment!.lkwAt,
-                    ),
-                  ),
-                  _InfoRow(
-                    label: '주요 증상',
-                    value: patient.latestAssessment!.symptomNote,
-                  ),
-                ],
-              ),
-            ),
-
-          const SizedBox(height: 18),
-
-          // 현재 복용약
-          const RadiologySectionTitle(
-            title: '현재 복용약',
-          ),
-          const SizedBox(height: 10),
-
-          if (currentMedications.isEmpty)
-            const RadiologyEmptyState(
-              icon: Icons.medication_outlined,
-              message: '현재 복용 중인 약물이 없습니다.',
-            )
-          else
-            ...currentMedications.map(
-              (medication) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: RadiologyInfoCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        medication['medication_name']?.toString() ??
-                            medication['drug_name']?.toString() ??
-                            '약품명 정보 없음',
-                        style: const TextStyle(
-                          color: radiologyNavy,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        [
-                          if (medication['dose'] != null)
-                            '${medication['dose']} ${medication['dose_unit'] ?? ''}'.trim(),
-                          if (medication['frequency_per_day'] != null)
-                            '1일 ${medication['frequency_per_day']}회',
-                          if (medication['duration_days'] != null)
-                            '${medication['duration_days']}일',
-                        ].join(' · '),
-                        style: const TextStyle(
-                          color: radiologyMuted,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-          if (showClinicalNotes) ...[
-            const SizedBox(height: 18),
-            const RadiologySectionTitle(
-              title: '진료기록',
-            ),
-            const SizedBox(height: 10),
-
-            if (clinicalNotes.isEmpty)
-              const RadiologyEmptyState(
-                icon: Icons.description_outlined,
-                message: '현재 Encounter의 진료기록이 없습니다.',
-              )
-            else
-              ...clinicalNotes.map(
-                (note) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: RadiologyInfoCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          note['assessment_summary']?.toString() ??
-                              note['title']?.toString() ??
-                              '진료기록',
-                          style: const TextStyle(
-                            color: radiologyNavy,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        if ((note['plan']?.toString() ?? '').isNotEmpty) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            note['plan'].toString(),
-                            style: const TextStyle(
-                              color: radiologyMuted,
-                              height: 1.4,
-                            ),
-                          ),
-                        ],
-                        if ((note['created_at']?.toString() ?? '').isNotEmpty) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            _formatDateTime(
-                              note['created_at']?.toString(),
-                            ),
-                            style: const TextStyle(
-                              color: radiologyMuted,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-          ],
-
-          const SizedBox(height: 18),
-
           // 최근 검사
           const RadiologySectionTitle(
             title: '최근 검사',
@@ -808,11 +590,6 @@ class _PatientDetailBody extends StatelessWidget {
                         .map(
                           (study) => _StudyRow(
                             study: study,
-                            onTap: study.studyId.isEmpty
-                                ? null
-                                : () => RadiologyNavigation.openStudy(
-                                      study.studyId,
-                                    ),
                           ),
                         )
                         .toList(),
@@ -859,8 +636,15 @@ class _PatientDetailBody extends StatelessWidget {
                             onTap: consultation.consultationId.isEmpty
                                 ? null
                                 : () {
-                                    RadiologyNavigation.openConsultation(
-                                      consultation.consultationId,
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute<void>(
+                                        builder: (_) =>
+                                            RadiologyConsultationDetailPage(
+                                          apiClient: apiClient,
+                                          consultationId:
+                                              consultation.consultationId,
+                                        ),
+                                      ),
                                     );
                                   },
                           ),
@@ -877,25 +661,20 @@ class _PatientDetailBody extends StatelessWidget {
 class _StudyRow extends StatelessWidget {
   const _StudyRow({
     required this.study,
-    required this.onTap,
   });
 
   final _ImagingStudyItem study;
-  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final modality = study.scanType ??
         (study.modalities.isNotEmpty ? study.modalities.join(', ') : '검사');
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          vertical: 12,
-        ),
-        child: Row(
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        vertical: 12,
+      ),
+      child: Row(
         children: [
           Container(
             width: 42,
@@ -952,7 +731,6 @@ class _StudyRow extends StatelessWidget {
             size: 22,
           ),
         ],
-        ),
       ),
     );
   }
@@ -1088,95 +866,95 @@ class _ConsultationRow extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: const Color(0xFFEAF2FF),
-                borderRadius: BorderRadius.circular(14),
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEAF2FF),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.groups_outlined,
+                  color: radiologyBlue,
+                ),
               ),
-              child: const Icon(
-                Icons.groups_outlined,
-                color: radiologyBlue,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _consultationTypeLabel(
-                      consultation.type,
-                    ),
-                    style: const TextStyle(
-                      color: radiologyNavy,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  if (_hasValue(
-                    consultation.requestedByName,
-                  ))
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      [
-                        '요청자 ${consultation.requestedByName}',
-                        if (_hasValue(
-                          consultation.requestedByDepartment,
-                        ))
-                          consultation.requestedByDepartment!,
-                      ].join(' · '),
-                      style: const TextStyle(
-                        color: radiologyMuted,
-                        fontSize: 12,
+                      _consultationTypeLabel(
+                        consultation.type,
                       ),
-                    ),
-                  if (_hasValue(
-                    consultation.requestedAt,
-                  )) ...[
-                    const SizedBox(height: 3),
-                    Text(
-                      _formatDateTime(
-                        consultation.requestedAt,
-                      ),
-                      style: const TextStyle(
-                        color: radiologyMuted,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                  if (_hasValue(
-                    consultation.reason,
-                  )) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      consultation.reason!,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: radiologyNavy,
-                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
+                    const SizedBox(height: 4),
+                    if (_hasValue(
+                      consultation.requestedByName,
+                    ))
+                      Text(
+                        [
+                          '요청자 ${consultation.requestedByName}',
+                          if (_hasValue(
+                            consultation.requestedByDepartment,
+                          ))
+                            consultation.requestedByDepartment!,
+                        ].join(' · '),
+                        style: const TextStyle(
+                          color: radiologyMuted,
+                          fontSize: 12,
+                        ),
+                      ),
+                    if (_hasValue(
+                      consultation.requestedAt,
+                    )) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        _formatDateTime(
+                          consultation.requestedAt,
+                        ),
+                        style: const TextStyle(
+                          color: radiologyMuted,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                    if (_hasValue(
+                      consultation.reason,
+                    )) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        consultation.reason!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: radiologyNavy,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            _StatusChip(
-              label: _consultationStatusLabel(
-                consultation.status,
+              const SizedBox(width: 8),
+              _StatusChip(
+                label: _consultationStatusLabel(
+                  consultation.status,
+                ),
+                color: _consultationStatusColor(
+                  consultation.status,
+                ),
               ),
-              color: _consultationStatusColor(
-                consultation.status,
+              const SizedBox(width: 4),
+              const Icon(
+                Icons.chevron_right,
+                color: radiologyMuted,
+                size: 22,
               ),
-            ),
-            const SizedBox(width: 4),
-            const Icon(
-              Icons.chevron_right,
-              color: radiologyMuted,
-              size: 22,
-            ),
             ],
           ),
         ),

@@ -17,6 +17,14 @@ from apps.ai_analysis.api.inference import (
     AnalysisNiftiViewerView,
     ResultArtifactContentView,
 )
+from apps.ai_analysis.api.model_admin import (
+    MLflowModelVersionSyncView,
+    MLModelOverviewView,
+    MLModelVersionApproveView,
+    MLModelVersionRetireView,
+    MLRoutingActivateView,
+    MLRoutingCollectionView,
+)
 from apps.imaging.api.nifti import (
     NiftiArtifactContentView,
     StudyAIInputsView,
@@ -65,6 +73,21 @@ urlpatterns = [
     path(
         "api/v1/dev/ai-analyses/<uuid:analysis_id>",
         DevelopmentAnalysisView.as_view(),
+    ),
+    path("api/v1/admin/ml/overview", MLModelOverviewView.as_view()),
+    path("api/v1/admin/ml/mlflow/sync", MLflowModelVersionSyncView.as_view()),
+    path(
+        "api/v1/admin/ml/model-versions/<uuid:version_id>/approve",
+        MLModelVersionApproveView.as_view(),
+    ),
+    path(
+        "api/v1/admin/ml/model-versions/<uuid:version_id>/retire",
+        MLModelVersionRetireView.as_view(),
+    ),
+    path("api/v1/admin/ml/routing-configs", MLRoutingCollectionView.as_view()),
+    path(
+        "api/v1/admin/ml/routing-configs/<uuid:routing_id>/activate",
+        MLRoutingActivateView.as_view(),
     ),
     # 조직
     path(

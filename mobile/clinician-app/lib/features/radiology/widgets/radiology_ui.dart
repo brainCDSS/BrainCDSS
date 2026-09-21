@@ -11,10 +11,16 @@ const radiologyWarning = Color(0xFFB45309);
 const radiologyDanger = Color(0xFFB42318);
 
 class RadiologySectionTitle extends StatelessWidget {
-  const RadiologySectionTitle({super.key, required this.title, this.action});
+  const RadiologySectionTitle({
+    super.key,
+    required this.title,
+    this.action,
+    this.onActionTap,
+  });
 
   final String title;
   final String? action;
+  final VoidCallback? onActionTap;
 
   @override
   Widget build(BuildContext context) => Row(
@@ -30,40 +36,107 @@ class RadiologySectionTitle extends StatelessWidget {
             ),
           ),
           if (action != null)
-            Text(
-              action!,
-              style: const TextStyle(
-                color: radiologyBlue,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
+            InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: onActionTap,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 4,
+                  vertical: 6,
+                ),
+                child: Text(
+                  action!,
+                  style: const TextStyle(
+                    color: radiologyBlue,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ),
         ],
       );
 }
 
+class ConsultationMessagesAction extends StatelessWidget {
+  const ConsultationMessagesAction({super.key, required this.onTap});
+
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEAF2FF),
+              border: Border.all(color: radiologyBorder),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.chat_bubble_outline_rounded,
+                  color: radiologyBlue,
+                  size: 18,
+                ),
+                SizedBox(width: 5),
+                Text(
+                  '메시지',
+                  style: TextStyle(
+                    color: radiologyBlue,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+}
+
 class RadiologyStatusChip extends StatelessWidget {
-  const RadiologyStatusChip({super.key, required this.label, required this.color});
+  const RadiologyStatusChip({
+    super.key,
+    required this.label,
+    required this.color,
+  });
 
   final String label;
   final Color color;
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 9,
+          vertical: 5,
+        ),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.11),
           borderRadius: BorderRadius.circular(99),
         ),
         child: Text(
           label,
-          style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w800),
+          style: TextStyle(
+            color: color,
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+          ),
         ),
       );
 }
 
 class RadiologyInfoCard extends StatelessWidget {
-  const RadiologyInfoCard({super.key, required this.child, this.padding = const EdgeInsets.all(16)});
+  const RadiologyInfoCard({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(16),
+  });
 
   final Widget child;
   final EdgeInsetsGeometry padding;
@@ -75,14 +148,23 @@ class RadiologyInfoCard extends StatelessWidget {
         color: Colors.white,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),
-          side: const BorderSide(color: radiologyBorder),
+          side: const BorderSide(
+            color: radiologyBorder,
+          ),
         ),
-        child: Padding(padding: padding, child: child),
+        child: Padding(
+          padding: padding,
+          child: child,
+        ),
       );
 }
 
 class RadiologyEmptyState extends StatelessWidget {
-  const RadiologyEmptyState({super.key, required this.icon, required this.message});
+  const RadiologyEmptyState({
+    super.key,
+    required this.icon,
+    required this.message,
+  });
 
   final IconData icon;
   final String message;
@@ -94,9 +176,18 @@ class RadiologyEmptyState extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: radiologyMuted, size: 38),
+              Icon(
+                icon,
+                color: radiologyMuted,
+                size: 38,
+              ),
               const SizedBox(height: 12),
-              Text(message, style: const TextStyle(color: radiologyMuted)),
+              Text(
+                message,
+                style: const TextStyle(
+                  color: radiologyMuted,
+                ),
+              ),
             ],
           ),
         ),

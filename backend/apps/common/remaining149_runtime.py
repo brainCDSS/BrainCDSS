@@ -2437,8 +2437,10 @@ def _assessment_item_group(item_code):
         return "INITIAL_SCREENING"
     if item_code.startswith("FAST_"):
         return "FAST"
-    if item_code in {"BP_SYS", "BP_DIA", "HEART_RATE", "RESP_RATE", "BODY_TEMP"}:
+    if item_code in {"BP_SYS", "BP_DIA", "HEART_RATE", "RESP_RATE", "BODY_TEMP", "SPO2"}:
         return "VITAL"
+    if item_code in {"HEIGHT_CM", "WEIGHT_KG"}:
+        return "MEASUREMENT"
     return "ASSESSMENT"
 
 
@@ -4643,6 +4645,82 @@ def _batchb_rx_finalize(
     }, status=200)
 
 
+def _batchb_allergy_list(
+    request,
+    spec,
+    kwargs,
+):
+    allergy_model = apps.get_model("medication_safety", "PatientAllergy")
+    patient_model = apps.get_model("patients", "Patient")
+    patient_id = kwargs.get("patient_id")
+
+    if not patient_model.objects.filter(pk=patient_id).exists():
+        raise NotFound({
+            "code": "PATIENT_NOT_FOUND",
+            "detail": "Patient was not found.",
+        })
+
+    queryset = allergy_model.objects.filter(patient_id=patient_id)
+    status = request.query_params.get("status")
+    queryset = queryset.filter(status=status or "ACTIVE")
+    queryset = _owner_scope(queryset, allergy_model, request).order_by("-created_at")
+    return Response(_paginate(queryset, request), status=200)
+
+
+def _batchb_allergy_create(
+    request,
+    spec,
+    kwargs,
+):
+    """Create an allergy and refresh the patient-chart summary atomically."""
+    allergy_model = apps.get_model("medication_safety", "PatientAllergy")
+    patient_model = apps.get_model("patients", "Patient")
+    patient_id = kwargs.get("patient_id")
+
+    if not patient_id:
+        raise ContractError({"patient_id": "required"})
+
+    try:
+        patient = patient_model.objects.select_for_update().get(pk=patient_id)
+    except patient_model.DoesNotExist as exc:
+        raise NotFound({
+            "code": "PATIENT_NOT_FOUND",
+            "detail": "Patient was not found.",
+        }) from exc
+
+    data = _write_data(allergy_model, request)
+    substance = str(data.get("substance") or "").strip()
+    ingredient_id = data.get("ingredient_id")
+    if not substance and not ingredient_id:
+        raise ContractError({
+            "code": "VALIDATION_ERROR",
+            "detail": "ingredient_id or substance is required.",
+        })
+
+    data["patient_id"] = patient.id
+    data["substance"] = substance or None
+    data["status"] = "ACTIVE"
+    data.setdefault("severity", "MODERATE")
+    if getattr(request.user, "id", None):
+        data["recorded_by_id"] = request.user.id
+
+    try:
+        allergy = allergy_model.objects.create(**data)
+    except (IntegrityError, TypeError, ValueError) as exc:
+        raise ContractError({
+            "code": "VALIDATION_ERROR",
+            "detail": str(exc),
+        }) from exc
+
+    from apps.patients.services.patients import rebuild_allergy_info
+
+    rebuild_allergy_info(patient=patient)
+    after = serialize_instance(allergy)
+    _audit(request, spec, allergy, None, after)
+    _outbox(spec, allergy, after)
+    return Response(after, status=201)
+
+
 def _batchb_allergy_deactivate(
     request,
     spec,
@@ -5405,6 +5483,8 @@ CUSTOM_HANDLERS = {
     "API-RX-001": _batchb_rx_create,
     "API-CON-004": _consultation_accept_strict,
     "API-CON-006": _consultation_respond_strict,
+    "API-ALLERGY-001": _batchb_allergy_list,
+    "API-ALLERGY-002": _batchb_allergy_create,
     "API-ALLERGY-003": _batchb_allergy_deactivate,
     "API-RX-002": _batchb_rx_detail,
     "API-RX-003": _batchb_rx_patch,

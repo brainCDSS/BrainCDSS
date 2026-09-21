@@ -313,15 +313,13 @@ String _statusLabel(String status) => switch (status) {
       'CLOSED' => '완료',
       'REJECTED' => '거절',
       'CANCELLED' => '취소',
-      'EXPIRED' => '만료',
       _ => status.isEmpty ? '정보 없음' : status,
     };
 
 Color _statusColor(String status) => switch (status) {
       'REQUESTED' => const Color(0xFF2563B8),
       'ACCEPTED' || 'IN_PROGRESS' => const Color(0xFFB46912),
-      'REJECTED' || 'CANCELLED' || 'EXPIRED' =>
-        const Color(0xFFCC4D5B),
+      'REJECTED' || 'CANCELLED' => const Color(0xFFCC4D5B),
       _ => const Color(0xFF208563),
     };
 

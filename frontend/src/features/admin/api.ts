@@ -10,6 +10,10 @@ import type {
   AuditLogItem,
   PaginatedResponse,
   RolePermissionUpdateResponse,
+  MLModelOverview,
+  MLRoutingConfig,
+  MLModelVersionSummary,
+  MLflowSyncResult,
 } from "./types";
 
 
@@ -124,5 +128,50 @@ export function getBackendHealth() {
     trace_id: string;
   }>(
     "/api/v1/health/",
+  );
+}
+
+export function getMLModelOverview() {
+  return apiRequest<MLModelOverview>("/api/v1/admin/ml/overview");
+}
+
+export function syncMLflowModelVersions() {
+  return apiRequest<MLflowSyncResult>(
+    "/api/v1/admin/ml/mlflow/sync",
+    { method: "POST" },
+  );
+}
+
+export function approveMLModelVersion(versionId: string, reason: string) {
+  return apiRequest<MLModelVersionSummary>(
+    `/api/v1/admin/ml/model-versions/${encodeURIComponent(versionId)}/approve`,
+    jsonRequest("POST", { reason, confirmation: true }),
+  );
+}
+
+export function retireMLModelVersion(versionId: string, reason: string) {
+  return apiRequest<MLModelVersionSummary>(
+    `/api/v1/admin/ml/model-versions/${encodeURIComponent(versionId)}/retire`,
+    jsonRequest("POST", { reason, confirmation: true }),
+  );
+}
+
+export function createMLRoutingConfig(payload: {
+  version: string;
+  modality: "CT" | "MR" | "MRA";
+  analysis_type: string;
+  target_model_version_id: string;
+  reason: string;
+}) {
+  return apiRequest<MLRoutingConfig>(
+    "/api/v1/admin/ml/routing-configs",
+    jsonRequest("POST", payload),
+  );
+}
+
+export function activateMLRoutingConfig(routingId: string, reason: string) {
+  return apiRequest<MLRoutingConfig>(
+    `/api/v1/admin/ml/routing-configs/${encodeURIComponent(routingId)}/activate`,
+    jsonRequest("POST", { reason, confirmation: true }),
   );
 }

@@ -37,8 +37,8 @@ import ClinicalNotesReadOnly from "../clinical-notes/ClinicalNotesReadOnly";
 import { getCurrentMedications, getPatientEncounters } from "../medication-safety/api";
 import type { CurrentMedicationItem, EncounterListItem } from "../medication-safety/types";
 import { loadAuthSession } from "../auth/session";
-import { getPatient, getPatientTimeline, getPatients } from "./api";
-import type { PatientTimelineEvent } from "./api";
+import { getPatient, getPatientAllergies, getPatientTimeline, getPatients } from "./api";
+import type { PatientAllergy, PatientTimelineEvent } from "./api";
 import type { Patient, PatientDetail } from "./types";
 import "./css/patient_chart.css";
 
@@ -638,6 +638,7 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
   const [patientList, setPatientList] = useState<Patient[]>(patients); const [data, setData] = useState<ChartData>({ studies: [], analyses: [], consultations: [] });
   const [isPermissionModalOpen, setIsPermissionModalOpen] = useState(false);
   const [patientDetail, setPatientDetail] = useState<PatientDetail | null>(null); const [loading, setLoading] = useState(false); const [error, setError] = useState<string | null>(null); const [selectedStudyId, setSelectedStudyId] = useState<string | null>(null); const [analysisResults, setAnalysisResults] = useState<Record<string, AIAnalysisResult>>({}); const [analysisLoading, setAnalysisLoading] = useState(false); const [analysisError, setAnalysisError] = useState<string | null>(null); const clinicalRequestId = useRef(0); const analysisRequestId = useRef(0);
+  const [allergies, setAllergies] = useState<PatientAllergy[]>([]); const [allergiesError, setAllergiesError] = useState(false);
   const [accessDenied, setAccessDenied] = useState(false);
   const [encounter, setEncounter] = useState<EncounterListItem | null>(null); const [encounterLoading, setEncounterLoading] = useState(false); const [encounterError, setEncounterError] = useState<string | null>(null); const encounterRequestId = useRef(0);
   const [latestAssessment, setLatestAssessment] = useState<AssessmentDetailResponse | null>(null); const [vitalLoading, setVitalLoading] = useState(false); const [vitalError, setVitalError] = useState(false); const vitalRequestId = useRef(0);
@@ -706,6 +707,16 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
     });
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    setAllergies([]); setAllergiesError(false);
+    if (!patient) return () => { active = false; };
+    void getPatientAllergies(patient.id)
+      .then((response) => { if (active) setAllergies(response.results ?? []); })
+      .catch(() => { if (active) setAllergiesError(true); });
+    return () => { active = false; };
+  }, [patient?.id]);
 
   useEffect(() => {
     const requestId = ++clinicalRequestId.current;

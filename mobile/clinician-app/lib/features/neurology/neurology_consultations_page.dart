@@ -106,8 +106,7 @@ class _NeurologyConsultationsPageState
       if (filter == 'COMPLETED') {
         items = items
             .where(
-              (item) =>
-                  item.status == 'RESPONDED' || item.status == 'CLOSED',
+              (item) => item.status == 'RESPONDED' || item.status == 'CLOSED',
             )
             .toList(growable: false);
       }
@@ -342,9 +341,10 @@ class _NeurologyConsultationDetailPageState
     final consultation = _consultation!;
     final patient = consultation['patient_summary'] as Map?;
     final assignee = consultation['assigned_to'] as Map?;
-    final allowedActions = (consultation['allowed_actions'] as List? ?? const [])
-        .map((value) => value.toString())
-        .toSet();
+    final allowedActions =
+        (consultation['allowed_actions'] as List? ?? const [])
+            .map((value) => value.toString())
+            .toSet();
     final patientName = patient?['name']?.toString() ?? '';
     final patientNo = patient?['patient_no']?.toString() ?? '';
     final status = consultation['status']?.toString() ?? '';
@@ -352,7 +352,30 @@ class _NeurologyConsultationDetailPageState
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
       children: [
-        const RadiologySectionTitle(title: '협진 상세'),
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                '협진 상세',
+                style: TextStyle(
+                  color: radiologyNavy,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            ConsultationMessagesAction(
+              onTap: widget.consultationId.isEmpty
+                  ? null
+                  : () => widget.onOpenMessages(
+                        consultationId: widget.consultationId,
+                        patientName: patientName,
+                        patientNo: patientNo,
+                        consultationStatus: status,
+                      ),
+            ),
+          ],
+        ),
         const SizedBox(height: 10),
         RadiologyInfoCard(
           child: Column(
@@ -376,12 +399,14 @@ class _NeurologyConsultationDetailPageState
               ),
               _DetailRow(
                 label: '우선순위',
-                value: _priorityLabel(consultation['priority']?.toString() ?? ''),
+                value:
+                    _priorityLabel(consultation['priority']?.toString() ?? ''),
               ),
               _DetailRow(label: '상태', value: _statusLabel(status)),
               _DetailRow(
                 label: '요청 시각',
-                value: _formatDateTime(consultation['requested_at']?.toString()),
+                value:
+                    _formatDateTime(consultation['requested_at']?.toString()),
               ),
             ],
           ),
@@ -419,54 +444,6 @@ class _NeurologyConsultationDetailPageState
             ),
           ),
         ],
-        const SizedBox(height: 14),
-        InkWell(
-          borderRadius: BorderRadius.circular(18),
-          onTap: widget.consultationId.isEmpty
-              ? null
-              : () => widget.onOpenMessages(
-                    consultationId: widget.consultationId,
-                    patientName: patientName,
-                    patientNo: patientNo,
-                    consultationStatus: status,
-                  ),
-          child: RadiologyInfoCard(
-            child: Row(
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEAF2FF),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: const Icon(Icons.chat_outlined, color: radiologyBlue),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '협진 메시지',
-                        style: TextStyle(
-                          color: radiologyNavy,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      SizedBox(height: 3),
-                      Text(
-                        '의료진과 협진 내용을 주고받을 수 있습니다.',
-                        style: TextStyle(color: radiologyMuted, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(Icons.chevron_right_rounded, color: radiologyMuted),
-              ],
-            ),
-          ),
-        ),
         if (allowedActions.contains('CANCEL') ||
             allowedActions.contains('VIEW_RESPONSE')) ...[
           const SizedBox(height: 10),

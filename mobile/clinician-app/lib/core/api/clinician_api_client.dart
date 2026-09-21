@@ -41,6 +41,17 @@ class ClinicianApiClient {
     return _decode(response);
   }
 
+  Future<List<dynamic>> getList(
+    String path, {
+    Map<String, String>? query,
+  }) async {
+    final response = await _request(
+      'GET',
+      Uri.parse('$baseUrl$path').replace(queryParameters: query),
+    );
+    return _decodeList(response);
+  }
+
   Future<Map<String, dynamic>> post(
     String path, {
     Map<String, dynamic>? body,
@@ -50,6 +61,18 @@ class ClinicianApiClient {
       'POST',
       Uri.parse('$baseUrl$path'),
       authenticated: authenticated,
+      body: body,
+    );
+    return _decode(response);
+  }
+
+  Future<Map<String, dynamic>> patch(
+    String path, {
+    Map<String, dynamic>? body,
+  }) async {
+    final response = await _request(
+      'PATCH',
+      Uri.parse('$baseUrl$path'),
       body: body,
     );
     return _decode(response);
@@ -147,6 +170,30 @@ class ClinicianApiClient {
       );
     }
     return body;
+  }
+
+  List<dynamic> _decodeList(_ApiResponse response) {
+    dynamic body = const <dynamic>[];
+    if (response.bodyBytes.isNotEmpty) {
+      try {
+        body = jsonDecode(utf8.decode(response.bodyBytes));
+      } on FormatException {
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          rethrow;
+        }
+      }
+    }
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final errorBody = body is Map
+          ? Map<String, dynamic>.from(body)
+          : const <String, dynamic>{};
+      throw ClinicianApiException(
+        statusCode: response.statusCode,
+        message: _message(errorBody, response.statusCode),
+      );
+    }
+    if (body is List) return List<dynamic>.from(body);
+    throw const FormatException('Expected a JSON list response.');
   }
 
   String _message(Map<String, dynamic> body, int statusCode) {

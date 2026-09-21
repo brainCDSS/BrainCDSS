@@ -14,7 +14,7 @@ import '../features/notifications/radiology_notifications_page.dart';
 import '../features/patients/radiology_patient_detail_page.dart';
 import '../features/patients/radiology_imaging_study_detail_page.dart';
 import '../features/patients/radiology_patients_page.dart';
-import '../features/profile/radiology_profile_page.dart';
+import '../features/profile/clinician_profile_pages.dart';
 import '../features/radiology/widgets/radiology_navigation_drawer.dart';
 
 class RadiologyMainShell extends StatefulWidget {
@@ -59,9 +59,11 @@ class _RadiologyMainShellState extends State<RadiologyMainShell> {
       RadiologyAnalysisRequestsPage(
         apiClient: widget.apiClient,
       ),
-      RadiologyProfilePage(
+      ClinicianProfilePage(
         user: widget.user,
         onLogout: widget.onLogout,
+        onOpenNotificationSettings: _openNotificationSettings,
+        onOpenProfileDetails: _openProfileDetails,
       ),
     ];
 
@@ -113,6 +115,8 @@ class _RadiologyMainShellState extends State<RadiologyMainShell> {
         ),
         apiClient: widget.apiClient,
         patientId: patientId,
+        user: widget.user,
+        selectedIndex: _selectedIndex,
       );
     });
   }
@@ -237,11 +241,28 @@ class _RadiologyMainShellState extends State<RadiologyMainShell> {
   // ==========================================================================
 
   void _openNotifications() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => const RadiologyNotificationsPage(),
-      ),
-    );
+    setState(() {
+      _detailBackPage = _detailPage;
+      _detailPage = const RadiologyNotificationsPage();
+    });
+  }
+
+  void _openNotificationSettings() {
+    setState(() {
+      _detailBackPage = null;
+      _detailPage = ClinicianNotificationSettingsPage(
+        apiClient: widget.apiClient,
+      );
+    });
+  }
+
+  void _openProfileDetails() {
+    setState(() {
+      _detailBackPage = null;
+      _detailPage = ClinicianProfileDetailsPage(
+        user: widget.user,
+      );
+    });
   }
 
   @override
@@ -260,200 +281,204 @@ class _RadiologyMainShellState extends State<RadiologyMainShell> {
         }
       },
       child: Scaffold(
-        drawer: const RadiologyNavigationDrawer(),
+        drawer: RadiologyNavigationDrawer(
+          user: widget.user,
+          selectedIndex: _selectedIndex,
+        ),
 
-      // ======================================================================
-      // AppBar
-      // ======================================================================
+        // ======================================================================
+        // AppBar
+        // ======================================================================
 
-      appBar: AppBar(
-        leading: isDetail
-            ? IconButton(
-                tooltip: '뒤로가기',
-                icon: const Icon(
-                  Icons.arrow_back_rounded,
-                ),
-                onPressed: _closeDetail,
-              )
-            : null,
-        titleSpacing: isDetail ? 0 : 20,
-        title: messagePage == null
-            ? const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Brain On',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                    ),
+        appBar: AppBar(
+          leading: isDetail
+              ? IconButton(
+                  tooltip: '뒤로가기',
+                  icon: const Icon(
+                    Icons.arrow_back_rounded,
                   ),
-                  SizedBox(height: 1),
-                  Text(
-                    '영상의학과',
-                    style: TextStyle(
-                      color: Color(0xFF60718A),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    '협진 메시지',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                  ),
-                  if (messagePage.patientName.trim().isNotEmpty ||
-                      messagePage.patientNo.trim().isNotEmpty)
+                  onPressed: _closeDetail,
+                )
+              : null,
+          titleSpacing: isDetail ? 0 : 20,
+          title: messagePage == null
+              ? const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      [
-                        if (messagePage.patientName.trim().isNotEmpty)
-                          messagePage.patientName.trim(),
-                        if (messagePage.patientNo.trim().isNotEmpty)
-                          '(${messagePage.patientNo.trim()})',
-                      ].join(' '),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFF60718A),
+                      'Brain On',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    SizedBox(height: 1),
+                    Text(
+                      '영상의학과',
+                      style: TextStyle(
+                        color: Color.fromARGB(255, 137, 171, 223),
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                ],
-              ),
-        actions: [
-          if (isDetail) const RadiologyDrawerButton(),
-          IconButton(
-            tooltip: '알림',
-            onPressed: _openNotifications,
-            icon: const Icon(
-              Icons.notifications_none_rounded,
-            ),
-          ),
-          const SizedBox(width: 4),
-        ],
-      ),
-
-      // ======================================================================
-      // Body
-      // ======================================================================
-
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: isDetail
-                ? Stack(
-                    children: [
-                      Positioned.fill(
-                        child: Offstage(
-                          offstage: _detailBackPage != null,
-                          child: _detailBackPage ?? _detailPage!,
+                  ],
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '협진 메시지',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                    ),
+                    if (messagePage.patientName.trim().isNotEmpty ||
+                        messagePage.patientNo.trim().isNotEmpty)
+                      Text(
+                        [
+                          if (messagePage.patientName.trim().isNotEmpty)
+                            messagePage.patientName.trim(),
+                          if (messagePage.patientNo.trim().isNotEmpty)
+                            '(${messagePage.patientNo.trim()})',
+                        ].join(' '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF60718A),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                      if (_detailBackPage != null)
-                        Positioned.fill(child: _detailPage!),
-                    ],
-                  )
-                : IndexedStack(
-                    index: _selectedIndex,
-                    children: _pages,
-                  ),
-          ),
-          if (!isAssistant)
+                  ],
+                ),
+          actions: [
+            if (isDetail) const RadiologyDrawerButton(),
+            IconButton(
+              tooltip: '알림',
+              onPressed: _openNotifications,
+              icon: const Icon(
+                Icons.notifications_none_rounded,
+              ),
+            ),
+            const SizedBox(width: 4),
+          ],
+        ),
+
+        // ======================================================================
+        // Body
+        // ======================================================================
+
+        body: Stack(
+          children: [
             Positioned.fill(
-              child: DraggableAssistantButton(
-                onTap: _openAssistant,
-                child: Image.asset(
-                  'asset/images/floating.png',
-                  width: 72,
-                  height: 72,
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF4F8FE8),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.chat_bubble_rounded,
-                        color: Colors.white,
-                        size: 30,
-                      ),
-                    );
-                  },
+              child: isDetail
+                  ? Stack(
+                      children: [
+                        Positioned.fill(
+                          child: Offstage(
+                            offstage: _detailBackPage != null,
+                            child: _detailBackPage ?? _detailPage!,
+                          ),
+                        ),
+                        if (_detailBackPage != null)
+                          Positioned.fill(child: _detailPage!),
+                      ],
+                    )
+                  : IndexedStack(
+                      index: _selectedIndex,
+                      children: _pages,
+                    ),
+            ),
+            if (!isAssistant)
+              Positioned.fill(
+                child: DraggableAssistantButton(
+                  onTap: _openAssistant,
+                  child: Image.asset(
+                    'asset/images/floating.png',
+                    width: 72,
+                    height: 72,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF4F8FE8),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.chat_bubble_rounded,
+                          color: Colors.white,
+                          size: 30,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+          ],
+        ),
+
+        // ======================================================================
+        // ======================================================================
+        // 하단 네비게이션
+        // ======================================================================
+
+        bottomNavigationBar: SafeArea(
+          top: false,
+          child: Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(
+                top: BorderSide(
+                  color: Color(0xFFE4EBF3),
                 ),
               ),
             ),
-        ],
-      ),
-
-      // ======================================================================
-      // ======================================================================
-      // 하단 네비게이션
-      // ======================================================================
-
-        bottomNavigationBar: SafeArea(
-        top: false,
-        child: Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            border: Border(
-              top: BorderSide(
-                color: Color(0xFFE4EBF3),
-              ),
+            padding: const EdgeInsets.fromLTRB(
+              8,
+              8,
+              8,
+              6,
+            ),
+            child: Row(
+              children: [
+                _BottomNavItem(
+                  icon: Icons.people_outline_rounded,
+                  selectedIcon: Icons.people_rounded,
+                  label: '환자',
+                  selected: _selectedIndex == 0,
+                  onTap: () => _selectTab(0),
+                ),
+                _BottomNavItem(
+                  icon: Icons.forum_outlined,
+                  selectedIcon: Icons.forum_rounded,
+                  label: '협진',
+                  selected: _selectedIndex == 1,
+                  onTap: () => _selectTab(1),
+                ),
+                _BottomNavItem(
+                  icon: Icons.home_outlined,
+                  selectedIcon: Icons.home_rounded,
+                  label: '홈',
+                  selected: _selectedIndex == 2,
+                  emphasize: true,
+                  onTap: () => _selectTab(2),
+                ),
+                _BottomNavItem(
+                  icon: Icons.analytics_outlined,
+                  selectedIcon: Icons.analytics_rounded,
+                  label: '분석요청',
+                  selected: _selectedIndex == 3,
+                  onTap: () => _selectTab(3),
+                ),
+                _BottomNavItem(
+                  icon: Icons.person_outline_rounded,
+                  selectedIcon: Icons.person_rounded,
+                  label: '마이',
+                  selected: _selectedIndex == 4,
+                  onTap: () => _selectTab(4),
+                ),
+              ],
             ),
           ),
-          padding: const EdgeInsets.fromLTRB(
-            8,
-            8,
-            8,
-            6,
-          ),
-          child: Row(
-            children: [
-              _BottomNavItem(
-                icon: Icons.people_outline_rounded,
-                selectedIcon: Icons.people_rounded,
-                label: '환자',
-                selected: _selectedIndex == 0,
-                onTap: () => _selectTab(0),
-              ),
-              _BottomNavItem(
-                icon: Icons.forum_outlined,
-                selectedIcon: Icons.forum_rounded,
-                label: '협진',
-                selected: _selectedIndex == 1,
-                onTap: () => _selectTab(1),
-              ),
-              _BottomNavItem(
-                icon: Icons.home_outlined,
-                selectedIcon: Icons.home_rounded,
-                label: '홈',
-                selected: _selectedIndex == 2,
-                emphasize: true,
-                onTap: () => _selectTab(2),
-              ),
-              _BottomNavItem(
-                icon: Icons.analytics_outlined,
-                selectedIcon: Icons.analytics_rounded,
-                label: '분석요청',
-                selected: _selectedIndex == 3,
-                onTap: () => _selectTab(3),
-              ),
-              _BottomNavItem(
-                icon: Icons.person_outline_rounded,
-                selectedIcon: Icons.person_rounded,
-                label: '마이',
-                selected: _selectedIndex == 4,
-                onTap: () => _selectTab(4),
-              ),
-            ],
-          ),
-        ),
         ),
       ),
     );

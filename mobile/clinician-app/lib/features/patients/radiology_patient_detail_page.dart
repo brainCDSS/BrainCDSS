@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api/clinician_api_client.dart';
+import '../auth/clinician_session.dart';
 import '../radiology/widgets/radiology_ui.dart';
 import '../radiology/widgets/radiology_navigation_drawer.dart';
+import '../consultations/radiology_consultation_detail_page.dart';
 
 class _PatientDetail {
   const _PatientDetail({
@@ -170,10 +172,14 @@ class RadiologyPatientDetailPage extends StatefulWidget {
     super.key,
     required this.apiClient,
     required this.patientId,
+    required this.user,
+    required this.selectedIndex,
   });
 
   final ClinicianApiClient apiClient;
   final String patientId;
+  final ClinicianUser user;
+  final int selectedIndex;
 
   @override
   State<RadiologyPatientDetailPage> createState() =>
@@ -377,7 +383,17 @@ class _RadiologyPatientDetailPageState
   }
 
   @override
-  Widget build(BuildContext context) => _isLoading
+  Widget build(BuildContext context) => Scaffold(
+        drawer: RadiologyNavigationDrawer(
+          user: widget.user,
+          selectedIndex: widget.selectedIndex,
+        ),
+        appBar: AppBar(
+          leading: const BackButton(),
+          title: const Text('환자 상세'),
+          actions: const [RadiologyDrawerButton()],
+        ),
+        body: _isLoading
             ? const Center(
                 child: CircularProgressIndicator(),
               )
@@ -407,7 +423,8 @@ class _RadiologyPatientDetailPageState
                     studies: _studies,
                     latestAnalysis: _latestAnalysis,
                     consultations: _consultations,
-                  );
+                  ),
+      );
 }
 
 class _PatientDetailBody extends StatelessWidget {
@@ -512,8 +529,22 @@ class _PatientDetailBody extends StatelessWidget {
           RadiologyInfoCard(
             child: Column(
               children: [
-              _InfoRow(
-                label: '연락처',
+                _InfoRow(
+                  label: '생년월일',
+                  value: patient.birthDate,
+                ),
+                _InfoRow(
+                  label: '나이',
+                  value: patient.estimatedAge == null
+                      ? null
+                      : '${patient.estimatedAge}세',
+                ),
+                _InfoRow(
+                  label: '성별',
+                  value: patient.sex,
+                ),
+                _InfoRow(
+                  label: '연락처',
                   value: patient.phone,
                 ),
                 if (_hasValue(patient.emergencyContact))
@@ -559,11 +590,6 @@ class _PatientDetailBody extends StatelessWidget {
                         .map(
                           (study) => _StudyRow(
                             study: study,
-                            onTap: study.studyId.isEmpty
-                                ? null
-                                : () => RadiologyNavigation.openStudy(
-                                      study.studyId,
-                                    ),
                           ),
                         )
                         .toList(),
@@ -610,8 +636,15 @@ class _PatientDetailBody extends StatelessWidget {
                             onTap: consultation.consultationId.isEmpty
                                 ? null
                                 : () {
-                                    RadiologyNavigation.openConsultation(
-                                      consultation.consultationId,
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute<void>(
+                                        builder: (_) =>
+                                            RadiologyConsultationDetailPage(
+                                          apiClient: apiClient,
+                                          consultationId:
+                                              consultation.consultationId,
+                                        ),
+                                      ),
                                     );
                                   },
                           ),
@@ -628,25 +661,20 @@ class _PatientDetailBody extends StatelessWidget {
 class _StudyRow extends StatelessWidget {
   const _StudyRow({
     required this.study,
-    required this.onTap,
   });
 
   final _ImagingStudyItem study;
-  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final modality = study.scanType ??
         (study.modalities.isNotEmpty ? study.modalities.join(', ') : '검사');
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          vertical: 12,
-        ),
-        child: Row(
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        vertical: 12,
+      ),
+      child: Row(
         children: [
           Container(
             width: 42,
@@ -703,7 +731,6 @@ class _StudyRow extends StatelessWidget {
             size: 22,
           ),
         ],
-        ),
       ),
     );
   }
@@ -839,95 +866,95 @@ class _ConsultationRow extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: const Color(0xFFEAF2FF),
-                borderRadius: BorderRadius.circular(14),
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEAF2FF),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.groups_outlined,
+                  color: radiologyBlue,
+                ),
               ),
-              child: const Icon(
-                Icons.groups_outlined,
-                color: radiologyBlue,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _consultationTypeLabel(
-                      consultation.type,
-                    ),
-                    style: const TextStyle(
-                      color: radiologyNavy,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  if (_hasValue(
-                    consultation.requestedByName,
-                  ))
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      [
-                        '요청자 ${consultation.requestedByName}',
-                        if (_hasValue(
-                          consultation.requestedByDepartment,
-                        ))
-                          consultation.requestedByDepartment!,
-                      ].join(' · '),
-                      style: const TextStyle(
-                        color: radiologyMuted,
-                        fontSize: 12,
+                      _consultationTypeLabel(
+                        consultation.type,
                       ),
-                    ),
-                  if (_hasValue(
-                    consultation.requestedAt,
-                  )) ...[
-                    const SizedBox(height: 3),
-                    Text(
-                      _formatDateTime(
-                        consultation.requestedAt,
-                      ),
-                      style: const TextStyle(
-                        color: radiologyMuted,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                  if (_hasValue(
-                    consultation.reason,
-                  )) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      consultation.reason!,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: radiologyNavy,
-                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
+                    const SizedBox(height: 4),
+                    if (_hasValue(
+                      consultation.requestedByName,
+                    ))
+                      Text(
+                        [
+                          '요청자 ${consultation.requestedByName}',
+                          if (_hasValue(
+                            consultation.requestedByDepartment,
+                          ))
+                            consultation.requestedByDepartment!,
+                        ].join(' · '),
+                        style: const TextStyle(
+                          color: radiologyMuted,
+                          fontSize: 12,
+                        ),
+                      ),
+                    if (_hasValue(
+                      consultation.requestedAt,
+                    )) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        _formatDateTime(
+                          consultation.requestedAt,
+                        ),
+                        style: const TextStyle(
+                          color: radiologyMuted,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                    if (_hasValue(
+                      consultation.reason,
+                    )) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        consultation.reason!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: radiologyNavy,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            _StatusChip(
-              label: _consultationStatusLabel(
-                consultation.status,
+              const SizedBox(width: 8),
+              _StatusChip(
+                label: _consultationStatusLabel(
+                  consultation.status,
+                ),
+                color: _consultationStatusColor(
+                  consultation.status,
+                ),
               ),
-              color: _consultationStatusColor(
-                consultation.status,
+              const SizedBox(width: 4),
+              const Icon(
+                Icons.chevron_right,
+                color: radiologyMuted,
+                size: 22,
               ),
-            ),
-            const SizedBox(width: 4),
-            const Icon(
-              Icons.chevron_right,
-              color: radiologyMuted,
-              size: 22,
-            ),
             ],
           ),
         ),

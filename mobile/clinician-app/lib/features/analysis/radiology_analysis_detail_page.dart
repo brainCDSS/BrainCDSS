@@ -1,234 +1,179 @@
 import 'package:flutter/material.dart';
 
-import 'radiology_analysis_requests_page.dart';
+import '../../core/api/clinician_api_client.dart';
 import '../radiology/widgets/radiology_ui.dart';
+import 'radiology_analysis_requests_page.dart';
 
-class RadiologyAnalysisDetailPage extends StatelessWidget {
-  const RadiologyAnalysisDetailPage({super.key, required this.request});
+class RadiologyAnalysisDetailPage extends StatefulWidget {
+  const RadiologyAnalysisDetailPage({
+    super.key,
+    required this.apiClient,
+    required this.request,
+  });
 
+  final ClinicianApiClient apiClient;
   final RadiologyAnalysisRequest request;
 
-  bool get _isUrgent => request.priority == 'STAT' || request.priority == 'URGENT';
+  @override
+  State<RadiologyAnalysisDetailPage> createState() =>
+      _RadiologyAnalysisDetailPageState();
+}
+
+class _RadiologyAnalysisDetailPageState
+    extends State<RadiologyAnalysisDetailPage> {
+  Map<String, dynamic>? _analysis;
+  Map<String, dynamic>? _study;
+  Map<String, dynamic>? _result;
+  bool _isLoading = true;
+  String? _errorMessage;
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('AI 분석 요청 상세')),
-        body: SafeArea(
-          top: false,
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    try {
+      final analysis = await widget.apiClient.get(
+        '/api/v1/ai-analyses/${widget.request.analysisId}',
+      );
+      Map<String, dynamic>? study;
+      final studyId = analysis['study_id']?.toString() ?? widget.request.studyId;
+      if (studyId.isNotEmpty) {
+        study = await widget.apiClient.get(
+          '/api/v1/imaging-studies/$studyId',
+        );
+      }
+      Map<String, dynamic>? result;
+      if (analysis['status']?.toString() == 'COMPLETED') {
+        try {
+          result = await widget.apiClient.get(
+            '/api/v1/ai-analyses/${widget.request.analysisId}/result',
+          );
+        } on ClinicianApiException {
+          // Result projection can be briefly unavailable after completion.
+        } catch (_) {
+          // Preserve the completed-analysis screen when result parsing fails.
+        }
+      }
+      if (mounted) {
+        setState(() {
+          _analysis = analysis;
+          _study = study;
+          _result = result;
+        });
+      }
+    } on ClinicianApiException catch (error) {
+      if (mounted) {
+        setState(() => _errorMessage = error.message);
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _errorMessage = 'AI 분석 정보를 불러오지 못했습니다.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _errorMessage != null
+                ? _LoadError(message: _errorMessage!, onRetry: _load)
+                : _AnalysisBody(
+                    analysis: _analysis!,
+                    study: _study,
+                    result: _result,
+                  );
+}
+
+class _AnalysisBody extends StatelessWidget {
+  const _AnalysisBody({
+    required this.analysis,
+    required this.study,
+    required this.result,
+  });
+
+  final Map<String, dynamic> analysis;
+  final Map<String, dynamic>? study;
+  final Map<String, dynamic>? result;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = analysis['status']?.toString() ?? '';
+    final patient = study?['patient'] as Map?;
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        const RadiologySectionTitle(title: '환자 및 검사 정보'),
+        const SizedBox(height: 10),
+        RadiologyInfoCard(
           child: Column(
             children: [
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.all(20),
-                  children: [
-                    if (_isUrgent) _UrgentNotice(priority: request.priority),
-                    if (_isUrgent) const SizedBox(height: 12),
-                    RadiologyInfoCard(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.analytics_outlined,
-                                  color: radiologyBlue),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  request.analysisType.isEmpty
-                                      ? '분석 종류 정보 없음'
-                                      : request.analysisType,
-                                  style: const TextStyle(
-                                    color: radiologyNavy,
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ),
-                              RadiologyStatusChip(
-                                label: _statusLabel(request.status),
-                                color: _statusColor(request.status),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 18),
-                          _InfoRow(label: '분석 ID', value: request.analysisId),
-                          _InfoRow(label: '검사 Study ID', value: request.studyId),
-                          _InfoRow(label: '처리 단계', value: request.stage),
-                          _InfoRow(label: '우선순위', value: request.priority),
-                          _InfoRow(
-                            label: '요청 시각',
-                            value: _formatDateTime(request.requestedAt),
-                          ),
-                          _InfoRow(
-                            label: '완료 시각',
-                            value: _formatDateTime(request.completedAt),
-                          ),
-                          _InfoRow(label: '모델 코드', value: request.modelCode),
-                          _InfoRow(label: '모델 버전', value: request.modelVersion),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => _showRejectDialog(context),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFFB34B58),
-                            minimumSize: const Size.fromHeight(50),
-                          ),
-                          child: const Text('거절'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: FilledButton(
-                          onPressed: () => _showApproveDialog(context),
-                          style: FilledButton.styleFrom(
-                            minimumSize: const Size.fromHeight(50),
-                          ),
-                          child: const Text('승인'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              _InfoRow(label: '환자명', value: patient?['name']?.toString()),
+              _InfoRow(label: '환자번호', value: patient?['patient_no']?.toString()),
+              _InfoRow(
+                label: '검사 일시',
+                value: _formatDateTime(study?['study_datetime']?.toString()),
               ),
             ],
           ),
         ),
-      );
-
-  Future<void> _showApproveDialog(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('AI 분석 요청을 승인하시겠습니까?'),
-        content: _isUrgent
-            ? Text('${request.priority} 긴급 요청입니다. 현재 Backend API 연결 전에는 승인 상태를 변경할 수 없습니다.')
-            : const Text('현재 Backend API 연결 전에는 승인 상태를 변경할 수 없습니다.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('취소'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('확인'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true && context.mounted) {
-      _showApiPendingMessage(context);
-    }
-  }
-
-  Future<void> _showRejectDialog(BuildContext context) async {
-    final controller = TextEditingController();
-    String? selectedReason;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('AI 분석 요청 거절'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_isUrgent)
-                  _UrgentNotice(priority: request.priority),
-                if (_isUrgent) const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: selectedReason,
-                  decoration: const InputDecoration(
-                    labelText: '거절 사유',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: '입력 영상 부족', child: Text('입력 영상 부족')),
-                    DropdownMenuItem(value: '분석 대상 아님', child: Text('분석 대상 아님')),
-                    DropdownMenuItem(value: '기타', child: Text('기타')),
-                  ],
-                  onChanged: (value) => setDialogState(() => selectedReason = value),
-                ),
-                if (selectedReason == '기타') ...[
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: controller,
-                    maxLength: 255,
-                    decoration: const InputDecoration(
-                      hintText: '거절 사유를 입력해 주세요.',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('취소'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('거절 확인'),
-            ),
-          ],
-        ),
-      ),
-    );
-    controller.dispose();
-    if (confirmed == true && context.mounted) {
-      _showApiPendingMessage(context);
-    }
-  }
-
-  void _showApiPendingMessage(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('현재 Backend API 연결 대기 상태입니다.')),
-    );
-  }
-}
-
-class _UrgentNotice extends StatelessWidget {
-  const _UrgentNotice({required this.priority});
-
-  final String priority;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFF1F2),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.priority_high_rounded, color: Color(0xFFB34B58)),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                '$priority 긴급 요청입니다.',
-                style: const TextStyle(
-                  color: Color(0xFF9C3340),
-                  fontWeight: FontWeight.w800,
+        const SizedBox(height: 16),
+        const RadiologySectionTitle(title: '분석 결과'),
+        const SizedBox(height: 10),
+        RadiologyInfoCard(
+          child: Column(
+            children: [
+              _InfoRow(
+                label: '분석 유형',
+                value: _analysisTypeLabel(
+                  analysis['analysis_type']?.toString(),
                 ),
               ),
-            ),
-          ],
+              _InfoRow(label: '분석 상태', value: _statusLabel(status)),
+              _InfoRow(
+                label: 'AI 판정',
+                value: _aiJudgment(
+                  analysis['analysis_type']?.toString(),
+                  result?['is_positive'],
+                ),
+              ),
+              _InfoRow(
+                label: '병변 개수',
+                value: _lesionCountValue(result?['lesion_count']),
+              ),
+              _InfoRow(
+                label: '총 병변 부피',
+                value: _volumeValue(result?['total_volume_ml']),
+              ),
+              if (result?['confidence'] != null)
+                _InfoRow(
+                  label: '신뢰도',
+                  value: _confidenceValue(result?['confidence']),
+                ),
+              _InfoRow(
+                label: '분석 요청',
+                value: _formatDateTime(analysis['requested_at']?.toString()),
+              ),
+              _InfoRow(
+                label: '분석 완료',
+                value: _formatDateTime(analysis['completed_at']?.toString()),
+              ),
+            ],
+          ),
         ),
-      );
+      ],
+    );
+  }
 }
 
 class _InfoRow extends StatelessWidget {
@@ -264,26 +209,93 @@ class _InfoRow extends StatelessWidget {
       );
 }
 
+class _LoadError extends StatelessWidget {
+  const _LoadError({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: RadiologyInfoCard(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(message, textAlign: TextAlign.center),
+                const SizedBox(height: 12),
+                TextButton(onPressed: onRetry, child: const Text('다시 시도')),
+              ],
+            ),
+          ),
+        ),
+      );
+}
+
 String _statusLabel(String status) => switch (status) {
-      'QUEUED' => '대기',
-      'PROCESSING' => '처리중',
-      'RETRYING' => '재시도',
-      'COMPLETED' => '완료',
-      'FAILED' => '실패',
-      'CANCELLED' => '취소',
+      'QUEUED' => '분석 대기',
+      'PROCESSING' => '분석 중',
+      'RETRYING' => '재시도 중',
+      'COMPLETED' => '분석 완료',
+      'FAILED' => '분석 실패',
+      'CANCELLED' => '분석 취소',
       _ => status.isEmpty ? '정보 없음' : status,
     };
 
-Color _statusColor(String status) => switch (status) {
-      'QUEUED' || 'RETRYING' => const Color(0xFFB46912),
-      'PROCESSING' => const Color(0xFF2563B8),
-      'FAILED' || 'CANCELLED' => const Color(0xFFCC4D5B),
-      _ => const Color(0xFF208563),
+String? _analysisTypeLabel(String? analysisType) => switch (analysisType) {
+      'HEMORRHAGIC_STROKE_CT' => 'CT 뇌출혈 분석',
+      'ISCHEMIC_STROKE_DWI_ADC' => 'MRI 허혈성 뇌졸중 분석',
+      'CEREBRAL_ANEURYSM_MRA' => 'MRA 뇌동맥류 분석',
+      null || '' => null,
+      _ => analysisType,
     };
 
-String _formatDateTime(String? value) {
+String _aiJudgment(String? analysisType, Object? isPositive) {
+  if (isPositive is! bool) {
+    return '미산출';
+  }
+  return switch (analysisType) {
+    'HEMORRHAGIC_STROKE_CT' => isPositive
+        ? '출혈 의심 영역 검출'
+        : '출혈 의심 영역 미검출',
+    'ISCHEMIC_STROKE_DWI_ADC' => isPositive
+        ? '허혈성 병변 의심 영역 검출'
+        : '허혈성 병변 의심 영역 미검출',
+    'CEREBRAL_ANEURYSM_MRA' => isPositive
+        ? '뇌동맥류 의심 영역 검출'
+        : '뇌동맥류 의심 영역 미검출',
+    _ => '미산출',
+  };
+}
+
+String? _ageValue(Object? value) => value == null ? null : '$value세';
+
+String? _lesionCountValue(Object? value) =>
+    value == null ? null : '${value.toString()}개';
+
+String? _volumeValue(Object? value) =>
+    value == null ? null : '${value.toString()} mL';
+
+String? _confidenceValue(Object? value) {
+  final parsed = switch (value) {
+    num number => number.toDouble(),
+    String text => double.tryParse(text),
+    _ => null,
+  };
+  if (parsed == null) {
+    return value?.toString();
+  }
+  if (parsed < 0 || parsed > 1) {
+    return value.toString();
+  }
+  final percent = (parsed * 100).toStringAsFixed(2);
+  return '${percent.replaceFirst(RegExp(r'\.?0+$'), '')}%';
+}
+
+String? _formatDateTime(String? value) {
   if (value == null || value.isEmpty) {
-    return '정보 없음';
+    return null;
   }
   final dateTime = DateTime.tryParse(value)?.toLocal();
   if (dateTime == null) {

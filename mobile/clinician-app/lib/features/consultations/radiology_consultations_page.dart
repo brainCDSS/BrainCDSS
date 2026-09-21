@@ -1,31 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api/clinician_api_client.dart';
+import '../radiology/widgets/radiology_navigation_drawer.dart';
 import '../radiology/widgets/radiology_ui.dart';
-import 'radiology_consultation_detail_page.dart';
-
-enum ConsultationStatus {
-  requested('REQUESTED'),
-  accepted('ACCEPTED'),
-  inProgress('IN_PROGRESS'),
-  responded('RESPONDED'),
-  closed('CLOSED'),
-  rejected('REJECTED'),
-  cancelled('CANCELLED'),
-  expired('EXPIRED');
-
-  const ConsultationStatus(this.apiValue);
-
-  final String apiValue;
-
-  static ConsultationStatus parse(Object? value) {
-    final raw = value?.toString();
-    return ConsultationStatus.values.firstWhere(
-      (status) => status.apiValue == raw,
-      orElse: () => throw FormatException('Unknown consultation status: $raw'),
-    );
-  }
-}
 
 class RadiologyConsultation {
   const RadiologyConsultation({
@@ -46,7 +23,7 @@ class RadiologyConsultation {
       id: json['consultation_id']?.toString() ?? '',
       type: json['type']?.toString() ?? '',
       priority: json['priority']?.toString() ?? '',
-      status: ConsultationStatus.parse(json['status']),
+      status: json['status']?.toString() ?? '',
       patientName: patient?['name']?.toString() ?? '',
       requesterName: requester?['name']?.toString() ?? '',
       requesterDepartment: requester?['department']?.toString() ?? '',
@@ -57,7 +34,7 @@ class RadiologyConsultation {
   final String id;
   final String type;
   final String priority;
-  final ConsultationStatus status;
+  final String status;
   final String patientName;
   final String requesterName;
   final String requesterDepartment;
@@ -71,13 +48,13 @@ class RadiologyConsultationsApi {
 
   Future<List<RadiologyConsultation>> list({
     String? status,
-    required String viewerRelation,
+    String? viewerRelation = 'ASSIGNED_TO',
   }) async {
     final response = await _client.get(
       '/api/v1/consultations',
       query: {
         if (status != null) 'status': status,
-        'viewer_relation': viewerRelation,
+        if (viewerRelation != null) 'viewer_relation': viewerRelation,
       },
     );
     return (response['results'] as List? ?? const [])
@@ -98,12 +75,10 @@ class RadiologyConsultationsPage extends StatefulWidget {
     super.key,
     required this.apiClient,
     this.viewerRelation = 'ASSIGNED_TO',
-    this.title = '협진',
   });
 
   final ClinicianApiClient apiClient;
-  final String viewerRelation;
-  final String title;
+  final String? viewerRelation;
 
   @override
   State<RadiologyConsultationsPage> createState() =>
@@ -129,11 +104,11 @@ class _RadiologyConsultationsPageState
       _errorMessage = null;
     });
     try {
-      final consultations =
-          await RadiologyConsultationsApi(widget.apiClient).list(
-        status: _apiStatusFor(_filter),
-        viewerRelation: widget.viewerRelation,
-      );
+      final consultations = await RadiologyConsultationsApi(widget.apiClient)
+          .list(
+            status: _apiStatusFor(_filter),
+            viewerRelation: widget.viewerRelation,
+          );
       if (mounted) {
         setState(() => _consultations = consultations);
       }
@@ -163,11 +138,7 @@ class _RadiologyConsultationsPageState
       return _consultations;
     }
     return _consultations
-        .where(
-          (item) =>
-              item.status == ConsultationStatus.responded ||
-              item.status == ConsultationStatus.closed,
-        )
+        .where((item) => item.status == 'RESPONDED' || item.status == 'CLOSED')
         .toList(growable: false);
   }
 
@@ -175,7 +146,7 @@ class _RadiologyConsultationsPageState
   Widget build(BuildContext context) => ListView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
         children: [
-          RadiologySectionTitle(title: widget.title),
+          const RadiologySectionTitle(title: '협진'),
           const SizedBox(height: 14),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -220,14 +191,8 @@ class _RadiologyConsultationsPageState
                 padding: const EdgeInsets.only(bottom: 10),
                 child: _ConsultationCard(
                   consultation: consultation,
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => RadiologyConsultationDetailPage(
-                        apiClient: widget.apiClient,
-                        consultationId: consultation.id,
-                      ),
-                    ),
-                  ),
+                  onTap: () =>
+                      RadiologyNavigation.openConsultation(consultation.id),
                 ),
               ),
             ),
@@ -340,24 +305,22 @@ String _filterLabel(_ConsultationFilter filter) => switch (filter) {
       _ConsultationFilter.completed => '완료',
     };
 
-String _statusLabel(ConsultationStatus status) => switch (status) {
-      ConsultationStatus.requested => '요청',
-      ConsultationStatus.accepted => '수락',
-      ConsultationStatus.inProgress => '진행중',
-      ConsultationStatus.responded || ConsultationStatus.closed => '완료',
-      ConsultationStatus.rejected => '거절',
-      ConsultationStatus.cancelled => '취소',
-      ConsultationStatus.expired => '만료',
+String _statusLabel(String status) => switch (status) {
+      'REQUESTED' => '요청',
+      'ACCEPTED' => '수락',
+      'IN_PROGRESS' => '진행중',
+      'RESPONDED' => '완료',
+      'CLOSED' => '완료',
+      'REJECTED' => '거절',
+      'CANCELLED' => '취소',
+      'EXPIRED' => '만료',
+      _ => status.isEmpty ? '정보 없음' : status,
     };
 
-Color _statusColor(ConsultationStatus status) => switch (status) {
-      ConsultationStatus.requested => const Color(0xFF2563B8),
-      ConsultationStatus.accepted ||
-      ConsultationStatus.inProgress =>
-        const Color(0xFFB46912),
-      ConsultationStatus.rejected ||
-      ConsultationStatus.cancelled ||
-      ConsultationStatus.expired =>
+Color _statusColor(String status) => switch (status) {
+      'REQUESTED' => const Color(0xFF2563B8),
+      'ACCEPTED' || 'IN_PROGRESS' => const Color(0xFFB46912),
+      'REJECTED' || 'CANCELLED' || 'EXPIRED' =>
         const Color(0xFFCC4D5B),
       _ => const Color(0xFF208563),
     };

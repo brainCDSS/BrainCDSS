@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/api/clinician_api_client.dart';
+import '../radiology/widgets/radiology_navigation_drawer.dart';
 import '../radiology/widgets/radiology_ui.dart';
 import 'radiology_patient_detail_page.dart';
 
@@ -64,7 +65,7 @@ class RadiologyPatientsPage extends StatefulWidget {
   const RadiologyPatientsPage({
     super.key,
     required this.apiClient,
-    required this.roleCode,
+    this.roleCode = 'RADIOLOGY',
   });
 
   final ClinicianApiClient apiClient;
@@ -170,15 +171,22 @@ class _RadiologyPatientsPageState extends State<RadiologyPatientsPage> {
                 padding: const EdgeInsets.only(bottom: 10),
                 child: _PatientCard(
                   patient: patient,
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => RadiologyPatientDetailPage(
-                        apiClient: widget.apiClient,
-                        patientId: patient.id,
-                        roleCode: widget.roleCode,
+                  onTap: () {
+                    if (widget.roleCode == 'RADIOLOGY') {
+                      RadiologyNavigation.openPatient(patient.id);
+                      return;
+                    }
+
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => RadiologyPatientDetailPage(
+                          apiClient: widget.apiClient,
+                          patientId: patient.id,
+                          roleCode: widget.roleCode,
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
               ),
             ),

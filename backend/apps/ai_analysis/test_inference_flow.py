@@ -18,6 +18,7 @@ from apps.ai_analysis.models import (
 from apps.ai_analysis.tasks.mock_inference import run_mock_analysis_inference
 from apps.ai_analysis.api.inference import AIResultReviewCollectionView, AnalysisCollectionView, AnalysisResultView
 from apps.imaging.models import ImagingStudy
+from apps.patients.models import Patient, PatientCareAssignment
 
 
 @override_settings(AI_INFERENCE_DEVELOPMENT_ENABLED=True)
@@ -36,7 +37,7 @@ class DevelopmentInferenceFlowTests(TestCase):
         self.assertEqual(response.data["results"], [])
 
     def test_system_admin_requires_ai_job_view_permission(self):
-        admin_role = Role.objects.create(code="SYSTEM_ADMIN", name="Synthetic Admin")
+        admin_role = Role.objects.get(code="SYSTEM_ADMIN")
         admin = User.objects.create_user(
             login_id="synthetic-ai-admin",
             password="test-only-password",
@@ -63,15 +64,26 @@ class DevelopmentInferenceFlowTests(TestCase):
 
     def setUp(self):
         now = timezone.now()
-        role = Role.objects.create(code="RADIOLOGY", name="Synthetic Radiology")
+        role = Role.objects.get(code="RADIOLOGY")
         self.user = User.objects.create_user(
             login_id="synthetic-inference-user",
             password="test-only-password",
             name="Synthetic User",
             role=role,
         )
+        self.patient = Patient.objects.create(
+            patient_no="SYNTHETIC-AI-PATIENT",
+            name="Synthetic AI Patient",
+            created_by=self.user,
+        )
+        PatientCareAssignment.objects.create(
+            patient=self.patient,
+            clinician=self.user,
+            role=PatientCareAssignment.AssignmentRole.PRIMARY,
+            source=PatientCareAssignment.Source.AI_ANALYSIS,
+        )
         self.study = ImagingStudy.objects.create(
-            patient=None,
+            patient=self.patient,
             imaging_order=None,
             study_instance_uid="1.2.826.0.1.3680043.10.999.1",
             accession_number="SYNTHETIC-ONLY",

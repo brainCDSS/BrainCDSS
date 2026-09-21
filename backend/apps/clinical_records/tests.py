@@ -55,7 +55,7 @@ class EncounterCreateSerializerTests(SimpleTestCase):
 
 class EncounterListViewTests(TestCase):
     def setUp(self):
-        self.role = Role.objects.create(code="NEUROLOGIST", name="Neurologist")
+        self.role = Role.objects.get(code="NEUROLOGIST")
         self.user = User.objects.create_user(
             login_id="encounter-list-doctor",
             password="test-password",
@@ -168,11 +168,8 @@ class EncounterListViewTests(TestCase):
 
 class ClinicalNoteWriteApiTests(TestCase):
     def setUp(self):
-        self.neurologist_role = Role.objects.create(
-            code="NEUROLOGIST",
-            name="Neurologist",
-        )
-        self.nurse_role = Role.objects.create(code="NURSE", name="Nurse")
+        self.neurologist_role = Role.objects.get(code="NEUROLOGIST")
+        self.nurse_role = Role.objects.get(code="NURSE")
         self.author = self._create_user("clinical-note-author", self.neurologist_role)
         self.other_doctor = self._create_user(
             "clinical-note-other-doctor",

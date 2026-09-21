@@ -91,6 +91,12 @@ class EmergencyRedFlagSerializer(serializers.Serializer):
     note = serializers.CharField(allow_null=True)
 
 
+class EmergencyAbnormalFindingSerializer(serializers.Serializer):
+    item_code = serializers.CharField()
+    label = serializers.CharField()
+    detail = serializers.CharField()
+
+
 class EmergencyWorklistEventSerializer(serializers.Serializer):
     id = serializers.UUIDField()
     status = serializers.CharField()
@@ -104,11 +110,13 @@ class EmergencyWorklistItemSerializer(serializers.Serializer):
     patient_summary = EmergencyWorklistPatientSerializer()
     total_score = serializers.IntegerField(allow_null=True)
     triage_priority = serializers.CharField()
+    effective_priority = serializers.CharField()
     onset_at = serializers.DateTimeField(allow_null=True)
     lkw_at = serializers.DateTimeField(allow_null=True)
     completed_at = serializers.DateTimeField(allow_null=True)
     symptom_note = serializers.CharField(allow_null=True)
     assigned_neurologist = serializers.DictField(allow_null=True)
+    abnormal_findings = EmergencyAbnormalFindingSerializer(many=True)
     red_flags = EmergencyRedFlagSerializer(many=True)
     event = EmergencyWorklistEventSerializer()
 

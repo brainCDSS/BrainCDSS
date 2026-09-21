@@ -823,6 +823,8 @@ export default function TriageAssessment({
       screeningCompleted: completedInitialScreeningCount,
       bpSys,
       bpDia,
+      heartRate,
+      temperature,
       lkwAt,
     };
 

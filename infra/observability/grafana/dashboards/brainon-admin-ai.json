@@ -1,0 +1,421 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {
+      "type": "link",
+      "title": "운영 Overview",
+      "url": "/grafana/d/brainon-admin-overview/brainon-operations-overview?orgId=1",
+      "targetBlank": false,
+      "keepTime": true,
+      "includeVars": true
+    },
+    {
+      "type": "link",
+      "title": "API · Performance",
+      "url": "/grafana/d/brainon-admin-api/brainon-api-performance?orgId=1",
+      "targetBlank": false,
+      "keepTime": true,
+      "includeVars": true
+    },
+    {
+      "type": "link",
+      "title": "AI Operations",
+      "url": "/grafana/d/brainon-admin-ai/brainon-ai-operations?orgId=1",
+      "targetBlank": false,
+      "keepTime": true,
+      "includeVars": true
+    },
+    {
+      "type": "link",
+      "title": "Infrastructure",
+      "url": "/grafana/d/brainon-admin-infrastructure/brainon-infrastructure?orgId=1",
+      "targetBlank": false,
+      "keepTime": true,
+      "includeVars": true
+    },
+    {
+      "type": "link",
+      "title": "Async",
+      "url": "/grafana/d/brainon-admin-async/brainon-async-processing?orgId=1",
+      "targetBlank": false,
+      "keepTime": true,
+      "includeVars": true
+    },
+    {
+      "type": "link",
+      "title": "Incidents",
+      "url": "/grafana/d/brainon-admin-incidents/brainon-incidents?orgId=1",
+      "targetBlank": false,
+      "keepTime": true,
+      "includeVars": true
+    },
+    {
+      "type": "link",
+      "title": "Audit · Trace",
+      "url": "/grafana/d/brainon-admin-audit-trace/brainon-audit-request-trace?orgId=1",
+      "targetBlank": false,
+      "keepTime": true,
+      "includeVars": true
+    }
+  ],
+  "liveNow": true,
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "AI 분석 건수",
+      "datasource": {
+        "type": "postgres",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#7C3AED"
+          },
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "horizontal",
+        "textMode": "value_and_name",
+        "wideLayout": true,
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "showPercentChange": false
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "rawSql": "\nSELECT\n    COUNT(*) FILTER (\n        WHERE $__timeFilter(requested_at)\n    )::bigint AS \"선택 범위\",\n\n    COUNT(*) FILTER (\n        WHERE\n            (requested_at AT TIME ZONE 'Asia/Seoul')::date\n            =\n            (NOW() AT TIME ZONE 'Asia/Seoul')::date\n    )::bigint AS \"오늘\",\n\n    COUNT(*) FILTER (\n        WHERE\n            $__timeFilter(requested_at)\n            AND status IN (\n                'FAILED',\n                'ERROR',\n                'TIMEOUT',\n                'CANCELLED'\n            )\n    )::bigint AS \"실패\"\nFROM ai_aianalysis\n"
+        }
+      ],
+      "description": "실제 AIAnalysis 기준 선택 기간/오늘/실패 건수.",
+      "transparent": false
+    },
+    {
+      "id": 2,
+      "type": "gauge",
+      "title": "AI 성공률",
+      "datasource": {
+        "type": "postgres",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 8,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "min": 0,
+          "max": 100,
+          "noValue": "N/A",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#DC2626",
+                "value": null
+              },
+              {
+                "color": "#D97706",
+                "value": 70
+              },
+              {
+                "color": "#059669",
+                "value": 90
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto",
+        "minVizHeight": 75,
+        "minVizWidth": 75
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "rawSql": "\nSELECT\n    CASE\n        WHEN COUNT(*) FILTER (\n            WHERE\n                status IN ('COMPLETED', 'FAILED')\n                AND $__timeFilter(requested_at)\n        ) = 0\n        THEN NULL\n\n        ELSE ROUND(\n            (\n                100.0\n                * COUNT(*) FILTER (\n                    WHERE\n                        status = 'COMPLETED'\n                        AND $__timeFilter(requested_at)\n                )\n                /\n                NULLIF(\n                    COUNT(*) FILTER (\n                        WHERE\n                            status IN ('COMPLETED', 'FAILED')\n                            AND $__timeFilter(requested_at)\n                    ),\n                    0\n                )\n            ),\n            1\n        )\n    END AS \"성공률\"\nFROM ai_aianalysis\n"
+        }
+      ],
+      "description": "선택 기간의 종료 상태 COMPLETED/FAILED 중 COMPLETED 비율.",
+      "transparent": false
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "AI 실패",
+      "datasource": {
+        "type": "postgres",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 8,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "0",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#DC2626"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "rawSql": "\nSELECT COUNT(*)::bigint AS value\nFROM ai_aianalysis\nWHERE\n    $__timeFilter(requested_at)\n    AND status IN (\n        'FAILED',\n        'ERROR',\n        'TIMEOUT',\n        'CANCELLED'\n    )\n"
+        }
+      ],
+      "description": "선택 기간 AIAnalysis 실패 상태 건수.",
+      "transparent": false
+    },
+    {
+      "id": 4,
+      "type": "bargauge",
+      "title": "AI 처리 현황",
+      "datasource": {
+        "type": "postgres",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 24,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "minVizHeight": 12,
+        "minVizWidth": 8,
+        "valueMode": "color",
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "rawSql": "\nSELECT\n    COUNT(*) FILTER (\n        WHERE status = 'COMPLETED'\n    )::bigint AS \"완료\",\n\n    COUNT(*) FILTER (\n        WHERE status IN (\n            'FAILED',\n            'ERROR',\n            'TIMEOUT',\n            'CANCELLED'\n        )\n    )::bigint AS \"실패\",\n\n    COUNT(*) FILTER (\n        WHERE status IN (\n            'PROCESSING',\n            'RUNNING',\n            'IN_PROGRESS'\n        )\n    )::bigint AS \"처리 중\",\n\n    COUNT(*) FILTER (\n        WHERE status IN (\n            'PENDING',\n            'QUEUED',\n            'REQUESTED'\n        )\n    )::bigint AS \"대기\"\nFROM ai_aianalysis\nWHERE $__timeFilter(requested_at)\n"
+        }
+      ],
+      "description": "현재 선택 기간의 AIAnalysis 상태를 운영 그룹별로 집계.",
+      "transparent": false
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "AI 실패 추이",
+      "datasource": {
+        "type": "postgres",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 11,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#DC2626"
+          },
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 50,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "sum",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "format": "time_series",
+          "rawSql": "\nSELECT\n    $__timeGroupAlias(\n        requested_at,\n        '1h'\n    ),\n    COUNT(*)::double precision\n        AS \"실패\"\nFROM ai_aianalysis\nWHERE\n    $__timeFilter(requested_at)\n    AND status IN (\n        'FAILED',\n        'ERROR',\n        'TIMEOUT',\n        'CANCELLED'\n    )\nGROUP BY 1\nORDER BY 1\n"
+        }
+      ],
+      "description": "실제 AIAnalysis 실패 상태의 시간대별 발생 추이.",
+      "transparent": false
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 41,
+  "tags": [
+    "BrainOn",
+    "Operations",
+    "SYSTEM_ADMIN"
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "request_id",
+        "label": "Request ID",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "hide": 0
+      },
+      {
+        "name": "runtime_container",
+        "label": "Runtime Container",
+        "type": "query",
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "query": "label_values({host=\"braincdss-rabbitmq\"}, container)",
+        "definition": "label_values({host=\"braincdss-rabbitmq\"}, container)",
+        "refresh": 1,
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "hide": 2
+      }
+    ]
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {
+    "hidden": false
+  },
+  "timezone": "browser",
+  "title": "BrainOn · AI Operations",
+  "uid": "brainon-admin-ai",
+  "version": 1,
+  "weekStart": "",
+  "description": "AI 분석 요청, 처리 상태, 성공률 및 실패 추이."
+}

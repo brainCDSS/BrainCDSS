@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 
-const radiologyNavy = Color(0xFF172B4D);
-const radiologyMuted = Color(0xFF60718A);
-const radiologyBlue = Color(0xFF2563B8);
-const radiologyBorder = Color(0xFFE0E7F1);
+// Brain On 웹 `styles/global.css` 공통 light theme 토큰과 동일한 값입니다.
+const radiologyNavy = Color(0xFF263247);
+const radiologyMuted = Color(0xFF667085);
+const radiologyBlue = Color(0xFF4F8FE8);
+const radiologyBorder = Color(0xFFE4EBF3);
+const radiologyPageBackground = Color(0xFFF3F7FC);
+const radiologySuccess = Color(0xFF2F7D4C);
+const radiologyWarning = Color(0xFFB45309);
+const radiologyDanger = Color(0xFFB42318);
 
 class RadiologySectionTitle extends StatelessWidget {
   const RadiologySectionTitle({super.key, required this.title, this.action});

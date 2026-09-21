@@ -1,0 +1,588 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {
+      "type": "link",
+      "title": "운영 Overview",
+      "url": "/grafana/d/brainon-admin-overview/brainon-operations-overview?orgId=1",
+      "targetBlank": false,
+      "keepTime": true,
+      "includeVars": true
+    },
+    {
+      "type": "link",
+      "title": "API · Performance",
+      "url": "/grafana/d/brainon-admin-api/brainon-api-performance?orgId=1",
+      "targetBlank": false,
+      "keepTime": true,
+      "includeVars": true
+    },
+    {
+      "type": "link",
+      "title": "AI Operations",
+      "url": "/grafana/d/brainon-admin-ai/brainon-ai-operations?orgId=1",
+      "targetBlank": false,
+      "keepTime": true,
+      "includeVars": true
+    },
+    {
+      "type": "link",
+      "title": "Infrastructure",
+      "url": "/grafana/d/brainon-admin-infrastructure/brainon-infrastructure?orgId=1",
+      "targetBlank": false,
+      "keepTime": true,
+      "includeVars": true
+    },
+    {
+      "type": "link",
+      "title": "Async",
+      "url": "/grafana/d/brainon-admin-async/brainon-async-processing?orgId=1",
+      "targetBlank": false,
+      "keepTime": true,
+      "includeVars": true
+    },
+    {
+      "type": "link",
+      "title": "Incidents",
+      "url": "/grafana/d/brainon-admin-incidents/brainon-incidents?orgId=1",
+      "targetBlank": false,
+      "keepTime": true,
+      "includeVars": true
+    },
+    {
+      "type": "link",
+      "title": "Audit · Trace",
+      "url": "/grafana/d/brainon-admin-audit-trace/brainon-audit-request-trace?orgId=1",
+      "targetBlank": false,
+      "keepTime": true,
+      "includeVars": true
+    }
+  ],
+  "liveNow": true,
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "운영 이상 이벤트",
+      "datasource": {
+        "type": "postgres",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "0",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#DC2626"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "rawSql": "\nSELECT\n    (\n        (\n            SELECT COUNT(*)\n            FROM audit_auditlog\n            WHERE\n                $__timeFilter(occurred_at)\n                AND COALESCE(\n                    outcome,\n                    'UNKNOWN'\n                ) NOT IN (\n                    'SUCCESS',\n                    'SUCCEEDED',\n                    'COMPLETED',\n                    'OK'\n                )\n        )\n        +\n        (\n            SELECT COUNT(*)\n            FROM ai_aianalysis\n            WHERE\n                $__timeFilter(requested_at)\n                AND status IN (\n                    'FAILED',\n                    'ERROR',\n                    'TIMEOUT',\n                    'CANCELLED'\n                )\n        )\n    )::bigint AS value\n"
+        }
+      ],
+      "description": "Audit 비정상 결과와 AI 실패 이벤트 합계.",
+      "transparent": false
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Audit 비정상",
+      "datasource": {
+        "type": "postgres",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "0",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#D97706"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "rawSql": "\nSELECT COUNT(*)::bigint AS value\nFROM audit_auditlog\nWHERE\n    $__timeFilter(occurred_at)\n    AND COALESCE(\n        outcome,\n        'UNKNOWN'\n    ) NOT IN (\n        'SUCCESS',\n        'SUCCEEDED',\n        'COMPLETED',\n        'OK'\n    )\n"
+        }
+      ],
+      "description": "선택 기간 AuditLog의 비정상 outcome 건수.",
+      "transparent": false
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "AI 실패",
+      "datasource": {
+        "type": "postgres",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "0",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#DC2626"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "rawSql": "\nSELECT COUNT(*)::bigint AS value\nFROM ai_aianalysis\nWHERE\n    $__timeFilter(requested_at)\n    AND status IN (\n        'FAILED',\n        'ERROR',\n        'TIMEOUT',\n        'CANCELLED'\n    )\n"
+        }
+      ],
+      "description": "선택 기간 AIAnalysis 실패 상태 건수.",
+      "transparent": false
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "최근 1시간 이상",
+      "datasource": {
+        "type": "postgres",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "0",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#DC2626"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "rawSql": "\nSELECT\n    (\n        (\n            SELECT COUNT(*)\n            FROM audit_auditlog\n            WHERE\n                occurred_at\n                >= NOW() - INTERVAL '1 hour'\n                AND COALESCE(\n                    outcome,\n                    'UNKNOWN'\n                ) NOT IN (\n                    'SUCCESS',\n                    'SUCCEEDED',\n                    'COMPLETED',\n                    'OK'\n                )\n        )\n        +\n        (\n            SELECT COUNT(*)\n            FROM ai_aianalysis\n            WHERE\n                requested_at\n                >= NOW() - INTERVAL '1 hour'\n                AND status IN (\n                    'FAILED',\n                    'ERROR',\n                    'TIMEOUT',\n                    'CANCELLED'\n                )\n        )\n    )::bigint AS value\n"
+        }
+      ],
+      "description": "현재 시점 기준 최근 1시간 운영 이상 이벤트.",
+      "transparent": false
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "운영 이상 발생 추이",
+      "datasource": {
+        "type": "postgres",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 45,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "sum",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "format": "time_series",
+          "rawSql": "\nWITH events AS (\n    SELECT\n        occurred_at AS ts,\n        'AUDIT'::text AS source\n    FROM audit_auditlog\n    WHERE\n        COALESCE(\n            outcome,\n            'UNKNOWN'\n        ) NOT IN (\n            'SUCCESS',\n            'SUCCEEDED',\n            'COMPLETED',\n            'OK'\n        )\n\n    UNION ALL\n\n    SELECT\n        requested_at AS ts,\n        'AI'::text AS source\n    FROM ai_aianalysis\n    WHERE status IN (\n        'FAILED',\n        'ERROR',\n        'TIMEOUT',\n        'CANCELLED'\n    )\n)\n\nSELECT\n    $__timeGroupAlias(\n        ts,\n        '1h'\n    ),\n\n    COUNT(*) FILTER (\n        WHERE source = 'AUDIT'\n    )::double precision AS \"Audit\",\n\n    COUNT(*) FILTER (\n        WHERE source = 'AI'\n    )::double precision AS \"AI\"\n\nFROM events\nWHERE $__timeFilter(ts)\nGROUP BY 1\nORDER BY 1\n"
+        }
+      ],
+      "description": "Audit 비정상과 AI 실패의 시간대별 발생 추이.",
+      "transparent": false
+    },
+    {
+      "id": 6,
+      "type": "table",
+      "title": "최근 운영 이상 이벤트",
+      "datasource": {
+        "type": "postgres",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "rawSql": "\nSELECT *\nFROM (\n    SELECT\n        occurred_at AS \"발생 시각\",\n        'Audit'::text AS \"구분\",\n        source_service AS \"서비스\",\n        action AS \"이벤트\",\n        outcome AS \"상태\",\n        COALESCE(\n            reason,\n            '-'\n        ) AS \"상세\",\n        COALESCE(\n            request_id::text,\n            '-'\n        ) AS \"추적 ID\"\n\n    FROM audit_auditlog\n\n    WHERE\n        $__timeFilter(occurred_at)\n        AND COALESCE(\n            outcome,\n            'UNKNOWN'\n        ) NOT IN (\n            'SUCCESS',\n            'SUCCEEDED',\n            'COMPLETED',\n            'OK'\n        )\n\n    UNION ALL\n\n    SELECT\n        requested_at AS \"발생 시각\",\n        'AI'::text AS \"구분\",\n        'AI Inference'::text AS \"서비스\",\n        analysis_type AS \"이벤트\",\n        status AS \"상태\",\n        COALESCE(\n            failure_code,\n            '-'\n        ) AS \"상세\",\n        COALESCE(\n            trace_id,\n            '-'\n        ) AS \"추적 ID\"\n\n    FROM ai_aianalysis\n\n    WHERE\n        $__timeFilter(requested_at)\n        AND status IN (\n            'FAILED',\n            'ERROR',\n            'TIMEOUT',\n            'CANCELLED'\n        )\n) incidents\n\nORDER BY \"발생 시각\" DESC\nLIMIT 50\n"
+        }
+      ],
+      "description": "최근 Audit/AI 이상 이벤트를 한 화면에서 확인.",
+      "transparent": false
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "내부 서비스 확인 필요",
+      "datasource": {
+        "type": "postgres",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 11,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "0",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#DC2626"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "rawSql": "\nSELECT COUNT(*)::bigint AS \"확인 필요\"\nFROM audit_auditlog\nWHERE\n    $__timeFilter(occurred_at)\n    AND action = 'DEPENDENCY_DEGRADED'\n    AND outcome IN (\n        'WARNING',\n        'FAILED'\n    )\n"
+        }
+      ],
+      "description": "최종 HTTP가 SUCCESS/2xx여도 내부 서비스가 FAILED, TIMEOUT, WARNING, DEGRADED 등을 반환한 요청.",
+      "transparent": false
+    },
+    {
+      "id": 8,
+      "type": "bargauge",
+      "title": "서비스별 확인 필요",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 11,
+        "w": 18,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "0",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "valueMode": "color",
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (dependency) (increase(brainon_dependency_results_total{outcome=~\"failed|error|timeout|warning|degraded|partial_failure|partial_success|unavailable|unhealthy|not_configured|disconnected|circuit_open\"}[$__range]))",
+          "legendFormat": "{{dependency}}",
+          "range": true
+        }
+      ],
+      "description": "Prometheus가 집계한 내부/downstream 서비스별 비정상 결과.",
+      "transparent": false
+    },
+    {
+      "id": 9,
+      "type": "table",
+      "title": "최근 내부 서비스 이상",
+      "datasource": {
+        "type": "postgres",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "rawSql": "\nSELECT\n    occurred_at\n        AS \"발생 시각\",\n\n    request_id::text\n        AS \"Request ID\",\n\n    COALESCE(\n        resource_id,\n        '-'\n    ) AS \"API Route\",\n\n    outcome\n        AS \"운영 상태\",\n\n    COALESCE(\n        reason,\n        '-'\n    ) AS \"요약\",\n\n    COALESCE(\n        after_json -> 'failures',\n        '[]'::jsonb\n    ) AS \"세부 실패\"\n\nFROM audit_auditlog\n\nWHERE\n    $__timeFilter(occurred_at)\n    AND action = 'DEPENDENCY_DEGRADED'\n\nORDER BY occurred_at DESC\n\nLIMIT 100\n"
+        }
+      ],
+      "description": "겉으로 HTTP 2xx/SUCCESS였지만 내부 dependency가 실패한 요청. Request ID로 Audit Trace까지 연결.",
+      "transparent": false
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 41,
+  "tags": [
+    "BrainOn",
+    "Operations",
+    "SYSTEM_ADMIN"
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "request_id",
+        "label": "Request ID",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "hide": 0
+      },
+      {
+        "name": "runtime_container",
+        "label": "Runtime Container",
+        "type": "query",
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "query": "label_values({host=\"braincdss-rabbitmq\"}, container)",
+        "definition": "label_values({host=\"braincdss-rabbitmq\"}, container)",
+        "refresh": 1,
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "hide": 2
+      }
+    ]
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {
+    "hidden": false
+  },
+  "timezone": "browser",
+  "title": "BrainOn · Incidents",
+  "uid": "brainon-admin-incidents",
+  "version": 2,
+  "weekStart": "",
+  "description": "장애, 경고, Audit 비정상 및 AI 실패 운영 이벤트."
+}

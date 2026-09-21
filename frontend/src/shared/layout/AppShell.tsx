@@ -503,10 +503,8 @@ export default function AppShell({
           setActiveConsultationId(restoredConsultationId);
           setActiveMenu("consultations");
         } else if (normalizedAdminNavigation.activeMenu === "triage") {
-          if (restoredAssessment) {
-            setActiveAssessmentContext(restoredAssessment);
-            setActiveMenu("triage");
-          }
+          setActiveAssessmentContext(restoredAssessment);
+          setActiveMenu("triage");
         } else {
           setActiveMenu(normalizedAdminNavigation.activeMenu);
         }

@@ -1,0 +1,462 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {
+      "type": "link",
+      "title": "운영 Overview",
+      "url": "/grafana/d/brainon-admin-overview/brainon-operations-overview?orgId=1",
+      "targetBlank": false,
+      "keepTime": true,
+      "includeVars": true
+    },
+    {
+      "type": "link",
+      "title": "API · Performance",
+      "url": "/grafana/d/brainon-admin-api/brainon-api-performance?orgId=1",
+      "targetBlank": false,
+      "keepTime": true,
+      "includeVars": true
+    },
+    {
+      "type": "link",
+      "title": "AI Operations",
+      "url": "/grafana/d/brainon-admin-ai/brainon-ai-operations?orgId=1",
+      "targetBlank": false,
+      "keepTime": true,
+      "includeVars": true
+    },
+    {
+      "type": "link",
+      "title": "Infrastructure",
+      "url": "/grafana/d/brainon-admin-infrastructure/brainon-infrastructure?orgId=1",
+      "targetBlank": false,
+      "keepTime": true,
+      "includeVars": true
+    },
+    {
+      "type": "link",
+      "title": "Async",
+      "url": "/grafana/d/brainon-admin-async/brainon-async-processing?orgId=1",
+      "targetBlank": false,
+      "keepTime": true,
+      "includeVars": true
+    },
+    {
+      "type": "link",
+      "title": "Incidents",
+      "url": "/grafana/d/brainon-admin-incidents/brainon-incidents?orgId=1",
+      "targetBlank": false,
+      "keepTime": true,
+      "includeVars": true
+    },
+    {
+      "type": "link",
+      "title": "Audit · Trace",
+      "url": "/grafana/d/brainon-admin-audit-trace/brainon-audit-request-trace?orgId=1",
+      "targetBlank": false,
+      "keepTime": true,
+      "includeVars": true
+    }
+  ],
+  "liveNow": true,
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "AuditLog 건수",
+      "datasource": {
+        "type": "postgres",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "0",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#2563EB"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "rawSql": "\nSELECT COUNT(*)::bigint AS value\nFROM audit_auditlog\nWHERE $__timeFilter(occurred_at)\n"
+        }
+      ],
+      "description": "선택 기간 전체 AuditLog 건수.",
+      "transparent": false
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Request ID",
+      "datasource": {
+        "type": "postgres",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "0",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#7C3AED"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "rawSql": "\nSELECT\n    COUNT(\n        DISTINCT request_id\n    )::bigint AS value\nFROM audit_auditlog\nWHERE\n    $__timeFilter(occurred_at)\n    AND request_id IS NOT NULL\n"
+        }
+      ],
+      "description": "선택 기간에 기록된 고유 request_id 수.",
+      "transparent": false
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "비정상 Audit",
+      "datasource": {
+        "type": "postgres",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "0",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#DC2626"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "rawSql": "\nSELECT COUNT(*)::bigint AS value\nFROM audit_auditlog\nWHERE\n    $__timeFilter(occurred_at)\n    AND COALESCE(\n        outcome,\n        'UNKNOWN'\n    ) NOT IN (\n        'SUCCESS',\n        'SUCCEEDED',\n        'COMPLETED',\n        'OK'\n    )\n"
+        }
+      ],
+      "description": "선택 기간의 비정상 Audit outcome.",
+      "transparent": false
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Request ID 기록률",
+      "datasource": {
+        "type": "postgres",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "noValue": "0",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#059669"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "rawSql": "\nSELECT\n    CASE\n        WHEN COUNT(*) = 0\n            THEN NULL\n        ELSE ROUND(\n            100.0\n            * COUNT(*) FILTER (\n                WHERE request_id\n                IS NOT NULL\n            )\n            / COUNT(*),\n            1\n        )\n    END AS value\nFROM audit_auditlog\nWHERE $__timeFilter(occurred_at)\n"
+        }
+      ],
+      "description": "AuditLog 중 request_id가 기록된 비율.",
+      "transparent": false
+    },
+    {
+      "id": 5,
+      "type": "table",
+      "title": "최근 AuditLog",
+      "datasource": {
+        "type": "postgres",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 14,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "rawSql": "\nSELECT\n    occurred_at AS \"시각\",\n    COALESCE(\n        actor_login_id,\n        'SYSTEM'\n    ) AS \"사용자\",\n    COALESCE(\n        actor_role_code,\n        '-'\n    ) AS \"역할\",\n    source_service AS \"서비스\",\n    action AS \"Action\",\n    resource_type AS \"Resource\",\n    outcome AS \"결과\",\n    COALESCE(\n        request_id::text,\n        '-'\n    ) AS \"Request ID\",\n    COALESCE(\n        request_ip::text,\n        '-'\n    ) AS \"IP\"\nFROM audit_auditlog\nWHERE $__timeFilter(occurred_at)\nORDER BY occurred_at DESC\nLIMIT 100\n"
+        }
+      ],
+      "description": "운영 감사 추적용 최근 AuditLog.",
+      "transparent": false
+    },
+    {
+      "id": 6,
+      "type": "table",
+      "title": "Request ID Trace",
+      "datasource": {
+        "type": "postgres",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 14,
+        "y": 4,
+        "w": 10,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "rawSql": "\nSELECT\n    request_id::text\n        AS \"Request ID\",\n\n    COUNT(*)::bigint\n        AS \"이벤트 수\",\n\n    MIN(occurred_at)\n        AS \"시작\",\n\n    MAX(occurred_at)\n        AS \"마지막\",\n\n    STRING_AGG(\n        DISTINCT source_service,\n        ', '\n        ORDER BY source_service\n    ) AS \"서비스\",\n\n    COUNT(*) FILTER (\n        WHERE COALESCE(\n            outcome,\n            'UNKNOWN'\n        ) NOT IN (\n            'SUCCESS',\n            'SUCCEEDED',\n            'COMPLETED',\n            'OK'\n        )\n    )::bigint\n        AS \"비정상\"\n\nFROM audit_auditlog\n\nWHERE\n    $__timeFilter(occurred_at)\n    AND request_id IS NOT NULL\n\nGROUP BY request_id\n\nORDER BY MAX(occurred_at) DESC\n\nLIMIT 50\n"
+        }
+      ],
+      "description": "동일 request_id의 여러 Audit 이벤트를 묶어 요청 흐름을 추적.",
+      "transparent": false
+    },
+    {
+      "id": 7,
+      "type": "table",
+      "title": "Dependency Failure Trace",
+      "datasource": {
+        "type": "postgres",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "rawSql": "\nSELECT\n    request_id::text\n        AS \"Request ID\",\n\n    occurred_at\n        AS \"시각\",\n\n    source_service\n        AS \"Source\",\n\n    COALESCE(\n        resource_id,\n        '-'\n    ) AS \"API Route\",\n\n    outcome\n        AS \"Outcome\",\n\n    COALESCE(\n        reason,\n        '-'\n    ) AS \"Reason\",\n\n    COALESCE(\n        after_json -> 'failures',\n        '[]'::jsonb\n    ) AS \"Dependency Detail\"\n\nFROM audit_auditlog\n\nWHERE\n    $__timeFilter(occurred_at)\n    AND action = 'DEPENDENCY_DEGRADED'\n\nORDER BY occurred_at DESC\n\nLIMIT 100\n"
+        }
+      ],
+      "description": "동일 request_id 기준으로 겉으로 성공한 API 내부의 dependency 실패 원인을 추적.",
+      "transparent": false
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 41,
+  "tags": [
+    "BrainOn",
+    "Operations",
+    "SYSTEM_ADMIN"
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "request_id",
+        "label": "Request ID",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "hide": 0
+      },
+      {
+        "name": "runtime_container",
+        "label": "Runtime Container",
+        "type": "query",
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "query": "label_values({host=\"braincdss-rabbitmq\"}, container)",
+        "definition": "label_values({host=\"braincdss-rabbitmq\"}, container)",
+        "refresh": 1,
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "hide": 2
+      }
+    ]
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {
+    "hidden": false
+  },
+  "timezone": "browser",
+  "title": "BrainOn · Audit & Request Trace",
+  "uid": "brainon-admin-audit-trace",
+  "version": 2,
+  "weekStart": "",
+  "description": "AuditLog, request_id 및 운영 요청 흐름 추적."
+}

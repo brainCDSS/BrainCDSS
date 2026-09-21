@@ -12,9 +12,10 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
+from apps.accounts.models import User
 from apps.imaging.models import ImagingStudy, NiftiArtifact, SeriesReference
 from apps.imaging.services.nifti import parse_allowed_gcs_uri
-from apps.patients.models import Patient
+from apps.patients.models import Patient, PatientCareAssignment
 
 
 SELECTED_CASES = (
@@ -61,12 +62,17 @@ class Command(BaseCommand):
             action="store_true",
             help="Verify patient and GCS object availability without writing database rows.",
         )
+        parser.add_argument(
+            "--clinician-login-id",
+            help="Optionally grant the named clinician PRIMARY access to the three selected patients.",
+        )
 
     def handle(self, *args, **options):
         from google.cloud import storage
 
         client = storage.Client()
         resolved_cases = [self._resolve_case(case, client) for case in SELECTED_CASES]
+        clinician = self._resolve_clinician(options["clinician_login_id"])
         if options["check_only"]:
             self.stdout.write(self.style.SUCCESS("SELECTED_DEMO_NIFTI_PREFLIGHT: PASS"))
             return
@@ -134,6 +140,21 @@ class Command(BaseCommand):
                         f"CONNECTED patient={case['patient_no']} accession={case['accession']}"
                     )
                 )
+                if clinician is not None:
+                    _, created = PatientCareAssignment.objects.get_or_create(
+                        patient=case["patient"],
+                        clinician=clinician,
+                        role=PatientCareAssignment.AssignmentRole.PRIMARY,
+                        status=PatientCareAssignment.Status.ACTIVE,
+                        defaults={"source": PatientCareAssignment.Source.MANUAL},
+                    )
+                    assignment_state = "CREATED" if created else "EXISTING"
+                    self.stdout.write(
+                        self.style.SUCCESS(
+                            f"ASSIGNMENT {assignment_state} "
+                            f"clinician={clinician.login_id} patient={case['patient_no']}"
+                        )
+                    )
 
     def _resolve_case(self, case, client):
         patient = Patient.objects.filter(patient_no=case["patient_no"]).first()
@@ -159,3 +180,12 @@ class Command(BaseCommand):
                 }
             )
         return {**case, "patient": patient, "inputs": inputs}
+
+    @staticmethod
+    def _resolve_clinician(login_id):
+        if not login_id:
+            return None
+        clinician = User.objects.filter(login_id__iexact=login_id, is_active=True).first()
+        if clinician is None:
+            raise CommandError(f"Active clinician does not exist: {login_id}")
+        return clinician

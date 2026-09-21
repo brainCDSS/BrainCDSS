@@ -25,7 +25,7 @@ self.addEventListener(
       customData.related_url ??
       customData.url ??
       customData.path ??
-      "/";
+      `/?open=notifications&notification_id=${encodeURIComponent(customData.notification_id ?? "")}`;
 
     let targetUrl;
 

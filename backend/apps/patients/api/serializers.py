@@ -249,11 +249,19 @@ class PatientDetailResponseSerializer(serializers.Serializer):
     sex = serializers.CharField(allow_null=True)
     phone = serializers.CharField(allow_null=True)
     emergency_contact = serializers.CharField(allow_null=True)
+    allergy_info = serializers.CharField(
+        allow_null=True,
+        allow_blank=True,
+    )
     pregnancy_status = serializers.CharField()
     pregnancy_status_updated_at = serializers.DateTimeField(
         allow_null=True
     )
     status = serializers.CharField()
+
+    latest_assessment = serializers.DictField(
+        allow_null=True,
+    )
     merged_into = MergedIntoSerializer(allow_null=True)
     resolved_from_patient_id = serializers.UUIDField(
         allow_null=True

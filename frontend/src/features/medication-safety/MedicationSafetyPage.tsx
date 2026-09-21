@@ -4,6 +4,7 @@ import {
   createPrescription,
   finalizePrescription,
   getCurrentMedications,
+  getPatientEncounters,
   searchMedications,
   updatePrescription,
 } from "./api";
@@ -17,8 +18,8 @@ import type {
   SafetyCheckResponse,
 } from "./types";
 import { PatientHeader, PatientRail } from "../patients/PatientChart";
-import { getPatients } from "../patients/api";
-import type { Patient } from "../patients/types";
+import { getPatient, getPatients, getPatientTimeline } from "../patients/api";
+import type { Patient, PatientDetail } from "../patients/types";
 import { getInitialAssessmentsByEncounter } from "../clinical-notes/api";
 import type { InitialAssessment, InitialAssessmentItem } from "../clinical-notes/types";
 import "./medication-safety.css";
@@ -44,6 +45,26 @@ interface MedicationSafetyPageProps {
 function toEditable(item: PrescriptionItemResponse): EditableItem {
   return { ...item, key: item.item_id };
 }
+
+function formatMedicationTimeInput(value: string) {
+  return value
+    .split(/([,\s]+)/)
+    .map((part) => {
+      if (!part || /^[,\s]+$/.test(part)) {
+        return part.replace(/\s+/g, " ");
+      }
+
+      const digits = part.replace(/\D/g, "").slice(0, 4);
+
+      if (digits.length <= 2) {
+        return digits;
+      }
+
+      return `${digits.slice(0, 2)}:${digits.slice(2)}`;
+    })
+    .join("");
+}
+
 
 function requestError(error: unknown) {
   const message = error instanceof Error ? error.message : "";
@@ -100,8 +121,16 @@ export default function MedicationSafetyPage({ context, onSelectPatient, onOpenP
   const [recentAssessment, setRecentAssessment] = useState<InitialAssessment | null>(null);
   const [vitalLoading, setVitalLoading] = useState(false);
   const [currentMedications, setCurrentMedications] = useState<CurrentMedicationItem[]>([]);
+  const [patientDetail, setPatientDetail] = useState<PatientDetail | null>(null);
+  const [clinicalEncounterId, setClinicalEncounterId] = useState<string | null>(null);
+  const [clinicalSummary, setClinicalSummary] = useState<string | null>(null);
   const automaticPatientId = useRef<string | null>(null);
   const hasEncounter = Boolean(context?.encounterId);
+
+  const displayAssessment =
+    recentAssessment ??
+    patientDetail?.latest_assessment ??
+    null;
 
   useEffect(() => {
     let active = true;
@@ -135,12 +164,44 @@ export default function MedicationSafetyPage({ context, onSelectPatient, onOpenP
     setNotice(null);
   }, [context?.patient.id]);
 
+
+  useEffect(() => {
+    let active = true;
+    setPatientDetail(null);
+    setClinicalEncounterId(null);
+    setClinicalSummary(null);
+    const patientId = context?.patient.id;
+    if (!patientId) return () => { active = false; };
+
+    void Promise.allSettled([
+      getPatient(patientId),
+      getPatientEncounters(patientId),
+      getPatientTimeline(patientId),
+    ]).then(([detail, encounters, timeline]) => {
+      if (!active) return;
+      if (detail.status === "fulfilled") setPatientDetail(detail.value);
+      if (encounters.status === "fulfilled") {
+        const ordered = [...encounters.value].sort((a, b) =>
+          (b.started_at ?? b.arrived_at ?? "").localeCompare(a.started_at ?? a.arrived_at ?? ""),
+        );
+        const activeEncounter = ordered.find((item) => item.status === "IN_PROGRESS" || item.status === "REGISTERED") ?? null;
+        const clinicalEncounter = activeEncounter ?? ordered[0] ?? null;
+        setClinicalEncounterId(clinicalEncounter?.encounter_id ?? clinicalEncounter?.id ?? null);
+      }
+      if (timeline.status === "fulfilled") {
+        const note = timeline.value.results.find((event) => event.tone === "note");
+        setClinicalSummary(note?.detail ?? null);
+      }
+    });
+    return () => { active = false; };
+  }, [context?.patient.id]);
+
   useEffect(() => {
     let active = true;
     setRecentAssessment(null);
-    if (!context?.encounterId) { setVitalLoading(false); return () => { active = false; }; }
+    if (!clinicalEncounterId) { setVitalLoading(false); return () => { active = false; }; }
     setVitalLoading(true);
-    void getInitialAssessmentsByEncounter(context.encounterId).then((response) => {
+    void getInitialAssessmentsByEncounter(clinicalEncounterId).then((response) => {
       if (!active) return;
       setRecentAssessment([...response.results].sort((left, right) => (right.created_at ?? "").localeCompare(left.created_at ?? ""))[0] ?? null);
     }).catch(() => {
@@ -149,7 +210,7 @@ export default function MedicationSafetyPage({ context, onSelectPatient, onOpenP
       if (active) setVitalLoading(false);
     });
     return () => { active = false; };
-  }, [context?.encounterId]);
+  }, [clinicalEncounterId]);
 
   useEffect(() => {
     let active = true;
@@ -172,9 +233,24 @@ export default function MedicationSafetyPage({ context, onSelectPatient, onOpenP
     WARNING: safety?.alerts.filter((alert) => alert.severity === "WARNING").length ?? 0,
   }), [safety]);
   const vitalItems = useMemo(() => {
-    const items = new Map((recentAssessment?.items ?? []).map((item) => [item.item_code, item]));
-    return (["BP_SYS", "HEART_RATE"] as const).map((code) => ({ label: code === "BP_SYS" ? "수축기 혈압" : "심박수", value: assessmentItemValue(items.get(code)) })).filter((item) => item.value !== null);
-  }, [recentAssessment]);
+    const items = new Map((displayAssessment?.items ?? []).map((item) => [item.item_code, item]));
+    const value = (...codes: string[]) => {
+      for (const code of codes) {
+        const found = assessmentItemValue(items.get(code));
+        if (found !== null) return found;
+      }
+      return null;
+    };
+    const sys = value("BP_SYS", "SBP");
+    const dia = value("BP_DIA", "DBP");
+    return [
+      { label: "혈압", value: sys || dia ? [sys, dia].filter(Boolean).join(" / ") : null },
+      { label: "심박수", value: value("HEART_RATE") },
+      { label: "호흡수", value: value("RESP_RATE") },
+      { label: "체온", value: value("BODY_TEMP", "TEMPERATURE") },
+      { label: "SpO₂", value: value("SPO2") },
+    ].filter((item): item is { label: string; value: string } => item.value !== null);
+  }, [displayAssessment]);
   const safetyCriteria: Array<{ type: DurAlert["alert_type"]; label: string }> = [
     { type: "ALLERGY", label: "알레르기" },
     { type: "DDI", label: "약물 상호작용" },
@@ -189,8 +265,27 @@ export default function MedicationSafetyPage({ context, onSelectPatient, onOpenP
   function relatedMedicationNames(alert: DurAlert) {
     return alert.related_medications
       .map((related) => {
-        const medication = items.find((item) => item.medication_id === related);
-        if (medication) return `${medication.medication_name}${medication.strength ? ` ${medication.strength}` : ""}`;
+        const medication = items.find(
+          (item) => item.medication_id === related,
+        );
+
+        if (medication) {
+          return `${medication.medication_name}${
+            medication.strength
+              ? ` ${medication.strength}`
+              : ""
+          }`;
+        }
+
+        const currentMedication =
+          currentMedications.find(
+            (item) => item.medication_id === related,
+          );
+
+        if (currentMedication) {
+          return currentMedication.medication_name;
+        }
+
         return isUuid(related) ? null : related;
       })
       .filter((value): value is string => Boolean(value));
@@ -239,7 +334,7 @@ export default function MedicationSafetyPage({ context, onSelectPatient, onOpenP
         dose_unit: "mg",
         route: "PO",
         frequency_per_day: 1,
-        timing: "식후",
+        timing: "",
         start_date: today,
         duration_days: 1,
         instructions: "",
@@ -268,19 +363,40 @@ export default function MedicationSafetyPage({ context, onSelectPatient, onOpenP
     }));
   }
 
-  function validateItems() {
-    if (!items.length) return "처방 약물을 한 개 이상 추가해주세요.";
+  function validateItems(allowEmpty = false) {
+    if (!items.length) {
+      return allowEmpty
+        ? null
+        : "처방 약물을 한 개 이상 추가해주세요.";
+    }
     if (items.some((item) => item.dose <= 0 || item.frequency_per_day < 1 || item.duration_days < 1)) {
       return "용량, 1일 횟수, 처방 기간은 1 이상이어야 합니다.";
     }
     if (items.some((item) => !item.dose_unit.trim() || !item.route.trim() || !item.timing.trim() || !item.start_date)) {
       return "처방 항목의 필수값을 모두 입력해주세요.";
     }
+
+    const timePattern = /(?:^|[\s,])(?:[01]\d|2[0-3]):[0-5]\d(?=$|[\s,])/;
+
+    for (const item of items) {
+      const times = item.timing
+        .split(/[\s,]+/)
+        .map((value) => value.trim())
+        .filter(Boolean);
+
+      if (
+        times.length < item.frequency_per_day ||
+        times.some((value) => !timePattern.test(value))
+      ) {
+        return `복용 시간은 HH:MM 형식으로 1일 ${item.frequency_per_day}회 이상 입력해주세요.`;
+      }
+    }
+
     return null;
   }
 
   async function saveDraft() {
-    const validation = validateItems();
+    const validation = validateItems(Boolean(prescription));
     if (validation) return setError(validation);
     if (!hasEncounter) return setError("처방 임시저장에는 진료 Encounter가 필요합니다.");
     begin("save");
@@ -332,8 +448,15 @@ export default function MedicationSafetyPage({ context, onSelectPatient, onOpenP
     if (!safety) return setError("최종 확정 전에 DUR 검증을 실행해주세요.");
     const impossible = blockingAlerts.some((alert) => !alert.override_allowed);
     if (impossible) return setError("재정의가 허용되지 않은 차단 경고가 있어 확정할 수 없습니다.");
-    if (blockingAlerts.some((alert) => !overrideReasons[alert.rule_id]?.trim())) {
-      return setError("모든 금지·경고 항목에 재정의 사유를 입력해주세요.");
+    if (
+      blockingAlerts.some(
+        (alert) =>
+          (overrideReasons[alert.rule_id]?.trim().length ?? 0) < 5,
+      )
+    ) {
+      return setError(
+        "모든 금지·경고 항목에 재정의 사유를 5자 이상 입력해주세요.",
+      );
     }
     begin("finalize");
     try {
@@ -346,9 +469,43 @@ export default function MedicationSafetyPage({ context, onSelectPatient, onOpenP
           reason: overrideReasons[alert.rule_id].trim(),
         })),
       );
-      setPrescription((current) => current ? { ...current, status: response.status, finalized_at: response.finalized_at } : current);
-      setSafety({ ...safety, safe: response.safety.safe, alerts: response.safety.alerts });
-      setNotice(`처방이 최종 확정되었습니다. 복약 일정 ${response.schedules_created}건이 생성되었습니다.`);
+      setPrescription((current) =>
+        current
+          ? {
+              ...current,
+              status: response.status,
+              finalized_at: response.finalized_at,
+            }
+          : current,
+      );
+
+      setSafety({
+        ...safety,
+        safe: response.safety.safe,
+        alerts: response.safety.alerts,
+      });
+
+      const successNotice =
+        `처방이 최종 확정되었습니다. 복약 일정 ${response.schedules_created}건이 생성되었습니다.`;
+
+      setNotice(successNotice);
+
+      if (context?.patient.id) {
+        try {
+          const refreshed =
+            await getCurrentMedications(
+              context.patient.id,
+            );
+
+          setCurrentMedications(
+            refreshed.results,
+          );
+        } catch {
+          setNotice(
+            `${successNotice} 현재 복용약 목록은 새로고침 시 반영됩니다.`,
+          );
+        }
+      }
     } catch (requestFailure) {
       setError(requestError(requestFailure));
     } finally {
@@ -363,7 +520,15 @@ export default function MedicationSafetyPage({ context, onSelectPatient, onOpenP
         <div className="medication-panel">
           {context ? <>
       <div className="medication-context medication-context--patient-header">
-        <PatientHeader patient={context.patient} care={{ department: prescription?.department, clinician: prescription?.doctor }} onOpenDetails={() => onOpenPatientChart?.(context.patient)} />
+        <PatientHeader
+          patient={patientDetail ?? context.patient}
+          assessment={displayAssessment}
+          care={{
+            department: prescription?.department ?? (displayAssessment?.assigned_neurologist ? "신경과" : undefined),
+            clinician: prescription?.doctor ?? displayAssessment?.assigned_neurologist?.name,
+          }}
+          onOpenDetails={() => onOpenPatientChart?.(context.patient)}
+        />
       </div>
 
       {(error || notice) && <div className={`medication-feedback ${error ? "medication-feedback--error" : ""}`}>{error ?? notice}</div>}
@@ -377,8 +542,10 @@ export default function MedicationSafetyPage({ context, onSelectPatient, onOpenP
               <dl className="medication-detail-list"><div><dt>환자번호</dt><dd>{context.patient.patient_no}</dd></div><div><dt>환자명</dt><dd>{context.patient.name}</dd></div><div><dt>성별 / 나이</dt><dd>{context.patient.sex ?? "-"} / {context.patient.estimated_age == null ? "-" : `${context.patient.estimated_age}세`}</dd></div><div><dt>진료과 / 담당의</dt><dd>{prescription?.department ?? "-"} / {prescription?.doctor ?? "-"}</dd></div></dl>
             </section>
             <section className="medication-clinical-section">
-              <div className="medication-clinical-section__heading"><strong>주요 진단</strong></div>
-              <div className="medication-compact-empty">진단 조회 API가 연결되지 않았습니다.</div>
+              <div className="medication-clinical-section__heading"><strong>주요 임상소견</strong></div>
+              <div className="medication-clinical-summary">
+                {clinicalSummary ?? displayAssessment?.symptom_note ?? "기록된 임상소견이 없습니다."}
+              </div>
             </section>
             <section className="medication-clinical-section">
               <div className="medication-clinical-section__heading"><strong>활력징후 (최근)</strong></div>
@@ -395,7 +562,7 @@ export default function MedicationSafetyPage({ context, onSelectPatient, onOpenP
           <article className="clinical-card medication-search-card">
             <div className="clinical-card__title medication-section-title"><h3><span aria-hidden="true">⌕</span> 처방 작성</h3><small>약물 검색 결과 {resultCount}건</small></div>
             <div className="clinical-toolbar medication-search">
-              <input aria-label="약물 검색" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="약물명, 성분명, 제조사로 검색하세요. (예: 아스피린, 클로피도그렐)" onKeyDown={(event) => { if (event.key === "Enter") void handleSearch(); }} />
+              <input aria-label="약물 검색" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="약물명 또는 약품코드로 검색하세요. (예: 아스피린)" onKeyDown={(event) => { if (event.key === "Enter") void handleSearch(); }} />
               <button type="button" className="is-primary" disabled={loading !== null || !query.trim()} onClick={() => void handleSearch()}>검색</button>
               <button type="button" title="상세 검색 API 미제공" disabled>상세 검색⌄</button>
             </div>
@@ -405,10 +572,44 @@ export default function MedicationSafetyPage({ context, onSelectPatient, onOpenP
           </article>
 
           <article className="clinical-card medication-prescription-card">
-            <div className="clinical-card__title medication-section-title"><h3><span aria-hidden="true">▣</span> 현재 처방 목록 ({items.length})</h3><button type="button" className="medication-clear" disabled={locked || !items.length || items.some((item) => Boolean(item.item_id))} title={items.some((item) => Boolean(item.item_id)) ? "저장된 항목 삭제 API가 제공되지 않습니다." : undefined} onClick={() => { setItems([]); invalidateSafety(); }}>전체 삭제</button></div>
+            <div className="clinical-card__title medication-section-title"><h3><span aria-hidden="true">▣</span> 현재 처방 목록 ({items.length})</h3><button
+              type="button"
+              className="medication-clear"
+              disabled={locked || !items.length}
+              title={
+                locked
+                  ? "최종 확정된 처방은 수정할 수 없습니다."
+                  : undefined
+              }
+              onClick={() => {
+                setItems([]);
+                invalidateSafety();
+              }}
+            >
+              전체 삭제
+            </button></div>
             {!items.length ? <div className="clinical-state">검색 결과에서 처방 약물을 추가하거나 처방 ID로 기존 처방을 불러오세요.</div> : (
               <div className="medication-items">{items.map((item, index) => <div className="medication-item" key={item.key}>
-                <div className="medication-item__heading"><span className="medication-item__number">{index + 1}</span><strong>{item.medication_name} {item.strength}</strong><span>{item.medication_code}</span><button type="button" disabled={locked || Boolean(item.item_id)} title={item.item_id ? "저장된 항목 삭제 API가 제공되지 않습니다." : undefined} onClick={() => { setItems((current) => current.filter((currentItem) => currentItem.key !== item.key)); invalidateSafety(); }}>삭제</button></div>
+                <div className="medication-item__heading"><span className="medication-item__number">{index + 1}</span><strong>{item.medication_name} {item.strength}</strong><span>{item.medication_code}</span><button
+                  type="button"
+                  disabled={locked}
+                  title={
+                    locked
+                      ? "최종 확정된 처방은 수정할 수 없습니다."
+                      : undefined
+                  }
+                  onClick={() => {
+                    setItems((current) =>
+                      current.filter(
+                        (currentItem) =>
+                          currentItem.key !== item.key,
+                      ),
+                    );
+                    invalidateSafety();
+                  }}
+                >
+                  삭제
+                </button></div>
                 <div className="medication-form-grid medication-form-grid--primary">
                   <label>1회 용량<input type="number" min="0.01" step="0.01" disabled={locked} value={item.dose || ""} onChange={(event) => changeItem(item.key, "dose", Number(event.target.value))} /></label>
                   <label>단위<input disabled={locked} value={item.dose_unit} onChange={(event) => changeItem(item.key, "dose_unit", event.target.value)} /></label>
@@ -419,7 +620,30 @@ export default function MedicationSafetyPage({ context, onSelectPatient, onOpenP
                   <summary>상세 설정</summary>
                   <div className="medication-form-grid medication-form-grid--details">
                     <label>투여 경로<input disabled={locked} value={item.route} onChange={(event) => changeItem(item.key, "route", event.target.value)} /></label>
-                    <label>복용 시점<input disabled={locked} value={item.timing} onChange={(event) => changeItem(item.key, "timing", event.target.value)} /></label>
+                    <label>
+                      복용 시간
+                      <input
+                        disabled={locked}
+                        value={item.timing}
+                        placeholder={
+                          item.frequency_per_day > 1
+                            ? "예: 08:00, 20:00"
+                            : "예: 08:00"
+                        }
+                        onChange={(event) =>
+                          changeItem(
+                            item.key,
+                            "timing",
+                            formatMedicationTimeInput(
+                              event.target.value,
+                            ),
+                          )
+                        }
+                      />
+                      <small>
+                        24시간 형식으로 입력하세요. 1일 횟수만큼 시간을 입력합니다.
+                      </small>
+                    </label>
                     <label>시작일<input type="date" disabled={locked} value={item.start_date} onChange={(event) => changeItem(item.key, "start_date", event.target.value)} /></label>
                     <label className="medication-form-grid__wide">복약 지시<input disabled={locked} value={item.instructions} onChange={(event) => changeItem(item.key, "instructions", event.target.value)} /></label>
                   </div>
@@ -427,7 +651,12 @@ export default function MedicationSafetyPage({ context, onSelectPatient, onOpenP
               </div>)}</div>
             )}
             {!hasEncounter && <div className="medication-encounter-notice">진료 Encounter가 없어 처방 임시저장과 최종확정은 사용할 수 없습니다.</div>}
-            <div className="clinical-action-bar medication-draft-actions"><button type="button" className="clinical-action" disabled={loading !== null || locked || !items.length || !hasEncounter} onClick={() => void saveDraft()}>{prescription ? "처방 수정·임시저장" : "처방 임시저장"}</button></div>
+            <div className="clinical-action-bar medication-draft-actions"><button type="button" className="clinical-action" disabled={
+                  loading !== null
+                  || locked
+                  || (!prescription && !items.length)
+                  || !hasEncounter
+                } onClick={() => void saveDraft()}>{prescription ? "처방 수정·임시저장" : "처방 임시저장"}</button></div>
           </article>
         </main>
 
@@ -451,9 +680,15 @@ export default function MedicationSafetyPage({ context, onSelectPatient, onOpenP
             <p className="dur-alert__row"><b>설명</b><span>{alert.message || "상세 메시지가 제공되지 않았습니다."}</span></p>
             {alert.observed_daily_dose_mg != null && alert.max_daily_dose_mg != null && <div className="dur-comparison"><div><span>입력 일일용량</span><strong>{alert.observed_daily_dose_mg.toLocaleString()} <small>mg/day</small></strong></div><div><span>최대 허용용량</span><strong>{alert.max_daily_dose_mg.toLocaleString()} <small>mg/day</small></strong></div></div>}
             {alert.observed_duration_days != null && alert.max_duration_days != null && <div className="dur-comparison"><div><span>입력 투여기간</span><strong>{alert.observed_duration_days} <small>일</small></strong></div><div><span>최대 투여기간</span><strong>{alert.max_duration_days} <small>일</small></strong></div></div>}
-            {(alert.severity === "BLOCK" || alert.severity === "MAJOR") && (alert.override_allowed ? <label className="dur-override"><span>Override 사유</span><textarea required maxLength={200} value={overrideReasons[alert.rule_id] ?? ""} onChange={(event) => setOverrideReasons((current) => ({ ...current, [alert.rule_id]: event.target.value }))} placeholder="사유를 입력하세요. (필수)" /></label> : <strong className="dur-alert__blocked">이 경고는 Override할 수 없습니다.</strong>)}
+            {(alert.severity === "BLOCK" || alert.severity === "MAJOR") && (alert.override_allowed ? <label className="dur-override"><span>Override 사유</span><textarea required minLength={5} maxLength={200} value={overrideReasons[alert.rule_id] ?? ""} onChange={(event) => setOverrideReasons((current) => ({ ...current, [alert.rule_id]: event.target.value }))} placeholder="사유를 입력하세요. (필수)" /></label> : <strong className="dur-alert__blocked">이 경고는 Override할 수 없습니다.</strong>)}
           </div>)}</div>}
-          <div className="clinical-action-bar medication-dur__actions"><button type="button" className="clinical-action" disabled={loading !== null || locked || !items.length} onClick={() => void runSafetyCheck()}>↻ DUR 검증</button><button type="button" className="clinical-action medication-finalize" disabled={loading !== null || locked || !prescription || !hasEncounter} onClick={() => void finalize()}>✓ 처방 최종 확정</button></div>
+          <div className="clinical-action-bar medication-dur__actions"><button type="button" className="clinical-action" disabled={loading !== null || locked || !items.length} onClick={() => void runSafetyCheck()}>↻ DUR 검증</button><button type="button" className="clinical-action medication-finalize" disabled={
+                  loading !== null
+                  || locked
+                  || !items.length
+                  || !prescription
+                  || !hasEncounter
+                } onClick={() => void finalize()}>✓ 처방 최종 확정</button></div>
         </aside>
       </div>
           </> : patientListLoaded && patientList.length === 0 ? <main className="medication-selection-empty clinical-card"><strong>선택된 환자가 없습니다.</strong><span>조회된 환자 데이터가 없습니다.</span></main> : <main className="medication-selection-empty clinical-card"><strong>환자 정보를 불러오는 중입니다.</strong></main>}

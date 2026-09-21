@@ -1,7 +1,10 @@
 import { getAccessToken } from "../features/auth/session";
 
 /** Single boundary for backend HTTP calls; never call internal services from the browser. */
-const baseUrl = import.meta.env.VITE_BACKEND_URL ?? "http://localhost:8080";
+const baseUrl =
+  import.meta.env.DEV
+    ? ""
+    : import.meta.env.VITE_BACKEND_URL ?? "";
 
 export class ApiRequestError extends Error {
   constructor(

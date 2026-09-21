@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import uuid
 from collections import defaultdict
+from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
 from django.utils import timezone
@@ -222,6 +223,55 @@ def _normalized_text(value):
     )
 
 
+def _active_current_medication_ids(patient):
+    """
+    CURRENT_MEDICATION_RELATION_CONTEXT_V1
+
+    FINAL 처방 중 오늘 실제 복용 기간에 포함되는 약물만
+    DDI / DUPLICATE 관계 검사 context로 사용한다.
+    """
+    if patient is None:
+        return set()
+
+    # prescriptions -> medication_safety circular import 방지
+    from apps.prescriptions.models import PrescriptionItem
+
+    today = timezone.localdate()
+
+    rows = (
+        PrescriptionItem.objects
+        .filter(
+            prescription__encounter__patient_id=patient.id,
+            prescription__status="FINAL",
+            start_date__lte=today,
+            duration_days__gt=0,
+        )
+        .values(
+            "medication_id",
+            "start_date",
+            "duration_days",
+        )
+    )
+
+    medication_ids = set()
+
+    for row in rows:
+        end_date = (
+            row["start_date"]
+            + timedelta(
+                days=int(row["duration_days"])
+            )
+        )
+
+        # CurrentMedicationsView와 동일한 기간 판정.
+        if today < end_date:
+            medication_ids.add(
+                row["medication_id"]
+            )
+
+    return medication_ids
+
+
 def check_medication_safety(
     *,
     medications,
@@ -409,6 +459,48 @@ def check_medication_safety(
         ingredient_to_medications
     )
 
+    # --------------------------------------------------------
+    # 기존 복용약은 DDI / DUPLICATE 관계 검사에만 포함.
+    # 다른 Safety rule의 평가 대상은 확장하지 않는다.
+    # --------------------------------------------------------
+
+    current_medication_ids = (
+        _active_current_medication_ids(
+            patient
+        )
+    )
+
+    relationship_medication_ids = (
+        medication_ids
+        | current_medication_ids
+    )
+
+    relationship_mappings = list(
+        MedicationIngredient.objects
+        .filter(
+            medication_id__in=
+                relationship_medication_ids,
+            medication__is_active=True,
+            ingredient__is_active=True,
+            is_active=True,
+        )
+    )
+
+    relationship_ingredient_to_medications = (
+        defaultdict(set)
+    )
+
+    for mapping in relationship_mappings:
+        relationship_ingredient_to_medications[
+            mapping.ingredient_id
+        ].add(
+            mapping.medication_id
+        )
+
+    relationship_ingredient_ids = set(
+        relationship_ingredient_to_medications
+    )
+
     alerts = []
 
     # =========================================================
@@ -419,8 +511,10 @@ def check_medication_safety(
         DURInteractionRule.objects
         .filter(
             is_active=True,
-            ingredient_a_id__in=ingredient_ids,
-            ingredient_b_id__in=ingredient_ids,
+            ingredient_a_id__in=
+                relationship_ingredient_ids,
+            ingredient_b_id__in=
+                relationship_ingredient_ids,
         )
         .select_related(
             "ingredient_a",
@@ -429,22 +523,30 @@ def check_medication_safety(
     )
 
     for rule in interaction_rules:
-        related = sorted(
-            {
-                str(value)
-                for value in (
-                    ingredient_to_medications[
-                        rule.ingredient_a_id
-                    ]
-                    | ingredient_to_medications[
-                        rule.ingredient_b_id
-                    ]
-                )
-            }
+        related_ids = (
+            relationship_ingredient_to_medications[
+                rule.ingredient_a_id
+            ]
+            | relationship_ingredient_to_medications[
+                rule.ingredient_b_id
+            ]
         )
 
-        if len(related) < 2:
+        if len(related_ids) < 2:
             continue
+
+        # 현재 복용약끼리만 존재하던 기존 DDI는
+        # 이번 신규 처방의 경고로 다시 보여주지 않는다.
+        if not (
+            related_ids
+            & medication_ids
+        ):
+            continue
+
+        related = sorted(
+            str(value)
+            for value in related_ids
+        )
 
         alerts.append(
             {
@@ -553,7 +655,8 @@ def check_medication_safety(
         DURDuplicateRule.objects
         .filter(
             is_active=True,
-            ingredient_id__in=ingredient_ids,
+            ingredient_id__in=
+                relationship_ingredient_ids,
         )
     )
 
@@ -570,7 +673,7 @@ def check_medication_safety(
         ]
 
         group["medications"].update(
-            ingredient_to_medications[
+            relationship_ingredient_to_medications[
                 rule.ingredient_id
             ]
         )
@@ -581,6 +684,14 @@ def check_medication_safety(
         duplicate_groups.items()
     ):
         if len(group["medications"]) < 2:
+            continue
+
+        # 기존 복용약끼리의 중복만 존재하면
+        # 신규 처방 경고로 반환하지 않는다.
+        if not (
+            group["medications"]
+            & medication_ids
+        ):
             continue
 
         rule = group["rules"][0]
@@ -603,6 +714,49 @@ def check_medication_safety(
                     in group["medications"]
                 ),
                 "override_allowed": True,
+            }
+        )
+
+    # =========================================================
+    # 3-A. EXACT CURRENT MEDICATION DUPLICATE
+    # =========================================================
+
+    exact_duplicate_ids = (
+        medication_ids
+        & current_medication_ids
+    )
+
+    for medication_id in sorted(
+        exact_duplicate_ids,
+        key=str,
+    ):
+        synthetic_rule_id = uuid.uuid5(
+            uuid.NAMESPACE_URL,
+            (
+                "brainon://medication-safety/"
+                f"current-duplicate/{medication_id}"
+            ),
+        )
+
+        alerts.append(
+            {
+                "alert_type":
+                    "DUPLICATE",
+                "severity":
+                    "MAJOR",
+                "message":
+                    (
+                        "현재 복용 중인 동일 약물이 "
+                        "이미 있습니다. 중복 처방 여부를 "
+                        "확인하세요."
+                    ),
+                "rule_id":
+                    str(synthetic_rule_id),
+                "related_medications": [
+                    str(medication_id)
+                ],
+                "override_allowed":
+                    True,
             }
         )
 

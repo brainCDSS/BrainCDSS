@@ -7,6 +7,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.accounts.rbac import role_allowed
+from apps.assessments.models import (
+    AssessmentItem,
+    InitialAssessment,
+)
 from apps.patients.api.errors import DomainAPIException
 from apps.patients.api.permissions import (
     has_permission_code,
@@ -87,7 +92,10 @@ def _require(
 ):
     current_role = role_code(request.user)
 
-    if current_role not in roles:
+    if not role_allowed(
+        current_role,
+        roles,
+    ):
         raise DomainAPIException(
             code="FORBIDDEN_ROLE",
             detail="The current role cannot access this API.",
@@ -120,6 +128,113 @@ def _page_link(request, page_number):
     return request.build_absolute_uri(
         f"{request.path}?{params.urlencode()}"
     )
+
+
+
+def _latest_patient_assessment_snapshot(patient_id):
+    qs = (
+        InitialAssessment.objects
+        .filter(
+            encounter__patient_id=patient_id
+        )
+        .select_related(
+            "assigned_neurologist"
+        )
+        .order_by(
+            "-updated_at",
+            "-created_at",
+        )
+    )
+
+    assessment = (
+        qs.filter(
+            status="COMPLETED"
+        ).first()
+        or qs.first()
+    )
+
+    if assessment is None:
+        return None
+
+    items = (
+        AssessmentItem.objects
+        .filter(
+            assessment=assessment
+        )
+        .order_by(
+            "recorded_at",
+            "id",
+        )
+    )
+
+    return {
+        "assessment_id": str(
+            assessment.id
+        ),
+        "encounter_id": str(
+            assessment.encounter_id
+        ),
+        "status": assessment.status,
+        "total_score":
+            assessment.total_score,
+        "triage_priority":
+            assessment.triage_priority,
+        "onset_at":
+            assessment.onset_at,
+        "lkw_at":
+            assessment.lkw_at,
+        "symptom_note":
+            assessment.symptom_note,
+
+        "assigned_neurologist": (
+            {
+                "id": str(
+                    assessment
+                    .assigned_neurologist_id
+                ),
+                "name": (
+                    assessment
+                    .assigned_neurologist
+                    .name
+                ),
+            }
+            if assessment
+            .assigned_neurologist_id
+            else None
+        ),
+
+        "items": [
+            {
+                "item_code":
+                    item.item_code,
+
+                "value_text":
+                    item.value_text,
+
+                "value_numeric":
+                    item.value_numeric,
+
+                "unit":
+                    item.unit,
+
+                "score":
+                    item.score,
+
+                "is_red_flag":
+                    item.is_red_flag,
+
+                "note":
+                    item.note,
+            }
+            for item in items
+        ],
+
+        "created_at":
+            assessment.created_at,
+
+        "updated_at":
+            assessment.updated_at,
+    }
 
 
 def _patient_list_item(patient):
@@ -351,10 +466,18 @@ class PatientDetailUpdateView(APIView):
             "sex": resolved.sex,
             "phone": resolved.phone,
             "emergency_contact": resolved.emergency_contact,
+            "allergy_info": resolved.allergy_info,
             "pregnancy_status": resolved.pregnancy_status,
             "pregnancy_status_updated_at":
                 resolved.pregnancy_status_updated_at,
             "status": resolved.status,
+
+            "latest_assessment": (
+                _latest_patient_assessment_snapshot(
+                    resolved.id
+                )
+            ),
+
             "merged_into": merged_into,
             "resolved_from_patient_id": (
                 resolved_from

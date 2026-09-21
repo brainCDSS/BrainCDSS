@@ -243,3 +243,1180 @@
   border:0;
   background:#fff;
 }
+
+
+/* BRAINON_NATIVE_GRAFANA_UI */
+
+.admin-grafana-card{
+  flex:1;
+  min-height:780px;
+  overflow:hidden;
+  padding:0;
+  border:0;
+  border-radius:8px;
+  background:#111217;
+  box-shadow:
+    0 1px 2px rgba(0,0,0,.16),
+    0 8px 28px rgba(0,0,0,.14);
+}
+
+.admin-grafana-frame{
+  display:block;
+  width:100%;
+  height:calc(100vh - 170px);
+  min-height:780px;
+  border:0;
+  background:#111217;
+}
+
+
+/* BRAINON_GRAFANA_ICON_RAIL */
+
+.admin-grafana-console{
+  display:grid;
+  grid-template-columns:56px minmax(0,1fr);
+  flex:1;
+  min-height:780px;
+  overflow:hidden;
+  border:1px solid #2a2d33;
+  border-radius:8px;
+  background:#111217;
+  transition:grid-template-columns .18s ease;
+}
+
+.admin-grafana-console.is-nav-expanded{
+  grid-template-columns:224px minmax(0,1fr);
+}
+
+
+.admin-grafana-rail{
+  position:relative;
+  z-index:5;
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+  background:#181b1f;
+  border-right:1px solid #2a2d33;
+  color:#c7cbd1;
+  overflow:hidden;
+}
+
+
+.admin-grafana-brand,
+.admin-grafana-menu-toggle,
+.admin-grafana-nav-item{
+  display:flex;
+  align-items:center;
+  width:100%;
+  min-height:48px;
+  padding:0;
+  border:0;
+  background:transparent;
+  color:inherit;
+  cursor:pointer;
+  font:inherit;
+  text-align:left;
+}
+
+
+.admin-grafana-brand{
+  min-height:56px;
+  border-bottom:1px solid #2a2d33;
+}
+
+
+.admin-grafana-brand img{
+  width:28px;
+  height:28px;
+  flex:0 0 28px;
+  margin-left:14px;
+}
+
+
+.admin-grafana-brand span{
+  margin-left:14px;
+  white-space:nowrap;
+  font-size:14px;
+  font-weight:700;
+  color:#f4f5f5;
+}
+
+
+.admin-grafana-menu-toggle{
+  border-bottom:1px solid #24272c;
+}
+
+
+.admin-grafana-hamburger{
+  display:grid;
+  place-items:center;
+  width:56px;
+  min-width:56px;
+  font-size:19px;
+  line-height:1;
+}
+
+
+.admin-grafana-menu-toggle > span:last-child{
+  white-space:nowrap;
+  font-size:13px;
+  font-weight:600;
+}
+
+
+.admin-grafana-navigation{
+  display:flex;
+  flex-direction:column;
+  padding:6px 0;
+  gap:2px;
+}
+
+
+.admin-grafana-nav-item{
+  position:relative;
+  min-height:44px;
+}
+
+
+.admin-grafana-nav-item:hover{
+  background:#22252b;
+  color:#fff;
+}
+
+
+.admin-grafana-nav-item.is-active{
+  background:#20242b;
+  color:#fff;
+}
+
+
+.admin-grafana-nav-item.is-active::before{
+  content:"";
+  position:absolute;
+  inset:5px auto 5px 0;
+  width:3px;
+  border-radius:0 3px 3px 0;
+  background:#ff780a;
+}
+
+
+.admin-grafana-nav-icon{
+  display:grid;
+  place-items:center;
+  width:56px;
+  min-width:56px;
+  font-size:18px;
+  line-height:1;
+  color:#a7adb7;
+}
+
+
+.admin-grafana-nav-item.is-active
+.admin-grafana-nav-icon{
+  color:#fff;
+}
+
+
+.admin-grafana-nav-label{
+  padding-right:12px;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+  font-size:13px;
+  font-weight:600;
+}
+
+
+.admin-grafana-rail-footer{
+  display:flex;
+  align-items:center;
+  min-height:48px;
+  margin-top:auto;
+  border-top:1px solid #2a2d33;
+  color:#9da3ad;
+  font-size:12px;
+  white-space:nowrap;
+}
+
+
+.admin-grafana-card{
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+  min-height:780px;
+  padding:0;
+  overflow:hidden;
+  border:0;
+  border-radius:0;
+  background:#111217;
+  box-shadow:none;
+}
+
+
+.admin-grafana-console-bar{
+  display:flex;
+  align-items:center;
+  min-height:44px;
+  padding:0 16px;
+  border-bottom:1px solid #2a2d33;
+  background:#15171b;
+}
+
+
+.admin-grafana-console-bar > div{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  min-width:0;
+}
+
+
+.admin-grafana-console-bar strong{
+  color:#f4f5f5;
+  font-size:13px;
+}
+
+
+.admin-grafana-console-bar span{
+  color:#8e949e;
+  font-size:11px;
+}
+
+
+.admin-grafana-frame{
+  flex:1;
+  display:block;
+  width:100%;
+  height:calc(100vh - 214px);
+  min-height:736px;
+  border:0;
+  background:#111217;
+}
+
+
+@media(max-width:900px){
+  .admin-grafana-console{
+    grid-template-columns:52px minmax(0,1fr);
+  }
+
+  .admin-grafana-console.is-nav-expanded{
+    grid-template-columns:196px minmax(0,1fr);
+  }
+
+  .admin-grafana-nav-icon,
+  .admin-grafana-hamburger{
+    width:52px;
+    min-width:52px;
+  }
+}
+
+
+/* BRAINON_GRAFANA_TOGGLE_FINAL */
+
+/*
+ * 기본 상태
+ * Grafana 아이콘 레일은 항상 보인다.
+ */
+.admin-grafana-console{
+  grid-template-columns:56px minmax(0,1fr);
+}
+
+
+/*
+ * 햄버거 클릭 시
+ * React navigationExpanded 상태가
+ * 이 클래스를 직접 적용한다.
+ */
+.admin-grafana-console.is-nav-expanded{
+  grid-template-columns:224px minmax(0,1fr);
+}
+
+
+/*
+ * aside 자체도 부모 track과 동일하게 확장.
+ */
+.admin-grafana-rail{
+  width:100%;
+}
+
+
+/*
+ * 접힘 상태에서는 label 완전히 감춤.
+ */
+.admin-grafana-console:not(.is-nav-expanded)
+.admin-grafana-nav-label,
+
+.admin-grafana-console:not(.is-nav-expanded)
+.admin-grafana-brand span,
+
+.admin-grafana-console:not(.is-nav-expanded)
+.admin-grafana-menu-toggle > span:last-child,
+
+.admin-grafana-console:not(.is-nav-expanded)
+.admin-grafana-rail-footer > span:last-child{
+  display:none;
+}
+
+
+/*
+ * 펼침 상태 메뉴명.
+ */
+.admin-grafana-console.is-nav-expanded
+.admin-grafana-nav-label{
+  display:block;
+  opacity:1;
+}
+
+
+/*
+ * 선택 Dashboard 강조.
+ */
+.admin-grafana-nav-item.is-active{
+  background:#242830;
+  color:#ffffff;
+}
+
+
+/*
+ * 펼친 메뉴에서도 아이콘 위치는 고정.
+ */
+.admin-grafana-nav-icon,
+.admin-grafana-hamburger{
+  flex:0 0 56px;
+}
+
+
+/*
+ * transition은 부모 grid 하나에서만 처리.
+ */
+.admin-grafana-console{
+  transition:
+    grid-template-columns
+    180ms ease;
+}
+
+
+@media(max-width:900px){
+
+  .admin-grafana-console{
+    grid-template-columns:
+      52px
+      minmax(0,1fr);
+  }
+
+  .admin-grafana-console.is-nav-expanded{
+    grid-template-columns:
+      196px
+      minmax(0,1fr);
+  }
+
+}
+
+
+
+/* ==========================================================
+   BRAINON_GRAFANA_ACCORDION_NAV_FINAL
+   ----------------------------------------------------------
+   BrainOn Operations Console
+
+   1. Collapsed icon rail
+   2. Expanded navigation panel
+   3. Grafana-style accordion groups
+   4. Grafana iframe remains kiosk
+   ========================================================== */
+
+
+/* ----------------------------------------------------------
+   Overall shell
+   ---------------------------------------------------------- */
+
+.brainon-grafana-shell{
+  display:grid;
+  grid-template-columns:56px minmax(0,1fr);
+
+  width:100%;
+  min-height:780px;
+
+  overflow:hidden;
+
+  border:1px solid #2a2d33;
+  border-radius:8px;
+
+  background:#111217;
+
+  transition:
+    grid-template-columns
+    180ms ease;
+}
+
+
+.brainon-grafana-shell.is-navigation-expanded{
+  grid-template-columns:
+    244px
+    minmax(0,1fr);
+}
+
+
+/* ----------------------------------------------------------
+   Navigation
+   ---------------------------------------------------------- */
+
+.brainon-ops-navigation{
+  position:relative;
+  z-index:10;
+
+  display:flex;
+  flex-direction:column;
+
+  width:100%;
+  min-width:0;
+  min-height:780px;
+
+  overflow:hidden;
+
+  color:#c7cbd1;
+  background:#181b1f;
+
+  border-right:1px solid #2a2d33;
+}
+
+
+/* ----------------------------------------------------------
+   Shared icon slot
+   ---------------------------------------------------------- */
+
+.brainon-ops-icon-slot{
+  display:grid;
+  place-items:center;
+
+  width:56px;
+  min-width:56px;
+  height:44px;
+
+  color:#aeb4bf;
+}
+
+
+.brainon-ops-icon-slot svg{
+  width:19px;
+  height:19px;
+}
+
+
+.brainon-ops-icon-slot img{
+  width:27px;
+  height:27px;
+}
+
+
+/* ----------------------------------------------------------
+   Brand
+   ---------------------------------------------------------- */
+
+.brainon-ops-brand{
+  display:flex;
+  align-items:center;
+
+  width:100%;
+  min-height:56px;
+
+  padding:0;
+
+  border:0;
+  border-bottom:1px solid #2a2d33;
+
+  background:#181b1f;
+  color:#f4f5f5;
+
+  cursor:pointer;
+
+  font:inherit;
+  text-align:left;
+}
+
+
+.brainon-ops-brand:hover{
+  background:#202328;
+}
+
+
+.brainon-ops-brand
+.brainon-ops-icon-slot{
+  height:56px;
+}
+
+
+.brainon-ops-brand-label{
+  display:none;
+
+  min-width:0;
+
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+
+  font-size:14px;
+  font-weight:700;
+}
+
+
+.brainon-grafana-shell.is-navigation-expanded
+.brainon-ops-brand-label{
+  display:block;
+}
+
+
+/* ----------------------------------------------------------
+   Hamburger
+   ---------------------------------------------------------- */
+
+.brainon-ops-menu-toggle{
+  display:flex;
+  align-items:center;
+
+  width:100%;
+  min-height:45px;
+
+  padding:0;
+
+  border:0;
+  border-bottom:1px solid #25282d;
+
+  background:#181b1f;
+  color:#c7cbd1;
+
+  cursor:pointer;
+
+  font:inherit;
+  text-align:left;
+}
+
+
+.brainon-ops-menu-toggle:hover{
+  background:#22252a;
+  color:#ffffff;
+}
+
+
+.brainon-ops-menu-label{
+  display:none;
+
+  font-size:13px;
+  font-weight:600;
+
+  white-space:nowrap;
+}
+
+
+.brainon-grafana-shell.is-navigation-expanded
+.brainon-ops-menu-label{
+  display:block;
+}
+
+
+/* ----------------------------------------------------------
+   Groups container
+   ---------------------------------------------------------- */
+
+.brainon-ops-groups{
+  flex:1;
+
+  display:flex;
+  flex-direction:column;
+
+  min-height:0;
+
+  padding:6px 0 10px;
+
+  overflow-y:auto;
+  overflow-x:hidden;
+}
+
+
+/* ----------------------------------------------------------
+   Group
+   ---------------------------------------------------------- */
+
+.brainon-ops-group{
+  position:relative;
+
+  width:100%;
+
+  margin:0;
+  padding:0;
+}
+
+
+.brainon-ops-group-button{
+  position:relative;
+
+  display:flex;
+  align-items:center;
+
+  width:100%;
+  min-height:44px;
+
+  margin:0;
+  padding:0;
+
+  border:0;
+
+  background:transparent;
+  color:#b9bec8;
+
+  cursor:pointer;
+
+  font:inherit;
+  text-align:left;
+}
+
+
+.brainon-ops-group-button:hover{
+  background:#23262c;
+  color:#ffffff;
+}
+
+
+/*
+ * 현재 선택된 dashboard가 포함된 section.
+ */
+.brainon-ops-group.contains-active
+> .brainon-ops-group-button{
+  color:#ffffff;
+}
+
+
+/*
+ * collapsed rail에서도
+ * active section을 확인할 수 있게 orange bar.
+ */
+.brainon-ops-group.contains-active
+> .brainon-ops-group-button::before{
+  content:"";
+
+  position:absolute;
+
+  left:0;
+  top:5px;
+  bottom:5px;
+
+  width:3px;
+
+  border-radius:
+    0
+    3px
+    3px
+    0;
+
+  background:#ff780a;
+}
+
+
+.brainon-ops-group-label{
+  display:none;
+
+  flex:1;
+
+  min-width:0;
+
+  padding-right:8px;
+
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+
+  font-size:13px;
+  font-weight:500;
+}
+
+
+.brainon-grafana-shell.is-navigation-expanded
+.brainon-ops-group-label{
+  display:block;
+}
+
+
+/* ----------------------------------------------------------
+   Chevron
+   ---------------------------------------------------------- */
+
+.brainon-ops-chevron{
+  display:none;
+
+  width:16px;
+  height:16px;
+
+  margin-right:13px;
+
+  color:#888f9a;
+
+  transition:
+    transform
+    160ms ease;
+}
+
+
+.brainon-grafana-shell.is-navigation-expanded
+.brainon-ops-chevron{
+  display:block;
+}
+
+
+.brainon-ops-chevron.is-open{
+  transform:rotate(90deg);
+}
+
+
+/* ----------------------------------------------------------
+   Accordion submenu
+   ---------------------------------------------------------- */
+
+.brainon-ops-submenu{
+  display:none;
+
+  width:100%;
+
+  padding:
+    0
+    7px
+    5px
+    56px;
+}
+
+
+/*
+ * submenu는 navigation panel이 펼쳐졌고,
+ * 해당 group이 open일 때만 표시.
+ */
+.brainon-grafana-shell.is-navigation-expanded
+.brainon-ops-group.is-open
+.brainon-ops-submenu{
+  display:block;
+}
+
+
+.brainon-ops-submenu-item{
+  position:relative;
+
+  display:flex;
+  align-items:center;
+  gap:8px;
+
+  width:100%;
+  min-height:36px;
+
+  margin:1px 0;
+
+  padding:
+    6px
+    9px;
+
+  border:0;
+  border-radius:4px;
+
+  background:transparent;
+  color:#aeb4bf;
+
+  cursor:pointer;
+
+  font:inherit;
+  font-size:12.5px;
+
+  text-align:left;
+}
+
+
+.brainon-ops-submenu-item:hover{
+  background:#25282e;
+  color:#ffffff;
+}
+
+
+.brainon-ops-submenu-item.is-active{
+  background:#2a2d33;
+  color:#ffffff;
+
+  font-weight:600;
+}
+
+
+.brainon-ops-submenu-item.is-active::before{
+  content:"";
+
+  position:absolute;
+
+  left:-7px;
+  top:5px;
+  bottom:5px;
+
+  width:3px;
+
+  border-radius:3px;
+
+  background:#ff780a;
+}
+
+
+.brainon-ops-submenu-guide{
+  width:5px;
+  height:5px;
+
+  flex:0 0 5px;
+
+  border-radius:50%;
+
+  background:#626975;
+}
+
+
+.brainon-ops-submenu-item.is-active
+.brainon-ops-submenu-guide{
+  background:#ff780a;
+}
+
+
+/* ----------------------------------------------------------
+   Footer
+   ---------------------------------------------------------- */
+
+.brainon-ops-navigation-footer{
+  display:flex;
+  align-items:center;
+
+  width:100%;
+  min-height:48px;
+
+  margin-top:auto;
+
+  border-top:1px solid #2a2d33;
+
+  color:#959ca7;
+}
+
+
+.brainon-ops-navigation-footer
+.brainon-ops-icon-slot{
+  height:48px;
+}
+
+
+.brainon-ops-footer-label{
+  display:none;
+
+  min-width:0;
+
+  white-space:nowrap;
+
+  font-size:11px;
+  font-weight:600;
+}
+
+
+.brainon-grafana-shell.is-navigation-expanded
+.brainon-ops-footer-label{
+  display:block;
+}
+
+
+/* ----------------------------------------------------------
+   Grafana content
+   ---------------------------------------------------------- */
+
+.brainon-grafana-content{
+  display:flex;
+  flex-direction:column;
+
+  min-width:0;
+  min-height:780px;
+
+  overflow:hidden;
+
+  background:#111217;
+}
+
+
+.brainon-grafana-context-bar{
+  display:flex;
+  align-items:center;
+
+  min-height:43px;
+
+  padding:0 16px;
+
+  border-bottom:1px solid #2a2d33;
+
+  background:#15171b;
+}
+
+
+.brainon-grafana-context-bar > div{
+  display:flex;
+  align-items:center;
+  gap:12px;
+
+  min-width:0;
+}
+
+
+.brainon-grafana-context-bar strong{
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+
+  color:#f4f5f5;
+
+  font-size:13px;
+  font-weight:600;
+}
+
+
+.brainon-grafana-context-bar span{
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+
+  color:#8f96a0;
+
+  font-size:11px;
+}
+
+
+.brainon-grafana-frame{
+  display:block;
+
+  flex:1;
+
+  width:100%;
+  height:
+    calc(
+      100vh - 214px
+    );
+
+  min-height:737px;
+
+  border:0;
+
+  background:#111217;
+}
+
+
+/* ----------------------------------------------------------
+   Small screen
+   ---------------------------------------------------------- */
+
+@media(max-width:900px){
+
+  .brainon-grafana-shell{
+    grid-template-columns:
+      52px
+      minmax(0,1fr);
+  }
+
+
+  .brainon-grafana-shell.is-navigation-expanded{
+    grid-template-columns:
+      210px
+      minmax(0,1fr);
+  }
+
+
+  .brainon-ops-icon-slot{
+    width:52px;
+    min-width:52px;
+  }
+
+
+  .brainon-ops-submenu{
+    padding-left:52px;
+  }
+
+}
+
+
+
+/* ==========================================================
+   BRAINON_GRAFANA_NATIVE_MODE_FINAL
+   ----------------------------------------------------------
+   Hybrid mode
+
+   BrainOn dashboard:
+     icon/accordion nav + kiosk Grafana
+
+   Native Grafana:
+     collapsed BrainOn rail + real Grafana navigation
+   ========================================================== */
+
+
+/*
+ * Grafana group icon
+ */
+.brainon-ops-grafana-group-icon{
+  width:20px;
+  height:20px;
+
+  object-fit:contain;
+}
+
+
+/*
+ * Native Grafana에서는 BrainOn rail이
+ * 항상 최소 icon width를 기본으로 사용한다.
+ */
+.brainon-grafana-shell.is-grafana-native{
+  grid-template-columns:
+    56px
+    minmax(0,1fr);
+}
+
+
+/*
+ * 사용자가 native mode에서도
+ * BrainOn hamburger를 직접 클릭하면
+ * 잠깐 menu selector를 펼칠 수 있다.
+ *
+ * 다른 BrainOn dashboard를 고르면
+ * 다시 kiosk dashboard mode로 전환된다.
+ */
+.brainon-grafana-shell.is-grafana-native.is-navigation-expanded{
+  grid-template-columns:
+    244px
+    minmax(0,1fr);
+}
+
+
+/*
+ * Native Grafana에서는 BrainOn context bar를 사용하지 않는다.
+ * Grafana 자체 top navigation을 그대로 이용.
+ */
+.brainon-grafana-shell.is-grafana-native
+.brainon-grafana-context-bar{
+  display:none;
+}
+
+
+/*
+ * Native Grafana iframe은 top부터 전체 공간 사용.
+ */
+.brainon-grafana-shell.is-grafana-native
+.brainon-grafana-frame{
+  height:
+    calc(
+      100vh - 171px
+    );
+
+  min-height:780px;
+}
+
+
+/*
+ * Grafana native mode의 group active 표시.
+ */
+.brainon-grafana-shell.is-grafana-native
+.brainon-ops-group.contains-active
+> .brainon-ops-group-button::before{
+  background:#ff780a;
+}
+
+
+/*
+ * native mode에서 collapsed rail일 때
+ * Grafana group icon을 눈에 띄게 유지.
+ */
+.brainon-grafana-shell.is-grafana-native
+.brainon-ops-group.contains-active
+.brainon-ops-icon-slot{
+  color:#ffffff;
+}
+
+
+@media(max-width:900px){
+
+  .brainon-grafana-shell.is-grafana-native{
+    grid-template-columns:
+      52px
+      minmax(0,1fr);
+  }
+
+
+  .brainon-grafana-shell.is-grafana-native.is-navigation-expanded{
+    grid-template-columns:
+      210px
+      minmax(0,1fr);
+  }
+
+}
+
+
+
+/* ==========================================================
+   BRAINON_GRAFANA_TOOL_NAV_FINAL
+   ========================================================== */
+
+
+/*
+ * Native Grafana tool도 BrainOn shell 안에서
+ * dashboard와 동일한 full-size workspace 사용.
+ */
+.brainon-grafana-content{
+  min-width:0;
+}
+
+
+/*
+ * 메뉴가 많아졌으므로
+ * navigation 영역 scroll 허용.
+ */
+.brainon-ops-groups{
+  scrollbar-width:thin;
+  scrollbar-color:
+    #454a53
+    transparent;
+}
+
+
+.brainon-ops-groups::-webkit-scrollbar{
+  width:6px;
+}
+
+
+.brainon-ops-groups::-webkit-scrollbar-thumb{
+  border-radius:6px;
+  background:#454a53;
+}
+
+
+/*
+ * Grafana 기본 tool group과
+ * BrainOn operational group의 스타일은 동일하게 유지.
+ */
+.brainon-ops-group-button{
+  user-select:none;
+}
+
+
+/*
+ * direct native tool:
+ * Alerting / Connections / Administration
+ */
+.brainon-ops-group:not(.is-open)
+.brainon-ops-group-button{
+  min-height:44px;
+}
+
+
+/*
+ * Explore 메뉴는 SQL/Metric/Log 진입점이므로
+ * 하위 메뉴 active를 조금 더 명확하게 표시.
+ */
+.brainon-ops-submenu-item.is-active{
+  font-weight:600;
+}
+
+
+/*
+ * iframe 안 Grafana native nav는 kiosk로 숨기고,
+ * 실제 tool workspace는 그대로 사용한다.
+ */
+.brainon-grafana-frame{
+  width:100%;
+}

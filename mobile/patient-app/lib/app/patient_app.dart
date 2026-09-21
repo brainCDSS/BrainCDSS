@@ -6,6 +6,8 @@ import '../features/auth/auth_session.dart';
 import '../features/auth/auth_api.dart';
 import '../features/auth/auth_storage.dart';
 import '../features/auth/login_page.dart';
+import '../features/notifications/notifications_page.dart';
+import '../features/notifications/push_service.dart';
 import 'patient_main_shell.dart';
 
 class PatientApp extends StatefulWidget {
@@ -19,15 +21,18 @@ class PatientApp extends StatefulWidget {
 
 class _PatientAppState extends State<PatientApp> {
   final ApiClient _apiClient = ApiClient();
+  final _navigatorKey = GlobalKey<NavigatorState>();
 
   AuthSession? _session;
   late final AuthStorage _authStorage;
   bool _restoringSession = true;
+  late final PatientPushService _pushService;
 
   @override
   void initState() {
     super.initState();
     _authStorage = widget.authStorage ?? SecureAuthStorage();
+    _pushService = PatientPushService(_apiClient, _navigatorKey);
     _apiClient.setTokenRefresher(_refreshAccessToken);
     _restoreSession();
   }
@@ -38,6 +43,7 @@ class _PatientAppState extends State<PatientApp> {
     setState(() {
       _session = session;
     });
+    await _pushService.connect();
   }
 
   Future<void> _restoreSession() async {
@@ -57,6 +63,7 @@ class _PatientAppState extends State<PatientApp> {
           user: stored.user,
         );
       });
+      await _pushService.connect();
     } catch (_) {
       await _authStorage.clear();
       _apiClient.setAccessToken(null);
@@ -83,6 +90,7 @@ class _PatientAppState extends State<PatientApp> {
   }
 
   Future<void> _logout() async {
+    await _pushService.disconnect();
     final stored = await _authStorage.read();
     if (stored != null) {
       try {
@@ -126,6 +134,7 @@ class _PatientAppState extends State<PatientApp> {
     );
 
     return MaterialApp(
+      navigatorKey: _navigatorKey,
       title: 'BrainOn Patient',
       debugShowCheckedModeBanner: false,
       color: primary,
@@ -241,6 +250,14 @@ class _PatientAppState extends State<PatientApp> {
                   session: _session!,
                   onLogout: _logout,
                 ),
+      onGenerateRoute: (settings) {
+        if (settings.name == '/notifications' && _session != null) {
+          return MaterialPageRoute<void>(
+            builder: (_) => NotificationsPage(apiClient: _apiClient),
+          );
+        }
+        return null;
+      },
     );
   }
 }

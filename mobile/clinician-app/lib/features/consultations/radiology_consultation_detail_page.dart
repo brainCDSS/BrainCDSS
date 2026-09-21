@@ -112,6 +112,127 @@ class _RadiologyConsultationDetailPageState
     }
   }
 
+  Future<void> _executeAction(String action) async {
+    Map<String, dynamic>? body;
+    if (action == 'RESPOND') {
+      final values = await _responseDialog();
+      if (values == null) return;
+      body = values;
+    } else if (action == 'REJECT' || action == 'CANCEL') {
+      final reason = await _reasonDialog(action);
+      if (reason == null) return;
+      body = {'reason': reason};
+    }
+
+    final endpoint = switch (action) {
+      'VIEW_RESPONSE' => 'view-response',
+      _ => action.toLowerCase(),
+    };
+    try {
+      await widget.apiClient.post(
+        '/api/v1/consultations/${widget.consultationId}/$endpoint',
+        body: body,
+      );
+      await _load();
+    } on ClinicianApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    }
+  }
+
+  Future<String?> _reasonDialog(String action) async {
+    final controller = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(action == 'REJECT' ? '협진 거절' : '협진 취소'),
+        content: TextField(
+          controller: controller,
+          maxLength: 500,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            labelText: '사유',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('닫기'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final value = controller.text.trim();
+              if (value.isNotEmpty) Navigator.pop(dialogContext, value);
+            },
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    return result;
+  }
+
+  Future<Map<String, dynamic>?> _responseDialog() async {
+    final opinion = TextEditingController();
+    final plan = TextEditingController();
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('협진 회신'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: opinion,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  labelText: '최종 의견',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: plan,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: '치료 계획 (선택)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('닫기'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final value = opinion.text.trim();
+              if (value.isNotEmpty) {
+                Navigator.pop(dialogContext, {
+                  'final_opinion': value,
+                  if (plan.text.trim().isNotEmpty)
+                    'treatment_plan': plan.text.trim(),
+                });
+              }
+            },
+            child: const Text('회신'),
+          ),
+        ],
+      ),
+    );
+    opinion.dispose();
+    plan.dispose();
+    return result;
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('협진 상세')),
@@ -126,19 +247,27 @@ class _RadiologyConsultationDetailPageState
                         children: [
                           Text(_errorMessage!, textAlign: TextAlign.center),
                           const SizedBox(height: 12),
-                          TextButton(onPressed: _load, child: const Text('다시 시도')),
+                          TextButton(
+                              onPressed: _load, child: const Text('다시 시도')),
                         ],
                       ),
                     ),
                   )
-                : _ConsultationDetailBody(consultation: _consultation!),
+                : _ConsultationDetailBody(
+                    consultation: _consultation!,
+                    onAction: _executeAction,
+                  ),
       );
 }
 
 class _ConsultationDetailBody extends StatelessWidget {
-  const _ConsultationDetailBody({required this.consultation});
+  const _ConsultationDetailBody({
+    required this.consultation,
+    required this.onAction,
+  });
 
   final _ConsultationDetail consultation;
+  final ValueChanged<String> onAction;
 
   @override
   Widget build(BuildContext context) => ListView(
@@ -237,9 +366,9 @@ class _ConsultationDetailBody extends StatelessWidget {
               runSpacing: 8,
               children: consultation.allowedActions
                   .map(
-                    (action) => RadiologyStatusChip(
-                      label: action,
-                      color: radiologyBlue,
+                    (action) => FilledButton.tonal(
+                      onPressed: () => onAction(action),
+                      child: Text(_actionLabel(action)),
                     ),
                   )
                   .toList(),
@@ -248,6 +377,16 @@ class _ConsultationDetailBody extends StatelessWidget {
         ],
       );
 }
+
+String _actionLabel(String action) => switch (action) {
+      'ACCEPT' => '수락',
+      'REJECT' => '거절',
+      'START' => '검토 시작',
+      'RESPOND' => '회신',
+      'CANCEL' => '취소',
+      'VIEW_RESPONSE' => '회신 확인',
+      _ => action,
+    };
 
 class _DetailRow extends StatelessWidget {
   const _DetailRow({required this.label, required this.value});

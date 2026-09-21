@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections import defaultdict
 from threading import RLock
 
+from apps.common.http_metrics import render_http_prometheus
+
 
 _LOCK = RLock()
 
@@ -135,4 +137,8 @@ def render_prometheus() -> str:
             ),
         ])
 
-    return "\n".join(lines) + "\n"
+    return (
+        "\n".join(lines)
+        + "\n"
+        + render_http_prometheus()
+    )

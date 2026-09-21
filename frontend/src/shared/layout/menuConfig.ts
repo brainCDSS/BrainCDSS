@@ -164,11 +164,38 @@ export const MENU_ALLOWED_ROLES: Record<
    메뉴 접근 여부
 ========================================================= */
 
+const MASTER_CLINICAL_ROLES: readonly RoleCode[] = [
+  "NURSE",
+  "NEUROLOGIST",
+  "NEUROSURGEON",
+  "RADIOLOGY",
+];
+
 export function canAccessMenu(
   roleCode: RoleCode,
   menuKey: SidebarMenuKey,
 ): boolean {
-  return MENU_ALLOWED_ROLES[menuKey].includes(
-    roleCode,
+  const allowedRoles =
+    MENU_ALLOWED_ROLES[menuKey];
+
+  if (
+    allowedRoles.includes(
+      roleCode,
+    )
+  ) {
+    return true;
+  }
+
+  if (
+    roleCode !== "MASTER"
+  ) {
+    return false;
+  }
+
+  return MASTER_CLINICAL_ROLES.some(
+    (clinicalRole) =>
+      allowedRoles.includes(
+        clinicalRole,
+      ),
   );
 }

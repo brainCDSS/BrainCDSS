@@ -13,9 +13,6 @@ Future<void> firebaseMessagingBackgroundHandler(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  debugPrint(
-    'BRAINON_FCM_BACKGROUND_MESSAGE=${message.messageId}',
-  );
 }
 
 Future<void> initializeFirebaseMessaging() async {
@@ -27,48 +24,6 @@ Future<void> initializeFirebaseMessaging() async {
     firebaseMessagingBackgroundHandler,
   );
 
-  final settings =
-      await FirebaseMessaging.instance.requestPermission(
-    alert: true,
-    badge: true,
-    sound: true,
-  );
-
-  debugPrint(
-    'BRAINON_FCM_PERMISSION=${settings.authorizationStatus}',
-  );
-
-  final token =
-      await FirebaseMessaging.instance.getToken();
-
-  debugPrint('BRAINON_FCM_TOKEN=$token');
-
-  FirebaseMessaging.instance.onTokenRefresh.listen(
-    (newToken) {
-      debugPrint(
-        'BRAINON_FCM_TOKEN_REFRESH=$newToken',
-      );
-    },
-  );
-
-  FirebaseMessaging.onMessage.listen(
-    (message) {
-      debugPrint(
-        'BRAINON_FCM_FOREGROUND_MESSAGE='
-        '${message.messageId}',
-      );
-
-      debugPrint(
-        'BRAINON_FCM_TITLE='
-        '${message.notification?.title}',
-      );
-
-      debugPrint(
-        'BRAINON_FCM_BODY='
-        '${message.notification?.body}',
-      );
-    },
-  );
 }
 
 Future<void> main() async {

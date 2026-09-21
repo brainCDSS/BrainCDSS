@@ -31,3 +31,9 @@ export function registerWebFcmToken(
     },
   );
 }
+
+export function deactivateFcmToken(tokenId: string) {
+  return apiRequest<void>(`/api/v1/devices/fcm-tokens/${encodeURIComponent(tokenId)}`, {
+    method: "DELETE",
+  });
+}

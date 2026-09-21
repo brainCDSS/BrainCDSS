@@ -108,6 +108,8 @@ AUTH_USER_MODEL = "accounts.User"
 
 MIDDLEWARE = [
     "apps.common.middleware.CorrelationIdMiddleware",
+    "apps.common.http_metrics.HttpPrometheusMetricsMiddleware",
+    "apps.common.dependency_observability.DependencyOutcomeObservabilityMiddleware",
     "django.middleware.security.SecurityMiddleware",
 
     # CORS headers must be added before CommonMiddleware.
@@ -373,10 +375,10 @@ _user_jwt_signing_key = os.getenv("JWT_SIGNING_KEY")
 SIMPLE_JWT = {
     **globals().get("SIMPLE_JWT", {}),
     "ACCESS_TOKEN_LIFETIME": timedelta(
-        minutes=int(os.getenv("JWT_ACCESS_TOKEN_MINUTES", "5256000"))
+        minutes=int(os.getenv("JWT_ACCESS_TOKEN_MINUTES", "60"))
     ),
     "REFRESH_TOKEN_LIFETIME": timedelta(
-        days=int(os.getenv("JWT_REFRESH_TOKEN_DAYS", "3650"))
+        days=int(os.getenv("JWT_REFRESH_TOKEN_DAYS", "7"))
     ),
 }
 
@@ -384,3 +386,23 @@ if _user_jwt_signing_key:
     SIMPLE_JWT["SIGNING_KEY"] = _user_jwt_signing_key
 
 # =====================================================================
+
+# BrainOn operational monitoring.
+CELERY_WORKER_SEND_TASK_EVENTS = True
+CELERY_TASK_SEND_SENT_EVENT = True
+CELERY_TASK_TRACK_STARTED = True
+
+# Explicit operational Celery task imports.
+# Keep autodiscovery for application tasks; this guarantees that
+# the observability probe is registered at worker startup.
+CELERY_IMPORTS = tuple(
+    dict.fromkeys(
+        (
+            *globals().get(
+                "CELERY_IMPORTS",
+                (),
+            ),
+            "apps.common.tasks",
+        )
+    )
+)

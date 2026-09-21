@@ -47,6 +47,8 @@ services:
       VITE_BACKEND_URL: "${VITE_BACKEND_URL:-http://localhost:8080}"
     ports:
       - "5173:8080"
+    volumes:
+      - ./frontend/nginx.local.conf:/etc/nginx/conf.d/default.conf:ro
 
   inference-api:
     ports:
@@ -76,10 +78,70 @@ services:
   prometheus:
     ports:
       - "9090:9090"
+    volumes:
+      - ./.runtime/prometheus/brainon_metrics.jwt:/etc/prometheus/secrets/brainon_metrics.jwt:ro
 
   grafana:
+    environment:
+      GF_SERVER_ROOT_URL: "http://127.0.0.1:5173/grafana/"
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+
+      GF_SECURITY_ALLOW_EMBEDDING: "true"
+
+      GF_AUTH_PROXY_ENABLED: "true"
+      GF_AUTH_PROXY_HEADER_NAME: "X-WEBAUTH-USER"
+      GF_AUTH_PROXY_HEADER_PROPERTY: "username"
+      GF_AUTH_PROXY_AUTO_SIGN_UP: "true"
+      GF_AUTH_PROXY_SYNC_TTL: "0"
+      GF_AUTH_PROXY_HEADERS: "Role:X-WEBAUTH-ROLE"
+      GF_AUTH_PROXY_ENABLE_LOGIN_TOKEN: "true"
+
+      # 로컬 전용 Gateway 고정 IP만 Auth Proxy로 신뢰
+      GF_AUTH_PROXY_WHITELIST: "172.31.251.2"
+
+      GF_AUTH_DISABLE_SIGNOUT_MENU: "true"
+
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: "/var/lib/grafana/dashboards/brainon-admin-overview.json"
+      GF_USERS_DEFAULT_THEME: "dark"
+
     ports:
-      - "3001:3000"
+      - "127.0.0.1:3001:3000"
+
+    volumes:
+      - brainon-grafana-data:/var/lib/grafana
+      - ./infra/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+
+    networks:
+      default:
+      brainon-grafana-auth-local:
+        ipv4_address: 172.31.251.3
+
+
+  grafana-gateway:
+    profiles: ["observability"]
+    image: nginx:1.27-alpine
+    container_name: brainon-grafana-gateway-local
+
+    restart: unless-stopped
+
+    ports:
+      - "127.0.0.1:3002:8080"
+
+    volumes:
+      - ./infra/observability/grafana/sso/gateway-nginx.local.conf:/etc/nginx/nginx.conf:ro
+
+    depends_on:
+      backend:
+        condition: service_healthy
+
+      grafana:
+        condition: service_started
+
+    networks:
+      default:
+      brainon-grafana-auth-local:
+        ipv4_address: 172.31.251.2
 
   loki:
     ports:
@@ -88,3 +150,23 @@ services:
   alloy:
     ports:
       - "4317:4317"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+  infra-monitor:
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: "/run/secrets/firebase-adminsdk.json"
+    volumes:
+      - ./secrets/firebase-adminsdk.json:/run/secrets/firebase-adminsdk.json:ro
+
+volumes:
+  brainon-grafana-data:
+    name: brainon-grafana-data
+
+
+networks:
+  brainon-grafana-auth-local:
+    name: brainon-grafana-auth-local
+
+    ipam:
+      config:
+        - subnet: 172.31.251.0/29

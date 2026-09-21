@@ -37,6 +37,7 @@ def _require_assessment_read_role(request):
         "NEUROSURGEON",
         "RADIOLOGY",
         "NURSE",
+        "MASTER",
     }:
         raise PermissionDenied({
             "code": "FORBIDDEN_ROLE",

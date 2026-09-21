@@ -1,6 +1,84 @@
-# Local scrape template; application metrics endpoints are TODO.
 global:
   scrape_interval: 15s
+  evaluation_interval: 15s
+
 scrape_configs:
+
+  # ----------------------------------------------------------
+  # Prometheus self
+  # ----------------------------------------------------------
   - job_name: prometheus
-    static_configs: [{targets: ["localhost:9090"]}]
+
+    static_configs:
+      - targets:
+          - localhost:9090
+
+
+  # ----------------------------------------------------------
+  # BrainOn Django Backend
+  #
+  # 기존 ServiceJWTAuthentication 사용.
+  # required scope = metrics.read
+  # ----------------------------------------------------------
+  - job_name: brainon-backend
+
+    metrics_path: /internal/metrics
+
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/secrets/brainon_metrics.jwt
+
+    static_configs:
+      - targets:
+          - backend:8080
+
+
+  # ----------------------------------------------------------
+  # RabbitMQ native Prometheus endpoint
+  # ----------------------------------------------------------
+  - job_name: rabbitmq
+
+    metrics_path: /metrics
+
+    static_configs:
+      - targets:
+          - rabbitmq:15692
+
+
+  # ----------------------------------------------------------
+  # Loki internal Prometheus metrics
+  # ----------------------------------------------------------
+  - job_name: loki
+
+    metrics_path: /metrics
+
+    static_configs:
+      - targets:
+          - loki:3100
+
+
+  # RabbitMQ per-queue operational metrics.
+  - job_name: rabbitmq-per-object
+    metrics_path: /metrics/per-object
+    scrape_interval: 15s
+    static_configs:
+      - targets:
+          - rabbitmq:15692
+
+
+  # BrainOn Celery event exporter.
+  - job_name: celery-monitor
+    metrics_path: /metrics
+    scrape_interval: 15s
+    static_configs:
+      - targets:
+          - celery-monitor:9808
+
+
+  # BrainOn authenticated/read-only infrastructure probes.
+  - job_name: brainon-infra-monitor
+    metrics_path: /metrics
+    scrape_interval: 15s
+    static_configs:
+      - targets:
+          - infra-monitor:9810

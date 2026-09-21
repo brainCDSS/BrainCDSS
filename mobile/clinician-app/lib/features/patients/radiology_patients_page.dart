@@ -54,15 +54,21 @@ class RadiologyPatientsApi {
     );
     return (response['results'] as List? ?? const [])
         .whereType<Map>()
-        .map((item) => RadiologyPatient.fromJson(Map<String, dynamic>.from(item)))
+        .map((item) =>
+            RadiologyPatient.fromJson(Map<String, dynamic>.from(item)))
         .toList(growable: false);
   }
 }
 
 class RadiologyPatientsPage extends StatefulWidget {
-  const RadiologyPatientsPage({super.key, required this.apiClient});
+  const RadiologyPatientsPage({
+    super.key,
+    required this.apiClient,
+    required this.roleCode,
+  });
 
   final ClinicianApiClient apiClient;
+  final String roleCode;
 
   @override
   State<RadiologyPatientsPage> createState() => _RadiologyPatientsPageState();
@@ -146,7 +152,8 @@ class _RadiologyPatientsPageState extends State<RadiologyPatientsPage> {
           ),
           const SizedBox(height: 18),
           if (_isLoading)
-            const Center(child: Padding(
+            const Center(
+                child: Padding(
               padding: EdgeInsets.all(32),
               child: CircularProgressIndicator(),
             ))
@@ -168,6 +175,7 @@ class _RadiologyPatientsPageState extends State<RadiologyPatientsPage> {
                       builder: (_) => RadiologyPatientDetailPage(
                         apiClient: widget.apiClient,
                         patientId: patient.id,
+                        roleCode: widget.roleCode,
                       ),
                     ),
                   ),
@@ -189,50 +197,51 @@ class _PatientCard extends StatelessWidget {
         onTap: onTap,
         child: RadiologyInfoCard(
           child: Row(
-          children: [
-            CircleAvatar(
-              radius: 23,
-              backgroundColor: const Color(0xFFEAF2FF),
-              child: Text(
-                patient.name.isEmpty ? '?' : patient.name.substring(0, 1),
-                style: const TextStyle(
-                  color: radiologyBlue,
-                  fontWeight: FontWeight.w800,
+            children: [
+              CircleAvatar(
+                radius: 23,
+                backgroundColor: const Color(0xFFEAF2FF),
+                child: Text(
+                  patient.name.isEmpty ? '?' : patient.name.substring(0, 1),
+                  style: const TextStyle(
+                    color: radiologyBlue,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 13),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    patient.name.isEmpty ? '이름 정보 없음' : patient.name,
-                    style: const TextStyle(
-                      color: radiologyNavy,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      patient.name.isEmpty ? '이름 정보 없음' : patient.name,
+                      style: const TextStyle(
+                        color: radiologyNavy,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    _demographics(patient),
-                    style: const TextStyle(color: radiologyMuted, fontSize: 12),
-                  ),
-                  const SizedBox(height: 7),
-                  Text(
-                    patient.status.isEmpty ? '상태 정보 없음' : patient.status,
-                    style: const TextStyle(
-                      color: radiologyBlue,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                    const SizedBox(height: 3),
+                    Text(
+                      _demographics(patient),
+                      style:
+                          const TextStyle(color: radiologyMuted, fontSize: 12),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 7),
+                    Text(
+                      patient.status.isEmpty ? '상태 정보 없음' : patient.status,
+                      style: const TextStyle(
+                        color: radiologyBlue,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const Icon(Icons.chevron_right_rounded, color: radiologyMuted),
-          ],
+              const Icon(Icons.chevron_right_rounded, color: radiologyMuted),
+            ],
           ),
         ),
       );

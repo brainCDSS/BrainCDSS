@@ -1,4 +1,5 @@
 import { apiRequest } from "../../api/client";
+import { filterAssessmentItemsForDisplay } from "../assessments/viewModel";
 
 import type {
   Patient,
@@ -85,10 +86,28 @@ export function createPatient(
 }
 
 /** GET /api/v1/patients/{patient_id} */
-export function getPatient(patientId: string): Promise<PatientDetail> {
-  return apiRequest<PatientDetail>(
-    `/api/v1/patients/${encodeURIComponent(patientId)}`,
-  );
+export async function getPatient(
+  patientId: string,
+): Promise<PatientDetail> {
+  const response =
+    await apiRequest<PatientDetail>(
+      `/api/v1/patients/${encodeURIComponent(patientId)}`,
+    );
+
+  if (!response.latest_assessment) {
+    return response;
+  }
+
+  return {
+    ...response,
+    latest_assessment: {
+      ...response.latest_assessment,
+      items:
+        filterAssessmentItemsForDisplay(
+          response.latest_assessment.items,
+        ),
+    },
+  };
 }
 
 export function getPatientTimeline(patientId: string): Promise<PatientTimelineResponse> {

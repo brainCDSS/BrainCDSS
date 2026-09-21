@@ -17,6 +17,7 @@ CLINICAL_READ_ROLES = {
     "NEUROLOGIST",
     "NEUROSURGEON",
     "RADIOLOGY",
+    "MASTER",
 }
 
 

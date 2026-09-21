@@ -26,8 +26,12 @@ import AIAnalysisResultsPage from "../../features/ai-analysis/AIAnalysisResultsP
 import RadiologyReportsPage from "../../features/radiology/RadiologyReportsPage";
 import CDSSResultsPage from "../../features/cdss/CDSSResultsPage";
 import MedicationSafetyPage from "../../features/medication-safety/MedicationSafetyPage";
-import { getActiveEncounter } from "../../features/medication-safety/api";
+import {
+  getActiveEncounter,
+  getPatientEncounters,
+} from "../../features/medication-safety/api";
 import NotificationsPage from "../../features/notifications/NotificationsPage";
+import {markNotificationRead} from "../../features/notifications/api";
 import type {
   NotificationItem,
 } from "../../features/notifications/types";
@@ -344,6 +348,17 @@ export default function AppShell({
     );
   }, [currentUser.id]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("open") !== "notifications") return;
+    setActiveMenu("notifications");
+    const notificationId = params.get("notification_id");
+    if (notificationId) {
+      void markNotificationRead(notificationId).catch(() => undefined);
+    }
+    window.history.replaceState({}, "", window.location.pathname);
+  }, [currentUser.id]);
+
 
   useEffect(() => {
     let cancelled = false;
@@ -587,30 +602,110 @@ export default function AppShell({
 
   function resolvePatientEncounter(patient: Patient) {
     const requestId = ++encounterRequestId.current;
+
     setPatientEncounterIds((current) => ({
       ...current,
       [patient.id]: null,
     }));
-    setPrescriptionContext({ patient, encounterId: null });
-    void getActiveEncounter(patient.id)
-      .then((encounter) => {
-        if (encounterRequestId.current !== requestId) return;
-        const encounterId = encounter?.encounter_id ?? encounter?.id ?? null;
-        setPatientEncounterIds((current) => ({
-          ...current,
-          [patient.id]: encounterId,
-        }));
-        setPrescriptionContext({ patient, encounterId });
+
+    setPrescriptionContext({
+      patient,
+      encounterId: null,
+    });
+
+    void getPatientEncounters(patient.id)
+      .then((encounters) => {
+        if (
+          encounterRequestId.current !== requestId
+        ) {
+          return;
+        }
+
+        const ordered = [...encounters].sort(
+          (left, right) =>
+            (
+              right.started_at ??
+              right.arrived_at ??
+              ""
+            ).localeCompare(
+              left.started_at ??
+              left.arrived_at ??
+              "",
+            ),
+        );
+
+        const activeEncounter =
+          ordered.find(
+            (encounter) =>
+              encounter.status ===
+                "IN_PROGRESS" ||
+              encounter.status ===
+                "REGISTERED",
+          ) ?? null;
+
+        /*
+         * 환자 Chart는 활성 Encounter가 없더라도
+         * 가장 최근 완료 Encounter의 임상기록을
+         * 조회할 수 있어야 한다.
+         *
+         * 처방 화면은 별도의
+         * resolvePrescriptionEncounter()에서
+         * 계속 ACTIVE Encounter만 사용한다.
+         */
+        const chartEncounter =
+          activeEncounter ??
+          ordered[0] ??
+          null;
+
+        const chartEncounterId =
+          chartEncounter?.encounter_id ??
+          chartEncounter?.id ??
+          null;
+
+        setPatientEncounterIds(
+          (current) => ({
+            ...current,
+            [patient.id]:
+              chartEncounterId,
+          }),
+        );
+
+        /*
+         * 처방 Context에는 완료 Encounter를
+         * 넣지 않는다.
+         */
+        const prescriptionEncounterId =
+          activeEncounter?.encounter_id ??
+          activeEncounter?.id ??
+          null;
+
+        setPrescriptionContext({
+          patient,
+          encounterId:
+            prescriptionEncounterId,
+        });
       })
       .catch(() => {
-        if (encounterRequestId.current !== requestId) return;
-        setPatientEncounterIds((current) => ({
-          ...current,
-          [patient.id]: null,
-        }));
-        setPrescriptionContext({ patient, encounterId: null });
+        if (
+          encounterRequestId.current !== requestId
+        ) {
+          return;
+        }
+
+        setPatientEncounterIds(
+          (current) => ({
+            ...current,
+            [patient.id]: null,
+          }),
+        );
+
+        setPrescriptionContext({
+          patient,
+          encounterId: null,
+        });
       });
   }
+
 
 
   /* ========================================================
@@ -1892,7 +1987,7 @@ export default function AppShell({
     }
 
     if (activeMenu === "ai-results") {
-      return <AIAnalysisResultsPage initialAnalysisId={activeAnalysisId} onShareConsultation={currentUser.role.code === "NEUROLOGIST" ? handleAIAnalysisConsultationShare : undefined} onCreateRadiologyReport={currentUser.role.code === "RADIOLOGY" ? handleAIAnalysisRadiologyReport : undefined} />;
+      return <AIAnalysisResultsPage initialAnalysisId={activeAnalysisId} onShareConsultation={(currentUser.role.code === "NEUROLOGIST" || currentUser.role.code === "MASTER") ? handleAIAnalysisConsultationShare : undefined} onCreateRadiologyReport={(currentUser.role.code === "RADIOLOGY" || currentUser.role.code === "MASTER") ? handleAIAnalysisRadiologyReport : undefined} />;
     }
 
     if (activeMenu === "radiology-reports") {
@@ -2151,6 +2246,9 @@ export default function AppShell({
         currentUser={currentUser}
         onOpenPatient={
           handleWorklistPatientSelect
+        }
+        onOpenFallback={() =>
+          handleMenuSelect("notifications")
         }
       />
 

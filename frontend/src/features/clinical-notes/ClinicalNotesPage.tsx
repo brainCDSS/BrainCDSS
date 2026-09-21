@@ -124,7 +124,10 @@ export default function ClinicalNotesPage({ selectedPatient: contextPatient = nu
     encounterRank(left) - encounterRank(right) || (right.arrived_at ?? "").localeCompare(left.arrived_at ?? "")), [encounters]);
   const currentEncounter = sortedEncounters[0] ?? null;
   const activeEncounter = sortedEncounters.find((item) => item.status === "IN_PROGRESS" || item.status === "REGISTERED") ?? null;
-  const canWriteClinicalNote = loadAuthSession()?.user.role.code === "NEUROLOGIST";
+  const currentRole = loadAuthSession()?.user.role.code;
+  const canWriteClinicalNote =
+    currentRole === "NEUROLOGIST" ||
+    currentRole === "MASTER";
   const isDraftEditable = canWriteClinicalNote && selectedNote?.status === "DRAFT";
   const readOnly = !isDraftEditable;
   const finalizeMissing = !draft.assessment.trim() || !draft.plan.trim() || !draft.clinicalOpinion.trim();

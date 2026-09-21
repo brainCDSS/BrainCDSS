@@ -82,3 +82,23 @@ class FCMManagePermission(BasePermission):
             )
 
         return True
+
+
+class NotificationAccessPermission(BasePermission):
+    """Allow authenticated BrainOn users to access only their own notifications."""
+
+    allowed_roles = {
+        "PATIENT", "NURSE", "NEUROLOGIST", "NEUROSURGEON",
+        "RADIOLOGY", "SYSTEM_ADMIN",
+    }
+
+    def has_permission(self, request, view):
+        user = getattr(request, "user", None)
+        role = getattr(user, "role", None)
+        if user is None or not user.is_authenticated:
+            return False
+        if role is None or not role.is_active or role.code not in self.allowed_roles:
+            raise ContractAPIException(
+                "FORBIDDEN_ROLE", "Notification access is not allowed for this role.", 403
+            )
+        return True

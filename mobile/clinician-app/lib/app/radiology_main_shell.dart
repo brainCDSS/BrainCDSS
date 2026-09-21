@@ -4,10 +4,10 @@ import '../core/api/clinician_api_client.dart';
 import '../features/analysis/radiology_analysis_requests_page.dart';
 import '../features/auth/clinician_session.dart';
 import '../features/consultations/radiology_consultations_page.dart';
-import '../features/home/radiology_home_page.dart';
 import '../features/patients/radiology_patients_page.dart';
 import '../features/profile/radiology_profile_page.dart';
 import '../features/notifications/radiology_notifications_page.dart';
+import '../features/imaging/imaging_studies_page.dart';
 
 class RadiologyMainShell extends StatefulWidget {
   const RadiologyMainShell({
@@ -19,7 +19,7 @@ class RadiologyMainShell extends StatefulWidget {
 
   final ClinicianApiClient apiClient;
   final ClinicianUser user;
-  final VoidCallback onLogout;
+  final Future<void> Function() onLogout;
 
   @override
   State<RadiologyMainShell> createState() => _RadiologyMainShellState();
@@ -34,9 +34,12 @@ class _RadiologyMainShellState extends State<RadiologyMainShell> {
   void initState() {
     super.initState();
     _pages = [
-      RadiologyPatientsPage(apiClient: widget.apiClient),
+      RadiologyPatientsPage(
+        apiClient: widget.apiClient,
+        roleCode: 'RADIOLOGY',
+      ),
       RadiologyConsultationsPage(apiClient: widget.apiClient),
-      const RadiologyHomePage(),
+      ImagingStudiesPage(apiClient: widget.apiClient),
       RadiologyAnalysisRequestsPage(apiClient: widget.apiClient),
       RadiologyProfilePage(user: widget.user, onLogout: widget.onLogout),
     ];
@@ -69,7 +72,8 @@ class _RadiologyMainShellState extends State<RadiologyMainShell> {
               tooltip: '알림',
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
-                  builder: (_) => const RadiologyNotificationsPage(),
+                  builder: (_) =>
+                      RadiologyNotificationsPage(apiClient: widget.apiClient),
                 ),
               ),
               icon: const Icon(Icons.notifications_none_rounded),
@@ -94,9 +98,9 @@ class _RadiologyMainShellState extends State<RadiologyMainShell> {
               label: '협진',
             ),
             NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home_rounded),
-              label: '홈',
+              icon: Icon(Icons.image_search_outlined),
+              selectedIcon: Icon(Icons.image_search_rounded),
+              label: '영상',
             ),
             NavigationDestination(
               icon: Icon(Icons.analytics_outlined),

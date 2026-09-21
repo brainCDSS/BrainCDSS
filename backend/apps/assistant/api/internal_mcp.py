@@ -566,6 +566,7 @@ def _current_prescription_items(patient):
         PrescriptionItem.objects
         .filter(
             prescription__encounter__patient=patient,
+            prescription__status="FINAL",
             medication__is_active=True,
             start_date__lte=today,
         )

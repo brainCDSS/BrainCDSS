@@ -22,6 +22,7 @@ class SurgicalPlanningPermission(BasePermission):
         "NEUROLOGIST",
         "NEUROSURGEON",
         "RADIOLOGY",
+        "MASTER",
     }
 
     def has_permission(self, request, view):

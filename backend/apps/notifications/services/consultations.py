@@ -1,9 +1,17 @@
 """Consultation notification creation service."""
 
+from apps.notifications.models import Notification
 from apps.notifications.services.notifications import create_notification_for_user
 
 
 def create_assigned_consultation_notification(*, consultation):
+    existing = Notification.objects.filter(
+        recipient_user=consultation.assigned_to,
+        data_json__event_type="CONSULTATION_REQUESTED",
+        data_json__consultation_id=str(consultation.id),
+    ).first()
+    if existing is not None:
+        return existing
     severity = {
         "STAT": "CRITICAL",
         "URGENT": "WARNING",

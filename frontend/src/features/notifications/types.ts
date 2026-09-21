@@ -10,7 +10,11 @@ export interface NotificationData extends Record<string, unknown> {
   requester_name?: string;
   actor_name?: string;
   patient_name?: string;
+  patient_id?: string;
   encounter_id?: string;
+  emergency_event_id?: string;
+  triage_priority?: "EMERGENCY" | "URGENT" | "NON_EMERGENCY";
+  event_type?: string;
   related_url?: string;
   url?: string;
   path?: string;

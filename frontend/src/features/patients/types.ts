@@ -1,3 +1,5 @@
+import type { InitialAssessmentLike } from "../assessments/viewModel";
+
 export interface Patient{
     id: string;
     patient_no: string;
@@ -12,7 +14,9 @@ export interface Patient{
 
 /** GET /api/v1/patients/{patient_id} 응답 */
 export interface PatientDetail extends Patient {
+  latest_assessment?: InitialAssessmentLike | null;
   emergency_contact: string | null;
+  allergy_info: string | null;
   pregnancy_status: string;
   pregnancy_status_updated_at: string | null;
   merged_into: { id: string; patient_no: string } | null;

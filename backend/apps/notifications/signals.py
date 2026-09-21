@@ -7,6 +7,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from apps.consultations.models import (
+    Consultation,
     ConsultationHistory,
 )
 from apps.notifications.models import (
@@ -21,6 +22,17 @@ from apps.notifications.tasks.fcm import (
 
 
 logger = logging.getLogger(__name__)
+
+
+@receiver(post_save, sender=Consultation, dispatch_uid="brainon_consultation_request_notification")
+def notify_consultation_request(sender, instance, created, **kwargs):
+    if not created or instance.assigned_to_id is None:
+        return
+    from apps.notifications.services.consultations import create_assigned_consultation_notification
+    consultation = Consultation.objects.select_related(
+        "encounter__patient", "assigned_to", "requested_by"
+    ).get(pk=instance.pk)
+    create_assigned_consultation_notification(consultation=consultation)
 
 
 @receiver(
@@ -87,6 +99,7 @@ def notify_consultation_decision(
     if instance.to_status not in {
         "ACCEPTED",
         "REJECTED",
+        "RESPONDED",
     }:
         return
 
@@ -137,7 +150,7 @@ def notify_consultation_decision(
             "협진 요청을 수락했습니다."
         )
 
-    else:
+    elif history.to_status == "REJECTED":
         event_type = (
             "CONSULTATION_REJECTED"
         )
@@ -159,6 +172,12 @@ def notify_consultation_decision(
             body += (
                 f" 사유: {reason}"
             )
+
+    else:
+        event_type = "CONSULTATION_RESPONDED"
+        title = "Consultation response available"
+        severity = "INFO"
+        body = "The requested consultation has a response ready for review."
 
     create_notification_for_user(
         recipient_user=recipient,

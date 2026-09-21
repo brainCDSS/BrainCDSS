@@ -22,6 +22,8 @@ import {
 import type {
   LoginResponse,
 } from "../features/auth/types";
+import {logout} from "../features/auth/api";
+import {disconnectWebPush} from "../features/notifications/webPush";
 
 
 export function App() {
@@ -35,7 +37,13 @@ export function App() {
     );
 
 
-  function handleLogout() {
+  async function handleLogout() {
+    try {
+      await disconnectWebPush();
+      if (authSession?.refresh) await logout(authSession.refresh);
+    } catch {
+      // Local logout must remain available when the network is unavailable.
+    }
     clearAuthSession();
 
     setAuthSession(

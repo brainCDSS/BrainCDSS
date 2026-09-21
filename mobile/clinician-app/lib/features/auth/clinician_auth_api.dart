@@ -17,4 +17,18 @@ class ClinicianAuthApi {
     );
     return ClinicianSession.fromJson(response);
   }
+
+  Future<String> refresh(String refreshToken) async {
+    final response = await _client.post(
+      '/api/v1/auth/refresh', authenticated: false, body: {'refresh': refreshToken},
+    );
+    final access = response['access']?.toString() ?? '';
+    if (access.isEmpty) throw const ClinicianApiException(statusCode: 401, message: 'Session expired.');
+    _client.setAccessToken(access);
+    return access;
+  }
+
+  Future<void> logout(String refreshToken) async {
+    await _client.post('/api/v1/auth/logout', body: {'refresh': refreshToken});
+  }
 }

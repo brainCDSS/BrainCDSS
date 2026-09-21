@@ -1,17 +1,25 @@
 import 'package:flutter/material.dart';
 
 import '../features/auth/clinician_session.dart';
+import '../core/api/clinician_api_client.dart';
+import '../features/notifications/radiology_notifications_page.dart';
 import '../features/neurology/neurology_pages.dart';
+import '../features/emergency/neurology_emergency_worklist_page.dart';
+import '../features/patients/radiology_patients_page.dart';
+import '../features/consultations/radiology_consultations_page.dart';
+import '../features/imaging/imaging_studies_page.dart';
 
 class NeurologyMainShell extends StatefulWidget {
   const NeurologyMainShell({
     super.key,
     required this.user,
+    required this.apiClient,
     required this.onLogout,
   });
 
   final ClinicianUser user;
-  final VoidCallback onLogout;
+  final ClinicianApiClient apiClient;
+  final Future<void> Function() onLogout;
 
   @override
   State<NeurologyMainShell> createState() => _NeurologyMainShellState();
@@ -25,10 +33,17 @@ class _NeurologyMainShellState extends State<NeurologyMainShell> {
   void initState() {
     super.initState();
     _pages = [
-      const NeurologyEmergencyPage(),
-      const NeurologyPatientsPage(),
-      const NeurologyHomePage(),
-      const NeurologyClinicalRecordsPage(),
+      NeurologyEmergencyWorklistPage(apiClient: widget.apiClient),
+      RadiologyPatientsPage(
+        apiClient: widget.apiClient,
+        roleCode: 'NEUROLOGIST',
+      ),
+      RadiologyConsultationsPage(
+        apiClient: widget.apiClient,
+        viewerRelation: 'REQUESTED_BY',
+        title: '요청한 협진',
+      ),
+      ImagingStudiesPage(apiClient: widget.apiClient),
       NeurologyProfilePage(user: widget.user, onLogout: widget.onLogout),
     ];
   }
@@ -53,7 +68,11 @@ class _NeurologyMainShellState extends State<NeurologyMainShell> {
           actions: [
             IconButton(
               tooltip: '알림',
-              onPressed: () {},
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                    builder: (_) => RadiologyNotificationsPage(
+                        apiClient: widget.apiClient)),
+              ),
               icon: const Icon(Icons.notifications_none_rounded),
             ),
             const SizedBox(width: 4),
@@ -74,13 +93,13 @@ class _NeurologyMainShellState extends State<NeurologyMainShell> {
                 selectedIcon: Icon(Icons.people_rounded),
                 label: '환자'),
             NavigationDestination(
-                icon: Icon(Icons.home_outlined),
-                selectedIcon: Icon(Icons.home_rounded),
-                label: '홈'),
+                icon: Icon(Icons.forum_outlined),
+                selectedIcon: Icon(Icons.forum_rounded),
+                label: '협진'),
             NavigationDestination(
-                icon: Icon(Icons.description_outlined),
-                selectedIcon: Icon(Icons.description_rounded),
-                label: '진료기록'),
+                icon: Icon(Icons.image_search_outlined),
+                selectedIcon: Icon(Icons.image_search_rounded),
+                label: '영상'),
             NavigationDestination(
                 icon: Icon(Icons.person_outline_rounded),
                 selectedIcon: Icon(Icons.person_rounded),

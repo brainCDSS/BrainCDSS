@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class ApiException implements Exception {
@@ -67,8 +66,6 @@ class ApiClient {
   }) async {
     final uri = Uri.parse('$baseUrl$path');
 
-    debugPrint('API POST: $uri');
-
     final response = await _requestWithRefresh(
       () => http.post(
         uri,
@@ -78,13 +75,10 @@ class ApiClient {
       retryOnUnauthorized: retryOnUnauthorized,
     );
 
-    debugPrint('API STATUS: ${response.statusCode}');
-
     // 실패할 때만 응답 본문 출력
     // 로그인 성공 응답에는 JWT가 있으므로 출력하지 않음
     if (response.statusCode < 200 ||
         response.statusCode >= 300) {
-      debugPrint('API ERROR RESPONSE: ${response.body}');
     }
 
     return _decodeResponse(response);
@@ -106,6 +100,13 @@ class ApiClient {
     final data = _decodeResponse(response);
     onSuccess?.call(response.statusCode, data);
     return data;
+  }
+
+  Future<void> delete(String path) async {
+    final response = await _requestWithRefresh(
+      () => http.delete(Uri.parse('$baseUrl$path'), headers: _headers),
+    );
+    _decodeResponse(response);
   }
 
   Future<http.Response> _requestWithRefresh(

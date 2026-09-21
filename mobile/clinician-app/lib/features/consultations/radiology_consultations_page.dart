@@ -4,6 +4,29 @@ import '../../core/api/clinician_api_client.dart';
 import '../radiology/widgets/radiology_ui.dart';
 import 'radiology_consultation_detail_page.dart';
 
+enum ConsultationStatus {
+  requested('REQUESTED'),
+  accepted('ACCEPTED'),
+  inProgress('IN_PROGRESS'),
+  responded('RESPONDED'),
+  closed('CLOSED'),
+  rejected('REJECTED'),
+  cancelled('CANCELLED'),
+  expired('EXPIRED');
+
+  const ConsultationStatus(this.apiValue);
+
+  final String apiValue;
+
+  static ConsultationStatus parse(Object? value) {
+    final raw = value?.toString();
+    return ConsultationStatus.values.firstWhere(
+      (status) => status.apiValue == raw,
+      orElse: () => throw FormatException('Unknown consultation status: $raw'),
+    );
+  }
+}
+
 class RadiologyConsultation {
   const RadiologyConsultation({
     required this.id,
@@ -12,6 +35,7 @@ class RadiologyConsultation {
     required this.status,
     required this.patientName,
     required this.requesterName,
+    required this.requesterDepartment,
     required this.requestedAt,
   });
 
@@ -22,7 +46,7 @@ class RadiologyConsultation {
       id: json['consultation_id']?.toString() ?? '',
       type: json['type']?.toString() ?? '',
       priority: json['priority']?.toString() ?? '',
-      status: json['status']?.toString() ?? '',
+      status: ConsultationStatus.parse(json['status']),
       patientName: patient?['name']?.toString() ?? '',
       requesterName: requester?['name']?.toString() ?? '',
       requesterDepartment: requester?['department']?.toString() ?? '',
@@ -33,7 +57,7 @@ class RadiologyConsultation {
   final String id;
   final String type;
   final String priority;
-  final String status;
+  final ConsultationStatus status;
   final String patientName;
   final String requesterName;
   final String requesterDepartment;
@@ -45,12 +69,15 @@ class RadiologyConsultationsApi {
 
   final ClinicianApiClient _client;
 
-  Future<List<RadiologyConsultation>> list({String? status}) async {
+  Future<List<RadiologyConsultation>> list({
+    String? status,
+    required String viewerRelation,
+  }) async {
     final response = await _client.get(
       '/api/v1/consultations',
       query: {
         if (status != null) 'status': status,
-        'viewer_relation': 'ASSIGNED_TO',
+        'viewer_relation': viewerRelation,
       },
     );
     return (response['results'] as List? ?? const [])
@@ -67,9 +94,16 @@ class RadiologyConsultationsApi {
 enum _ConsultationFilter { all, requested, inProgress, completed }
 
 class RadiologyConsultationsPage extends StatefulWidget {
-  const RadiologyConsultationsPage({super.key, required this.apiClient});
+  const RadiologyConsultationsPage({
+    super.key,
+    required this.apiClient,
+    this.viewerRelation = 'ASSIGNED_TO',
+    this.title = '협진',
+  });
 
   final ClinicianApiClient apiClient;
+  final String viewerRelation;
+  final String title;
 
   @override
   State<RadiologyConsultationsPage> createState() =>
@@ -95,8 +129,11 @@ class _RadiologyConsultationsPageState
       _errorMessage = null;
     });
     try {
-      final consultations = await RadiologyConsultationsApi(widget.apiClient)
-          .list(status: _apiStatusFor(_filter));
+      final consultations =
+          await RadiologyConsultationsApi(widget.apiClient).list(
+        status: _apiStatusFor(_filter),
+        viewerRelation: widget.viewerRelation,
+      );
       if (mounted) {
         setState(() => _consultations = consultations);
       }
@@ -126,7 +163,11 @@ class _RadiologyConsultationsPageState
       return _consultations;
     }
     return _consultations
-        .where((item) => item.status == 'RESPONDED' || item.status == 'CLOSED')
+        .where(
+          (item) =>
+              item.status == ConsultationStatus.responded ||
+              item.status == ConsultationStatus.closed,
+        )
         .toList(growable: false);
   }
 
@@ -134,7 +175,7 @@ class _RadiologyConsultationsPageState
   Widget build(BuildContext context) => ListView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
         children: [
-          const RadiologySectionTitle(title: '협진'),
+          RadiologySectionTitle(title: widget.title),
           const SizedBox(height: 14),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -158,7 +199,8 @@ class _RadiologyConsultationsPageState
           ),
           const SizedBox(height: 18),
           if (_isLoading)
-            const Center(child: Padding(
+            const Center(
+                child: Padding(
               padding: EdgeInsets.all(32),
               child: CircularProgressIndicator(),
             ))
@@ -204,38 +246,40 @@ class _ConsultationCard extends StatelessWidget {
         onTap: onTap,
         child: RadiologyInfoCard(
           child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    consultation.patientName.isEmpty
-                        ? '환자 정보 없음'
-                        : consultation.patientName,
-                    style: const TextStyle(
-                      color: radiologyNavy,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      consultation.patientName.isEmpty
+                          ? '환자 정보 없음'
+                          : consultation.patientName,
+                      style: const TextStyle(
+                        color: radiologyNavy,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
-                ),
-                RadiologyStatusChip(
-                  label: _statusLabel(consultation.status),
-                  color: _statusColor(consultation.status),
-                ),
-              ],
-            ),
-            const SizedBox(height: 11),
-            _DetailLine(
-              label: '요청 진료과',
-              value: consultation.requesterDepartment,
-            ),
-            const SizedBox(height: 6),
-            _DetailLine(label: '요청자', value: consultation.requesterName),
-            const SizedBox(height: 6),
-            _DetailLine(label: '요청 시간', value: _formatDateTime(consultation.requestedAt)),
-          ],
+                  RadiologyStatusChip(
+                    label: _statusLabel(consultation.status),
+                    color: _statusColor(consultation.status),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 11),
+              _DetailLine(
+                label: '요청 진료과',
+                value: consultation.requesterDepartment,
+              ),
+              const SizedBox(height: 6),
+              _DetailLine(label: '요청자', value: consultation.requesterName),
+              const SizedBox(height: 6),
+              _DetailLine(
+                  label: '요청 시간',
+                  value: _formatDateTime(consultation.requestedAt)),
+            ],
           ),
         ),
       );
@@ -296,21 +340,25 @@ String _filterLabel(_ConsultationFilter filter) => switch (filter) {
       _ConsultationFilter.completed => '완료',
     };
 
-String _statusLabel(String status) => switch (status) {
-      'REQUESTED' => '요청',
-      'ACCEPTED' => '수락',
-      'IN_PROGRESS' => '진행중',
-      'RESPONDED' => '완료',
-      'CLOSED' => '완료',
-      'REJECTED' => '거절',
-      'CANCELLED' => '취소',
-      _ => status.isEmpty ? '정보 없음' : status,
+String _statusLabel(ConsultationStatus status) => switch (status) {
+      ConsultationStatus.requested => '요청',
+      ConsultationStatus.accepted => '수락',
+      ConsultationStatus.inProgress => '진행중',
+      ConsultationStatus.responded || ConsultationStatus.closed => '완료',
+      ConsultationStatus.rejected => '거절',
+      ConsultationStatus.cancelled => '취소',
+      ConsultationStatus.expired => '만료',
     };
 
-Color _statusColor(String status) => switch (status) {
-      'REQUESTED' => const Color(0xFF2563B8),
-      'ACCEPTED' || 'IN_PROGRESS' => const Color(0xFFB46912),
-      'REJECTED' || 'CANCELLED' => const Color(0xFFCC4D5B),
+Color _statusColor(ConsultationStatus status) => switch (status) {
+      ConsultationStatus.requested => const Color(0xFF2563B8),
+      ConsultationStatus.accepted ||
+      ConsultationStatus.inProgress =>
+        const Color(0xFFB46912),
+      ConsultationStatus.rejected ||
+      ConsultationStatus.cancelled ||
+      ConsultationStatus.expired =>
+        const Color(0xFFCC4D5B),
       _ => const Color(0xFF208563),
     };
 

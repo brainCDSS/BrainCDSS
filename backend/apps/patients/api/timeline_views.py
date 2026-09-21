@@ -17,7 +17,7 @@ from apps.prescriptions.models import Prescription, PrescriptionItem
 from apps.radiology.models import RadiologyReport
 
 
-CLINICAL_READ_ROLES = {"NURSE", "NEUROLOGIST", "NEUROSURGEON", "RADIOLOGY"}
+CLINICAL_READ_ROLES = {"NURSE", "NEUROLOGIST", "NEUROSURGEON", "RADIOLOGY", "MASTER"}
 
 
 class PatientTimelineView(APIView):

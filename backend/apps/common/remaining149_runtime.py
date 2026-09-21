@@ -22,6 +22,7 @@ from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 
 from apps.accounts.models import RolePermission
+from apps.accounts.rbac import role_allowed
 from apps.audit.models import AuditLog
 from apps.common.authentication import ServiceJWTAuthentication
 from apps.common.models import OutboxEvent
@@ -245,7 +246,10 @@ def check_access(request, spec):
         raise AuthenticationFailed()
 
     allowed_roles = set(spec.get("roles") or [])
-    if allowed_roles and _role_code(user) not in allowed_roles:
+    if allowed_roles and not role_allowed(
+        _role_code(user),
+        allowed_roles,
+    ):
         raise PermissionDenied({
             "code": "FORBIDDEN_ROLE",
             "detail": "Role is not allowed for this API.",
@@ -338,7 +342,15 @@ def _apply_query_filters(qs, model, request):
     search = request.query_params.get("search")
     if search:
         q = Q()
-        for name in ("name", "title", "patient_no", "code", "description"):
+        for name in (
+            "name",
+            "title",
+            "patient_no",
+            "code",
+            "description",
+            "medication_name",
+            "medication_code",
+        ):
             if name in fields:
                 q |= Q(**{f"{name}__icontains": search})
         if q:
@@ -1208,13 +1220,14 @@ def _generic_action(request, spec, kwargs):
                 _record_history(obj, previous, new, request, reason)
 
         timestamp_fields = {
+            "accept": ("accepted_at",),
             "acknowledge": ("acknowledged_at",),
             "approve": ("approved_at",),
             "cancel": ("cancelled_at", "ended_at"),
             "close": ("closed_at",),
             "complete": ("completed_at", "ended_at"),
             "finalize": ("finalized_at",),
-            "respond": ("responded_at",),
+            "respond": ("completed_at", "responded_at"),
             "retire": ("retired_at",),
             "start": ("started_at",),
             "validate": ("validated_at",),
@@ -2286,6 +2299,7 @@ def _assessment_patch(request, spec, kwargs):
             title="Emergency assessment completed",
             body="An assigned emergency encounter assessment has been completed.",
             data_json={
+                "event_type": "EMERGENCY_ASSESSMENT_COMPLETED",
                 "patient_id": str(assessment.encounter.patient_id),
                 "encounter_id": str(assessment.encounter_id),
                 "resource_type": "InitialAssessment",
@@ -3230,6 +3244,17 @@ def _batchb_rx_patch(
     spec,
     kwargs,
 ):
+    from decimal import (
+        Decimal,
+        InvalidOperation,
+    )
+    from django.utils.dateparse import (
+        parse_date,
+    )
+    from apps.medication_safety.services.medication_safety import (
+        UNIT_ALIASES,
+    )
+
     prescription_model = apps.get_model(
         "prescriptions",
         "Prescription",
@@ -3280,79 +3305,234 @@ def _batchb_rx_patch(
                     "items must be an array.",
             })
 
-        for payload in items:
+        existing_items = {
+            str(existing_item.pk):
+                existing_item
+            for existing_item in (
+                item_model.objects
+                .select_for_update()
+                .filter(
+                    prescription_id=
+                        prescription.pk
+                )
+            )
+        }
+
+        requested_existing_ids = set()
+        seen_item_ids = set()
+        now = timezone.now()
+
+        required_fields = (
+            "medication_id",
+            "dose",
+            "dose_unit",
+            "frequency_per_day",
+            "start_date",
+            "duration_days",
+        )
+
+        for index, raw_payload in enumerate(
+            items,
+            start=1,
+        ):
             if not isinstance(
-                payload,
+                raw_payload,
                 dict,
             ):
                 raise ContractError({
                     "code":
                         "PRESCRIPTION_INVALID_ITEM",
                     "detail":
-                        "Invalid prescription item.",
+                        f"Item {index} must be "
+                        "an object.",
+                })
+
+            payload = dict(raw_payload)
+
+            missing = [
+                field_name
+                for field_name
+                in required_fields
+                if payload.get(
+                    field_name
+                ) in (
+                    None,
+                    "",
+                )
+            ]
+
+            if missing:
+                raise ContractError({
+                    "code":
+                        "PRESCRIPTION_INVALID_ITEM",
+                    "detail":
+                        f"Item {index} has "
+                        "missing required fields.",
+                    "fields":
+                        missing,
                 })
 
             item_id = payload.get(
                 "item_id"
             )
 
-            medication_id = payload.get(
-                "medication_id"
-            )
-
             if item_id:
-                try:
-                    item = (
-                        item_model.objects
-                        .select_for_update()
-                        .get(
-                            pk=item_id,
-                            prescription_id=
-                                prescription.pk,
-                        )
-                    )
-                except (
-                    item_model.DoesNotExist
-                ) as exc:
+                item_key = str(item_id)
+
+                if item_key in seen_item_ids:
+                    raise ContractError({
+                        "code":
+                            "PRESCRIPTION_ITEM_DUPLICATE",
+                        "detail":
+                            "Duplicate item_id in "
+                            "prescription items.",
+                    })
+
+                seen_item_ids.add(
+                    item_key
+                )
+
+                item = existing_items.get(
+                    item_key
+                )
+
+                if item is None:
                     raise NotFound({
                         "code":
                             "PRESCRIPTION_ITEM_NOT_FOUND",
                         "detail":
                             "Prescription item "
                             "was not found.",
-                    }) from exc
-
-                if medication_id:
-                    medication = (
-                        _batchb_active_medication(
-                            medication_id
-                        )
-                    )
-                else:
-                    medication = (
-                        item.medication
-                    )
-
-            else:
-                if not medication_id:
-                    raise ContractError({
-                        "code":
-                            "PRESCRIPTION_INVALID_ITEM",
-                        "detail":
-                            "medication_id is required "
-                            "for a new item.",
                     })
 
-                medication = (
-                    _batchb_active_medication(
-                        medication_id
-                    )
+                requested_existing_ids.add(
+                    item_key
                 )
 
+            else:
                 item = item_model(
                     prescription_id=
                         prescription.pk
                 )
+
+                if hasattr(
+                    item,
+                    "created_at",
+                ):
+                    item.created_at = now
+
+            raw_dose_unit = str(
+                payload["dose_unit"]
+            ).strip()
+
+            normalized_dose_unit = (
+                UNIT_ALIASES.get(
+                    raw_dose_unit.lower()
+                )
+                or UNIT_ALIASES.get(
+                    raw_dose_unit
+                )
+            )
+
+            if normalized_dose_unit is None:
+                raise ContractError({
+                    "code":
+                        "PRESCRIPTION_INVALID_ITEM",
+                    "detail":
+                        "Unsupported dose_unit. "
+                        "Supported units are "
+                        "mg, g, mcg and their "
+                        "configured aliases.",
+                })
+
+            try:
+                dose = Decimal(
+                    str(
+                        payload["dose"]
+                    )
+                )
+
+                frequency = int(
+                    payload[
+                        "frequency_per_day"
+                    ]
+                )
+
+                duration = int(
+                    payload[
+                        "duration_days"
+                    ]
+                )
+
+            except (
+                InvalidOperation,
+                TypeError,
+                ValueError,
+            ) as exc:
+                raise ContractError({
+                    "code":
+                        "PRESCRIPTION_INVALID_ITEM",
+                    "detail":
+                        f"Item {index} contains "
+                        "invalid numeric values.",
+                }) from exc
+
+            if (
+                dose <= 0
+                or frequency <= 0
+                or duration <= 0
+            ):
+                raise ContractError({
+                    "code":
+                        "PRESCRIPTION_INVALID_ITEM",
+                    "detail":
+                        "dose, frequency_per_day, "
+                        "and duration_days must "
+                        "be greater than zero.",
+                })
+
+            start_date = payload[
+                "start_date"
+            ]
+
+            if isinstance(
+                start_date,
+                str,
+            ):
+                start_date = parse_date(
+                    start_date
+                )
+
+            if start_date is None:
+                raise ContractError({
+                    "code":
+                        "PRESCRIPTION_INVALID_ITEM",
+                    "detail":
+                        f"Item {index} has an "
+                        "invalid start_date.",
+                })
+
+            medication = (
+                _batchb_active_medication(
+                    payload[
+                        "medication_id"
+                    ]
+                )
+            )
+
+            payload["dose"] = dose
+            payload["dose_unit"] = (
+                normalized_dose_unit
+            )
+            payload[
+                "frequency_per_day"
+            ] = frequency
+            payload[
+                "duration_days"
+            ] = duration
+            payload[
+                "start_date"
+            ] = start_date
 
             _batchb_apply_item(
                 item,
@@ -3360,7 +3540,27 @@ def _batchb_rx_patch(
                 medication,
             )
 
+            if hasattr(
+                item,
+                "updated_at",
+            ):
+                item.updated_at = now
+
             item.save()
+
+        removed_ids = (
+            set(existing_items)
+            - requested_existing_ids
+        )
+
+        if removed_ids:
+            item_model.objects.filter(
+                prescription_id=
+                    prescription.pk,
+                pk__in=list(
+                    removed_ids
+                ),
+            ).delete()
 
     fields = _field_map(
         prescription_model

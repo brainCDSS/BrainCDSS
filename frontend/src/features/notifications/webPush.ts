@@ -17,6 +17,7 @@ import {
 
 import {
   registerWebFcmToken,
+  deactivateFcmToken,
 } from "./api";
 
 import {
@@ -26,6 +27,7 @@ import {
 
 const DEVICE_ID_KEY =
   "brainon-web-device-id";
+const TOKEN_ID_KEY = "brainon-web-fcm-token-id";
 
 let foregroundListenerRegistered =
   false;
@@ -122,11 +124,6 @@ function installServiceWorkerBridge() {
         return;
       }
 
-      console.info(
-        "BRAINON_FCM_BACKGROUND_RECEIVED",
-        event.data.payload,
-      );
-
       emitNotificationStateChanged();
     },
   );
@@ -149,11 +146,6 @@ function installForegroundListener(
     async (
       payload: MessagePayload,
     ) => {
-      console.info(
-        "BRAINON_FCM_FOREGROUND_RECEIVED",
-        payload,
-      );
-
       emitNotificationStateChanged();
 
       if (
@@ -189,10 +181,6 @@ function installForegroundListener(
           },
         );
 
-        console.info(
-          "BRAINON_FOREGROUND_NOTIFICATION_SHOWN",
-          notificationId,
-        );
       } catch (error) {
         console.error(
           "BRAINON_FOREGROUND_NOTIFICATION_FAILED",
@@ -294,6 +282,8 @@ export async function connectWebPush() {
       token,
     });
 
+  localStorage.setItem(TOKEN_ID_KEY, apiResult.token_id);
+
   console.info(
     "BRAINON_WEB_PUSH_READY",
     {
@@ -314,4 +304,14 @@ export async function connectWebPush() {
     deviceId:
       apiResult.device_id,
   };
+}
+
+export async function disconnectWebPush() {
+  const tokenId = localStorage.getItem(TOKEN_ID_KEY);
+  if (!tokenId) return;
+  try {
+    await deactivateFcmToken(tokenId);
+  } finally {
+    localStorage.removeItem(TOKEN_ID_KEY);
+  }
 }

@@ -453,30 +453,68 @@ function KpiCard({
   );
 }
 
-function RiskPanel() {
+function RiskPanel({
+  assessments,
+}: {
+  assessments: AssessmentWorklistItem[];
+}) {
+  const emergency = assessments.filter(
+    (item) =>
+      item.triage_priority === "EMERGENCY",
+  ).length;
+
+  const urgent = assessments.filter(
+    (item) =>
+      item.triage_priority === "URGENT",
+  ).length;
+
+  const nonEmergency = assessments.filter(
+    (item) =>
+      item.triage_priority === "NON_EMERGENCY",
+  ).length;
+
+  const unclassified = assessments.filter(
+    (item) => !item.triage_priority,
+  ).length;
+
   return (
     <article className="dash-chart-card dash-risk">
       <header>
         <h3>
-          <span aria-hidden="true">
-            ▥
-          </span>{" "}
-          오늘 환자 위험도 현황
+          <span aria-hidden="true">▥</span>{" "}
+          환자 위험도 현황
         </h3>
       </header>
 
-      <div className="dash-risk__empty">
-        <strong>
-          위험도 데이터가 연결되지
-          않았습니다
-        </strong>
+      <div className="dash-ai-bars">
+        <div>
+          <span>응급</span>
+          <div />
+          <strong>{emergency}</strong>
+        </div>
 
-        <p>
-          환자별 Critical · 고위험 ·
-          주의 · 안정 분류 API가
-          연결되면 현황을 표시합니다.
-        </p>
+        <div>
+          <span>긴급</span>
+          <div />
+          <strong>{urgent}</strong>
+        </div>
+
+        <div>
+          <span>비응급</span>
+          <div />
+          <strong>{nonEmergency}</strong>
+        </div>
+
+        <div>
+          <span>미분류</span>
+          <div />
+          <strong>{unclassified}</strong>
+        </div>
       </div>
+
+      <p className="dash-source-note">
+        최신 초기평가 Triage Priority 기준
+      </p>
     </article>
   );
 }
@@ -1413,7 +1451,9 @@ export default function Dashboard({
         </section>
 
         <section className="dash-charts">
-          <RiskPanel />
+          <RiskPanel
+            assessments={data.assessments}
+          />
 
           <DiseasePanel />
 

@@ -18,8 +18,11 @@ EDITABLE_STATES = {"DRAFT", "PRELIMINARY"}
 
 
 def _require_radiology(user):
-    if getattr(getattr(user, "role", None), "code", None) != "RADIOLOGY":
-        raise PermissionDenied("RADIOLOGY role is required.")
+    if getattr(getattr(user, "role", None), "code", None) not in {
+        "RADIOLOGY",
+        "MASTER",
+    }:
+        raise PermissionDenied("RADIOLOGY or MASTER role is required.")
 
 
 def _study_for_actor(study_id, actor):

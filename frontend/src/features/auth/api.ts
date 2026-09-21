@@ -30,13 +30,12 @@ export async function login(
 
       body: JSON.stringify({
         /**
-         * 로그인 아이디는 소문자로 통일한다.
-         * 앞뒤 공백도 제거한다.
+         * 로그인 아이디의 앞뒤 공백만 제거한다.
+         * 대소문자 정규화는 로그인 화면에서 처리한다.
          */
         login_id:
           request.login_id
-            .trim()
-            .toLowerCase(),
+            .trim(),
 
         /**
          * 비밀번호는 대소문자를 구분하므로
@@ -47,4 +46,12 @@ export async function login(
     },
   );
 
+}
+
+export async function logout(refresh: string): Promise<void> {
+  await apiRequest<void>("/api/v1/auth/logout", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({refresh}),
+  });
 }

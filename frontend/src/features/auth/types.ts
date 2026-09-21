@@ -18,6 +18,7 @@ export type RoleCode =
   | "NEUROLOGIST"
   | "NEUROSURGEON"
   | "RADIOLOGY"
+  | "MASTER"
   | "SYSTEM_ADMIN";
 
 

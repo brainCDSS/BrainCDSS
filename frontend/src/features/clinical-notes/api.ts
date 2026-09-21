@@ -1,4 +1,5 @@
 import { apiRequest } from "../../api/client";
+import { filterAssessmentItemsForDisplay } from "../assessments/viewModel";
 import type {
   ClinicalNote,
   ClinicalNoteApiItem,
@@ -108,11 +109,28 @@ export async function finalizeClinicalNote(noteId: string): Promise<ClinicalNote
   return normalizeClinicalNote(response);
 }
 
-export function getInitialAssessmentsByEncounter(
+export async function getInitialAssessmentsByEncounter(
   encounterId: string,
 ): Promise<InitialAssessmentEncounterResponse> {
-  const query = new URLSearchParams({ encounter_id: encounterId });
-  return apiRequest<InitialAssessmentEncounterResponse>(
-    `/api/v1/assessments?${query.toString()}`,
-  );
+  const query = new URLSearchParams({
+    encounter_id: encounterId,
+  });
+
+  const response =
+    await apiRequest<InitialAssessmentEncounterResponse>(
+      `/api/v1/assessments?${query.toString()}`,
+    );
+
+  return {
+    ...response,
+    results: (response.results ?? []).map(
+      (assessment) => ({
+        ...assessment,
+        items:
+          filterAssessmentItemsForDisplay(
+            assessment.items,
+          ),
+      }),
+    ),
+  };
 }

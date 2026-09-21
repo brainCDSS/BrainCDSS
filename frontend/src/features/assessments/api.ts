@@ -1,4 +1,5 @@
 import { apiRequest } from "../../api/client";
+import { filterAssessmentItemsForDisplay } from "./viewModel";
 
 import type {
   AssessmentDetailResponse,
@@ -118,15 +119,38 @@ export async function getAssessmentDetail(
       encodeURIComponent(assessmentId)
     }`,
   );
-  return { ...response, assessment_id: response.assessment_id ?? response.id ?? "", items: response.items ?? [] };
+  return {
+    ...response,
+    assessment_id:
+      response.assessment_id ??
+      response.id ??
+      "",
+    items: filterAssessmentItemsForDisplay(
+      response.items,
+    ),
+  };
 }
 
-export function getAssessmentsByEncounter(
+export async function getAssessmentsByEncounter(
   encounterId: string,
 ): Promise<AssessmentEncounterListResponse> {
-  return apiRequest<AssessmentEncounterListResponse>(
-    `/api/v1/assessments?encounter_id=${encodeURIComponent(encounterId)}`,
-  );
+  const response =
+    await apiRequest<AssessmentEncounterListResponse>(
+      `/api/v1/assessments?encounter_id=${encodeURIComponent(encounterId)}`,
+    );
+
+  return {
+    ...response,
+    results: (response.results ?? []).map(
+      (assessment) => ({
+        ...assessment,
+        items:
+          filterAssessmentItemsForDisplay(
+            assessment.items,
+          ),
+      }),
+    ),
+  };
 }
 
 
@@ -161,7 +185,16 @@ export async function updateAssessment(
       body: JSON.stringify(payload),
     },
   );
-  return { ...response, assessment_id: response.assessment_id ?? response.id ?? "", items: response.items ?? [] };
+  return {
+    ...response,
+    assessment_id:
+      response.assessment_id ??
+      response.id ??
+      "",
+    items: filterAssessmentItemsForDisplay(
+      response.items,
+    ),
+  };
 }
 
 

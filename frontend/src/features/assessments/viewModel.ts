@@ -6,6 +6,24 @@ export interface AssessmentItemLike {
   unit?: string | null;
 }
 
+const HIDDEN_ASSESSMENT_ITEM_CODES = new Set([
+  "GCS",
+  "NIHSS_TOTAL",
+]);
+
+export function filterAssessmentItemsForDisplay<
+  T extends { item_code: string }
+>(
+  items: readonly T[] | null | undefined,
+): T[] {
+  return (items ?? []).filter(
+    (item) =>
+      !HIDDEN_ASSESSMENT_ITEM_CODES.has(
+        item.item_code,
+      ),
+  );
+}
+
 export interface InitialAssessmentLike {
   status: string;
   total_score: number | null;
@@ -13,6 +31,10 @@ export interface InitialAssessmentLike {
   onset_at?: string | null;
   lkw_at?: string | null;
   symptom_note?: string | null;
+  assigned_neurologist?: {
+    id: string;
+    name: string;
+  } | null;
   created_at?: string | null;
   updated_at?: string | null;
   items: AssessmentItemLike[];
@@ -24,6 +46,9 @@ export interface ParsedInitialAssessment {
   heartRate: string | null;
   respRate: string | null;
   bodyTemp: string | null;
+  spo2: string | null;
+  heightCm: string | null;
+  weightKg: string | null;
   fastFace: string | null;
   fastArm: string | null;
   fastSpeech: string | null;
@@ -70,19 +95,33 @@ export function parseInitialAssessment(
   assessment: InitialAssessmentLike,
 ): ParsedInitialAssessment {
   const items = new Map(
-    (assessment.items ?? []).map(
+    filterAssessmentItemsForDisplay(
+      assessment.items,
+    ).map(
       (item) => [item.item_code, item],
     ),
   );
 
   return {
-    bpSys: assessmentItemValue(items.get("BP_SYS")),
-    bpDia: assessmentItemValue(items.get("BP_DIA")),
-    heartRate: assessmentItemValue(items.get("HEART_RATE")),
-    respRate: assessmentItemValue(items.get("RESP_RATE")),
+    bpSys:
+      assessmentItemValue(items.get("BP_SYS")) ??
+      assessmentItemValue(items.get("SBP")),
+    bpDia:
+      assessmentItemValue(items.get("BP_DIA")) ??
+      assessmentItemValue(items.get("DBP")),
+    heartRate:
+      assessmentItemValue(items.get("HEART_RATE")),
+    respRate:
+      assessmentItemValue(items.get("RESP_RATE")),
     bodyTemp:
       assessmentItemValue(items.get("BODY_TEMP")) ??
       assessmentItemValue(items.get("TEMPERATURE")),
+    spo2:
+      assessmentItemValue(items.get("SPO2")),
+    heightCm:
+      assessmentItemValue(items.get("HEIGHT_CM")),
+    weightKg:
+      assessmentItemValue(items.get("WEIGHT_KG")),
     fastFace: assessmentItemValue(items.get("FAST_FACE")),
     fastArm: assessmentItemValue(items.get("FAST_ARM")),
     fastSpeech: assessmentItemValue(items.get("FAST_SPEECH")),

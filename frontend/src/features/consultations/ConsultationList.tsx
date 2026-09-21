@@ -357,7 +357,8 @@ export default function ConsultationList({
     loadAuthSession()?.user.role.code;
 
   const canRequestConsultation =
-    currentRole === "NEUROLOGIST";
+    currentRole === "NEUROLOGIST" ||
+    currentRole === "MASTER";
 
 
   const [

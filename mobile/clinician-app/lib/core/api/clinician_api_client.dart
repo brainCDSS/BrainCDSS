@@ -23,16 +23,20 @@ class ClinicianApiClient {
   );
 
   String? _accessToken;
+  Future<String?> Function()? _tokenRefresher;
+  Future<String?>? _refreshing;
 
   void setAccessToken(String? token) {
     _accessToken = token;
   }
 
+  void setTokenRefresher(Future<String?> Function()? refresher) => _tokenRefresher = refresher;
+
   Future<Map<String, dynamic>> get(
     String path, {
     Map<String, String>? query,
   }) async {
-    final response = await _request(
+    final response = await _requestWithRefresh(
       'GET',
       Uri.parse('$baseUrl$path').replace(queryParameters: query),
     );
@@ -44,13 +48,31 @@ class ClinicianApiClient {
     Map<String, dynamic>? body,
     bool authenticated = true,
   }) async {
-    final response = await _request(
+    final response = await _requestWithRefresh(
       'POST',
       Uri.parse('$baseUrl$path'),
       authenticated: authenticated,
       body: body,
     );
     return _decode(response);
+  }
+
+  Future<Map<String, dynamic>> patch(String path, {Map<String, dynamic>? body}) async =>
+      _decode(await _requestWithRefresh('PATCH', Uri.parse('$baseUrl$path'), body: body));
+
+  Future<void> delete(String path) async {
+    _decode(await _requestWithRefresh('DELETE', Uri.parse('$baseUrl$path')));
+  }
+
+  Future<_ApiResponse> _requestWithRefresh(String method, Uri uri,
+      {Map<String, dynamic>? body, bool authenticated = true, bool retry = true}) async {
+    final response = await _request(method, uri, body: body, authenticated: authenticated);
+    if (response.statusCode != 401 || !authenticated || !retry || _tokenRefresher == null) return response;
+    _refreshing ??= _tokenRefresher!().whenComplete(() => _refreshing = null);
+    final token = await _refreshing;
+    if (token == null || token.isEmpty) return response;
+    _accessToken = token;
+    return _request(method, uri, body: body, authenticated: authenticated);
   }
 
   Map<String, String> _headers({bool authenticated = true}) => {

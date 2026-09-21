@@ -811,10 +811,12 @@ export default function AppointmentsPage({
 
   const isDoctor =
     role === "NEUROLOGIST" ||
-    role === "NEUROSURGEON";
+    role === "NEUROSURGEON" ||
+    role === "MASTER";
 
   const isNurse =
-    role === "NURSE";
+    role === "NURSE" ||
+    role === "MASTER";
 
   const isAdmin =
     role === "SYSTEM_ADMIN";

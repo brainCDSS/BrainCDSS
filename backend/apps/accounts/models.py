@@ -13,6 +13,7 @@ class RoleCode(models.TextChoices):
     NEUROLOGIST = "NEUROLOGIST", "신경과"
     NEUROSURGEON = "NEUROSURGEON", "신경외과"
     RADIOLOGY = "RADIOLOGY", "영상의학과"
+    MASTER = "MASTER", "마스터"
     SYSTEM_ADMIN = "SYSTEM_ADMIN", "관리자"
 
 

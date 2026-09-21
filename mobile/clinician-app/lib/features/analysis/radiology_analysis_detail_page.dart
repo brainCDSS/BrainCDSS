@@ -148,7 +148,7 @@ class RadiologyAnalysisDetailPage extends StatelessWidget {
                   _UrgentNotice(priority: request.priority),
                 if (_isUrgent) const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: selectedReason,
+                  initialValue: selectedReason,
                   decoration: const InputDecoration(
                     labelText: '거절 사유',
                     border: OutlineInputBorder(),

@@ -94,7 +94,7 @@ export default function LoginPage({
 
 
     const normalizedLoginId =
-      loginId.trim().toLowerCase();
+      loginId.trim().toUpperCase();
 
 
     if (!normalizedLoginId) {
@@ -267,7 +267,7 @@ export default function LoginPage({
                   autoCapitalize="none"
                   spellCheck={false}
                   value={loginId}
-                  onChange={(event) => setLoginId(event.target.value.toLowerCase())}
+                  onChange={(event) => setLoginId(event.target.value.toUpperCase())}
                 />
               </div>
 

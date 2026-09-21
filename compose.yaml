@@ -62,6 +62,7 @@ x-backend-env: &backend-env
   OTEL_EXPORTER_OTLP_ENDPOINT: "${OTEL_EXPORTER_OTLP_ENDPOINT:-http://alloy:4317}"
   LOG_LEVEL: "${LOG_LEVEL:-INFO}"
 
+
 services:
   # 선택적 로컬 PostgreSQL. 외부 PostgreSQL/Cloud SQL 사용 시 localdb profile을 켜지 않는다.
   postgres:
@@ -121,10 +122,11 @@ services:
       - -A
       - config
       - worker
+      - -E
       - -l
       - INFO
       - -Q
-      - brainon.default,brainon.notifications,brainon.integrations
+      - "${CELERY_QUEUE_DEFAULT:-brainon.default},${CELERY_QUEUE_NOTIFICATIONS:-brainon.notifications},${CELERY_QUEUE_INTEGRATIONS:-brainon.integrations}"
       - -n
       - general@%h
     environment:
@@ -142,10 +144,11 @@ services:
       - -A
       - config
       - worker
+      - -E
       - -l
       - INFO
       - -Q
-      - brainon.inference
+      - "${CELERY_QUEUE_INFERENCE:-brainon.inference}"
       - -n
       - inference@%h
       - --prefetch-multiplier=1
@@ -153,6 +156,26 @@ services:
       <<: *backend-env
     depends_on:
       backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+
+  celery-monitor:
+    profiles: ["observability"]
+    build:
+      context: ./backend
+    command:
+      - sh
+      - -c
+      - >-
+        unset PROMETHEUS_MULTIPROC_DIR;
+        exec python -m apps.common.celery_metrics_exporter
+    environment:
+      <<: *backend-env
+    expose:
+      - "9808"
+    depends_on:
+      rabbitmq:
         condition: service_healthy
     restart: unless-stopped
 
@@ -259,6 +282,30 @@ services:
     image: ohif/app:v3.9.2
     depends_on:
       - orthanc
+    restart: unless-stopped
+
+
+  infra-monitor:
+    profiles: ["observability"]
+    build:
+      context: ./backend
+    command:
+      - sh
+      - -c
+      - >-
+        unset PROMETHEUS_MULTIPROC_DIR;
+        exec python -m apps.common.infra_metrics_exporter
+    environment:
+      <<: *backend-env
+      RABBITMQ_DEFAULT_USER: "${RABBITMQ_DEFAULT_USER:-brainon}"
+      RABBITMQ_DEFAULT_PASS: "${RABBITMQ_DEFAULT_PASS:-TODO_LOCAL_RABBITMQ_PASSWORD}"
+    expose:
+      - "9810"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
     restart: unless-stopped
 
   prometheus:

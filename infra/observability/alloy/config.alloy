@@ -1,7 +1,96 @@
-// Local OTLP receiver; production destinations and PHI filtering are TODO.
+// ==========================================================
+// BrainOn Local Observability
+//
+// Docker container logs -> Alloy -> Loki
+//
+// No container environment variables are collected.
+// Only stdout/stderr log streams are forwarded.
+// ==========================================================
+
+
+discovery.docker "brainon" {
+  host = "unix:///var/run/docker.sock"
+}
+
+
+discovery.relabel "brainon_logs" {
+
+  targets = discovery.docker.brainon.targets
+
+
+  // Docker Compose service label.
+  rule {
+    source_labels = [
+      "__meta_docker_container_label_com_docker_compose_service",
+    ]
+
+    regex = ".+"
+
+    action = "keep"
+  }
+
+
+  rule {
+    source_labels = [
+      "__meta_docker_container_label_com_docker_compose_service",
+    ]
+
+    target_label = "service"
+  }
+
+
+  rule {
+    source_labels = [
+      "__meta_docker_container_name",
+    ]
+
+    regex = "/(.*)"
+
+    replacement = "$1"
+
+    target_label = "container"
+  }
+
+
+  rule {
+    replacement = "local"
+
+    target_label = "environment"
+  }
+}
+
+
+loki.source.docker "brainon" {
+
+  host = "unix:///var/run/docker.sock"
+
+  targets =
+    discovery.relabel.brainon_logs.output
+
+  forward_to = [
+    loki.write.brainon.receiver,
+  ]
+
+  refresh_interval = "5s"
+}
+
+
+loki.write "brainon" {
+
+  endpoint {
+    url =
+      "http://loki:3100/loki/api/v1/push"
+  }
+}
+
+
+// Existing OTLP receiver kept available.
+// Current Docker application logs are handled above.
 
 otelcol.receiver.otlp "default" {
+
   grpc {}
+
 
   output {
     metrics = []

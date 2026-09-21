@@ -231,6 +231,10 @@ class AssessmentWorklistAPITests(APITestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
+            response.data["patient_id"],
+            str(self.patient.id),
+        )
+        self.assertEqual(
             response.data["neurology_department_id"],
             department.id,
         )
@@ -634,13 +638,16 @@ class InitialScreeningAssessmentAPITests(APITestCase):
                     {"item_code": "BP_DIA", "value_numeric": 86, "unit": "mmHg"},
                     {"item_code": "HEART_RATE", "value_numeric": 78, "unit": "bpm"},
                     {"item_code": "BODY_TEMP", "value_numeric": 36.8, "unit": "°C"},
+                    {"item_code": "SPO2", "value_numeric": 98, "unit": "%"},
+                    {"item_code": "HEIGHT_CM", "value_numeric": 170, "unit": "cm"},
+                    {"item_code": "WEIGHT_KG", "value_numeric": 65.5, "unit": "kg"},
                 ],
             },
             format="json",
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(AssessmentItem.objects.filter(assessment=self.assessment).count(), 13)
+        self.assertEqual(AssessmentItem.objects.filter(assessment=self.assessment).count(), 16)
         self.assertTrue(AssessmentItem.objects.filter(
             assessment=self.assessment,
             item_code="BALANCE",
@@ -652,6 +659,18 @@ class InitialScreeningAssessmentAPITests(APITestCase):
             assessment=self.assessment,
             item_code="FAST_FACE",
             value_text="ABNORMAL",
+        ).exists())
+        self.assertTrue(AssessmentItem.objects.filter(
+            assessment=self.assessment,
+            item_code="SPO2",
+            item_group="VITAL",
+            value_numeric=98,
+        ).exists())
+        self.assertTrue(AssessmentItem.objects.filter(
+            assessment=self.assessment,
+            item_code="HEIGHT_CM",
+            item_group="MEASUREMENT",
+            value_numeric=170,
         ).exists())
 
         self.client.patch(

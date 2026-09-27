@@ -1,3 +1,4 @@
+import { formatPatientAge } from "../../lib/patientAge";
 import {
   useCallback,
   useEffect,
@@ -101,55 +102,7 @@ function formatDate(
 function ageLabel(
   patient: Patient,
 ) {
-  if (
-    patient.estimated_age !== null &&
-    patient.estimated_age !== undefined
-  ) {
-    return `${patient.estimated_age}세`;
-  }
-
-  if (!patient.birth_date) {
-    return "-";
-  }
-
-  const birth =
-    new Date(
-      patient.birth_date,
-    );
-
-  if (
-    Number.isNaN(
-      birth.getTime(),
-    )
-  ) {
-    return "-";
-  }
-
-  const today =
-    new Date();
-
-  let age =
-    today.getFullYear() -
-    birth.getFullYear();
-
-  const birthdayPassed =
-    today.getMonth() >
-      birth.getMonth() ||
-    (
-      today.getMonth() ===
-        birth.getMonth() &&
-      today.getDate() >=
-        birth.getDate()
-    );
-
-  if (!birthdayPassed) {
-    age -= 1;
-  }
-
-  return `${Math.max(
-    age,
-    0,
-  )}세`;
+  return formatPatientAge(patient);
 }
 
 

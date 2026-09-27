@@ -86,6 +86,12 @@ const PRIORITY_ORDER: Record<
   ROUTINE: 2,
 };
 
+function getCounterpart(item: ConsultationListItem) {
+  return item.viewer_relation === "REQUESTED_BY"
+    ? item.assigned_to
+    : item.requested_by;
+}
+
 
 /* =========================================================
    날짜 표시
@@ -118,28 +124,6 @@ function formatDateTime(
       minute: "2-digit",
     },
   );
-}
-
-
-/* =========================================================
-   로그인 의료진 기준 상대 의료진
-   ========================================================= */
-
-function getCounterpart(
-  item: ConsultationListItem,
-) {
-
-  if (
-    item.viewer_relation ===
-    "REQUESTED_BY"
-  ) {
-
-    return item.assigned_to;
-
-  }
-
-
-  return item.requested_by;
 }
 
 
@@ -181,10 +165,6 @@ function ConsultationItem({
   number,
   onOpenReview,
 }: ConsultationItemProps) {
-
-  const counterpart =
-    getCounterpart(item);
-
 
   return (
     <div
@@ -232,22 +212,19 @@ function ConsultationItem({
       {/* 협진 의료진 */}
 
       <div className="consultation-list-item__clinician">
-
-        {counterpart ? (
-          <>
-            <strong>
-              {counterpart.name}
-            </strong>
-
-            <span>
-              {counterpart.department}
-            </span>
-          </>
-        ) : (
-          <span className="consultation-list-item__unassigned">
-            담당자 미배정
-          </span>
-        )}
+        <div>
+          <small>요청</small>
+          <strong>{item.requested_by.department ?? "진료과 미확인"} · {item.requested_by.name}</strong>
+        </div>
+        <span className="consultation-list-item__direction" aria-hidden="true">→</span>
+        <div>
+          <small>협진</small>
+          {item.assigned_to ? (
+            <strong>{item.assigned_to.department ?? "진료과 미확인"} · {item.assigned_to.name}</strong>
+          ) : (
+            <span className="consultation-list-item__unassigned">담당자 미배정</span>
+          )}
+        </div>
 
       </div>
 
@@ -501,7 +478,7 @@ export default function ConsultationList({
                 id: clinician.id,
                 name: clinician.name,
                 department:
-                  clinician.department,
+                  clinician.department ?? "진료과 미확인",
               },
             );
 
@@ -801,7 +778,7 @@ export default function ConsultationList({
         <label className="consultation-filter-field">
 
           <span>
-            협진 의료진
+            요청 의료진 → 협진 의료진
           </span>
 
 

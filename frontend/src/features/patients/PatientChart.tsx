@@ -1,3 +1,4 @@
+import { formatPatientAge } from "../../lib/patientAge";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { getApiRequestStatus } from "../../api/client";
@@ -50,7 +51,9 @@ interface ChartData { studies: ImagingStudy[]; analyses: AIAnalysisItem[]; consu
 const PAGE_SIZE = 6;
 
 function sex(value: string | null) { return value === "M" || value === "MALE" ? "남" : value === "F" || value === "FEMALE" ? "여" : value || "-"; }
-function age(patient: Patient) { return patient.estimated_age === null ? "-" : `${patient.estimated_age}세`; }
+function age(patient: Patient) {
+  return formatPatientAge(patient);
+}
 function encounterBadge(encounter?: { status?: string | null; endedAt?: string | null }) {
   if (encounter?.endedAt) return { label: "완료", tone: "completed" };
   if (encounter?.status === "IN_PROGRESS") return { label: "진료중", tone: "in-progress" };
@@ -192,6 +195,7 @@ export function PatientHeader({
   patient,
   care,
   assessment,
+  allergySummary,
   onOpenDetails,
 }: {
   patient: Patient;
@@ -206,6 +210,7 @@ export function PatientHeader({
     endedAt?: string | null;
   };
   assessment?: InitialAssessmentLike | null;
+  allergySummary?: string | null;
   onOpenDetails?: () => void;
 }) {
   const badge = encounterBadge({
@@ -219,10 +224,9 @@ export function PatientHeader({
       : null;
 
   const allergyInfo =
-    "allergy_info" in patient &&
-    typeof patient.allergy_info === "string"
-      ? patient.allergy_info.trim()
-      : "";
+    allergySummary?.trim() ||
+    patient.allergy_info?.trim() ||
+    "";
   return <header className="patient-context-header patient-context-header--compact">
     <div className="patient-context-header__identity">
       <div className="patient-avatar" aria-hidden="true">{patient.name.slice(0, 1)}</div>
@@ -872,6 +876,47 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
         ? patientDetail
         : patient;
 
+  const displayAllergySummary = useMemo(() => {
+    const activeAllergies =
+      allergies.filter(
+        (item) => item.status === "ACTIVE",
+      );
+
+    if (activeAllergies.length > 0) {
+      return activeAllergies
+        .map((item) => {
+          const substance =
+            item.substance?.trim() ||
+            item.ingredient?.name?.trim() ||
+            "알레르기 항목";
+
+          const reaction =
+            item.reaction?.trim()
+              ? ` - ${item.reaction.trim()}`
+              : "";
+
+          return (
+            `${substance}${reaction}` +
+            ` [severity=${item.severity}]`
+          );
+        })
+        .join(", ");
+    }
+
+    /*
+     * 기존 시연/legacy 환자는 allergy_info만 존재할 수 있다.
+     * 구조화 데이터가 없거나 조회 실패한 경우 화면용 요약을 유지한다.
+     */
+    return (
+      displayPatient?.allergy_info?.trim() ||
+      null
+    );
+  }, [
+    allergies,
+    allergiesError,
+    displayPatient,
+  ]);
+
   const displayAssessment =
     latestAssessment ??
     (
@@ -1066,6 +1111,7 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
         <PatientHeader
           patient={displayPatient}
           assessment={displayAssessment}
+          allergySummary={displayAllergySummary}
           care={
             encounter
               ? {

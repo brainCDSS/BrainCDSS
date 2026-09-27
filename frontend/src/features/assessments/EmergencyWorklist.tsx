@@ -1,3 +1,4 @@
+import { getPatientAge } from "../../lib/patientAge";
 import { useCallback, useEffect, useState } from "react";
 
 import { getPatient } from "../patients/api";
@@ -20,7 +21,7 @@ function patientIdOf(item: EmergencyWorklistItem): string | null {
 
 function patientDetailOf(item: EmergencyWorklistItem): string {
   const summary = item.patient_summary;
-  const age = summary.age ?? summary.estimated_age;
+  const age = getPatientAge(summary);
   return [summary.sex ?? null, age == null ? null : `${age}세`]
     .filter(Boolean)
     .join(" · ") || "-";

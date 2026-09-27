@@ -25,6 +25,11 @@ export type AllergySeverity = "MILD" | "MODERATE" | "SEVERE";
 export interface PatientAllergy {
   id: string;
   patient_id?: string;
+  ingredient?: {
+    id: string;
+    code: string;
+    name: string;
+  } | null;
   substance: string | null;
   reaction: string | null;
   severity: AllergySeverity;

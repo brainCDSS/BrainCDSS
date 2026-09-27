@@ -67,7 +67,7 @@ export type ConsultationViewerRelation =
 export interface ConsultationUserSummary {
   id: string;
   name: string;
-  department: string;
+  department: string | null;
 }
 
 
@@ -98,6 +98,7 @@ export interface ConsultationListItem {
   type: ConsultationType;
   priority: ConsultationPriority;
   status: ConsultationStatus;
+  reason: string;
 
   requested_by: ConsultationUserSummary;
 

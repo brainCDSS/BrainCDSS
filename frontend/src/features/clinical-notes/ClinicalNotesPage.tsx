@@ -197,7 +197,20 @@ export default function ClinicalNotesPage({ selectedPatient: contextPatient = nu
 
   return <section className="patient-context-dashboard clinical-notes-dashboard"><div className="patient-workspace">
     <PatientRail selectedId={selectedPatient?.id ?? null} patients={patients} onSelect={(patient) => void selectPatient(patient)} />
-    {selectedPatient && <PatientHeader patient={selectedPatient} care={{ arrivedAt: currentEncounter?.arrived_at, endedAt: currentEncounter?.ended_at, encounterStatus: currentEncounter?.status ?? "없음", encounterType: currentEncounter?.encounter_type }} />}
+    {selectedPatient && (
+      <PatientHeader
+        patient={selectedPatient}
+        assessment={assessment}
+        care={{
+          arrivedAt: currentEncounter?.arrived_at,
+          endedAt: currentEncounter?.ended_at,
+          encounterStatus:
+            currentEncounter?.status ?? "없음",
+          encounterType:
+            currentEncounter?.encounter_type,
+        }}
+      />
+    )}
     {!selectedPatient ? <main className="patient-context-main patient-context-main--empty"><div className="patient-selection-empty">
       <strong>{patientsLoading || patients.length > 0 ? "환자 정보를 준비하는 중입니다." : "선택된 환자가 없습니다."}</strong>
       {!patientsLoading && patients.length === 0 && <span>조회된 환자 정보가 없습니다.</span>}

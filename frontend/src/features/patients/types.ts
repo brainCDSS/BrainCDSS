@@ -8,6 +8,7 @@ export interface Patient{
     estimated_age: number |null;
     sex: string |null;
     phone: string | null;
+    allergy_info: string | null;
     status: string;
 
 }
@@ -16,7 +17,6 @@ export interface Patient{
 export interface PatientDetail extends Patient {
   latest_assessment?: InitialAssessmentLike | null;
   emergency_contact: string | null;
-  allergy_info: string | null;
   pregnancy_status: string;
   pregnancy_status_updated_at: string | null;
   merged_into: { id: string; patient_no: string } | null;

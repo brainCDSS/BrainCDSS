@@ -49,6 +49,9 @@ def _patient_summary(study):
         "patient_id": study.patient_id,
         "patient_no": study.patient.patient_no,
         "name": study.patient.name,
+        "birth_date": study.patient.birth_date,
+        "estimated_age": study.patient.estimated_age,
+        "sex": study.patient.sex,
     }
 
 

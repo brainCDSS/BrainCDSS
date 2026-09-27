@@ -44,18 +44,23 @@ class DevelopmentInferenceFlowTests(TestCase):
             name="Synthetic AI Admin",
             role=admin_role,
         )
+
+        permission = Permission.objects.get(code="ai.job.view")
+        RolePermission.objects.filter(
+            role=admin_role,
+            permission=permission,
+        ).delete()
+
         request = APIRequestFactory().get("/api/v1/ai-analyses")
         force_authenticate(request, user=admin)
 
         denied = AnalysisCollectionView.as_view()(request)
         self.assertEqual(denied.status_code, 403)
 
-        permission = Permission.objects.create(
-            code="ai.job.view",
-            name="View AI jobs",
-            domain="AI",
+        RolePermission.objects.create(
+            role=admin_role,
+            permission=permission,
         )
-        RolePermission.objects.create(role=admin_role, permission=permission)
 
         request = APIRequestFactory().get("/api/v1/ai-analyses")
         force_authenticate(request, user=admin)

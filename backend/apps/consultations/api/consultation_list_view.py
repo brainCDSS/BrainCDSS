@@ -334,6 +334,7 @@ class ConsultationListCreateView(ContractView000):
                 },
                 "priority": consultation.priority,
                 "status": consultation.status,
+                "reason": consultation.reason,
                 "requested_by": _user_summary(consultation.requested_by, clinicians_by_user_id),
                 "assigned_to": _user_summary(consultation.assigned_to, clinicians_by_user_id),
                 "requested_at": consultation.requested_at,

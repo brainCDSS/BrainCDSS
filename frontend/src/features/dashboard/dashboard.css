@@ -89,3 +89,52 @@
   font-weight: 800;
   cursor: default;
 }
+
+
+/* =========================================================
+   Dashboard chart readability -----> 의사 대시보드 글씨 크기
+   ========================================================= */
+
+.dash-chart-card h3 {
+  font-size: 20px;
+}
+
+.dash-ai-bars > div {
+  font-size: 15px;
+}
+
+.dash-ai-bars > div > span {
+  font-size: 15px;
+}
+
+.dash-ai-bars strong {
+  font-size: 15px;
+}
+
+.dash-donut small {
+  font-size: 12px;
+}
+
+.dash-donut strong {
+  font-size: 20px;
+}
+
+.dash-legend > div {
+  font-size: 12px;
+}
+
+.dash-legend span {
+  font-size: 12px;
+}
+
+.dash-legend strong {
+  font-size: 12px;
+}
+
+.dash-source-note {
+  font-size: 12px;
+}
+
+.dash-ai-summary {
+  font-size: 11px;
+}

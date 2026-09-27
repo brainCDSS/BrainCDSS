@@ -1,3 +1,4 @@
+import { formatPatientAge } from "../../lib/patientAge";
 import {
   useEffect,
   useMemo,
@@ -100,6 +101,29 @@ const TYPE_LABEL: Record<
   RADIOLOGY: "영상의학과",
   NEUROSURGERY: "신경외과",
 };
+
+const ASSESSMENT_ITEM_LABEL: Record<string, string> = {
+  FAST_FACE: "안면", FACE: "안면",
+  FAST_ARM: "상지", ARM: "상지",
+  FAST_SPEECH: "언어", SPEECH: "언어",
+  EYES: "시야", CONSCIOUSNESS: "의식상태",
+  BP_SYS: "수축기 혈압", SBP: "수축기 혈압",
+  BP_DIA: "이완기 혈압", DBP: "이완기 혈압",
+  HEART_RATE: "심박수", HR: "심박수",
+  SPO2: "산소포화도",
+  BODY_TEMP: "체온", TEMPERATURE: "체온", BT: "체온",
+};
+
+function assessmentItemSection(code: string): "neurological" | "vitals" | "additional" {
+  const normalized = code.toUpperCase();
+  if (["FAST_FACE", "FACE", "FAST_ARM", "ARM", "FAST_SPEECH", "SPEECH", "EYES", "CONSCIOUSNESS"].includes(normalized)) {
+    return "neurological";
+  }
+  if (["BP_SYS", "SBP", "BP_DIA", "DBP", "HEART_RATE", "HR", "SPO2", "BODY_TEMP", "TEMPERATURE", "BT"].includes(normalized)) {
+    return "vitals";
+  }
+  return "additional";
+}
 
 /* =========================================================
    실시간 협진 메시지 설정
@@ -863,7 +887,7 @@ export default function ConsultationPatientReview({
         const hasValue = (value: unknown) => (
           value !== null && value !== undefined && value !== ""
         );
-        const symptomNote = "";
+        const symptomNote = assessment.symptom_note?.trim() ?? "";
         const overviewFields = [
           { label: "상태", value: assessment.status },
           { label: "총점", value: assessment.total_score },
@@ -895,6 +919,12 @@ export default function ConsultationPatientReview({
           value: string;
           kind: "value" | "unit" | "score" | "flag" | "note";
         };
+        const additionalItemLabels: Record<string, string> = {
+          HEIGHT_CM: "키",
+          WEIGHT_KG: "체중",
+          BALANCE: "균형",
+        };
+
         const displayItemRows = assessment.items.map((item) => {
           const value = item.value_text ?? item.value_numeric ?? item.value;
           const fields = [
@@ -905,8 +935,22 @@ export default function ConsultationPatientReview({
             item.note?.trim() ? { label: "메모", value: item.note.trim(), kind: "note" as const } : null,
           ].filter((field): field is AssessmentItemDisplayField => field !== null);
 
-          return { itemCode: item.item_code, fields, isRedFlag: Boolean(item.is_red_flag) };
+          return {
+            itemCode: item.item_code,
+            label:
+              ASSESSMENT_ITEM_LABEL[item.item_code.toUpperCase()]
+              ?? additionalItemLabels[item.item_code.toUpperCase()]
+              ?? item.item_code,
+            section: assessmentItemSection(item.item_code),
+            fields,
+            isRedFlag: Boolean(item.is_red_flag),
+          };
         }).filter((item) => item.fields.length > 0);
+        const itemSections = [
+          { key: "additional", title: "기타정보" },
+          { key: "neurological", title: "신경학적 평가" },
+          { key: "vitals", title: "활력징후" },
+        ] as const;
         const hasAssessmentDetail = (
           summaryFields.length > 1 ||
           displayItemRows.length > 0
@@ -937,24 +981,31 @@ export default function ConsultationPatientReview({
                   {displayItemRows.length > 0 && (
                     <section className="consultation-review__assessment-items">
                       <h4>평가 항목</h4>
-                      <div>
-                        {displayItemRows.map((item) => (
-                          <article
-                            key={item.itemCode}
-                            className={item.isRedFlag ? "is-red-flag" : undefined}
+                      {itemSections.map((section) => {
+                        const rows = displayItemRows.filter((item) => item.section === section.key);
+                        if (!rows.length) return null;
+                        return (
+                          <div
+                            key={section.key}
+                            className={`consultation-review__assessment-group consultation-review__assessment-group--${section.key}`}
                           >
-                            <strong>{item.itemCode}</strong>
-                            <dl>
-                              {item.fields.map((field) => (
-                                <div key={field.label}>
-                                  <dt>{field.label}</dt>
-                                  <dd className={field.kind === "note" ? "consultation-review__assessment-item-note" : undefined}>{field.value}</dd>
-                                </div>
-                              ))}
-                            </dl>
-                          </article>
-                        ))}
-                      </div>
+                            <h5>{section.title}</h5>
+                            {rows.map((item) => (
+                              <article key={item.itemCode} className={item.isRedFlag ? "is-red-flag" : undefined}>
+                                <strong>{item.label}</strong>
+                                <dl>
+                                  {item.fields.map((field) => (
+                                    <div key={field.label}>
+                                      <dt>{field.label}</dt>
+                                      <dd className={field.kind === "note" ? "consultation-review__assessment-item-note" : undefined}>{field.value}</dd>
+                                    </div>
+                                  ))}
+                                </dl>
+                              </article>
+                            ))}
+                          </div>
+                        );
+                      })}
                     </section>
                   )}
                 </>
@@ -1329,9 +1380,7 @@ export default function ConsultationPatientReview({
               <strong>{patient.name}</strong>
               <span>
                 {patient.sex ? formatSex(patient.sex) : "성별 정보 없음"}
-                {patient.estimated_age !== null
-                  ? ` / ${patient.estimated_age}세`
-                  : ""}
+                {` / ${formatPatientAge(patient)}`}
               </span>
             </div>
 
@@ -1463,18 +1512,40 @@ export default function ConsultationPatientReview({
             <div className="consultation-review__clinician-main">
 
                 <strong>
-                {`${consultation.requested_by.department} ${consultation.requested_by.name}`}
+                {`${consultation.requested_by.department ?? "진료과 미확인"} ${consultation.requested_by.name}`}
                 </strong>
 
                 </div>
 
                 <small>
-                {consultation.requested_by.department}
+                {consultation.requested_by.department ?? "진료과 미확인"}
                 </small>
             </div>
 
             </div>
 
+          </div>
+
+          <div className="consultation-review__direction" aria-hidden="true">→</div>
+
+          <div className="consultation-review__clinician-card consultation-review__clinician-card--assignee">
+            <span className="consultation-review__requester-label">협진 의료진</span>
+            <div className="consultation-review__requester-person">
+              <div className="consultation-review__clinician-avatar">
+                <span className="consultation-review__avatar-head" />
+                <span className="consultation-review__avatar-body" />
+              </div>
+              <div className="consultation-review__clinician consultation-review__clinician--assignee">
+                <div className="consultation-review__clinician-main">
+                  <strong>
+                    {consultation.assigned_to
+                      ? `${consultation.assigned_to.department ?? "진료과 미확인"} ${consultation.assigned_to.name}`
+                      : "담당자 미배정"}
+                  </strong>
+                </div>
+                <small>{consultation.assigned_to?.department ?? "배정 대기"}</small>
+              </div>
+            </div>
           </div>
 
           <div className="consultation-review__reason">
@@ -1489,7 +1560,7 @@ export default function ConsultationPatientReview({
 
 
             <div className="consultation-review__reason-content">
-              {(consultation as ConsultationListItem & { reason?: string | null }).reason || "-"}
+              {consultation.reason || "-"}
             </div>
 
           </div>

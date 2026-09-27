@@ -373,7 +373,9 @@ class EmergencyWorklistView(APIView):
         queryset = (
             EmergencyEvent.objects.select_related(
                 "assessment",
+                "assessment__assessor",
                 "assessment__assigned_neurologist",
+                "encounter",
                 "encounter__patient",
             )
             .annotate(
@@ -418,31 +420,31 @@ class EmergencyWorklistView(APIView):
 
         paginator = AssessmentWorklistPagination()
         page = paginator.paginate_queryset(queryset, request, view=self)
+        assessment_items = {}
+        for item in AssessmentItem.objects.filter(
+            assessment_id__in=[event.assessment_id for event in page],
+        ).order_by("recorded_at", "id"):
+            assessment_items.setdefault(item.assessment_id, []).append(item)
         payload = {
             "count": paginator.page.paginator.count,
             "next": paginator.get_next_link(),
             "previous": paginator.get_previous_link(),
-            "results": [self._serialize_row(event) for event in page],
+            "results": [
+                self._serialize_row(
+                    event,
+                    assessment_items.get(event.assessment_id, []),
+                )
+                for event in page
+            ],
         }
         return Response(EmergencyWorklistResponseSerializer(payload).data)
 
     @staticmethod
-    def _serialize_row(event):
+    def _serialize_row(event, assessment_items):
         assessment = event.assessment
         patient = event.encounter.patient
         assigned_neurologist = (
             assessment.assigned_neurologist
-        )
-
-        assessment_items = list(
-            AssessmentItem.objects
-            .filter(
-                assessment=assessment,
-            )
-            .order_by(
-                "recorded_at",
-                "id",
-            )
         )
 
         red_flags = [
@@ -489,6 +491,15 @@ class EmergencyWorklistView(APIView):
             "symptom_note": (
                 assessment.symptom_note
             ),
+            "arrived_at": event.encounter.arrived_at,
+            "assessor": (
+                {
+                    "id": assessment.assessor.id,
+                    "name": assessment.assessor.name,
+                }
+                if assessment.assessor
+                else None
+            ),
             "assigned_neurologist": (
                 {
                     "id": assigned_neurologist.id,
@@ -498,6 +509,18 @@ class EmergencyWorklistView(APIView):
                 else None
             ),
             "abnormal_findings": abnormal_findings,
+            "assessment_items": [
+                {
+                    "item_code": item.item_code,
+                    "value_text": item.value_text,
+                    "value_numeric": item.value_numeric,
+                    "unit": item.unit,
+                    "score": item.score,
+                    "is_red_flag": item.is_red_flag,
+                    "note": item.note,
+                }
+                for item in assessment_items
+            ],
             "red_flags": [
                 {
                     "item_code": item.item_code,

@@ -1,3 +1,4 @@
+import { formatPatientAge } from "../../lib/patientAge";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { getApiRequestStatus } from "../../api/client";
 import { createAIResultReview, getAIAnalyses, getAIAnalysis, getAIAnalysisResult } from "./api";
@@ -198,7 +199,7 @@ export default function AIAnalysisResultsPage({ initialAnalysisId, onShareConsul
     <header className="ai-workspace-heading compact"><div><h2>AI 분석 결과</h2><p>AI가 생성한 병변 분할과 정량 결과를 검토합니다.</p></div><div className="ai-workspace-filter"><label>분석 선택<select value={selected?.analysis_id ?? ""} onChange={(event) => setSelected(items.find((item) => item.analysis_id === event.target.value) ?? null)} disabled={loading}>{items.map((item) => <option key={item.analysis_id} value={item.analysis_id}>{ANALYSIS[item.analysis_type] ?? item.analysis_type} · {formatDate(item.requested_at)}</option>)}</select></label><button type="button" onClick={() => void load()}>새로고침</button></div></header>
     {error && <div className="ai-page-error">{error}</div>}
     <section className="ai-context-card compact">
-      {patient ? <dl><div><dt>환자번호</dt><dd>{patient.patient_no || "미확인"}</dd></div><div><dt>환자명</dt><dd>{patient.name || "미확인"}</dd></div><div><dt>성별 / 나이</dt><dd>{patient.sex || "미확인"} / {patient.estimated_age ?? "미확인"}</dd></div><div><dt>생년월일</dt><dd>{patient.birth_date || "미확인"}</dd></div><div><dt>검사일시</dt><dd>{formatDate(study?.study_datetime)}</dd></div><div><dt>검사번호</dt><dd>{study?.accession_number || "미확인"}</dd></div></dl> : patientUnlinked ? <div className="patient-unlinked">환자 정보 미연결 · 검사 및 분석 결과는 정상 조회되었습니다.</div> : <div className="patient-unlinked">검사 정보를 불러오는 중입니다.</div>}
+      {patient ? <dl><div><dt>환자번호</dt><dd>{patient.patient_no || "미확인"}</dd></div><div><dt>환자명</dt><dd>{patient.name || "미확인"}</dd></div><div><dt>성별 / 나이</dt><dd>{patient.sex || "미확인"} / {formatPatientAge(patient, "미확인")}</dd></div><div><dt>생년월일</dt><dd>{patient.birth_date || "미확인"}</dd></div><div><dt>검사일시</dt><dd>{formatDate(study?.study_datetime)}</dd></div><div><dt>검사번호</dt><dd>{study?.accession_number || "미확인"}</dd></div></dl> : patientUnlinked ? <div className="patient-unlinked">환자 정보 미연결 · 검사 및 분석 결과는 정상 조회되었습니다.</div> : <div className="patient-unlinked">검사 정보를 불러오는 중입니다.</div>}
     </section>
 
     {selected && !TERMINAL.has(selected.status) && <section className="ai-running-card"><div className="ai-running-spinner"/><div><strong>{STATUS[selected.status] ?? "분석 중"}</strong><span>{selected.stage || "요청 준비"}</span></div><div className="ai-analysis-progress"/></section>}

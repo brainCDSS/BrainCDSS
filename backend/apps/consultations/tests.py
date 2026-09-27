@@ -70,6 +70,7 @@ class ConsultationListResponseTests(APITestCase):
         self.assertEqual(item["assigned_to"]["department"], "신경외과")
         self.assertEqual(item["viewer_relation"], "REQUESTED_BY")
         self.assertEqual(item["allowed_actions"], ["CANCEL"])
+        self.assertEqual(item["reason"], "검토 요청")
 
     def test_detail_preserves_raw_fields_and_adds_frontend_shape(self):
         self.client.force_authenticate(self.requester)
@@ -446,6 +447,8 @@ class ConsultationListResponseTests(APITestCase):
         self.assertEqual(response.status_code, 201)
         notification = Notification.objects.get(
             recipient_user=self.assignee,
+            data_json__event_type="CONSULTATION_REQUESTED",
+            data_json__consultation_id=response.json()["consultation_id"],
         )
         self.assertEqual(notification.category, "CONSULTATION")
         self.assertEqual(notification.severity, "WARNING")

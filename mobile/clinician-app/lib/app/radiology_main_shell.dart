@@ -232,7 +232,9 @@ class _RadiologyMainShellState extends State<RadiologyMainShell> {
   void _openAssistant() {
     setState(() {
       _detailBackPage = null;
-      _detailPage = const ClinicianAiAssistantPage();
+      _detailPage = ClinicianAiAssistantPage(
+        apiClient: widget.apiClient,
+      );
     });
   }
 

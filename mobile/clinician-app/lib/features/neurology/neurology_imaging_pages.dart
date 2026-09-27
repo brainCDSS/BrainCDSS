@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../core/api/clinician_api_client.dart';
 import '../radiology/widgets/radiology_ui.dart';
+import 'widgets/neurology_common_app_bar.dart';
+import 'widgets/neurology_navigation_drawer.dart';
 
 class NeurologyImagingStudiesPage extends StatefulWidget {
   const NeurologyImagingStudiesPage({super.key, required this.apiClient});
@@ -47,7 +49,11 @@ class _NeurologyImagingStudiesPageState extends State<NeurologyImagingStudiesPag
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('영상검사 결과')),
+        appBar: NeurologyCommonAppBar(
+          screenTitle: '영상검사 결과',
+          onBack: () => Navigator.of(context).pop(),
+          onNotifications: () => NeurologyNavigation.openNotifications(context),
+        ),
         body: ListView(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
           children: [
@@ -153,7 +159,11 @@ class _NeurologyImagingStudyDetailPageState extends State<NeurologyImagingStudyD
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('영상검사 상세')),
+        appBar: NeurologyCommonAppBar(
+          screenTitle: '영상검사 상세',
+          onBack: () => Navigator.of(context).pop(),
+          onNotifications: () => NeurologyNavigation.openNotifications(context),
+        ),
         body: _loading
             ? const Center(child: CircularProgressIndicator())
             : _error != null
@@ -195,11 +205,23 @@ class _ImagingStudy {
     final patient = json['patient'] as Map?;
     final latestAnalysis = json['latest_analysis'] as Map?;
     final currentReport = json['current_report'] as Map?;
+    final modalities = (json['modalities'] as List? ?? const [])
+        .map((item) => item.toString())
+        .where((item) => item.isNotEmpty)
+        .toSet();
+    if (modalities.isEmpty) {
+      for (final series in json['series'] as List? ?? const []) {
+        if (series is Map) {
+          final modality = series['modality']?.toString() ?? '';
+          if (modality.isNotEmpty) modalities.add(modality);
+        }
+      }
+    }
     return _ImagingStudy(
       id: json['study_id']?.toString() ?? '',
       accessionNumber: json['accession_number']?.toString() ?? '',
       studyDateTime: json['study_datetime']?.toString(),
-      modalities: (json['modalities'] as List? ?? const []).map((item) => item.toString()).join(', '),
+      modalities: modalities.join(', '),
       status: json['status']?.toString() ?? '',
       patientName: patient?['name']?.toString() ?? '',
       patientNo: patient?['patient_no']?.toString() ?? '',
@@ -239,7 +261,7 @@ class _Report {
       findings: json['findings']?.toString(),
       impression: json['impression']?.toString(),
       recommendation: json['recommendation']?.toString(),
-      author: author?['name']?.toString(),
+      author: author?['name']?.toString() ?? author?['user_id']?.toString(),
       finalizedAt: json['finalized_at']?.toString(),
       criticalFinding: json['critical_finding'] == true,
     );
@@ -259,20 +281,66 @@ class _StudySummary extends StatelessWidget {
   final _ImagingStudy study;
 
   @override
-  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(study.patientName.isEmpty ? '환자 정보 없음' : study.patientName, style: const TextStyle(color: radiologyNavy, fontSize: 19, fontWeight: FontWeight.w800)),
-        if (study.patientNo.isNotEmpty) ...[const SizedBox(height: 4), Text(study.patientNo, style: const TextStyle(color: radiologyMuted))],
-        const SizedBox(height: 14),
-        _Line(label: '검사 일시', value: _formatDateTime(study.studyDateTime)),
-        _Line(label: '검사 종류', value: study.modalities),
-        _Line(label: '상태', value: study.status),
-        if (study.latestAnalysis != null && study.latestAnalysis!.isNotEmpty)
-          _Line(label: 'AI 분석', value: study.latestAnalysis!),
-        if (study.currentReport != null && study.currentReport!.isNotEmpty)
-          _Line(label: '현재 판독', value: study.currentReport!),
-        if (study.criticalFinding)
-          const _Line(label: '중요 소견', value: '있음'),
-      ]);
+  Widget build(BuildContext context) {
+    final details = <_StudyInfoItem>[
+      _StudyInfoItem('검사 일시', _formatDateTime(study.studyDateTime)),
+      if (study.modalities.isNotEmpty)
+        _StudyInfoItem('검사 종류', study.modalities),
+      if (study.status.isNotEmpty)
+        _StudyInfoItem('영상 상태', _studyStatusLabel(study.status)),
+      if (study.latestAnalysis?.isNotEmpty == true)
+        _StudyInfoItem(
+          'AI 분석 상태',
+          _analysisStatusLabel(study.latestAnalysis!),
+        ),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          study.patientName.isEmpty ? '환자 정보 없음' : study.patientName,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: radiologyNavy,
+            fontSize: 19,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        if (study.patientNo.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(
+            study.patientNo,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: radiologyMuted),
+          ),
+        ],
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 12),
+          child: Divider(height: 1),
+        ),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isCompact = constraints.maxWidth < 360;
+            final itemWidth = isCompact
+                ? constraints.maxWidth
+                : (constraints.maxWidth - 16) / 2;
+            return Wrap(
+              spacing: 16,
+              runSpacing: 14,
+              children: details
+                  .map((item) => SizedBox(
+                        width: itemWidth,
+                        child: _StudyInfoCell(item: item),
+                      ))
+                  .toList(growable: false),
+            );
+          },
+        ),
+      ],
+    );
+  }
 }
 
 class _ReportBody extends StatelessWidget {
@@ -280,13 +348,63 @@ class _ReportBody extends StatelessWidget {
   final _Report report;
 
   @override
-  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [RadiologyStatusChip(label: report.status.isEmpty ? '판독' : report.status, color: report.criticalFinding ? const Color(0xFFB34B58) : radiologyBlue), const Spacer(), Text(_formatDateTime(report.finalizedAt), style: const TextStyle(color: radiologyMuted, fontSize: 12))]),
-        if (_hasText(report.author)) _ReportText(label: '판독자', value: report.author),
-        _ReportText(label: '소견', value: report.findings),
-        _ReportText(label: '결론', value: report.impression),
-        if (_hasText(report.recommendation)) _ReportText(label: '권고', value: report.recommendation),
-      ]);
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              RadiologyStatusChip(
+                label: report.status == 'FINAL'
+                    ? '확정'
+                    : _reportStatusLabel(report.status),
+                color: report.criticalFinding
+                    ? const Color(0xFFB34B58)
+                    : radiologyBlue,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  _formatDateTime(report.finalizedAt),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(color: radiologyMuted, fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+          if (_hasText(report.author)) ...[
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                const Icon(Icons.person_outline_rounded,
+                    size: 16, color: radiologyMuted),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    report.author?.trim() ?? '',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: radiologyNavy,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 28),
+          ],
+          _ReportText(label: '소견', value: report.findings),
+          const SizedBox(height: 16),
+          _ReportText(label: '결론', value: report.impression),
+          if (_hasText(report.recommendation)) ...[
+            const SizedBox(height: 16),
+            _ReportText(label: '권고', value: report.recommendation),
+          ],
+        ],
+      );
 }
 
 class _ReportText extends StatelessWidget {
@@ -295,15 +413,52 @@ class _ReportText extends StatelessWidget {
   final String? value;
 
   @override
-  Widget build(BuildContext context) => Padding(padding: const EdgeInsets.only(top: 14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: const TextStyle(color: radiologyMuted, fontSize: 12)), const SizedBox(height: 4), Text(_hasText(value) ? value!.trim() : '정보 없음', style: const TextStyle(color: radiologyNavy, height: 1.45))]));
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(color: radiologyMuted, fontSize: 12)),
+          const SizedBox(height: 4),
+          Text(
+            _hasText(value) ? value!.trim() : '정보 없음',
+            softWrap: true,
+            style: const TextStyle(color: radiologyNavy, height: 1.45),
+          ),
+        ],
+      );
 }
 
-class _Line extends StatelessWidget {
-  const _Line({required this.label, required this.value});
+class _StudyInfoItem {
+  const _StudyInfoItem(this.label, this.value);
+
   final String label;
   final String value;
+}
+
+class _StudyInfoCell extends StatelessWidget {
+  const _StudyInfoCell({required this.item});
+
+  final _StudyInfoItem item;
+
   @override
-  Widget build(BuildContext context) => Padding(padding: const EdgeInsets.only(top: 8), child: Row(children: [SizedBox(width: 78, child: Text(label, style: const TextStyle(color: radiologyMuted, fontSize: 13))), Expanded(child: Text(value.isEmpty ? '정보 없음' : value, style: const TextStyle(color: radiologyNavy, fontWeight: FontWeight.w700)))]));
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            item.label,
+            style: const TextStyle(color: radiologyMuted, fontSize: 12),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            item.value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: radiologyNavy,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      );
 }
 
 class _RetryCard extends StatelessWidget {
@@ -313,6 +468,21 @@ class _RetryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => RadiologyInfoCard(child: Column(children: [Text(message, textAlign: TextAlign.center), const SizedBox(height: 10), TextButton(onPressed: onRetry, child: const Text('다시 시도'))]));
 }
+
+String _studyStatusLabel(String status) => switch (status) {
+      'AVAILABLE' => '조회 가능',
+      _ => status,
+    };
+
+String _analysisStatusLabel(String status) => switch (status) {
+      'COMPLETED' => '분석 완료',
+      _ => status,
+    };
+
+String _reportStatusLabel(String status) => switch (status) {
+      'FINAL' => '판독 확정',
+      _ => status,
+    };
 
 bool _hasText(String? value) => value != null && value.trim().isNotEmpty;
 

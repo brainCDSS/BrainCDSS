@@ -8,6 +8,7 @@ class NeurologyConsultation {
     required this.id,
     required this.patientName,
     required this.patientNo,
+    required this.patientSex,
     required this.type,
     required this.assigneeName,
     required this.assigneeDepartment,
@@ -23,6 +24,7 @@ class NeurologyConsultation {
       id: json['consultation_id']?.toString() ?? '',
       patientName: patient?['name']?.toString() ?? '',
       patientNo: patient?['patient_no']?.toString() ?? '',
+      patientSex: patient?['sex']?.toString(),
       type: json['type']?.toString() ??
           json['consultation_type']?.toString() ??
           '',
@@ -37,6 +39,7 @@ class NeurologyConsultation {
   final String id;
   final String patientName;
   final String patientNo;
+  final String? patientSex;
   final String type;
   final String assigneeName;
   final String assigneeDepartment;
@@ -204,19 +207,31 @@ class _NeurologyConsultationsPageState
                               Row(
                                 children: [
                                   Expanded(
-                                    child: Text(
-                                      consultation.patientName.isEmpty
-                                          ? '환자 정보 없음'
-                                          : consultation.patientName,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: radiologyNavy,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w800,
-                                      ),
+                                    child: Row(
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            consultation.patientName.isEmpty
+                                                ? '환자 정보 없음'
+                                                : consultation.patientName,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              color: radiologyNavy,
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                        ),
+                                        if (consultation.patientSex == 'M' ||
+                                            consultation.patientSex == 'F') ...[
+                                          const SizedBox(width: 8),
+                                          _SexBadge(sex: consultation.patientSex!),
+                                        ],
+                                      ],
                                     ),
                                   ),
+                                  const SizedBox(width: 8),
                                   _StatusChip(status: consultation.status),
                                 ],
                               ),
@@ -347,7 +362,11 @@ class _NeurologyConsultationDetailPageState
             .toSet();
     final patientName = patient?['name']?.toString() ?? '';
     final patientNo = patient?['patient_no']?.toString() ?? '';
+    final patientSex = patient?['sex']?.toString();
     final status = consultation['status']?.toString() ?? '';
+    final reason = _ConsultationReasonDisplay.fromReason(
+      consultation['reason']?.toString(),
+    );
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
@@ -380,7 +399,7 @@ class _NeurologyConsultationDetailPageState
         RadiologyInfoCard(
           child: Column(
             children: [
-              _DetailRow(label: '환자', value: patientName),
+              _PatientDetailRow(name: patientName, sex: patientSex),
               _DetailRow(label: '환자번호', value: patientNo),
               _DetailRow(
                 label: '협진 대상',
@@ -415,12 +434,7 @@ class _NeurologyConsultationDetailPageState
         const RadiologySectionTitle(title: '협진 사유'),
         const SizedBox(height: 8),
         RadiologyInfoCard(
-          child: Text(
-            consultation['reason']?.toString().trim().isNotEmpty == true
-                ? consultation['reason'].toString()
-                : '정보 없음',
-            style: const TextStyle(color: radiologyNavy, height: 1.45),
-          ),
+          child: _ConsultationReasonCard(reason: reason),
         ),
         if ((consultation['final_opinion']?.toString().trim().isNotEmpty ??
                 false) ||
@@ -444,17 +458,269 @@ class _NeurologyConsultationDetailPageState
             ),
           ),
         ],
-        if (allowedActions.contains('CANCEL') ||
-            allowedActions.contains('VIEW_RESPONSE')) ...[
-          const SizedBox(height: 10),
+      ],
+    );
+  }
+}
+
+class _ConsultationReasonCard extends StatelessWidget {
+  const _ConsultationReasonCard({required this.reason});
+
+  final _ConsultationReasonDisplay reason;
+
+  @override
+  Widget build(BuildContext context) {
+    if (reason.isEmpty) {
+      return const Text('정보 없음', style: TextStyle(color: radiologyNavy));
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (reason.requestReason != null) ...[
+          const Text(
+            '협진 요청 사유',
+            style: TextStyle(
+              color: radiologyMuted,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
           Text(
-            '현재 가능한 처리: ${allowedActions.join(', ')}',
-            style: const TextStyle(color: radiologyMuted, fontSize: 12),
+            reason.requestReason!,
+            style: const TextStyle(color: radiologyNavy, height: 1.45),
+          ),
+        ],
+        if (reason.analysisType != null) ...[
+          if (reason.requestReason != null) const SizedBox(height: 14),
+          const Text(
+            '분석 유형',
+            style: TextStyle(color: radiologyMuted, fontSize: 11),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            _analysisTypeLabel(reason.analysisType!),
+            style: const TextStyle(
+              color: radiologyNavy,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+        if (reason.aiJudgment != null) ...[
+          if (reason.requestReason != null || reason.analysisType != null)
+            const SizedBox(height: 14),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEAF2FF),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'AI 판정',
+                  style: TextStyle(
+                    color: radiologyBlue,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  reason.aiJudgment!,
+                  softWrap: true,
+                  style: const TextStyle(
+                    color: radiologyNavy,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        if (reason.lesionCount != null || reason.totalVolume != null) ...[
+          if (reason.requestReason != null ||
+              reason.analysisType != null ||
+              reason.aiJudgment != null)
+            const SizedBox(height: 14),
+          Row(
+            children: [
+              if (reason.lesionCount != null)
+                Expanded(
+                  child: _ReasonMetricCard(
+                    label: '병변 개수',
+                    value: reason.lesionCount!,
+                  ),
+                ),
+              if (reason.lesionCount != null && reason.totalVolume != null)
+                const SizedBox(width: 10),
+              if (reason.totalVolume != null)
+                Expanded(
+                  child: _ReasonMetricCard(
+                    label: '병변 총 부피',
+                    value: reason.totalVolume!,
+                  ),
+                ),
+            ],
           ),
         ],
       ],
     );
   }
+}
+
+class _ReasonMetricCard extends StatelessWidget {
+  const _ReasonMetricCard({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF5F8FF),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(color: radiologyMuted, fontSize: 11),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              value,
+              softWrap: true,
+              style: const TextStyle(
+                color: radiologyNavy,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      );
+}
+
+class _ConsultationReasonDisplay {
+  const _ConsultationReasonDisplay({
+    required this.requestReason,
+    required this.analysisType,
+    required this.aiJudgment,
+    required this.lesionCount,
+    required this.totalVolume,
+  });
+
+  factory _ConsultationReasonDisplay.fromReason(String? reason) {
+    final lines = _withoutAnalysisId(reason)
+        .split(RegExp(r'\r?\n'))
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty)
+        .toList(growable: false);
+    const requestReasonLabels = ['협진 요청 사유', '협진 사유', 'reason'];
+    const analysisTypeLabels = ['분석 유형', 'analysis type', 'analysis_type'];
+    const judgmentLabels = ['AI 판정', 'ai judgment', 'is_positive'];
+    const lesionCountLabels = ['병변 개수', 'lesion count', 'lesion_count'];
+    const totalVolumeLabels = [
+      '병변 총 부피',
+      '총 병변 부피',
+      'total volume',
+      'total_volume_ml',
+    ];
+
+    final explicitRequestReason = _reasonValue(lines, requestReasonLabels);
+    final analysisType = _reasonValue(lines, analysisTypeLabels);
+    final aiJudgment = _reasonValue(lines, judgmentLabels);
+    final lesionCount = _reasonValue(lines, lesionCountLabels);
+    final totalVolume = _reasonValue(lines, totalVolumeLabels);
+    final requestLines = lines.where((line) {
+      return !_isReasonValueLine(line, requestReasonLabels) &&
+          !_isReasonValueLine(line, analysisTypeLabels) &&
+          !_isReasonValueLine(line, judgmentLabels) &&
+          !_isReasonValueLine(line, lesionCountLabels) &&
+          !_isReasonValueLine(line, totalVolumeLabels);
+    }).toList(growable: false);
+
+    return _ConsultationReasonDisplay(
+      requestReason: explicitRequestReason ??
+          (requestLines.isEmpty ? null : requestLines.join('\n')),
+      analysisType: analysisType,
+      aiJudgment: aiJudgment,
+      lesionCount: lesionCount,
+      totalVolume: totalVolume,
+    );
+  }
+
+  final String? requestReason;
+  final String? analysisType;
+  final String? aiJudgment;
+  final String? lesionCount;
+  final String? totalVolume;
+
+  bool get isEmpty =>
+      requestReason == null &&
+      analysisType == null &&
+      aiJudgment == null &&
+      lesionCount == null &&
+      totalVolume == null;
+}
+
+bool _isReasonValueLine(String line, List<String> labels) =>
+    _reasonValue([line], labels) != null;
+
+String? _reasonValue(List<String> lines, List<String> labels) {
+  for (final line in lines) {
+    for (final label in labels) {
+      final match = RegExp(
+        '^${RegExp.escape(label)}\\s*[:=：]\\s*(.+)\$',
+        caseSensitive: false,
+      ).firstMatch(line);
+      final value = match?.group(1)?.trim();
+      if (value != null && value.isNotEmpty) return value;
+    }
+  }
+  return null;
+}
+
+String _analysisTypeLabel(String value) => switch (value) {
+      'CEREBRAL_ANEURYSM_MRA' => 'MRA 뇌동맥류 분석',
+      _ => value,
+    };
+
+class _PatientDetailRow extends StatelessWidget {
+  const _PatientDetailRow({required this.name, required this.sex});
+
+  final String name;
+  final String? sex;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 7),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const SizedBox(
+            width: 86,
+            child: Text('환자',
+                style: TextStyle(color: radiologyMuted, fontSize: 13)),
+          ),
+          Expanded(
+              child: Row(children: [
+            Flexible(
+                child: Text(name.isEmpty ? '정보 없음' : name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        color: radiologyNavy, fontWeight: FontWeight.w700))),
+            if (sex == 'M' || sex == 'F') ...[
+              const SizedBox(width: 8),
+              _SexBadge(sex: sex!),
+            ],
+          ])),
+        ]),
+      );
 }
 
 class _DetailRow extends StatelessWidget {
@@ -508,6 +774,29 @@ class _StatusChip extends StatelessWidget {
             color: radiologyBlue,
             fontSize: 11,
             fontWeight: FontWeight.w800,
+          ),
+        ),
+      );
+}
+
+class _SexBadge extends StatelessWidget {
+  const _SexBadge({required this.sex});
+
+  final String sex;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+        decoration: BoxDecoration(
+          color: const Color(0xFFEAF2FF),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Text(
+          sex,
+          style: const TextStyle(
+            color: radiologyMuted,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
           ),
         ),
       );
@@ -570,6 +859,19 @@ String _statusLabel(String value) => switch (value) {
       'CANCELLED' => '취소',
       _ => value.isEmpty ? '정보 없음' : value,
     };
+
+String _withoutAnalysisId(String? reason) {
+  if (reason == null || reason.isEmpty) return '';
+
+  return reason.replaceAll(
+    RegExp(
+      r'^\s*(?:(?:AI\s*)?분석\s*ID|analysis[_\s-]*id|검사\s*번호|study[_\s-]*(?:no|number)|accession[_\s-]*(?:no|number))\s*[:=：].*(?:\r?\n|$)',
+      caseSensitive: false,
+      multiLine: true,
+    ),
+    '',
+  );
+}
 
 String _formatDateTime(String? value) {
   final parsed = value == null ? null : DateTime.tryParse(value)?.toLocal();

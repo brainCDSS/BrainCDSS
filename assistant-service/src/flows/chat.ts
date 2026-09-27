@@ -5,6 +5,10 @@ import {
 } from "../mcp-client/client.js";
 
 import {
+  prepareClinicalContextForPrompt,
+} from "./emergency_prompt_context.js";
+
+import {
   createProvider,
 } from "../providers/factory.js";
 
@@ -264,6 +268,11 @@ export async function runChat(
         selectedTools,
     });
 
+  const promptClinicalContext =
+    prepareClinicalContextForPrompt(
+      clinicalContext,
+    );
+
 
   /*
    * ==========================================================
@@ -285,7 +294,7 @@ export async function runChat(
 
 <clinical_context>
 ${JSON.stringify(
-  clinicalContext,
+  promptClinicalContext,
   null,
   2,
 )}

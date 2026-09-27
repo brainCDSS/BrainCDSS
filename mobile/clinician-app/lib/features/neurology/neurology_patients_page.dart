@@ -7,6 +7,8 @@ import '../radiology/widgets/radiology_ui.dart';
 import 'neurology_clinical_records_page.dart';
 import 'neurology_consultation_create_page.dart';
 import 'neurology_imaging_pages.dart';
+import 'widgets/neurology_common_app_bar.dart';
+import 'widgets/neurology_navigation_drawer.dart';
 
 class NeurologyPatientsPage extends StatefulWidget {
   const NeurologyPatientsPage({
@@ -301,7 +303,11 @@ class _NeurologyPatientDetailPageState
   Widget build(BuildContext context) {
     final patient = _patient;
     return Scaffold(
-      appBar: AppBar(title: const Text('환자 상세')),
+      appBar: NeurologyCommonAppBar(
+        screenTitle: '환자 상세',
+        onBack: () => Navigator.of(context).pop(),
+        onNotifications: () => NeurologyNavigation.openNotifications(context),
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
@@ -352,6 +358,7 @@ class _NeurologyPatientDetailPageState
                           apiClient: widget.apiClient,
                           patientId: widget.patientId,
                           currentUserId: widget.currentUserId,
+                          showStatusBadge: false,
                         ),
                         const SizedBox(height: 18),
                         const RadiologySectionTitle(title: '최근 영상검사'),
@@ -394,9 +401,9 @@ class _NeurologyPatientDetailPageState
                                               CrossAxisAlignment.start,
                                           children: [
                                             Text(
-                                              study.modalities.isEmpty
-                                                  ? '검사 종류 정보 없음'
-                                                  : study.modalities,
+                                              '검사 종류  ${study.modalities.isEmpty ? '정보 없음' : study.modalities}',
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
                                               style: const TextStyle(
                                                 color: radiologyNavy,
                                                 fontWeight: FontWeight.w800,
@@ -404,8 +411,9 @@ class _NeurologyPatientDetailPageState
                                             ),
                                             const SizedBox(height: 4),
                                             Text(
-                                              _formatDateTime(
-                                                  study.studyDateTime),
+                                              '검사 일시  ${_formatDateTime(study.studyDateTime)}',
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
                                               style: const TextStyle(
                                                 color: radiologyMuted,
                                                 fontSize: 13,
@@ -415,24 +423,43 @@ class _NeurologyPatientDetailPageState
                                                 .isNotEmpty) ...[
                                               const SizedBox(height: 3),
                                               Text(
-                                                study.accessionNumber,
+                                                '검사번호  ${study.accessionNumber}',
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
                                                 style: const TextStyle(
                                                   color: radiologyMuted,
                                                   fontSize: 12,
                                                 ),
                                               ),
                                             ],
-                                            if (study.summary.isNotEmpty) ...[
-                                              const SizedBox(height: 5),
-                                              Text(
-                                                study.summary,
-                                                style: const TextStyle(
-                                                  color: radiologyBlue,
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w600,
+                                            const SizedBox(height: 8),
+                                            Wrap(
+                                              spacing: 6,
+                                              runSpacing: 6,
+                                              children: [
+                                                _ImagingStudyStatusBadge(
+                                                  value: _imagingStatusLabel(
+                                                      study.status),
                                                 ),
-                                              ),
-                                            ],
+                                                if (study.latestAnalysis
+                                                        ?.isNotEmpty ==
+                                                    true)
+                                                  _ImagingStudyStatusBadge(
+                                                    value:
+                                                        _aiAnalysisStatusLabel(
+                                                      study.latestAnalysis!,
+                                                    ),
+                                                  ),
+                                                if (study.currentReport
+                                                        ?.isNotEmpty ==
+                                                    true)
+                                                  _ImagingStudyStatusBadge(
+                                                    value: _reportStatusLabel(
+                                                      study.currentReport!,
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
                                           ],
                                         ),
                                       ),
@@ -533,22 +560,41 @@ class _PatientImagingStudy {
   final String? currentReport;
   final bool criticalFinding;
 
-  String get summary {
-    final values = <String>[
-      if (status.isNotEmpty) _imagingStatusLabel(status),
-      if (latestAnalysis != null && latestAnalysis!.isNotEmpty)
-        'AI $latestAnalysis',
-      if (currentReport != null && currentReport!.isNotEmpty)
-        '판독 $currentReport',
-    ];
-    return values.join(' · ');
-  }
 }
 
 String _imagingStatusLabel(String status) => switch (status) {
       'AVAILABLE' => '조회 가능',
       _ => status,
     };
+
+String _aiAnalysisStatusLabel(String status) => switch (status) {
+      'COMPLETED' => 'AI 분석 완료',
+      'PROCESSING' => 'AI 분석 중',
+      'QUEUED' => 'AI 분석 대기',
+      'FAILED' => 'AI 분석 실패',
+      _ => status,
+    };
+
+String _reportStatusLabel(String status) => switch (status) {
+      'FINAL' => '판독 확정',
+      _ => status,
+    };
+
+class _ImagingStudyStatusBadge extends StatelessWidget {
+  const _ImagingStudyStatusBadge({
+    required this.value,
+  });
+
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => RadiologyStatusChip(
+        label: value,
+        color: value == 'AI 분석 실패'
+            ? const Color(0xFFB34B58)
+            : radiologyBlue,
+      );
+}
 
 class _PatientSummary extends StatelessWidget {
   const _PatientSummary({required this.patient});
@@ -652,8 +698,6 @@ class _RetryCard extends StatelessWidget {
 
 String _formatDateTime(String? value) {
   final dateTime = value == null ? null : DateTime.tryParse(value)?.toLocal();
-  if (dateTime == null) {
-    return value ?? '정보 없음';
-  }
-  return '$dateTime.year.${dateTime.month.toString().padLeft(2, '0')}.${dateTime.day.toString().padLeft(2, '0')} ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+  if (dateTime == null) return '정보 없음';
+  return '${dateTime.year}.${dateTime.month.toString().padLeft(2, '0')}.${dateTime.day.toString().padLeft(2, '0')} ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
 }

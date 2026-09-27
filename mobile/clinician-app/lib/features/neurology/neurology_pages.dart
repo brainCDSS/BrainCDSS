@@ -200,8 +200,6 @@ class _NeurologyEmergencyDetailPageState
                 label: '발병 시각', value: _formatDateTime(_item.onsetAt)),
             if (_item.symptomNote.isNotEmpty)
               _DetailInfoRow(label: '증상 메모', value: _item.symptomNote),
-            if (_item.assignedNeurologist.isNotEmpty)
-              _DetailInfoRow(label: '담당 신경과', value: _item.assignedNeurologist),
           ]),
           if (_item.abnormalFindings.isNotEmpty ||
               _item.redFlags.isNotEmpty) ...[
@@ -219,8 +217,7 @@ class _NeurologyEmergencyDetailPageState
           ],
           const SizedBox(height: 14),
           _EmergencyDetailCard(title: '응급 알림', children: [
-            _DetailInfoRow(
-                label: '이벤트 상태', value: _eventStatusLabel(_item.eventStatus)),
+            _AlarmStatusRow(item: _item),
             _DetailInfoRow(
                 label: '알림 시각', value: _formatDateTime(_item.notifiedAt)),
             _DetailInfoRow(
@@ -232,17 +229,22 @@ class _NeurologyEmergencyDetailPageState
                 _item.canAcknowledge && !_acknowledging ? _acknowledge : null,
             style: FilledButton.styleFrom(
                 minimumSize: const Size.fromHeight(52),
-                backgroundColor: radiologyBlue),
+                backgroundColor: radiologyBlue,
+                disabledBackgroundColor: _item.isAcknowledged
+                    ? const Color(0xFFE3F1E7)
+                    : null,
+                disabledForegroundColor:
+                    _item.isAcknowledged ? radiologySuccess : null),
             icon: _acknowledging
                 ? const SizedBox(
                     width: 18,
                     height: 18,
                     child: CircularProgressIndicator(
                         strokeWidth: 2, color: Colors.white))
-                : Icon(_item.canAcknowledge
-                    ? Icons.notifications_active_outlined
-                    : Icons.check_circle_outline),
-            label: Text(_item.canAcknowledge ? '응급 알림 확인' : '확인 완료'),
+                : Icon(_item.isAcknowledged
+                    ? Icons.check_circle_outline
+                    : Icons.notifications_active_outlined),
+            label: Text(_item.isAcknowledged ? '확인 완료' : '응급 알림 확인'),
           ),
         ],
       );
@@ -276,7 +278,10 @@ class _EmergencyWorklistCard extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => InkWell(
+  Widget build(BuildContext context) {
+    final hasSexBadge = item.sex == 'M' || item.sex == 'F';
+
+    return InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(18),
         child: RadiologyInfoCard(
@@ -290,28 +295,35 @@ class _EmergencyWorklistCard extends StatelessWidget {
                     children: [
                   Row(children: [
                     Expanded(
-                        child: Text(
-                            item.patientName.isEmpty
-                                ? '환자 정보 없음'
-                                : item.patientName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                color: radiologyNavy,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800))),
+                        child: Row(children: [
+                      Flexible(
+                          child: Text(
+                              item.patientName.isEmpty
+                                  ? '환자 정보 없음'
+                                  : item.patientName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  color: radiologyNavy,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800))),
+                      if (hasSexBadge) ...[
+                        const SizedBox(width: 8),
+                        _SexBadge(sex: item.sex!),
+                      ],
+                    ])),
                     const SizedBox(width: 8),
                     _EmergencyPriorityBadge(priority: item.displayPriority),
                   ]),
-                  if (item.demographics.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text(item.demographics,
-                        style: const TextStyle(
-                            color: radiologyMuted, fontSize: 12))
-                  ],
                   if (item.patientNo.isNotEmpty) ...[
                     const SizedBox(height: 2),
                     Text(item.patientNo,
+                        style: const TextStyle(
+                            color: radiologyMuted, fontSize: 12))
+                  ],
+                  if (item.age != null) ...[
+                    const SizedBox(height: 2),
+                    Text('${item.age}세',
                         style: const TextStyle(
                             color: radiologyMuted, fontSize: 12))
                   ],
@@ -352,6 +364,7 @@ class _EmergencyWorklistCard extends StatelessWidget {
           ]),
         ),
       );
+  }
 }
 
 class _EmergencyPatientHeader extends StatelessWidget {
@@ -359,30 +372,45 @@ class _EmergencyPatientHeader extends StatelessWidget {
   final EmergencyWorklistItem item;
 
   @override
-  Widget build(BuildContext context) => RadiologyInfoCard(
-        padding: const EdgeInsets.all(16),
+  Widget build(BuildContext context) {
+    final hasSexBadge = item.sex == 'M' || item.sex == 'F';
+
+    return RadiologyInfoCard(
+        padding: const EdgeInsets.all(14),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             Expanded(
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                  Text(item.patientName.isEmpty ? '환자 정보 없음' : item.patientName,
-                      style: const TextStyle(
-                          color: radiologyNavy,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800)),
-                  if (item.demographics.isNotEmpty) ...[
-                    const SizedBox(height: 3),
-                    Text(item.demographics,
-                        style: const TextStyle(
-                            color: radiologyMuted, fontSize: 13))
-                  ],
+                  Row(children: [
+                    Flexible(
+                        child: Text(
+                            item.patientName.isEmpty
+                                ? '환자 정보 없음'
+                                : item.patientName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                color: radiologyNavy,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800))),
+                    if (hasSexBadge) ...[
+                      const SizedBox(width: 8),
+                      _SexBadge(sex: item.sex!),
+                    ],
+                  ]),
                   if (item.patientNo.isNotEmpty) ...[
                     const SizedBox(height: 3),
                     Text(item.patientNo,
                         style: const TextStyle(
-                            color: radiologyMuted, fontSize: 13))
+                            color: radiologyMuted, fontSize: 12))
+                  ],
+                  if (item.age != null) ...[
+                    const SizedBox(height: 3),
+                    Text('${item.age}세',
+                        style: const TextStyle(
+                            color: radiologyMuted, fontSize: 12))
                   ],
                 ])),
             _EmergencyPriorityBadge(priority: item.displayPriority),
@@ -395,6 +423,7 @@ class _EmergencyPatientHeader extends StatelessWidget {
             _DetailInfoRow(label: '증상 메모', value: item.symptomNote),
         ]),
       );
+  }
 }
 
 class _PriorityInfo extends StatelessWidget {
@@ -471,6 +500,35 @@ class _DetailInfoRow extends StatelessWidget {
       );
 }
 
+class _AlarmStatusRow extends StatelessWidget {
+  const _AlarmStatusRow({required this.item});
+
+  final EmergencyWorklistItem item;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 7),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const SizedBox(
+            width: 84,
+            child: Text(
+              '알림 상태',
+              style: TextStyle(
+                color: radiologyMuted,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          RadiologyStatusChip(
+            label: _eventStatusLabel(item.eventStatus),
+            color: item.isAcknowledged ? radiologySuccess : radiologyWarning,
+          ),
+        ]),
+      );
+}
+
 class _EmergencyPriorityIcon extends StatelessWidget {
   const _EmergencyPriorityIcon({required this.priority});
   final String priority;
@@ -499,6 +557,22 @@ class _EmergencyPriorityBadge extends StatelessWidget {
                 color: _priorityColor(priority),
                 fontSize: 11,
                 fontWeight: FontWeight.w800)),
+      );
+}
+
+class _SexBadge extends StatelessWidget {
+  const _SexBadge({required this.sex});
+  final String sex;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+        decoration: BoxDecoration(
+            color: const Color(0xFFEAF2FF),
+            borderRadius: BorderRadius.circular(999)),
+        child: Text(sex,
+            style: const TextStyle(
+                color: radiologyMuted, fontSize: 11, fontWeight: FontWeight.w700)),
       );
 }
 
@@ -1259,30 +1333,38 @@ class _PatientRow extends StatelessWidget {
                     Row(
                       children: [
                         Expanded(
-                            child: Text(
-                                patient.name.isEmpty
-                                    ? '환자 정보 없음'
-                                    : patient.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                    color: radiologyNavy,
-                                    fontWeight: FontWeight.w800))),
+                            child: Row(children: [
+                          Flexible(
+                              child: Text(
+                                  patient.name.isEmpty
+                                      ? '환자 정보 없음'
+                                      : patient.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                      color: radiologyNavy,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w800))),
+                          if (patient.sex == 'M' || patient.sex == 'F') ...[
+                            const SizedBox(width: 8),
+                            _SexBadge(sex: patient.sex!),
+                          ],
+                        ])),
                         if (patient.status.isNotEmpty) ...[
                           const SizedBox(width: 8),
                           _StatusBadge(status: patient.status),
                         ],
                       ],
                     ),
-                    if (patient.demographics.isNotEmpty) ...[
-                      const SizedBox(height: 3),
-                      Text(patient.demographics,
-                          style: const TextStyle(
-                              color: radiologyMuted, fontSize: 12)),
-                    ],
                     if (patient.patientNo.isNotEmpty) ...[
                       const SizedBox(height: 3),
                       Text(patient.patientNo,
+                          style: const TextStyle(
+                              color: radiologyMuted, fontSize: 12)),
+                    ],
+                    if (patient.estimatedAge != null) ...[
+                      const SizedBox(height: 3),
+                      Text('${patient.estimatedAge}세',
                           style: const TextStyle(
                               color: radiologyMuted, fontSize: 12)),
                     ],

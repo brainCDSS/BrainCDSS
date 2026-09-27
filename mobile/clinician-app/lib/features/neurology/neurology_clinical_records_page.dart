@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../core/api/clinician_api_client.dart';
 import '../radiology/widgets/radiology_ui.dart';
+import 'widgets/neurology_common_app_bar.dart';
+import 'widgets/neurology_navigation_drawer.dart';
 
 class NeurologyPatientClinicalRecordsSection extends StatefulWidget {
   const NeurologyPatientClinicalRecordsSection({
@@ -9,11 +11,13 @@ class NeurologyPatientClinicalRecordsSection extends StatefulWidget {
     required this.apiClient,
     required this.patientId,
     required this.currentUserId,
+    this.showStatusBadge = true,
   });
 
   final ClinicianApiClient apiClient;
   final String patientId;
   final String currentUserId;
+  final bool showStatusBadge;
 
   @override
   State<NeurologyPatientClinicalRecordsSection> createState() =>
@@ -155,8 +159,9 @@ class _NeurologyPatientClinicalRecordsSectionState
                                 style: const TextStyle(
                                     color: radiologyMuted, fontSize: 11)),
                           ])),
-                      _ClinicalStatusChip(
-                          status: note['status']?.toString() ?? ''),
+                      if (widget.showStatusBadge)
+                        _ClinicalStatusChip(
+                            status: note['status']?.toString() ?? ''),
                       const Icon(Icons.chevron_right_rounded,
                           color: radiologyMuted),
                     ])),
@@ -489,13 +494,24 @@ class _NeurologyClinicalNoteDetailPageState
     }
   }
 
+  PreferredSizeWidget? _appBar(BuildContext context) => !widget.readOnly
+      ? null
+      : NeurologyCommonAppBar(
+          screenTitle: '진료기록 상세',
+          onBack: () => Navigator.of(context).pop(),
+          onNotifications: () => NeurologyNavigation.openNotifications(context),
+        );
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return Scaffold(
+          appBar: _appBar(context),
+          body: const Center(child: CircularProgressIndicator()));
     }
     if (_error != null)
       return Scaffold(
+        appBar: _appBar(context),
         body: _ClinicalRetryCard(
           message: _error ?? '진료기록 상세를 불러오지 못했습니다.',
           onRetry: _load,
@@ -503,25 +519,21 @@ class _NeurologyClinicalNoteDetailPageState
       );
     final note = _note;
     if (note == null) {
-      return const Scaffold(
-        body: RadiologyEmptyState(
+      return Scaffold(
+        appBar: _appBar(context),
+        body: const RadiologyEmptyState(
           icon: Icons.description_outlined,
           message: '등록된 진료기록이 없습니다.',
         ),
       );
     }
     return Scaffold(
+      appBar: _appBar(context),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
           children: [
-            Row(children: [
-              const Expanded(
-                child: RadiologySectionTitle(title: '진료기록 상세'),
-              ),
-              const SizedBox(width: 8),
-              _ClinicalStatusChip(status: note.status)
-            ]),
+            const RadiologySectionTitle(title: '진료기록 상세'),
             const SizedBox(height: 12),
             ..._soapFields.map((field) => Padding(
                 padding: const EdgeInsets.only(bottom: 10),
@@ -549,10 +561,6 @@ class _NeurologyClinicalNoteDetailPageState
                         onPressed: _saving ? null : _finalize,
                         child: const Text('최종확정')))
               ]),
-            ] else ...[
-              const SizedBox(height: 12),
-              const Text('최종확정 기록 또는 다른 작성자의 기록은 읽기 전용입니다.',
-                  style: TextStyle(color: radiologyMuted, fontSize: 12))
             ],
           ],
         ),

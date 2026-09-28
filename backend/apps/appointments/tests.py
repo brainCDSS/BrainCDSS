@@ -259,21 +259,19 @@ class AppointmentCreateSlotResolutionTests(TestCase):
         self.clinician_role = Role.objects.get(
             code="NEUROLOGIST",
         )
-        self.request_permission = Permission.objects.create(
+        self.request_permission, _ = Permission.objects.get_or_create(
             code="appointment.request",
-            name="Request appointment",
-            domain="appointments",
+            defaults={"name": "Request appointment", "domain": "appointments"},
         )
-        self.read_permission = Permission.objects.create(
+        self.read_permission, _ = Permission.objects.get_or_create(
             code="appointment.read.own",
-            name="Read own appointments",
-            domain="appointments",
+            defaults={"name": "Read own appointments", "domain": "appointments"},
         )
-        RolePermission.objects.create(
+        RolePermission.objects.get_or_create(
             role=self.patient_role,
             permission=self.request_permission,
         )
-        RolePermission.objects.create(
+        RolePermission.objects.get_or_create(
             role=self.patient_role,
             permission=self.read_permission,
         )
@@ -505,12 +503,11 @@ class AppointmentAvailableSlotGenerationTests(TestCase):
 class StaffAppointmentResponseTests(TestCase):
     def setUp(self):
         role = Role.objects.get(code="NURSE")
-        permission = Permission.objects.create(
+        permission, _ = Permission.objects.get_or_create(
             code="appointment.read.staff",
-            name="예약 업무 조회",
-            domain="appointments",
+            defaults={"name": "예약 업무 조회", "domain": "appointments"},
         )
-        RolePermission.objects.create(
+        RolePermission.objects.get_or_create(
             role=role,
             permission=permission,
         )
@@ -587,12 +584,11 @@ class StaffAppointmentResponseTests(TestCase):
 class AppointmentCorrectionTests(TestCase):
     def setUp(self):
         role = Role.objects.get(code="NURSE")
-        permission = Permission.objects.create(
+        permission, _ = Permission.objects.get_or_create(
             code="appointment.correct",
-            name="Correct appointment status",
-            domain="appointments",
+            defaults={"name": "Correct appointment status", "domain": "appointments"},
         )
-        RolePermission.objects.create(role=role, permission=permission)
+        RolePermission.objects.get_or_create(role=role, permission=permission)
         self.user = User.objects.create_user(
             login_id="appointment-correction-nurse",
             password="test-password",

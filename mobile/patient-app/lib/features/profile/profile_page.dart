@@ -947,6 +947,9 @@ String _notificationCategoryLabel(
     case 'PRESCRIPTION':
       return '처방 알림';
 
+    case 'MEDICATION':
+      return '복약 알림';
+
     case 'MEDICATION_SAFETY':
       return '약물 안전 알림';
 
@@ -986,6 +989,9 @@ String _notificationCategoryDescription(
     case 'PRESCRIPTION':
       return '새 처방과 처방 변경 사항을 알려드려요.';
 
+    case 'MEDICATION':
+      return '정해진 복약 시간이 되면 알려드려요.';
+
     case 'MEDICATION_SAFETY':
       return '약물 복용 시 주의가 필요한 사항을 알려드려요.';
 
@@ -1023,6 +1029,9 @@ IconData _notificationCategoryIcon(
       return Icons.medical_services_outlined;
 
     case 'PRESCRIPTION':
+      return Icons.medication_outlined;
+
+    case 'MEDICATION':
       return Icons.medication_outlined;
 
     case 'MEDICATION_SAFETY':
@@ -1154,7 +1163,18 @@ class _NotificationSettingsContentState
       );
     }
 
-    final categories = _preferences!.categories;
+    const hiddenPatientCategories = {
+      'CONSULTATION',
+      'MEDICATION_SAFETY',
+      'AI_ANALYSIS',
+    };
+    final categories = _preferences!.categories
+        .where(
+          (item) => !hiddenPatientCategories.contains(
+            item.category.toUpperCase(),
+          ),
+        )
+        .toList();
     final requiredCategories = categories.where((item) => item.isRequired).toList();
     final healthCategories = categories
         .where((item) =>
@@ -1163,6 +1183,7 @@ class _NotificationSettingsContentState
               'EMERGENCY',
               'CONSULTATION',
               'PRESCRIPTION',
+              'MEDICATION',
               'MEDICATION_SAFETY',
               'IMAGING',
               'AI_ANALYSIS',

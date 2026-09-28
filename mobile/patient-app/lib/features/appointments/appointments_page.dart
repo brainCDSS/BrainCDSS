@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api/api_client.dart';
-import '../../core/hospital_time.dart';
 import '../home/home_api.dart';
+import '../medications/patient_prescriptions_api.dart';
 import 'appointments_api.dart';
 
 const _primary = Color(0xFF5665B8);
@@ -36,7 +36,7 @@ class AppointmentsPageState extends State<AppointmentsPage> {
   String? _error;
   List<HomeAppointment> _appointments = const [];
   AppointmentTab _selectedTab = AppointmentTab.upcoming;
-  DateTime _displayedMonth = _monthStart(DateTime.now());
+  DateTime _displayedMonth = _monthStart(koreaNow());
   DateTime? _selectedDate;
 
   Future<void> reload() => _load();
@@ -85,9 +85,9 @@ class AppointmentsPageState extends State<AppointmentsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
+    final now = koreaNow();
     final upcoming = _appointments.where((item) {
-      final date = item.scheduledAt;
+      final date = parseKoreaDateTime(item.scheduledAt);
       return date != null &&
           !date.isBefore(now) &&
           !{'CANCELLED', 'REJECTED', 'COMPLETED'}.contains(item.status);
@@ -97,8 +97,8 @@ class AppointmentsPageState extends State<AppointmentsPage> {
     final selectedUpcoming = _selectedDate == null
         ? upcoming
         : upcoming
-            .where((item) =>
-                _isSameDay(hospitalTime(item.scheduledAt), _selectedDate!))
+            .where((item) => _isSameDay(
+                parseKoreaDateTime(item.scheduledAt), _selectedDate!))
             .toList();
 
     return RefreshIndicator(
@@ -180,22 +180,22 @@ class AppointmentsPageState extends State<AppointmentsPage> {
   }
 
   DateTime _initialSelectedDate(List<HomeAppointment> appointments) {
-    final today = _dateOnly(DateTime.now());
+    final today = _dateOnly(koreaNow());
     final upcoming = appointments.where((item) {
-      final date = item.scheduledAt;
+      final date = parseKoreaDateTime(item.scheduledAt);
       return date != null &&
-          !date.isBefore(DateTime.now()) &&
+          !date.isBefore(koreaNow()) &&
           !{'CANCELLED', 'REJECTED', 'COMPLETED'}.contains(item.status);
     }).toList()
       ..sort((a, b) => a.scheduledAt!.compareTo(b.scheduledAt!));
 
-    if (upcoming
-        .any((item) => _isSameDay(hospitalTime(item.scheduledAt), today))) {
+    if (upcoming.any(
+        (item) => _isSameDay(parseKoreaDateTime(item.scheduledAt), today))) {
       return today;
     }
     return upcoming.isEmpty
         ? today
-        : _dateOnly(hospitalTime(upcoming.first.scheduledAt)!);
+        : _dateOnly(parseKoreaDateTime(upcoming.first.scheduledAt!)!);
   }
 
   Future<void> _openDetail(HomeAppointment appointment) async {
@@ -525,7 +525,8 @@ class _AppointmentCalendar extends StatelessWidget {
               final disabled = firstSelectableDate != null &&
                   date.isBefore(_dateOnly(firstSelectableDate!));
               final hasAppointment = appointments.any(
-                (item) => _isSameDay(hospitalTime(item.scheduledAt), date),
+                (item) =>
+                    _isSameDay(parseKoreaDateTime(item.scheduledAt), date),
               );
 
               return InkWell(
@@ -633,7 +634,7 @@ class _AppointmentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final date = hospitalTime(appointment.scheduledAt);
+    final date = parseKoreaDateTime(appointment.scheduledAt);
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: InkWell(
@@ -794,9 +795,7 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
       return value is Map ? value['name']?.toString() ?? '' : '';
     }
 
-    final date = hospitalTime(
-      DateTime.tryParse(_detail!['scheduled_at']?.toString() ?? ''),
-    );
+    final date = parseKoreaDateTime(_detail!['scheduled_at']);
     final rescheduleHistory = AppointmentRescheduleHistory.fromJsonList(
       _detail!['reschedule_history'],
     );
@@ -1514,8 +1513,8 @@ class _SlotSelectionPageState extends State<_SlotSelectionPage> {
   String? _clinicianId;
   String? _selectedSlotId;
   String? _selectedDepartment;
-  DateTime _date = DateTime.now();
-  DateTime _displayedMonth = _monthStart(DateTime.now());
+  DateTime _date = koreaNow();
+  DateTime _displayedMonth = _monthStart(koreaNow());
   ReservationStep _step = ReservationStep.date;
   bool _loading = true;
   bool _submitting = false;
@@ -1830,10 +1829,10 @@ class _SlotSelectionPageState extends State<_SlotSelectionPage> {
             displayedMonth: _displayedMonth,
             selectedDate: _date,
             appointments: const [],
-            firstSelectableDate: _dateOnly(DateTime.now()),
+            firstSelectableDate: _dateOnly(koreaNow()),
             compact: true,
             onPreviousMonth: () => setState(() {
-              final now = _monthStart(DateTime.now());
+              final now = _monthStart(koreaNow());
               final previous =
                   DateTime(_displayedMonth.year, _displayedMonth.month - 1);
               if (!previous.isBefore(now)) _displayedMonth = previous;
@@ -2886,13 +2885,9 @@ String _formatSelectedDate(DateTime value) {
 
 String _formatSlotTime(DateTime? value) {
   if (value == null) return '-';
-  // Appointment slots are scheduled in the hospital time zone (Asia/Seoul).
-  // An Android emulator can run in UTC, so DateTime.toLocal() would otherwise
-  // display a 09:00 KST slot as 00:00.  Format the API instant explicitly in
-  // the hospital time zone instead of relying on the device time zone.
-  final hospitalTime = value.toUtc().add(const Duration(hours: 9));
-  final hour = hospitalTime.hour.toString().padLeft(2, '0');
-  final minute = hospitalTime.minute.toString().padLeft(2, '0');
+  final korea = parseKoreaDateTime(value)!;
+  final hour = korea.hour.toString().padLeft(2, '0');
+  final minute = korea.minute.toString().padLeft(2, '0');
   return '$hour:$minute';
 }
 
@@ -2906,7 +2901,7 @@ String _formatAppointmentDate(DateTime value) {
 }
 
 String _formatLocalAppointmentDate(DateTime? value) =>
-    value == null ? '-' : _formatAppointmentDate(hospitalTime(value)!);
+    value == null ? '-' : _formatAppointmentDate(parseKoreaDateTime(value)!);
 
 String _statusLabel(String status) =>
     {

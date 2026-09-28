@@ -51,6 +51,45 @@ class MedicationSchedulesApi {
       body: {'status': status},
     );
   }
+
+  Future<void> deleteIntake(String intakeId) async {
+    await _client.delete('/api/v1/medication-intakes/$intakeId');
+  }
+}
+
+const _koreaOffset = Duration(hours: 9);
+
+DateTime koreaNow() => _toKoreaWallTime(DateTime.now().toUtc());
+
+DateTime? parseKoreaDateTime(Object? value) {
+  if (value is DateTime) {
+    return value.isUtc ? _toKoreaWallTime(value) : value;
+  }
+
+  final raw = value?.toString().trim() ?? '';
+  if (raw.isEmpty) return null;
+  final parsed = DateTime.tryParse(raw);
+  if (parsed == null) return null;
+
+  // Django's aware ISO-8601 values include Z or an explicit UTC offset.
+  // Keep legacy offset-less values unchanged instead of assuming their zone.
+  final hasTimeZone = RegExp(r'(Z|[+-]\d{2}:?\d{2})$', caseSensitive: false)
+      .hasMatch(raw);
+  return hasTimeZone ? _toKoreaWallTime(parsed.toUtc()) : parsed;
+}
+
+DateTime _toKoreaWallTime(DateTime utcValue) {
+  final korea = utcValue.add(_koreaOffset);
+  return DateTime(
+    korea.year,
+    korea.month,
+    korea.day,
+    korea.hour,
+    korea.minute,
+    korea.second,
+    korea.millisecond,
+    korea.microsecond,
+  );
 }
 
 String _dateQuery(DateTime date) =>
@@ -84,14 +123,12 @@ class MedicationScheduleSummary {
         scheduleId: json['schedule_id']?.toString() ?? '',
         prescriptionId: json['prescription_id']?.toString() ?? '',
         medicationName: json['medication_name']?.toString() ?? '',
-        scheduledAt: DateTime.tryParse(json['scheduled_at']?.toString() ?? '')
-            ?.toLocal(),
+        scheduledAt: parseKoreaDateTime(json['scheduled_at']),
         timeSlot: json['time_slot']?.toString(),
         dose: json['dose']?.toString(),
         status: json['status']?.toString(),
         intakeId: json['intake_id']?.toString(),
-        takenAt:
-            DateTime.tryParse(json['taken_at']?.toString() ?? '')?.toLocal(),
+        takenAt: parseKoreaDateTime(json['taken_at']),
       );
 }
 

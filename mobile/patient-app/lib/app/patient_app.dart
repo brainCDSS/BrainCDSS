@@ -37,6 +37,7 @@ class _PatientAppState extends State<PatientApp> {
       _apiClient,
       _navigatorKey,
       onOpenMedicationReminder: _openMedicationReminder,
+      onOpenAppointmentReminder: _openAppointmentReminder,
     );
     _apiClient.setTokenRefresher(_refreshAccessToken);
     _restoreSession();
@@ -116,16 +117,29 @@ class _PatientAppState extends State<PatientApp> {
     }
   }
 
-  Future<void> _openMedicationReminder() async {
+  Future<void> _openMedicationReminder([DateTime? scheduledAt]) async {
     if (_session == null) return;
     _navigatorKey.currentState?.popUntil((route) => route.isFirst);
     final shell = _mainShellKey.currentState;
     if (shell != null) {
-      shell.openMedicationReminder();
+      shell.openMedicationReminder(scheduledAt);
       return;
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _openMedicationReminder();
+      if (mounted) _openMedicationReminder(scheduledAt);
+    });
+  }
+
+  Future<void> _openAppointmentReminder() async {
+    if (_session == null) return;
+    _navigatorKey.currentState?.popUntil((route) => route.isFirst);
+    final shell = _mainShellKey.currentState;
+    if (shell != null) {
+      shell.openAppointmentReminder();
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _openAppointmentReminder();
     });
   }
 
@@ -269,6 +283,7 @@ class _PatientAppState extends State<PatientApp> {
                   session: _session!,
                   onLogout: _logout,
                   onOpenMedicationReminder: _openMedicationReminder,
+                  onOpenAppointmentReminder: _openAppointmentReminder,
                 ),
       onGenerateRoute: (settings) {
         if (settings.name == '/notifications' && _session != null) {
@@ -276,6 +291,7 @@ class _PatientAppState extends State<PatientApp> {
             builder: (_) => NotificationsPage(
               apiClient: _apiClient,
               onOpenMedicationReminder: _openMedicationReminder,
+              onOpenAppointmentReminder: _openAppointmentReminder,
             ),
           );
         }

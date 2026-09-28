@@ -1,5 +1,6 @@
 """Preference-aware, per-device FCM delivery tasks."""
 
+import json
 import logging
 from datetime import datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -16,6 +17,21 @@ logger = logging.getLogger(__name__)
 
 def _safe_push_text(notification):
     event_type = str((notification.data_json or {}).get("event_type") or "")
+    if (
+        notification.category == "MEDICATION"
+        and event_type == "MEDICATION_REMINDER"
+    ):
+        return notification.title, notification.body
+    if (
+        notification.category == "PRESCRIPTION"
+        and event_type == "PRESCRIPTION_FINALIZED"
+    ):
+        return notification.title, notification.body
+    if (
+        notification.category == "APPOINTMENT"
+        and event_type == "APPOINTMENT_REMINDER"
+    ):
+        return notification.title, notification.body
     consultation_messages = {
         "CONSULTATION_REQUESTED": (
             "새로운 협진 요청",
@@ -92,11 +108,24 @@ def send_notification_device_fcm(self, notification_id: str, token_id: str):
     try:
         data = notification.data_json or {}
         title, body = _safe_push_text(notification)
+        payload_data = {
+            **data,
+            "notification_id": str(notification.id),
+            "event_type": str(data.get("event_type") or ""),
+            "category": notification.category,
+        }
+        if (
+            notification.category == "MEDICATION"
+            and data.get("event_type") == "MEDICATION_REMINDER"
+            and isinstance(data.get("medication_schedules"), list)
+        ):
+            payload_data["medication_schedules"] = json.dumps(
+                data["medication_schedules"],
+                ensure_ascii=False,
+            )
         send_fcm_message(
             token=device.token, title=title, body=body,
-            data={**data, "notification_id": str(notification.id),
-                  "event_type": str(data.get("event_type") or ""),
-                  "category": notification.category},
+            data=payload_data,
         )
         return {"sent": 1}
     except (messaging.UnregisteredError, messaging.SenderIdMismatchError):

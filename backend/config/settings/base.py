@@ -279,17 +279,9 @@ APPOINTMENT_REMINDER_BATCH_SIZE = int(
 # Medication Reminder (복약알림)
 # ---------------------------------------------------------------------
 # Default:
-# - notify patients when a MedicationSchedule enters
-#   the next 10-minute window;
-# - Celery Beat checks every 5 minutes;
+# - notify patients during the minute of MedicationSchedule.scheduled_at;
+# - Celery Beat checks every minute;
 # - each MedicationSchedule is notified only once.
-
-MEDICATION_REMINDER_MINUTES = int(
-    os.getenv(
-        "MEDICATION_REMINDER_MINUTES",
-        "10",
-    )
-)
 
 MEDICATION_REMINDER_BATCH_SIZE = int(
     os.getenv(
@@ -330,7 +322,7 @@ CELERY_BEAT_SCHEDULE = {
             "apps.medications.tasks.send_medication_reminders",
         "schedule":
             crontab(
-                minute="*/5",
+                minute="*",
             ),
     },
 

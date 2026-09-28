@@ -19,6 +19,8 @@ from apps.medication_safety.services.medication_safety import (
     MedicationSafetyError,
     check_medication_safety,
 )
+from apps.notifications.models import Notification
+from apps.notifications.services.notifications import create_notification_for_user
 from apps.prescriptions.models import (
     Prescription,
     PrescriptionItem,
@@ -29,6 +31,36 @@ BLOCKING_SEVERITIES = {
     "MAJOR",
     "BLOCK",
 }
+
+
+def _create_finalized_prescription_notification(*, prescription, patient):
+    """Create one post-finalization inbox row for the prescription owner."""
+    recipient_user = patient.user
+    if recipient_user is None:
+        return None
+
+    dedupe_key = f"prescription-finalized:{prescription.id}"
+    if Notification.objects.filter(
+        recipient_user=recipient_user,
+        category="PRESCRIPTION",
+        data_json__dedupe_key=dedupe_key,
+    ).exists():
+        return None
+
+    return create_notification_for_user(
+        recipient_user=recipient_user,
+        category="PRESCRIPTION",
+        severity="INFO",
+        title="새 처방이 등록되었어요",
+        body="새로운 처방이 등록되었습니다. 복약 일정을 확인해 주세요.",
+        data_json={
+            "event_type": "PRESCRIPTION_FINALIZED",
+            "prescription_id": str(prescription.id),
+            "patient_id": str(patient.id),
+            "encounter_id": str(prescription.encounter_id),
+            "dedupe_key": dedupe_key,
+        },
+    )
 
 
 class PrescriptionFinalizeError(Exception):
@@ -303,6 +335,7 @@ def finalize_prescription(
                 .select_related(
                     "encounter",
                     "encounter__patient",
+                    "encounter__patient__user",
                     "prescribed_by",
                 )
                 .get(
@@ -525,6 +558,11 @@ def finalize_prescription(
 
         schedules_created = (
             _create_schedules(items)
+        )
+
+        _create_finalized_prescription_notification(
+            prescription=prescription,
+            patient=patient,
         )
 
         record_audit_event(

@@ -1,5 +1,6 @@
 from django.urls import path
 from apps.medications.api import generated_real_149 as views
+from apps.medications.api.views import MedicationIntakeDetailView
 
 urlpatterns = [
     path(
@@ -9,7 +10,7 @@ urlpatterns = [
     ),
     path(
         'api/v1/medication-intakes/<uuid:intake_id>',
-        views.ContractView001.as_view(),
+        MedicationIntakeDetailView.as_view(),
         name='api_med_003',
     ),
     path(

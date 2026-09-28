@@ -15,6 +15,8 @@ class HomePage extends StatefulWidget {
     required this.apiClient,
     required this.session,
     required this.onOpenAppointments,
+    required this.onOpenClinicalHistory,
+    required this.onOpenMedications,
     required this.onOpenAppointmentDetail,
     required this.onOpenNotifications,
   });
@@ -22,6 +24,8 @@ class HomePage extends StatefulWidget {
   final ApiClient apiClient;
   final AuthSession session;
   final VoidCallback onOpenAppointments;
+  final VoidCallback onOpenClinicalHistory;
+  final VoidCallback onOpenMedications;
   final ValueChanged<HomeAppointment> onOpenAppointmentDetail;
   final VoidCallback onOpenNotifications;
 
@@ -34,6 +38,8 @@ class HomePageState extends State<HomePage> {
   static const Color _border = Color(0xFFCFD7E8);
   static const Color _textPrimary = Color(0xFF263A5A);
   static const Color _textSecondary = Color(0xFF65758D);
+  static const Color _textSecondaryStrong = Color(0xFF4E6380);
+  static const Color _brandBlue = Color(0xFF356FAF);
 
   late final HomeApi _homeApi;
   late final NotificationsApi _notificationsApi;
@@ -99,7 +105,7 @@ class HomePageState extends State<HomePage> {
   Future<void> _loadHomeSummaries() async {
     final results = await Future.wait([
       _medicationSchedulesApi
-          .listForDate(DateTime.now())
+          .listForDate(koreaNow())
           .catchError((_) => <MedicationScheduleSummary>[]),
       _testResultsApi.list().catchError((_) => <TestResultSummary>[]),
     ]);
@@ -161,11 +167,11 @@ class HomePageState extends State<HomePage> {
   Future<void> refreshNotifications() => _loadNotifications();
 
   List<HomeAppointment> get _todayAppointments {
-    final now = DateTime.now();
+    final now = koreaNow();
 
     final appointments = _appointments.where(
       (appointment) {
-        final scheduledAt = appointment.scheduledAt?.toLocal();
+        final scheduledAt = parseKoreaDateTime(appointment.scheduledAt);
 
         if (scheduledAt == null) {
           return false;
@@ -217,7 +223,7 @@ class HomePageState extends State<HomePage> {
     final upcoming = _appointments
         .where(
           (item) =>
-              item.scheduledAt?.toLocal().isAfter(DateTime.now()) ?? false,
+              parseKoreaDateTime(item.scheduledAt)?.isAfter(koreaNow()) ?? false,
         )
         .toList()
       ..sort((a, b) => a.scheduledAt!.compareTo(b.scheduledAt!));
@@ -315,7 +321,8 @@ class HomePageState extends State<HomePage> {
                     value: todayAppointmentCount == 0
                         ? '오늘 없음'
                         : '$todayAppointmentCount건',
-                    color: const Color(0xFFE8EBFF))),
+                    color: const Color(0xFFE8EBFF),
+                    onTap: widget.onOpenAppointments)),
             const SizedBox(width: 9),
             Expanded(
                 child: _HomeSummaryTile(
@@ -324,93 +331,101 @@ class HomePageState extends State<HomePage> {
                     value: _todaySchedules.isEmpty
                         ? '오늘 없음'
                         : '${_todaySchedules.length}건',
-                    color: const Color(0xFFF0F1FF))),
+                    color: const Color(0xFFF0F1FF),
+                    onTap: widget.onOpenMedications)),
             const SizedBox(width: 9),
             Expanded(
                 child: _HomeSummaryTile(
-                    icon: Icons.assignment_outlined,
-                    label: '검사·결과',
-                    value: _testResults.isEmpty
-                        ? '새 결과 없음'
-                        : '${_testResults.length}건',
-                    color: const Color(0xFFEDE8FF))),
+                    icon: Icons.description_outlined,
+                    label: '진료내역',
+                    value: _testResults.isEmpty ? '내역 보기' : '진료내역 보기',
+                    color: const Color(0xFFEDE8FF),
+                    onTap: widget.onOpenClinicalHistory)),
           ]),
         ],
       );
 
   Widget _buildTodayMedicationCard() {
     final schedule = _todaySchedules.isEmpty ? null : _todaySchedules.first;
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: _cardDecoration(),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          const Icon(Icons.medication_outlined,
-              color: Color(0xFFF5F6FD), size: 25),
-          const SizedBox(width: 9),
-          const Expanded(
-              child: Text('오늘 복약',
-                  style: TextStyle(
-                      color: _textPrimary,
-                      fontSize: 19,
-                      fontWeight: FontWeight.w800))),
-          Text(
-              _todaySchedules.isEmpty
-                  ? '일정 없음'
-                  : '오늘 ${_todaySchedules.length}건',
-              style: const TextStyle(color: _textSecondary, fontSize: 12)),
-        ]),
-        const SizedBox(height: 14),
-        if (schedule == null)
-          const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('오늘 복약할 약이 없습니다.',
-                style: TextStyle(
-                    color: _textPrimary, fontWeight: FontWeight.w700)),
-            SizedBox(height: 4),
-            Text('등록된 복약 일정이 없어요.',
-                style: TextStyle(color: _textSecondary, fontSize: 13)),
-          ])
-        else
-          Row(children: [
-            Container(
-                width: 46,
-                height: 46,
-                decoration: const BoxDecoration(
-                    color: Color(0xFFE5F5F5), shape: BoxShape.circle),
-                child: const Icon(Icons.medication_outlined,
-                    color: Color.fromARGB(255, 172, 196, 241))),
-            const SizedBox(width: 12),
-            Expanded(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                  Text(
-                      schedule.medicationName.isEmpty
-                          ? '-'
-                          : schedule.medicationName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          color: _textPrimary, fontWeight: FontWeight.w800)),
-                  const SizedBox(height: 4),
-                  Text(_homeScheduleTime(schedule),
-                      style:
-                          const TextStyle(color: _textSecondary, fontSize: 13)),
-                ])),
-            if (schedule.status?.trim().isNotEmpty == true)
-              Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                  decoration: BoxDecoration(
-                      color: const Color(0xFFE5F5F5),
-                      borderRadius: BorderRadius.circular(16)),
-                  child: Text(schedule.status!,
-                      style: const TextStyle(
-                          color: Color(0xFFF5F5FF),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700))),
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: widget.onOpenMedications,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: _surface,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFBFD2E7)),
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              const Icon(Icons.medication_outlined,
+                  color: _brandBlue, size: 25),
+              const SizedBox(width: 9),
+              const Expanded(
+                  child: Text('오늘 복약',
+                      style: TextStyle(
+                          color: _textPrimary,
+                          fontSize: 19,
+                          fontWeight: FontWeight.w800))),
+              Text(
+                  _todaySchedules.isEmpty
+                      ? '일정 없음'
+                      : '오늘 ${_todaySchedules.length}건',
+                  style: const TextStyle(
+                      color: _textSecondaryStrong,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600)),
+            ]),
+            const SizedBox(height: 14),
+            if (schedule == null)
+              const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('오늘 복약할 약이 없습니다.',
+                    style: TextStyle(
+                        color: _textPrimary, fontWeight: FontWeight.w700)),
+                SizedBox(height: 4),
+                Text('등록된 복약 일정이 없어요.',
+                    style: TextStyle(color: _textSecondary, fontSize: 13)),
+              ])
+            else
+              Row(children: [
+                Container(
+                    width: 46,
+                    height: 46,
+                    decoration: const BoxDecoration(
+                        color: Color(0xFFEAF2FC), shape: BoxShape.circle),
+                    child: const Icon(Icons.medication_outlined,
+                        color: _brandBlue)),
+                const SizedBox(width: 12),
+                Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                      Text(
+                          schedule.medicationName.isEmpty
+                              ? '-'
+                              : schedule.medicationName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              color: _textPrimary,
+                              fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 4),
+                      Text(_homeScheduleTime(schedule),
+                          style: const TextStyle(
+                              color: _textSecondaryStrong,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600)),
+                    ])),
+                if (schedule.status?.trim().isNotEmpty == true)
+                  _TodayMedicationStatusBadge(status: schedule.status!),
+              ]),
           ]),
-      ]),
+        ),
+      ),
     );
   }
 
@@ -436,7 +451,7 @@ class HomePageState extends State<HomePage> {
       },
     ];
 
-    final todayIndex = DateTime.now().day % tips.length;
+    final todayIndex = koreaNow().day % tips.length;
     final orderedTips = [
       tips[todayIndex],
       ...List.generate(
@@ -690,47 +705,99 @@ class HomePageState extends State<HomePage> {
   }
 }
 
+class _TodayMedicationStatusBadge extends StatelessWidget {
+  const _TodayMedicationStatusBadge({required this.status});
+
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    final normalized = status.trim().toUpperCase();
+    final isTaken = normalized == 'TAKEN';
+    final isPending = normalized == 'PENDING';
+    final label = isTaken
+        ? '복용 완료'
+        : isPending
+            ? '복용 예정'
+            : status;
+    final background = isTaken
+        ? const Color(0xFFE6F6EF)
+        : const Color(0xFFEAF2FC);
+    final foreground = isTaken
+        ? const Color(0xFF29986D)
+        : const Color(0xFF356FAF);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: foreground,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
 class _HomeSummaryTile extends StatelessWidget {
   const _HomeSummaryTile(
       {required this.icon,
       required this.label,
       required this.value,
-      required this.color});
+      required this.color,
+      required this.onTap});
 
   final IconData icon;
   final String label;
   final String value;
   final Color color;
+  final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Container(
-        height: 112,
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: color),
-            borderRadius: BorderRadius.circular(18)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                  color: color, borderRadius: BorderRadius.circular(11)),
-              child: Icon(icon, color: const Color(0xFF5665B8), size: 19)),
-          const Spacer(),
-          Text(label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Color(0xFF65758D), fontSize: 11)),
-          const SizedBox(height: 3),
-          Text(value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                  color: Color(0XFF263A5A),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800)),
-        ]),
+  Widget build(BuildContext context) => Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Ink(
+            height: 112,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: color),
+                borderRadius: BorderRadius.circular(18)),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                      color: color, borderRadius: BorderRadius.circular(11)),
+                  child:
+                      Icon(icon, color: const Color(0xFF5665B8), size: 19)),
+              const Spacer(),
+              Text(label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style:
+                      const TextStyle(color: Color(0xFF65758D), fontSize: 11)),
+              const SizedBox(height: 3),
+              Text(value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      color: Color(0XFF263A5A),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800)),
+            ]),
+          ),
+        ),
       );
 }
 
@@ -745,7 +812,7 @@ class _AppointmentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheduledAt = appointment.scheduledAt?.toLocal();
+    final scheduledAt = parseKoreaDateTime(appointment.scheduledAt);
 
     final info = <String>[
       if (appointment.hospitalName.isNotEmpty) appointment.hospitalName,
@@ -955,14 +1022,13 @@ class _EmptyCard extends StatelessWidget {
 }
 
 String _homeScheduleTime(MedicationScheduleSummary schedule) {
+  final timeSlot = schedule.timeSlot?.trim();
+  if (timeSlot != null && RegExp(r'^([01]\d|2[0-3]):[0-5]\d$').hasMatch(timeSlot)) {
+    return timeSlot;
+  }
   final scheduledAt = schedule.scheduledAt;
   if (scheduledAt == null) {
-    return schedule.timeSlot?.trim().isNotEmpty == true
-        ? schedule.timeSlot!.trim()
-        : '-';
+    return '-';
   }
-  final time =
-      '${scheduledAt.hour.toString().padLeft(2, '0')}:${scheduledAt.minute.toString().padLeft(2, '0')}';
-  final slot = schedule.timeSlot?.trim();
-  return slot == null || slot.isEmpty ? time : '$time · $slot';
+  return '${scheduledAt.hour.toString().padLeft(2, '0')}:${scheduledAt.minute.toString().padLeft(2, '0')}';
 }

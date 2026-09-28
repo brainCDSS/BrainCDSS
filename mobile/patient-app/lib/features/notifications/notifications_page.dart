@@ -490,7 +490,7 @@ bool _opensAppointmentManagement(PatientNotification item) =>
     item.data['event_type']?.toString() == 'APPOINTMENT_REMINDER';
 
 DateTime? _scheduledAt(PatientNotification item) =>
-    parseSeoulDateTime(item.data['scheduled_at']);
+    parseKoreaDateTime(item.data['scheduled_at']);
 
 String _formatReceivedAt(DateTime? value) {
   if (value == null) return '수신 시각 정보 없음';

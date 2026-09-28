@@ -5596,6 +5596,25 @@ def _patient_medication_intake_update(request, spec, kwargs):
     }, status=200)
 
 
+def _patient_medication_intake_delete(request, spec, kwargs):
+    del spec
+    intake_id = kwargs.get("intake_id")
+    intake_model = apps.get_model("medications", "MedicationIntake")
+    try:
+        intake = intake_model.objects.select_for_update().get(pk=intake_id)
+    except intake_model.DoesNotExist as exc:
+        raise NotFound({"code": "MEDICATION_INTAKE_NOT_FOUND"}) from exc
+
+    allowed_schedule_ids = _patient_medication_schedules(request).filter(
+        pk=intake.schedule_id,
+    ).values_list("id", flat=True)
+    if not allowed_schedule_ids:
+        raise NotFound({"code": "MEDICATION_INTAKE_NOT_FOUND"})
+
+    intake.delete()
+    return Response(status=204)
+
+
 CUSTOM_HANDLERS = {
     "API-RX-001": _batchb_rx_create,
     "API-CON-004": _consultation_accept_strict,
@@ -5631,6 +5650,7 @@ CUSTOM_HANDLERS = {
     "API-MED-001": _patient_medication_schedules_get,
     "API-MED-002": _patient_medication_intake_create,
     "API-MED-003": _patient_medication_intake_update,
+    "API-MED-004": _patient_medication_intake_delete,
     "API-CDS-001": _cds_discovery,
     "API-NOTE-001": _clinical_note_create,
     "API-NOTE-004": _clinical_note_update,

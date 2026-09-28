@@ -195,5 +195,5 @@ class PatientPushService {
       data['event_type']?.toString() == 'APPOINTMENT_REMINDER';
 
   DateTime? _scheduledAt(Map<String, dynamic> data) =>
-      parseSeoulDateTime(data['scheduled_at']);
+      parseKoreaDateTime(data['scheduled_at']);
 }

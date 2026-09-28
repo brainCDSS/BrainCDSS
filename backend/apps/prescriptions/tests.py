@@ -10,6 +10,10 @@ from apps.medications.models import Medication
 from apps.patients.models import Patient
 from apps.prescriptions.api.patient_prescription_views import PatientPrescriptionsView
 from apps.prescriptions.models import Prescription, PrescriptionItem
+from apps.prescriptions.services.prescription_finalize import (
+    _create_finalized_prescription_notification,
+)
+from apps.notifications.models import Notification
 
 
 class PatientPrescriptionsViewTests(TestCase):
@@ -52,3 +56,78 @@ class PatientPrescriptionsViewTests(TestCase):
         response = PatientPrescriptionsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data, {"results": []})
+
+
+class FinalizedPrescriptionNotificationTests(TestCase):
+    def setUp(self):
+        patient_role = Role.objects.get(code="PATIENT")
+        clinician_role = Role.objects.get(code="NEUROLOGIST")
+        self.patient_user = User.objects.create_user(
+            login_id="finalized-prescription-patient",
+            password="test-password",
+            name="Patient",
+            role=patient_role,
+        )
+        self.clinician = User.objects.create_user(
+            login_id="finalized-prescription-clinician",
+            password="test-password",
+            name="Clinician",
+            role=clinician_role,
+        )
+        now = timezone.now()
+        self.patient = Patient.objects.create(
+            user=self.patient_user,
+            patient_no="FINALIZED-RX-PATIENT",
+            name="Patient",
+            created_by=self.clinician,
+        )
+        encounter = Encounter.objects.create(
+            patient=self.patient,
+            encounter_no="FINALIZED-RX-ENCOUNTER",
+            encounter_type="OUTPATIENT",
+            status="COMPLETED",
+            arrived_at=now,
+            created_at=now,
+            updated_at=now,
+        )
+        self.prescription = Prescription.objects.create(
+            encounter=encounter,
+            prescribed_by=self.clinician,
+            status="FINAL",
+            finalized_at=now,
+            created_at=now,
+            updated_at=now,
+        )
+
+    def test_creates_one_patient_notification_with_finalized_payload(self):
+        notification = _create_finalized_prescription_notification(
+            prescription=self.prescription,
+            patient=self.patient,
+        )
+
+        self.assertIsNotNone(notification)
+        self.assertEqual(notification.recipient_user, self.patient_user)
+        self.assertEqual(notification.category, "PRESCRIPTION")
+        self.assertEqual(notification.severity, "INFO")
+        self.assertEqual(notification.data_json["event_type"], "PRESCRIPTION_FINALIZED")
+        self.assertEqual(notification.data_json["prescription_id"], str(self.prescription.id))
+        self.assertEqual(notification.data_json["patient_id"], str(self.patient.id))
+        self.assertEqual(Notification.objects.filter(category="PRESCRIPTION").count(), 1)
+        self.assertIsNone(
+            _create_finalized_prescription_notification(
+                prescription=self.prescription,
+                patient=self.patient,
+            )
+        )
+
+    def test_skips_notification_when_patient_has_no_user(self):
+        self.patient.user = None
+        self.patient.save(update_fields=["user"])
+
+        notification = _create_finalized_prescription_notification(
+            prescription=self.prescription,
+            patient=self.patient,
+        )
+
+        self.assertIsNone(notification)
+        self.assertFalse(Notification.objects.filter(category="PRESCRIPTION").exists())

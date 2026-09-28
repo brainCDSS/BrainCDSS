@@ -21,6 +21,7 @@ from apps.ai_analysis.api.model_admin import (
     MLflowModelVersionSyncView,
     MLModelOverviewView,
     MLModelVersionApproveView,
+    MLModelVersionValidateView,
     MLModelVersionRetireView,
     MLRoutingActivateView,
     MLRoutingCollectionView,
@@ -76,6 +77,10 @@ urlpatterns = [
     ),
     path("api/v1/admin/ml/overview", MLModelOverviewView.as_view()),
     path("api/v1/admin/ml/mlflow/sync", MLflowModelVersionSyncView.as_view()),
+    path(
+        "api/v1/admin/ml/model-versions/<uuid:version_id>/validate",
+        MLModelVersionValidateView.as_view(),
+    ),
     path(
         "api/v1/admin/ml/model-versions/<uuid:version_id>/approve",
         MLModelVersionApproveView.as_view(),

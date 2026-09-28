@@ -414,7 +414,12 @@ class AIResultReviewCollectionView(APIView):
 
     def get(self, request, result_id):
         result = self._result(request, result_id)
-        rows = AIResultReview.objects.filter(result=result).order_by("-reviewed_at")
+        rows = (
+            AIResultReview.objects
+            .filter(result=result)
+            .select_related("reviewer__role")
+            .order_by("-reviewed_at")
+        )
         return Response({"result_id": str(result.id), "reviews": [self._payload(row) for row in rows]})
 
     def post(self, request, result_id):
@@ -436,4 +441,10 @@ class AIResultReviewCollectionView(APIView):
             "decision": review.decision, "comment": review.comment,
             "corrected_findings": review.corrected_findings,
             "reviewer_id": str(review.reviewer_id), "reviewed_at": review.reviewed_at,
+            "reviewer": {
+                "user_id": str(review.reviewer_id),
+                "name": review.reviewer.name,
+                "role_code": review.reviewer.role.code,
+                "role_name": review.reviewer.role.name,
+            },
         }

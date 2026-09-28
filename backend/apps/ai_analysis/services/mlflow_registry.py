@@ -28,6 +28,7 @@ class RegistryModelVersion:
     model_version: str
     run_id: str
     artifact_uri: str
+    experiment_id: str
     created_at: datetime
     updated_at: datetime
     metrics: dict[str, object]
@@ -130,6 +131,9 @@ class MLflowRegistryClient:
                             artifact_uri=str(
                                 getattr(model_version, "source", "")
                                 or getattr(run_info, "artifact_uri", "")
+                            ),
+                            experiment_id=str(
+                                getattr(run_info, "experiment_id", "") or ""
                             ),
                             created_at=_to_datetime(
                                 getattr(model_version, "creation_timestamp", None)

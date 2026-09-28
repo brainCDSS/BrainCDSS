@@ -3475,6 +3475,133 @@
   backdrop-filter:blur(1.5px);
 }
 
+.patient-report-status {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin-top:8px;
+  padding:7px 8px;
+  border-radius:7px;
+  background:#f5f8fc;
+  color:#66758b;
+  font-size:8px;
+}
+
+.patient-report-status strong {
+  color:#62728a;
+  font-size:8px;
+}
+
+.patient-report-status strong.is-preliminary { color:#b36b00; }
+.patient-report-status strong.is-final { color:#16845b; }
+.patient-report-status strong.is-amended { color:#326fc2; }
+
+.patient-summary-card > .patient-report-open {
+  right:90px;
+  color:#1769c2;
+}
+
+.patient-report-error {
+  margin:6px 0 24px;
+  color:#c83d4f;
+  font-size:8px;
+}
+
+.radiology-report-backdrop {
+  position:fixed;
+  z-index:1250;
+  inset:0;
+  display:grid;
+  place-items:center;
+  padding:24px;
+  background:rgba(20,32,51,.46);
+  backdrop-filter:blur(1.5px);
+}
+
+.radiology-report-modal {
+  width:min(720px,100%);
+  max-height:calc(100vh - 48px);
+  overflow:auto;
+  border:1px solid #dbe4ef;
+  border-radius:16px;
+  background:#fff;
+  box-shadow:0 24px 60px rgba(20,35,58,.24);
+}
+
+.radiology-report-modal > header {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:18px 20px;
+  border-bottom:1px solid #e8edf4;
+}
+
+.radiology-report-modal > header span {
+  color:#2874c8;
+  font-size:10px;
+  font-weight:800;
+}
+
+.radiology-report-modal > header h2 {
+  margin:4px 0 0;
+  color:#1f3150;
+  font-size:20px;
+}
+
+.radiology-report-modal > header button {
+  border:0;
+  background:transparent;
+  color:#76849a;
+  font-size:24px;
+  cursor:pointer;
+}
+
+.radiology-report-meta {
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px;
+  margin:0;
+  padding:16px 20px;
+  background:#f8fafc;
+}
+
+.radiology-report-meta div { min-width:0; }
+.radiology-report-meta dt { color:#7b8799; font-size:10px; }
+.radiology-report-meta dd { margin:4px 0 0; color:#263b5c; font-size:12px; font-weight:800; }
+
+.radiology-report-content {
+  display:grid;
+  gap:12px;
+  padding:20px;
+}
+
+.radiology-report-content section {
+  padding:14px;
+  border:1px solid #e1e7ef;
+  border-radius:10px;
+}
+
+.radiology-report-content h3 { margin:0 0 8px; color:#27466f; font-size:13px; }
+.radiology-report-content p { margin:0; color:#3f4f65; font-size:12px; line-height:1.65; white-space:pre-wrap; }
+
+.radiology-report-modal > footer {
+  display:flex;
+  justify-content:flex-end;
+  padding:0 20px 20px;
+}
+
+.radiology-report-modal > footer button {
+  padding:8px 18px;
+  border:0;
+  border-radius:8px;
+  background:#2874c8;
+  color:#fff;
+  font-weight:800;
+  cursor:pointer;
+}
+
 .triage-review-modal {
   width:min(620px,100%);
   max-height:calc(100vh - 48px);

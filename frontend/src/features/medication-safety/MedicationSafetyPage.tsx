@@ -108,6 +108,8 @@ function assessmentItemValue(item: InitialAssessmentItem | undefined) {
 
 export default function MedicationSafetyPage({ context, onSelectPatient, onOpenPatientChart }: MedicationSafetyPageProps) {
   const [query, setQuery] = useState("");
+  const [advancedSearchOpen, setAdvancedSearchOpen] = useState(false);
+  const [diseaseGroup, setDiseaseGroup] = useState("");
   const [results, setResults] = useState<MedicationItem[]>([]);
   const [resultCount, setResultCount] = useState(0);
   const [prescription, setPrescription] = useState<PrescriptionResponse | null>(null);
@@ -307,11 +309,11 @@ export default function MedicationSafetyPage({ context, onSelectPatient, onOpenP
     setOverrideReasons({});
   }
 
-  async function handleSearch() {
-    if (!query.trim()) return;
+  async function handleSearch(diseaseGroupOverride = diseaseGroup) {
+    if (!query.trim() && !diseaseGroupOverride) return;
     begin("search");
     try {
-      const response = await searchMedications(query.trim());
+      const response = await searchMedications(query.trim(), diseaseGroupOverride);
       setResults(response.results);
       setResultCount(response.count);
     } catch (requestFailure) {
@@ -564,11 +566,17 @@ export default function MedicationSafetyPage({ context, onSelectPatient, onOpenP
             <div className="clinical-card__title medication-section-title"><h3><span aria-hidden="true">⌕</span> 처방 작성</h3><small>약물 검색 결과 {resultCount}건</small></div>
             <div className="clinical-toolbar medication-search">
               <input aria-label="약물 검색" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="약물명 또는 약품코드로 검색하세요. (예: 아스피린)" onKeyDown={(event) => { if (event.key === "Enter") void handleSearch(); }} />
-              <button type="button" className="is-primary" disabled={loading !== null || !query.trim()} onClick={() => void handleSearch()}>검색</button>
-              <button type="button" title="상세 검색 API 미제공" disabled>상세 검색⌄</button>
+              <button type="button" className="is-primary" disabled={loading !== null || (!query.trim() && !diseaseGroup)} onClick={() => void handleSearch()}>검색</button>
+              <button type="button" aria-expanded={advancedSearchOpen} onClick={() => setAdvancedSearchOpen((open) => !open)}>상세 검색{advancedSearchOpen ? "⌃" : "⌄"}</button>
             </div>
+            {advancedSearchOpen && <div className="medication-advanced-search">
+              <div><strong>질환 관련 약품 필터</strong><span>처방 권고가 아닌 사전 검토된 약품 매핑 검색입니다.</span></div>
+              <div className="medication-disease-filters" role="group" aria-label="질환 관련 약품 필터">
+                {[{ value: "", label: "전체" }, { value: "HEMORRHAGIC_STROKE", label: "뇌출혈" }, { value: "ISCHEMIC_STROKE", label: "뇌경색" }, { value: "CEREBRAL_ANEURYSM", label: "뇌동맥류" }].map((option) => <button key={option.value || "ALL"} type="button" className={diseaseGroup === option.value ? "is-active" : ""} onClick={() => { setDiseaseGroup(option.value); if (option.value || query.trim()) void handleSearch(option.value); else { setResults([]); setResultCount(0); } }}>{option.label}</button>)}
+              </div>
+            </div>}
             {loading === "search" ? <div className="clinical-state">검색 중...</div> : !results.length ? <div className="clinical-state">검색어를 입력하면 활성 약물 목록을 조회합니다.</div> : (
-              <div className="clinical-table-wrap medication-search-results"><table className="clinical-table"><thead><tr><th>약물명</th><th>제형</th><th>함량</th><th>제조사</th><th>선택</th></tr></thead><tbody>{results.slice(0, 2).map((medication) => <tr key={medication.id}><td><strong>{medication.medication_name}</strong><small>{medication.medication_code}</small></td><td>{medication.dosage_form}</td><td>{medication.strength}</td><td>{medication.manufacturer}</td><td><button type="button" className="medication-add" disabled={locked || items.some((item) => item.medication_id === medication.id)} onClick={() => addMedication(medication)}>＋ 추가</button></td></tr>)}</tbody></table></div>
+              <div className="clinical-table-wrap medication-search-results"><table className="clinical-table"><thead><tr><th>약물명</th><th>제형</th><th>함량</th><th>제조사</th><th>선택</th></tr></thead><tbody>{results.map((medication) => <tr key={medication.id}><td><strong>{medication.medication_name}</strong><small>{medication.medication_code}</small></td><td>{medication.dosage_form}</td><td>{medication.strength}</td><td>{medication.manufacturer}</td><td><button type="button" className="medication-add" disabled={locked || items.some((item) => item.medication_id === medication.id)} onClick={() => addMedication(medication)}>＋ 추가</button></td></tr>)}</tbody></table></div>
             )}
           </article>
 

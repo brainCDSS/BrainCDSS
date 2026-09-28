@@ -13,7 +13,6 @@ export const MENU_LABELS: Record<SidebarMenuKey, string> = {
   "radiology-reports": "최종 판독",
   cdss: "CDSS 결과",
   consultations: "협진",
-  "surgical-planning": "수술 · 시술 플래닝",
   prescriptions: "처방 / DUR",
   notifications: "알림 센터",
   // [추가] 관리자 메뉴
@@ -123,15 +122,6 @@ export const MENU_ALLOWED_ROLES: Record<
    * 협진
    */
   consultations: [
-    "NEUROLOGIST",
-    "NEUROSURGEON",
-    "RADIOLOGY",
-  ],
-
-  /*
-   * 수술 · 시술 플래닝
-   */
-  "surgical-planning": [
     "NEUROLOGIST",
     "NEUROSURGEON",
     "RADIOLOGY",

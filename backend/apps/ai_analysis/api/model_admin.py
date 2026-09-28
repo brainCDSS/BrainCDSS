@@ -11,6 +11,7 @@ from rest_framework.views import APIView
 from apps.ai_analysis.models import AIModel, AIModelConfigVersion, AIRoutingConfigVersion, ModelVersion
 from apps.ai_analysis.services.mlflow_registry import MLflowRegistryError
 from apps.ai_analysis.services.mlflow_sync import MLflowModelVersionSyncService
+from apps.ai_analysis.services.model_validation import MLModelVersionValidationService
 from apps.audit.services.audit_event import record_audit_event
 
 
@@ -20,6 +21,10 @@ def _require_system_admin(request):
 
 
 def _model_version_payload(version):
+    metrics = version.performance_metrics or {}
+    mlflow_metadata = metrics.get("_mlflow", {})
+    if not isinstance(mlflow_metadata, dict):
+        mlflow_metadata = {}
     return {
         "version_id": str(version.id),
         "model_id": str(version.model_id),
@@ -32,7 +37,11 @@ def _model_version_payload(version):
         "artifact_uri": version.artifact_uri,
         "validation_status": version.validation_status,
         "is_active": version.is_active,
-        "performance_metrics": version.performance_metrics or {},
+        "performance_metrics": metrics,
+        "experiment_id": mlflow_metadata.get("experiment_id", ""),
+        "model_bundle_uri": mlflow_metadata.get("model_bundle_uri", ""),
+        "manifest_uri": mlflow_metadata.get("manifest_uri", ""),
+        "checkpoint_uri": mlflow_metadata.get("checkpoint_uri", ""),
         "created_at": version.created_at.isoformat(),
         "updated_at": version.updated_at.isoformat(),
     }
@@ -64,6 +73,10 @@ class RoutingCreateSerializer(serializers.Serializer):
 class ReasonSerializer(serializers.Serializer):
     reason = serializers.CharField(max_length=500)
     confirmation = serializers.BooleanField()
+
+
+class ValidationRequestSerializer(ReasonSerializer):
+    threshold = serializers.FloatField(min_value=0, max_value=1, required=False)
 
 
 class MLModelOverviewView(APIView):
@@ -112,6 +125,68 @@ class MLflowModelVersionSyncView(APIView):
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
         return Response(result.as_dict())
+
+
+class MLModelVersionValidateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, version_id):
+        _require_system_admin(request)
+        data = ValidationRequestSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        if not data.validated_data["confirmation"]:
+            raise ValidationError({"confirmation": "true is required."})
+
+        version = ModelVersion.objects.select_related("model").filter(pk=version_id).first()
+        if version is None:
+            raise NotFound({"code": "MODEL_VERSION_NOT_FOUND"})
+        if version.validation_status != "DRAFT":
+            raise ValidationError({"code": "MODEL_VALIDATE_INVALID_STATE"})
+
+        validation = MLModelVersionValidationService().validate(
+            version,
+            threshold_override=data.validated_data.get("threshold"),
+        )
+        if not validation.passed:
+            return Response(
+                {"code": "MODEL_VALIDATION_FAILED", **validation.as_dict()},
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            )
+
+        with transaction.atomic():
+            locked = ModelVersion.objects.select_for_update().select_related("model").get(pk=version_id)
+            if locked.validation_status != "DRAFT":
+                raise ValidationError({"code": "MODEL_VALIDATE_INVALID_STATE"})
+            before = _model_version_payload(locked)
+            locked.input_contract = validation.input_contract
+            locked.output_contract = validation.output_contract
+            locked.preprocessing_config = validation.preprocessing_config
+            locked.validation_status = "VALIDATED"
+            locked.updated_at = timezone.now()
+            locked.save(update_fields=[
+                "input_contract", "output_contract", "preprocessing_config",
+                "validation_status", "updated_at",
+            ])
+            AIModelConfigVersion.objects.filter(model_version=locked, is_active=True).update(is_active=False)
+            AIModelConfigVersion.objects.create(
+                model_version=locked,
+                config_version=f"mlflow-{locked.mlflow_model_version}",
+                threshold_config=validation.threshold_config,
+                is_active=True,
+                created_at=timezone.now(),
+            )
+            record_audit_event(
+                source_service="backend.ai_analysis",
+                action="AI_MODEL_VERSION_VALIDATED",
+                resource_type="ModelVersion",
+                resource_id=locked.id,
+                outcome="SUCCESS",
+                request=request,
+                reason=data.validated_data["reason"],
+                before_json=before,
+                after_json={**_model_version_payload(locked), "checks": validation.as_dict()["checks"]},
+            )
+        return Response({**_model_version_payload(locked), **validation.as_dict()})
 
 
 class MLModelVersionApproveView(APIView):
@@ -198,7 +273,16 @@ class MLRoutingCollectionView(APIView):
             ).first()
             if version is None:
                 raise ValidationError({"target_model_version_id": "An approved model version is required."})
-            if values["modality"] not in (version.model.supported_modalities or []):
+            supported_modalities = set(version.model.supported_modalities or [])
+            mra_compatible = (
+                values["modality"] == "MRA"
+                and "MR" in supported_modalities
+                and (
+                    version.model.disease_scope == "ANEURYSM"
+                    or "MRA" in version.model.display_name.upper()
+                )
+            )
+            if values["modality"] not in supported_modalities and not mra_compatible:
                 raise ValidationError({"modality": "The target model does not support this modality."})
             if AIRoutingConfigVersion.objects.filter(version=values["version"]).exists():
                 raise ValidationError({"version": "Routing version already exists."})

@@ -1,8 +1,10 @@
 from django.utils import timezone
 from rest_framework.test import APITestCase
+from unittest.mock import patch
 
 from apps.accounts.models import Role, RoleCode, User
 from apps.ai_analysis.models import AIModel, AIModelConfigVersion, AIRoutingConfigVersion, ModelVersion
+from apps.ai_analysis.services.model_validation import ModelValidationResult, ValidationCheck
 
 
 class MLModelAdminAPITests(APITestCase):
@@ -28,6 +30,7 @@ class MLModelAdminAPITests(APITestCase):
         )
         self.validated = self._version("1.0.0", "VALIDATED", now)
         self.approved = self._version("0.9.0", "APPROVED", now)
+        self.draft = self._version("1.1.0", "DRAFT", now)
         for version in (self.validated, self.approved):
             AIModelConfigVersion.objects.create(
                 model_version=version,
@@ -69,7 +72,7 @@ class MLModelAdminAPITests(APITestCase):
     def test_overview_and_approval(self):
         response = self.client.get("/api/v1/admin/ml/overview")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data["versions"]), 2)
+        self.assertEqual(len(response.data["versions"]), 3)
 
         response = self.client.post(
             f"/api/v1/admin/ml/model-versions/{self.validated.id}/approve",
@@ -78,6 +81,46 @@ class MLModelAdminAPITests(APITestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["validation_status"], "APPROVED")
+
+    @patch("apps.ai_analysis.api.model_admin.MLModelVersionValidationService")
+    def test_validation_creates_active_config_and_keeps_version_inactive(self, service_class):
+        service_class.return_value.validate.return_value = ModelValidationResult(
+            checks=[ValidationCheck("READY", "Readiness", True, "ready")],
+            threshold_config={"threshold": 0.45},
+            input_contract={"schema_version": "1.0", "modality": "MRA"},
+            output_contract={"schema_version": "1.0", "outputs": ["mask"]},
+            preprocessing_config={"spacing": "1,1,1"},
+        )
+
+        response = self.client.post(
+            f"/api/v1/admin/ml/model-versions/{self.draft.id}/validate",
+            {"reason": "artifact and metrics verified", "confirmation": True},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.draft.refresh_from_db()
+        self.assertEqual(self.draft.validation_status, "VALIDATED")
+        self.assertFalse(self.draft.is_active)
+        config = AIModelConfigVersion.objects.get(model_version=self.draft, is_active=True)
+        self.assertEqual(config.threshold_config, {"threshold": 0.45})
+
+    @patch("apps.ai_analysis.api.model_admin.MLModelVersionValidationService")
+    def test_failed_validation_keeps_draft_and_does_not_create_config(self, service_class):
+        service_class.return_value.validate.return_value = ModelValidationResult(
+            checks=[ValidationCheck("METRICS", "Metrics", False, "missing")],
+        )
+
+        response = self.client.post(
+            f"/api/v1/admin/ml/model-versions/{self.draft.id}/validate",
+            {"reason": "validate candidate", "confirmation": True},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 422)
+        self.draft.refresh_from_db()
+        self.assertEqual(self.draft.validation_status, "DRAFT")
+        self.assertFalse(AIModelConfigVersion.objects.filter(model_version=self.draft).exists())
 
     def test_routing_activation_switches_the_active_route(self):
         routing = AIRoutingConfigVersion.objects.create(

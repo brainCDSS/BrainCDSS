@@ -1,3 +1,4 @@
+import json
 from unittest.mock import patch
 
 from django.test import TestCase
@@ -8,7 +9,11 @@ from rest_framework.test import APIClient
 from apps.accounts.models import Permission, Role, RolePermission, User
 from apps.notifications.models import FCMDeviceToken, Notification, NotificationCategoryPreference
 from apps.notifications.services.notifications import create_notification_for_user
-from apps.notifications.tasks.fcm import send_notification_device_fcm, send_notification_fcm
+from apps.notifications.tasks.fcm import (
+    _safe_push_text,
+    send_notification_device_fcm,
+    send_notification_fcm,
+)
 
 
 class NotificationCreationPreferenceTests(TestCase):
@@ -99,6 +104,7 @@ class NotificationRuntimeApiTests(TestCase):
         values = {item["category"]: item for item in response.data["categories"]}
         self.assertTrue(values["CRITICAL"]["enabled"])
         self.assertFalse(values["CONSULTATION"]["enabled"])
+        self.assertIn("MEDICATION", values)
 
     def test_user_cannot_deactivate_another_users_token(self):
         token = FCMDeviceToken.objects.create(
@@ -174,3 +180,122 @@ class FCMDeliveryTests(TestCase):
         device.refresh_from_db()
         self.assertFalse(device.is_active)
         self.assertEqual(result, {"sent": 0, "deactivated": 1})
+
+    def test_medication_reminder_uses_the_stored_push_text(self):
+        notification = Notification.objects.create(
+            recipient_user=self.user,
+            category="MEDICATION",
+            severity="INFO",
+            title="복약 시간이에요",
+            body="처방약 1정을 복용할 시간입니다.",
+            data_json={"event_type": "MEDICATION_REMINDER"},
+        )
+
+        self.assertEqual(
+            _safe_push_text(notification),
+            (notification.title, notification.body),
+        )
+
+    def test_appointment_reminder_uses_the_stored_push_text(self):
+        notification = Notification.objects.create(
+            recipient_user=self.user,
+            category="APPOINTMENT",
+            severity="INFO",
+            title="Appointment reminder",
+            body="Your appointment is scheduled.",
+            data_json={"event_type": "APPOINTMENT_REMINDER"},
+        )
+
+        self.assertEqual(
+            _safe_push_text(notification),
+            (notification.title, notification.body),
+        )
+
+    def test_finalized_prescription_uses_the_stored_push_text(self):
+        notification = Notification.objects.create(
+            recipient_user=self.user,
+            category="PRESCRIPTION",
+            severity="INFO",
+            title="새 처방이 등록되었어요",
+            body="새로운 처방이 등록되었습니다. 복약 일정을 확인해 주세요.",
+            data_json={"event_type": "PRESCRIPTION_FINALIZED"},
+        )
+
+        self.assertEqual(
+            _safe_push_text(notification),
+            (notification.title, notification.body),
+        )
+
+    @patch("apps.notifications.tasks.fcm.send_fcm_message")
+    def test_finalized_prescription_sends_the_stored_push_text(self, send):
+        notification = Notification.objects.create(
+            recipient_user=self.user,
+            category="PRESCRIPTION",
+            severity="INFO",
+            title="새 처방이 등록되었어요",
+            body="새로운 처방이 등록되었습니다. 복약 일정을 확인해 주세요.",
+            data_json={
+                "event_type": "PRESCRIPTION_FINALIZED",
+                "prescription_id": "prescription-id",
+            },
+        )
+        device = FCMDeviceToken.objects.create(
+            user=self.user,
+            device="prescription-device",
+            platform="ANDROID",
+            token="prescription-token",
+        )
+
+        result = send_notification_device_fcm.run(
+            str(notification.id), str(device.id)
+        )
+
+        self.assertEqual(result, {"sent": 1})
+        self.assertEqual(send.call_args.kwargs["title"], notification.title)
+        self.assertEqual(send.call_args.kwargs["body"], notification.body)
+        self.assertEqual(
+            send.call_args.kwargs["data"]["event_type"],
+            "PRESCRIPTION_FINALIZED",
+        )
+
+    @patch("apps.notifications.tasks.fcm.send_fcm_message")
+    def test_medication_reminder_sends_the_stored_push_text(self, send):
+        notification = Notification.objects.create(
+            recipient_user=self.user,
+            category="MEDICATION",
+            severity="INFO",
+            title="복약 시간이에요",
+            body="처방약 1정을 복용할 시간입니다.",
+            data_json={
+                "event_type": "MEDICATION_REMINDER",
+                "medication_schedule_id": "schedule-id",
+                "medication_schedules": [
+                    {
+                        "medication_schedule_id": "schedule-id",
+                        "medication_name": "Test medication",
+                    }
+                ],
+            },
+        )
+        device = FCMDeviceToken.objects.create(
+            user=self.user,
+            device="medication-device",
+            platform="ANDROID",
+            token="medication-token",
+        )
+
+        result = send_notification_device_fcm.run(
+            str(notification.id), str(device.id)
+        )
+
+        self.assertEqual(result, {"sent": 1})
+        self.assertEqual(send.call_args.kwargs["title"], notification.title)
+        self.assertEqual(send.call_args.kwargs["body"], notification.body)
+        self.assertEqual(
+            send.call_args.kwargs["data"]["medication_schedule_id"],
+            "schedule-id",
+        )
+        self.assertEqual(
+            json.loads(send.call_args.kwargs["data"]["medication_schedules"]),
+            notification.data_json["medication_schedules"],
+        )

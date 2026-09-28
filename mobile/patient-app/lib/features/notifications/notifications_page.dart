@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api/api_client.dart';
+import '../medications/patient_prescriptions_api.dart';
 import '../profile/profile_page.dart';
 import 'notifications_api.dart';
 
@@ -16,10 +17,12 @@ class NotificationsPage extends StatefulWidget {
     super.key,
     required this.apiClient,
     this.onOpenMedicationReminder,
+    this.onOpenAppointmentReminder,
   });
 
   final ApiClient apiClient;
-  final Future<void> Function()? onOpenMedicationReminder;
+  final Future<void> Function([DateTime? scheduledAt])? onOpenMedicationReminder;
+  final Future<void> Function()? onOpenAppointmentReminder;
 
   @override
   State<NotificationsPage> createState() => _NotificationsPageState();
@@ -64,6 +67,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     if (item.isRead) return true;
     try {
       await _api.markRead(item.id);
+      notificationRefreshNotifier.value++;
       await _load();
       return true;
     } on ApiException catch (error) {
@@ -78,8 +82,14 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   Future<void> _openNotification(PatientNotification item) async {
     final read = await _read(item);
-    if (!read || !_isMedicationReminder(item)) return;
-    await widget.onOpenMedicationReminder?.call();
+    if (!read) return;
+    if (_opensMedicationManagement(item)) {
+      await widget.onOpenMedicationReminder?.call(_scheduledAt(item));
+      return;
+    }
+    if (_opensAppointmentManagement(item)) {
+      await widget.onOpenAppointmentReminder?.call();
+    }
   }
 
   Future<void> _changeFilter(_NotificationFilter value) async {
@@ -459,11 +469,28 @@ IconData _categoryIcon(String category) {
   }
 }
 
-bool _isMedicationReminder(PatientNotification item) {
-  if (item.category.toUpperCase() != 'MEDICATION') return false;
+bool _opensMedicationManagement(PatientNotification item) {
+  final category = item.category.toUpperCase();
+  final eventType = item.data['event_type']?.toString();
+  if (category == 'PRESCRIPTION' && eventType == 'PRESCRIPTION_FINALIZED') {
+    final prescriptionId = item.data['prescription_id']?.toString().trim();
+    return prescriptionId != null && prescriptionId.isNotEmpty;
+  }
+
+  if (category != 'MEDICATION' || eventType != 'MEDICATION_REMINDER') {
+    return false;
+  }
+
   final scheduleId = item.data['medication_schedule_id']?.toString().trim();
   return scheduleId != null && scheduleId.isNotEmpty;
 }
+
+bool _opensAppointmentManagement(PatientNotification item) =>
+    item.category.toUpperCase() == 'APPOINTMENT' &&
+    item.data['event_type']?.toString() == 'APPOINTMENT_REMINDER';
+
+DateTime? _scheduledAt(PatientNotification item) =>
+    parseSeoulDateTime(item.data['scheduled_at']);
 
 String _formatReceivedAt(DateTime? value) {
   if (value == null) return '수신 시각 정보 없음';

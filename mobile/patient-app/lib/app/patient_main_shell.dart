@@ -9,6 +9,7 @@ import '../features/home/home_page.dart';
 import '../features/home/home_api.dart';
 import '../features/medications/medications_page.dart';
 import '../features/notifications/notifications_page.dart';
+import '../features/notifications/notifications_api.dart';
 import '../features/profile/profile_page.dart';
 import '../features/test-results/test_results_page.dart';
 
@@ -19,12 +20,14 @@ class PatientMainShell extends StatefulWidget {
     required this.session,
     required this.onLogout,
     required this.onOpenMedicationReminder,
+    required this.onOpenAppointmentReminder,
   });
 
   final ApiClient apiClient;
   final AuthSession session;
   final Future<void> Function() onLogout;
-  final Future<void> Function() onOpenMedicationReminder;
+  final Future<void> Function([DateTime? scheduledAt]) onOpenMedicationReminder;
+  final Future<void> Function() onOpenAppointmentReminder;
 
   @override
   State<PatientMainShell> createState() => PatientMainShellState();
@@ -40,6 +43,9 @@ class PatientMainShellState extends State<PatientMainShell> {
   final _medicationsKey = GlobalKey<MedicationsPageState>();
 
   late final List<Widget> _pages;
+  late final NotificationsApi _notificationsApi =
+      NotificationsApi(widget.apiClient);
+  int _unreadNotificationCount = 0;
 
   static const List<String> _titles = [
     '예약',
@@ -52,6 +58,8 @@ class PatientMainShellState extends State<PatientMainShell> {
   @override
   void initState() {
     super.initState();
+    notificationRefreshNotifier.addListener(_refreshUnreadNotificationCount);
+    _refreshUnreadNotificationCount();
 
     _pages = [
       AppointmentsPage(
@@ -65,6 +73,8 @@ class PatientMainShellState extends State<PatientMainShell> {
         apiClient: widget.apiClient,
         session: widget.session,
         onOpenAppointments: () => _selectTab(0),
+        onOpenClinicalHistory: () => _selectTab(1),
+        onOpenMedications: () => _selectTab(3),
         onOpenAppointmentDetail: _openAppointmentDetail,
         onOpenNotifications: _openNotifications,
       ),
@@ -77,6 +87,23 @@ class PatientMainShellState extends State<PatientMainShell> {
         onOpenChatbot: _openChatbot,
       ),
     ];
+  }
+
+  @override
+  void dispose() {
+    notificationRefreshNotifier.removeListener(_refreshUnreadNotificationCount);
+    super.dispose();
+  }
+
+  Future<void> _refreshUnreadNotificationCount() async {
+    try {
+      final response = await _notificationsApi.list();
+      if (mounted) {
+        setState(() => _unreadNotificationCount = response.unreadCount);
+      }
+    } catch (_) {
+      // Keep the last successfully loaded count when a refresh fails.
+    }
   }
 
   Widget _testResultsPage() => TestResultsPage(
@@ -99,6 +126,9 @@ class PatientMainShellState extends State<PatientMainShell> {
       );
 
   void _selectTab(int index) {
+    if (index == 3) {
+      _medicationsKey.currentState?.clearReminderFocus();
+    }
     setState(() {
       _selectedIndex = index;
       _isReservationFlow = false;
@@ -158,16 +188,25 @@ class PatientMainShellState extends State<PatientMainShell> {
         builder: (_) => NotificationsPage(
           apiClient: widget.apiClient,
           onOpenMedicationReminder: widget.onOpenMedicationReminder,
+          onOpenAppointmentReminder: widget.onOpenAppointmentReminder,
         ),
       ),
     );
     _homeKey.currentState?.refreshNotifications();
+    await _refreshUnreadNotificationCount();
   }
 
-  void openMedicationReminder() {
+  void openMedicationReminder([DateTime? scheduledAt]) {
     _selectTab(3);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _medicationsKey.currentState?.reload();
+      _medicationsKey.currentState?.reload(focusAt: scheduledAt);
+    });
+  }
+
+  void openAppointmentReminder() {
+    _selectTab(0);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _appointmentsKey.currentState?.reload();
     });
   }
 
@@ -228,7 +267,7 @@ class PatientMainShellState extends State<PatientMainShell> {
           IconButton(
             onPressed: _openNotifications,
             tooltip: '알림센터',
-            icon: const Icon(Icons.notifications_outlined),
+            icon: _NotificationBellBadge(count: _unreadNotificationCount),
           ),
         ],
       ),
@@ -330,6 +369,47 @@ class PatientMainShellState extends State<PatientMainShell> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _NotificationBellBadge extends StatelessWidget {
+  const _NotificationBellBadge({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final visible = count > 0;
+    final label = count >= 10 ? '9+' : '$count';
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        const Icon(Icons.notifications_outlined),
+        if (visible)
+          Positioned(
+            top: -5,
+            right: -7,
+            child: Container(
+              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              alignment: Alignment.center,
+              decoration: const BoxDecoration(
+                color: Color(0xFFE34B4B),
+                borderRadius: BorderRadius.all(Radius.circular(10)),
+              ),
+              child: Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  height: 1,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

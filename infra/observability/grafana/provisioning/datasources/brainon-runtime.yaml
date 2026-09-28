@@ -1,0 +1,55 @@
+apiVersion: 1
+
+datasources:
+
+  - name: BrainOn PostgreSQL
+    uid: brainon-postgres
+    type: postgres
+    access: proxy
+    url: ${GRAFANA_POSTGRES_HOST}:${GRAFANA_POSTGRES_PORT}
+    user: ${GRAFANA_POSTGRES_USER}
+    editable: true
+
+    jsonData:
+      database: ${GRAFANA_POSTGRES_DB}
+      sslmode: ${GRAFANA_POSTGRES_SSLMODE}
+      maxOpenConns: 10
+      maxIdleConns: 2
+      connMaxLifetime: 14400
+
+    secureJsonData:
+      password: ${GRAFANA_POSTGRES_PASSWORD}
+
+
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    editable: true
+
+    jsonData:
+      httpMethod: POST
+
+
+  - name: Loki
+    uid: loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    editable: true
+
+
+  - name: Google Cloud Monitoring
+    uid: gcp-monitoring
+    type: stackdriver
+    access: proxy
+    editable: true
+
+    jsonData:
+      authenticationType: jwt
+      clientEmail: ${GRAFANA_GCP_CLIENT_EMAIL}
+      defaultProject: ${GRAFANA_GCP_PROJECT}
+      tokenUri: https://oauth2.googleapis.com/token
+      universeDomain: googleapis.com
+      privateKeyPath: /etc/grafana/secrets/gcp-monitoring.pem

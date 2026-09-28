@@ -6,429 +6,1202 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "id": null,
-  "links": [
-    {
-      "type": "link",
-      "title": "운영 Overview",
-      "url": "/grafana/d/brainon-admin-overview/brainon-operations-overview?orgId=1",
-      "targetBlank": false,
-      "keepTime": true,
-      "includeVars": true
-    },
-    {
-      "type": "link",
-      "title": "API · Performance",
-      "url": "/grafana/d/brainon-admin-api/brainon-api-performance?orgId=1",
-      "targetBlank": false,
-      "keepTime": true,
-      "includeVars": true
-    },
-    {
-      "type": "link",
-      "title": "AI Operations",
-      "url": "/grafana/d/brainon-admin-ai/brainon-ai-operations?orgId=1",
-      "targetBlank": false,
-      "keepTime": true,
-      "includeVars": true
-    },
-    {
-      "type": "link",
-      "title": "Infrastructure",
-      "url": "/grafana/d/brainon-admin-infrastructure/brainon-infrastructure?orgId=1",
-      "targetBlank": false,
-      "keepTime": true,
-      "includeVars": true
-    },
-    {
-      "type": "link",
-      "title": "Async",
-      "url": "/grafana/d/brainon-admin-async/brainon-async-processing?orgId=1",
-      "targetBlank": false,
-      "keepTime": true,
-      "includeVars": true
-    },
-    {
-      "type": "link",
-      "title": "Incidents",
-      "url": "/grafana/d/brainon-admin-incidents/brainon-incidents?orgId=1",
-      "targetBlank": false,
-      "keepTime": true,
-      "includeVars": true
-    },
-    {
-      "type": "link",
-      "title": "Audit · Trace",
-      "url": "/grafana/d/brainon-admin-audit-trace/brainon-audit-request-trace?orgId=1",
-      "targetBlank": false,
-      "keepTime": true,
-      "includeVars": true
-    }
-  ],
-  "liveNow": true,
+  "links": [],
+  "liveNow": false,
   "panels": [
     {
-      "id": 1,
-      "type": "stat",
-      "title": "Outbox 대기",
+      "id": 101,
+      "type": "canvas",
+      "title": "",
+      "transparent": true,
+      "pluginVersion": "11.4.0",
       "datasource": {
-        "type": "postgres",
+        "type": "grafana-postgresql-datasource",
         "uid": "brainon-postgres"
       },
       "gridPos": {
         "x": 0,
         "y": 0,
-        "w": 4,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "noValue": "0",
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#D97706"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "value",
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center",
-        "wideLayout": true
+        "w": 24,
+        "h": 5
       },
       "targets": [
         {
           "refId": "A",
           "datasource": {
-            "type": "postgres",
+            "type": "grafana-postgresql-datasource",
             "uid": "brainon-postgres"
           },
           "format": "table",
-          "rawSql": "\nSELECT COUNT(*)::bigint AS value\nFROM common_outboxevent\nWHERE\n    status IN (\n        'PENDING',\n        'QUEUED',\n        'READY'\n    )\n"
+          "rawSql": "\nSELECT\n    COUNT(*) FILTER (\n        WHERE\n            $__timeFilter(created_at)\n            AND status IN (\n                'PENDING',\n                'QUEUED',\n                'READY'\n            )\n    )::bigint\n        AS \"OUTBOX_PENDING\",\n\n    COUNT(*) FILTER (\n        WHERE\n            $__timeFilter(created_at)\n            AND status IN (\n                'FAILED',\n                'ERROR'\n            )\n    )::bigint\n        AS \"OUTBOX_FAILED\",\n\n    COUNT(*) FILTER (\n        WHERE\n            $__timeFilter(created_at)\n            AND status IN (\n                'PUBLISHED',\n                'COMPLETED',\n                'SUCCESS'\n            )\n    )::bigint\n        AS \"OUTBOX_PUBLISHED\",\n\n    COUNT(*) FILTER (\n        WHERE\n            $__timeFilter(created_at)\n            AND retry_count > 0\n    )::bigint\n        AS \"OUTBOX_RETRIED\"\n\nFROM common_outboxevent\n"
         }
       ],
-      "description": "아직 발행되지 않은 Domain Outbox 이벤트.",
-      "transparent": false
-    },
-    {
-      "id": 2,
-      "type": "stat",
-      "title": "Outbox 실패",
-      "datasource": {
-        "type": "postgres",
-        "uid": "brainon-postgres"
-      },
-      "gridPos": {
-        "x": 4,
-        "y": 0,
-        "w": 4,
-        "h": 4
-      },
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "noValue": "0",
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#DC2626"
-          }
+          "mappings": []
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "value",
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center",
-        "wideLayout": true
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "postgres",
-            "uid": "brainon-postgres"
+        "inlineEditing": false,
+        "showAdvancedTypes": true,
+        "panZoom": false,
+        "infinitePan": false,
+        "root": {
+          "type": "frame",
+          "name": "Async Summary",
+          "background": {
+            "color": {
+              "fixed": "transparent"
+            }
           },
-          "format": "table",
-          "rawSql": "\nSELECT COUNT(*)::bigint AS value\nFROM common_outboxevent\nWHERE\n    status IN (\n        'FAILED',\n        'ERROR'\n    )\n"
-        }
-      ],
-      "description": "발행 실패 상태의 Outbox 이벤트.",
-      "transparent": false
-    },
-    {
-      "id": 3,
-      "type": "stat",
-      "title": "기간 발행 완료",
-      "datasource": {
-        "type": "postgres",
-        "uid": "brainon-postgres"
-      },
-      "gridPos": {
-        "x": 8,
-        "y": 0,
-        "w": 4,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "noValue": "0",
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#059669"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "value",
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center",
-        "wideLayout": true
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "postgres",
-            "uid": "brainon-postgres"
+          "border": {
+            "width": 0,
+            "color": {
+              "fixed": "transparent"
+            }
           },
-          "format": "table",
-          "rawSql": "\nSELECT COUNT(*)::bigint AS value\nFROM common_outboxevent\nWHERE\n    $__timeFilter(created_at)\n    AND status IN (\n        'PUBLISHED',\n        'COMPLETED',\n        'SUCCESS'\n    )\n"
-        }
-      ],
-      "description": "선택 기간에 생성된 이벤트 중 정상 발행 완료 건수.",
-      "transparent": false
-    },
-    {
-      "id": 4,
-      "type": "stat",
-      "title": "재시도 이벤트",
-      "datasource": {
-        "type": "postgres",
-        "uid": "brainon-postgres"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 0,
-        "w": 4,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "noValue": "0",
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#7C3AED"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "value",
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center",
-        "wideLayout": true
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "postgres",
-            "uid": "brainon-postgres"
-          },
-          "format": "table",
-          "rawSql": "\nSELECT COUNT(*)::bigint AS value\nFROM common_outboxevent\nWHERE\n    $__timeFilter(created_at)\n    AND retry_count > 0\n"
-        }
-      ],
-      "description": "선택 기간 중 한 번 이상 재시도된 Outbox 이벤트.",
-      "transparent": false
-    },
-    {
-      "id": 5,
-      "type": "stat",
-      "title": "Celery Worker",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 16,
-        "y": 0,
-        "w": 4,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "noValue": "N/A",
-          "mappings": [
+          "elements": [
             {
-              "type": "value",
-              "options": {
-                "0": {
-                  "text": "장애",
-                  "color": "#DC2626"
+              "type": "rectangle",
+              "name": "kpi-0-card",
+              "placement": {
+                "left": 1.0,
+                "right": 75.25,
+                "top": 6,
+                "height": 142,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
                 },
-                "1": {
-                  "text": "정상",
-                  "color": "#059669"
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#171A1F"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 9,
+                "color": {
+                  "fixed": "#2A3038"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "kpi-0-icon-bg",
+              "placement": {
+                "left": 2.0,
+                "right": 94.5,
+                "top": 16,
+                "height": 32,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#3B2B16"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 7,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-0-icon",
+              "placement": {
+                "left": 2.5,
+                "right": 95.1,
+                "top": 19,
+                "height": 23,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 14,
+                "color": {
+                  "fixed": "#F59E0B"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Q",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-0-title",
+              "placement": {
+                "left": 6.0,
+                "right": 76.65,
+                "top": 15,
+                "height": 24,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 14,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Outbox 발행 대기",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "kpi-0-value",
+              "placement": {
+                "left": 3.0,
+                "right": 77.25,
+                "top": 61,
+                "height": 39,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 24,
+                "color": {
+                  "fixed": "#F59E0B"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "OUTBOX_PENDING"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": [
+                {
+                  "title": "상세 보기",
+                  "url": "/d/brainon-admin-async/brainon?${__url_time_range}&viewPanel=321",
+                  "targetBlank": false,
+                  "oneClick": true
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "name": "kpi-0-subtitle",
+              "placement": {
+                "left": 3.0,
+                "right": 77.25,
+                "top": 108,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "아직 처리되지 않은 이벤트",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-0-unit",
+              "placement": {
+                "left": 3.0,
+                "right": 77.25,
+                "top": 128,
+                "height": 14,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#626B78"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "건",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "kpi-1-card",
+              "placement": {
+                "left": 25.75,
+                "right": 50.5,
+                "top": 6,
+                "height": 142,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#171A1F"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 9,
+                "color": {
+                  "fixed": "#2A3038"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "kpi-1-icon-bg",
+              "placement": {
+                "left": 26.75,
+                "right": 69.75,
+                "top": 16,
+                "height": 32,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#3F1E26"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 7,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-1-icon",
+              "placement": {
+                "left": 27.25,
+                "right": 70.35,
+                "top": 19,
+                "height": 23,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 14,
+                "color": {
+                  "fixed": "#FF5A67"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "!",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-1-title",
+              "placement": {
+                "left": 30.75,
+                "right": 51.9,
+                "top": 15,
+                "height": 24,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 14,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Outbox 발행 실패",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "kpi-1-value",
+              "placement": {
+                "left": 27.75,
+                "right": 52.5,
+                "top": 61,
+                "height": 39,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 24,
+                "color": {
+                  "fixed": "#FF5A67"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "OUTBOX_FAILED"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": [
+                {
+                  "title": "상세 보기",
+                  "url": "/d/brainon-admin-async/brainon?${__url_time_range}&viewPanel=322",
+                  "targetBlank": false,
+                  "oneClick": true
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "name": "kpi-1-subtitle",
+              "placement": {
+                "left": 27.75,
+                "right": 52.5,
+                "top": 108,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "FAILED · ERROR 상태",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-1-unit",
+              "placement": {
+                "left": 27.75,
+                "right": 52.5,
+                "top": 128,
+                "height": 14,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#626B78"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "건",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "kpi-2-card",
+              "placement": {
+                "left": 50.5,
+                "right": 25.75,
+                "top": 6,
+                "height": 142,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#171A1F"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 9,
+                "color": {
+                  "fixed": "#2A3038"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "kpi-2-icon-bg",
+              "placement": {
+                "left": 51.5,
+                "right": 45.0,
+                "top": 16,
+                "height": 32,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#17372F"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 7,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-2-icon",
+              "placement": {
+                "left": 52.0,
+                "right": 45.6,
+                "top": 19,
+                "height": 23,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 14,
+                "color": {
+                  "fixed": "#35C79B"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "✓",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-2-title",
+              "placement": {
+                "left": 55.5,
+                "right": 27.15,
+                "top": 15,
+                "height": 24,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 14,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "기간 발행 완료",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "kpi-2-value",
+              "placement": {
+                "left": 52.5,
+                "right": 27.75,
+                "top": 61,
+                "height": 39,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 24,
+                "color": {
+                  "fixed": "#35C79B"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "OUTBOX_PUBLISHED"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": [
+                {
+                  "title": "상세 보기",
+                  "url": "/d/brainon-admin-async/brainon?${__url_time_range}&viewPanel=323",
+                  "targetBlank": false,
+                  "oneClick": true
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "name": "kpi-2-subtitle",
+              "placement": {
+                "left": 52.5,
+                "right": 27.75,
+                "top": 108,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "선택 기간 정상 처리 이벤트",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-2-unit",
+              "placement": {
+                "left": 52.5,
+                "right": 27.75,
+                "top": 128,
+                "height": 14,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#626B78"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "건",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "kpi-3-card",
+              "placement": {
+                "left": 75.25,
+                "right": 1.0,
+                "top": 6,
+                "height": 142,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#171A1F"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 9,
+                "color": {
+                  "fixed": "#2A3038"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "kpi-3-icon-bg",
+              "placement": {
+                "left": 76.25,
+                "right": 20.25,
+                "top": 16,
+                "height": 32,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#2B2042"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 7,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-3-icon",
+              "placement": {
+                "left": 76.75,
+                "right": 20.85,
+                "top": 19,
+                "height": 23,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 14,
+                "color": {
+                  "fixed": "#8B5CF6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "↻",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-3-title",
+              "placement": {
+                "left": 80.25,
+                "right": 2.3999999999999986,
+                "top": 15,
+                "height": 24,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 14,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "재시도 이벤트",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "kpi-3-value",
+              "placement": {
+                "left": 77.25,
+                "right": 3.0,
+                "top": 61,
+                "height": 39,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 24,
+                "color": {
+                  "fixed": "#8B5CF6"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "OUTBOX_RETRIED"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": [
+                {
+                  "title": "상세 보기",
+                  "url": "/d/brainon-admin-async/brainon?${__url_time_range}&viewPanel=324",
+                  "targetBlank": false,
+                  "oneClick": true
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "name": "kpi-3-subtitle",
+              "placement": {
+                "left": 77.25,
+                "right": 3.0,
+                "top": 108,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "retry_count > 0",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-3-unit",
+              "placement": {
+                "left": 77.25,
+                "right": 3.0,
+                "top": 128,
+                "height": 14,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#626B78"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "건",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
                 }
               }
             }
           ]
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "value",
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "max(brainon_celery_workers_online{job=\"celery-monitor\"})",
-          "instant": true,
-          "range": false
         }
-      ],
-      "description": "Celery heartbeat/event 기반 실제 online worker 수.",
-      "transparent": false
-    },
-    {
-      "id": 6,
-      "type": "stat",
-      "title": "RabbitMQ",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 20,
-        "y": 0,
-        "w": 4,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "noValue": "N/A",
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": {
-                  "text": "장애",
-                  "color": "#DC2626"
-                },
-                "1": {
-                  "text": "정상",
-                  "color": "#059669"
-                }
-              }
-            }
-          ]
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "value",
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "max(up{job=\"rabbitmq\"})",
-          "legendFormat": "",
-          "range": false,
-          "instant": true
-        }
-      ],
-      "description": "RabbitMQ metric 연결 후 broker 상태 표시.",
-      "transparent": false
+      }
     },
     {
       "id": 7,
       "type": "timeseries",
       "title": "비동기 이벤트 처리 추이",
       "datasource": {
-        "type": "postgres",
+        "type": "grafana-postgresql-datasource",
         "uid": "brainon-postgres"
       },
       "gridPos": {
         "x": 0,
-        "y": 4,
-        "w": 12,
+        "y": 5,
+        "w": 17,
         "h": 7
       },
       "fieldConfig": {
@@ -448,13 +1221,10 @@
       },
       "options": {
         "legend": {
-          "displayMode": "table",
+          "displayMode": "list",
           "placement": "bottom",
           "showLegend": true,
-          "calcs": [
-            "sum",
-            "max"
-          ]
+          "calcs": []
         },
         "tooltip": {
           "mode": "multi",
@@ -465,343 +1235,1202 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "postgres",
+            "type": "grafana-postgresql-datasource",
             "uid": "brainon-postgres"
           },
           "format": "time_series",
           "rawSql": "\nSELECT\n    $__timeGroupAlias(\n        created_at,\n        '1h'\n    ),\n\n    COUNT(*) FILTER (\n        WHERE status IN (\n            'PUBLISHED',\n            'COMPLETED',\n            'SUCCESS'\n        )\n    )::double precision AS \"발행 완료\",\n\n    COUNT(*) FILTER (\n        WHERE status IN (\n            'PENDING',\n            'QUEUED',\n            'READY'\n        )\n    )::double precision AS \"대기\",\n\n    COUNT(*) FILTER (\n        WHERE status IN (\n            'FAILED',\n            'ERROR'\n        )\n    )::double precision AS \"실패\"\n\nFROM common_outboxevent\nWHERE $__timeFilter(created_at)\nGROUP BY 1\nORDER BY 1\n"
         }
       ],
-      "description": "OutboxEvent를 기준으로 한 비동기 이벤트 처리 상태 추이.",
+      "description": "Outbox 이벤트의 발행 완료 · 대기 · 실패 상태를 시간 흐름으로 비교합니다.",
       "transparent": false
     },
     {
-      "id": 8,
-      "type": "table",
-      "title": "최근 비동기 이벤트",
-      "datasource": {
-        "type": "postgres",
-        "uid": "brainon-postgres"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 4,
-        "w": 12,
-        "h": 7
-      },
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm",
-        "footer": {
-          "show": false
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "postgres",
-            "uid": "brainon-postgres"
-          },
-          "format": "table",
-          "rawSql": "\nSELECT\n    created_at AS \"발생 시각\",\n    event_type AS \"이벤트\",\n    aggregate_type AS \"대상\",\n    status AS \"상태\",\n    retry_count AS \"재시도\",\n    published_at AS \"발행 시각\"\nFROM common_outboxevent\nWHERE $__timeFilter(created_at)\nORDER BY created_at DESC\nLIMIT 50\n"
-        }
-      ],
-      "description": "최근 Outbox 이벤트 처리 내역.",
-      "transparent": false
-    },
-    {
-      "id": 9,
-      "type": "stat",
-      "title": "Celery Active Tasks",
+      "id": 201,
+      "type": "canvas",
+      "title": "",
+      "transparent": true,
+      "pluginVersion": "11.4.0",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 0,
-        "y": 11,
-        "w": 6,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "noValue": "0",
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#2563EB"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "value",
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center"
+        "x": 17,
+        "y": 5,
+        "w": 7,
+        "h": 7
       },
       "targets": [
         {
           "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max(brainon_celery_workers_online{job=\"celery-monitor\"})",
+          "legendFormat": "CELERY_WORKERS",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max(up{job=\"rabbitmq\"})",
+          "legendFormat": "RABBIT_UP",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "C",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "editorMode": "code",
           "expr": "sum(brainon_celery_tasks_active{job=\"celery-monitor\"})",
+          "legendFormat": "CELERY_ACTIVE",
           "instant": true,
           "range": false
-        }
-      ],
-      "transparent": false
-    },
-    {
-      "id": 10,
-      "type": "stat",
-      "title": "Celery Failed",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 6,
-        "y": 11,
-        "w": 6,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "noValue": "0",
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#DC2626"
-          }
         },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "value",
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center"
-      },
-      "targets": [
         {
-          "refId": "A",
+          "refId": "D",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(increase(brainon_celery_task_events_total{job=\"celery-monitor\",event=\"failed\",task!=\"\",task!=\"brainon.observability.ping\"}[$__range]))",
+          "expr": "sum(increase(brainon_celery_task_events_total{job=\"celery-monitor\",event=\"failed\",task!=\"\"}[$__range]))",
+          "legendFormat": "CELERY_FAILED",
           "instant": true,
           "range": false
-        }
-      ],
-      "transparent": false,
-      "description": "실제 Celery 업무 task 실패 건수. 운영 probe는 제외합니다."
-    },
-    {
-      "id": 11,
-      "type": "stat",
-      "title": "Celery Retried",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 11,
-        "w": 6,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "noValue": "0",
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#D97706"
-          }
         },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "value",
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center"
-      },
-      "targets": [
         {
-          "refId": "A",
+          "refId": "E",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(increase(brainon_celery_task_events_total{job=\"celery-monitor\",event=\"retried\",task!=\"\",task!=\"brainon.observability.ping\"}[$__range]))",
+          "expr": "sum(increase(brainon_celery_task_events_total{job=\"celery-monitor\",event=\"retried\",task!=\"\"}[$__range]))",
+          "legendFormat": "CELERY_RETRIED",
           "instant": true,
           "range": false
-        }
-      ],
-      "transparent": false,
-      "description": "실제 Celery 업무 task 재시도 건수."
-    },
-    {
-      "id": 12,
-      "type": "stat",
-      "title": "RabbitMQ Queue Depth",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 18,
-        "y": 11,
-        "w": 6,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "noValue": "0",
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#7C3AED"
-          }
         },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "value",
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center"
-      },
-      "targets": [
         {
-          "refId": "A",
+          "refId": "F",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "editorMode": "code",
           "expr": "sum(rabbitmq_queue_messages{job=\"rabbitmq-per-object\"})",
+          "legendFormat": "QUEUE_DEPTH",
           "instant": true,
           "range": false
         }
       ],
-      "transparent": false
+      "fieldConfig": {
+        "defaults": {
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "inlineEditing": false,
+        "showAdvancedTypes": true,
+        "panZoom": false,
+        "infinitePan": false,
+        "root": {
+          "type": "frame",
+          "name": "Async Runtime",
+          "background": {
+            "color": {
+              "fixed": "transparent"
+            }
+          },
+          "border": {
+            "width": 0,
+            "color": {
+              "fixed": "transparent"
+            }
+          },
+          "elements": [
+            {
+              "type": "rectangle",
+              "name": "icon-bg",
+              "placement": {
+                "left": 4,
+                "right": 84,
+                "top": 10,
+                "height": 32,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#1D2B40"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 7,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "icon",
+              "placement": {
+                "left": 7,
+                "right": 87,
+                "top": 13,
+                "height": 23,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 15,
+                "color": {
+                  "fixed": "#5794F2"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "⚙",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "title",
+              "placement": {
+                "left": 19,
+                "right": 11,
+                "top": 9,
+                "height": 24,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 15,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "비동기 Runtime 현황",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "subtitle",
+              "placement": {
+                "left": 19,
+                "right": 9,
+                "top": 32,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Celery · RabbitMQ 실시간 처리 상태",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "title-0",
+              "placement": {
+                "left": 7,
+                "right": 49,
+                "top": 61,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Celery Worker",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "value-0",
+              "placement": {
+                "left": 64,
+                "right": 7,
+                "top": 61,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "size": 12,
+                "color": {
+                  "fixed": "#35C79B"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "CELERY_WORKERS"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "subtitle-0",
+              "placement": {
+                "left": 7,
+                "right": 26,
+                "top": 78,
+                "height": 13,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#626B78"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Worker 온라인 상태",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "divider-1",
+              "placement": {
+                "left": 5,
+                "right": 5,
+                "top": 88,
+                "height": 1,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#303640"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "title-1",
+              "placement": {
+                "left": 7,
+                "right": 49,
+                "top": 93,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "RabbitMQ",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "value-1",
+              "placement": {
+                "left": 64,
+                "right": 7,
+                "top": 93,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "size": 12,
+                "color": {
+                  "fixed": "#2DD4BF"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "RABBIT_UP"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "subtitle-1",
+              "placement": {
+                "left": 7,
+                "right": 26,
+                "top": 110,
+                "height": 13,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#626B78"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Message Broker 상태",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "divider-2",
+              "placement": {
+                "left": 5,
+                "right": 5,
+                "top": 120,
+                "height": 1,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#303640"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "title-2",
+              "placement": {
+                "left": 7,
+                "right": 49,
+                "top": 125,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Active Tasks",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "value-2",
+              "placement": {
+                "left": 64,
+                "right": 7,
+                "top": 125,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "size": 12,
+                "color": {
+                  "fixed": "#5794F2"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "CELERY_ACTIVE"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "subtitle-2",
+              "placement": {
+                "left": 7,
+                "right": 26,
+                "top": 142,
+                "height": 13,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#626B78"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "현재 실행 중 Task",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "divider-3",
+              "placement": {
+                "left": 5,
+                "right": 5,
+                "top": 152,
+                "height": 1,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#303640"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "title-3",
+              "placement": {
+                "left": 7,
+                "right": 49,
+                "top": 157,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Failed Tasks",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "value-3",
+              "placement": {
+                "left": 64,
+                "right": 7,
+                "top": 157,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "size": 12,
+                "color": {
+                  "fixed": "#FF5A67"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "CELERY_FAILED"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "subtitle-3",
+              "placement": {
+                "left": 7,
+                "right": 26,
+                "top": 174,
+                "height": 13,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#626B78"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "선택 기간 실패 Task",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "divider-4",
+              "placement": {
+                "left": 5,
+                "right": 5,
+                "top": 184,
+                "height": 1,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#303640"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "title-4",
+              "placement": {
+                "left": 7,
+                "right": 49,
+                "top": 189,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Retried Tasks",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "value-4",
+              "placement": {
+                "left": 64,
+                "right": 7,
+                "top": 189,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "size": 12,
+                "color": {
+                  "fixed": "#F59E0B"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "CELERY_RETRIED"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "subtitle-4",
+              "placement": {
+                "left": 7,
+                "right": 26,
+                "top": 206,
+                "height": 13,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#626B78"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "선택 기간 재시도",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "divider-5",
+              "placement": {
+                "left": 5,
+                "right": 5,
+                "top": 216,
+                "height": 1,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#303640"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "title-5",
+              "placement": {
+                "left": 7,
+                "right": 49,
+                "top": 221,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Queue Depth",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "value-5",
+              "placement": {
+                "left": 64,
+                "right": 7,
+                "top": 221,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "size": 12,
+                "color": {
+                  "fixed": "#8B5CF6"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "QUEUE_DEPTH"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "subtitle-5",
+              "placement": {
+                "left": 7,
+                "right": 26,
+                "top": 238,
+                "height": 13,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#626B78"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "RabbitMQ 대기 Message",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            }
+          ]
+        }
+      }
     },
     {
-      "id": 13,
+      "id": 14,
       "type": "timeseries",
-      "title": "Celery Task Events",
+      "title": "RabbitMQ Queue별 대기량",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 0,
-        "y": 15,
-        "w": 12,
-        "h": 7
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "ops",
-          "decimals": 3,
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "smooth",
-            "lineWidth": 2,
-            "fillOpacity": 12,
-            "showPoints": "never"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum by (event, task) (rate(brainon_celery_task_events_total{job=\"celery-monitor\",task!=\"\"}[5m]))",
-          "legendFormat": "{{event}} · {{task}}",
-          "range": true
-        }
-      ],
-      "transparent": false
-    },
-    {
-      "id": 14,
-      "type": "timeseries",
-      "title": "RabbitMQ Queue별 적재량",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 15,
-        "w": 12,
-        "h": 7
+        "y": 12,
+        "w": 8,
+        "h": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -819,9 +2448,10 @@
       },
       "options": {
         "legend": {
-          "displayMode": "table",
+          "displayMode": "list",
           "placement": "bottom",
-          "showLegend": true
+          "showLegend": true,
+          "calcs": []
         },
         "tooltip": {
           "mode": "multi"
@@ -840,10 +2470,269 @@
           "range": true
         }
       ],
+      "transparent": false,
+      "description": "brainon.* Queue별 Message 적재량을 확인하여 비동기 처리 병목이나 backlog 발생 여부를 확인합니다."
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Celery Task 처리 이벤트",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 12,
+        "w": 8,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "decimals": 3,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (event, task) (rate(brainon_celery_task_events_total{job=\"celery-monitor\",task!=\"\"}[5m]))",
+          "legendFormat": "{{event}} · {{task}}",
+          "range": true
+        }
+      ],
+      "transparent": false,
+      "description": "Celery Task의 실행 · 성공 · 실패 · 재시도 이벤트를 시간 흐름으로 확인합니다."
+    },
+    {
+      "id": 8,
+      "type": "table",
+      "title": "최근 비동기 이벤트",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 12,
+        "w": 8,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "rawSql": "\nSELECT\n    created_at AS \"발생 시각\",\n    event_type AS \"이벤트\",\n    aggregate_type AS \"대상\",\n    status AS \"상태\",\n    retry_count AS \"재시도\",\n    published_at AS \"발행 시각\"\nFROM common_outboxevent\nWHERE $__timeFilter(created_at)\nORDER BY created_at DESC\nLIMIT 50\n"
+        }
+      ],
+      "description": "최근 Outbox 이벤트의 종류 · 상태 · 재시도 여부를 확인하여 실제 문제 이벤트를 추적합니다.",
+      "transparent": false
+    },
+    {
+      "id": 321,
+      "type": "table",
+      "title": "Outbox 발행 대기 · 상세",
+      "description": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 19,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true,
+          "rawSql": "\nSELECT\n    created_at\n        AS \"생성 시각\",\n\n    event_type\n        AS \"이벤트\",\n\n    aggregate_type\n        AS \"대상 유형\",\n\n    aggregate_id\n        AS \"대상 ID\",\n\n    status\n        AS \"상태\",\n\n    retry_count\n        AS \"재시도\",\n\n    published_at\n        AS \"발행 시각\",\n\n    COALESCE(\n        payload ->> 'request_id',\n        '-'\n    )\n        AS request_id\n\nFROM common_outboxevent\n\nWHERE\n    $__timeFilter(created_at)\n\n    AND status IN (\n        'PENDING',\n        'QUEUED',\n        'READY'\n    )\n\nORDER BY created_at DESC\nLIMIT 300\n"
+        }
+      ],
+      "transparent": false
+    },
+    {
+      "id": 322,
+      "type": "table",
+      "title": "Outbox 발행 실패 · 상세",
+      "description": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 27,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true,
+          "rawSql": "\nSELECT\n    created_at\n        AS \"생성 시각\",\n\n    event_type\n        AS \"이벤트\",\n\n    aggregate_type\n        AS \"대상 유형\",\n\n    aggregate_id\n        AS \"대상 ID\",\n\n    status\n        AS \"상태\",\n\n    retry_count\n        AS \"재시도\",\n\n    published_at\n        AS \"발행 시각\",\n\n    COALESCE(\n        payload ->> 'request_id',\n        '-'\n    )\n        AS request_id\n\nFROM common_outboxevent\n\nWHERE\n    $__timeFilter(created_at)\n\n    AND status IN (\n        'FAILED',\n        'ERROR'\n    )\n\nORDER BY created_at DESC\nLIMIT 300\n"
+        }
+      ],
+      "transparent": false
+    },
+    {
+      "id": 323,
+      "type": "table",
+      "title": "기간 발행 완료 · 상세",
+      "description": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 35,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true,
+          "rawSql": "\nSELECT\n    created_at\n        AS \"생성 시각\",\n\n    event_type\n        AS \"이벤트\",\n\n    aggregate_type\n        AS \"대상 유형\",\n\n    aggregate_id\n        AS \"대상 ID\",\n\n    status\n        AS \"상태\",\n\n    retry_count\n        AS \"재시도\",\n\n    published_at\n        AS \"발행 시각\",\n\n    COALESCE(\n        payload ->> 'request_id',\n        '-'\n    )\n        AS request_id\n\nFROM common_outboxevent\n\nWHERE\n    $__timeFilter(created_at)\n\n    AND status IN (\n        'PUBLISHED',\n        'COMPLETED',\n        'SUCCESS'\n    )\n\nORDER BY created_at DESC\nLIMIT 300\n"
+        }
+      ],
+      "transparent": false
+    },
+    {
+      "id": 324,
+      "type": "table",
+      "title": "재시도 이벤트 · 상세",
+      "description": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 43,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true,
+          "rawSql": "\nSELECT\n    created_at\n        AS \"생성 시각\",\n\n    event_type\n        AS \"이벤트\",\n\n    aggregate_type\n        AS \"대상 유형\",\n\n    aggregate_id\n        AS \"대상 ID\",\n\n    status\n        AS \"상태\",\n\n    retry_count\n        AS \"재시도\",\n\n    published_at\n        AS \"발행 시각\",\n\n    COALESCE(\n        payload ->> 'request_id',\n        '-'\n    )\n        AS request_id\n\nFROM common_outboxevent\n\nWHERE\n    $__timeFilter(created_at)\n\n    AND retry_count > 0\n\nORDER BY created_at DESC\nLIMIT 300\n"
+        }
+      ],
       "transparent": false
     }
   ],
-  "refresh": "30s",
+  "refresh": "",
   "schemaVersion": 41,
   "tags": [
     "BrainOn",
@@ -895,7 +2784,7 @@
   "timezone": "browser",
   "title": "BrainOn · Async Processing",
   "uid": "brainon-admin-async",
-  "version": 3,
+  "version": 10,
   "weekStart": "",
   "description": "Celery, RabbitMQ 및 Domain Outbox 비동기 처리 상태."
 }

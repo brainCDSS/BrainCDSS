@@ -1,3 +1,4 @@
+import OperationalErrorHost from "./shared/errors/OperationalErrorHost";
 /** Browser entry point for the clinician web shell. */
 
 
@@ -11,5 +12,6 @@ createRoot(
 ).render(
   <React.StrictMode>
     <App />
+    <OperationalErrorHost />
   </React.StrictMode>,
 );

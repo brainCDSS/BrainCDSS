@@ -47,23 +47,28 @@ function toEditable(item: PrescriptionItemResponse): EditableItem {
   return { ...item, key: item.item_id };
 }
 
-function formatMedicationTimeInput(value: string) {
-  return value
-    .split(/([,\s]+)/)
-    .map((part) => {
-      if (!part || /^[,\s]+$/.test(part)) {
-        return part.replace(/\s+/g, " ");
-      }
+const medicationTimeSlots = [
+  { label: "아침", value: "08:00" },
+  { label: "점심", value: "12:00" },
+  { label: "저녁", value: "18:00" },
+];
 
-      const digits = part.replace(/\D/g, "").slice(0, 4);
+function medicationTimes(value: string) {
+  return [...new Set(value.match(/(?:[01]\d|2[0-3]):[0-5]\d/g) ?? [])].sort();
+}
 
-      if (digits.length <= 2) {
-        return digits;
-      }
+function strengthDose(strength = "") {
+  return Number(strength.trim().match(/(\d+(?:\.\d+)?)/)?.[1] ?? 1);
+}
 
-      return `${digits.slice(0, 2)}:${digits.slice(2)}`;
-    })
-    .join("");
+function medicationDefaults(medication: MedicationItem) {
+  const strength = medication.strength.trim();
+  const match = strength.match(/(\d+(?:\.\d+)?)\s*(mcg|μg|ug|mg|g|ml|mL|IU|unit)/i);
+  const dosageForm = medication.dosage_form.toLowerCase();
+  const rawUnit = match?.[2] ?? (dosageForm.includes("정") ? "정" : dosageForm.includes("캡슐") ? "캡슐" : "mg");
+  const unit = rawUnit.toLowerCase() === "ml" ? "mL" : rawUnit.toLowerCase() === "iu" ? "IU" : rawUnit;
+  const route = /주사|injection|vial|ampoule/.test(dosageForm) ? "IV" : "PO";
+  return { dose: strengthDose(strength), unit, route };
 }
 
 
@@ -281,7 +286,7 @@ export default function MedicationSafetyPage({ context, onSelectPatient, onOpenP
     { type: "ALLERGY", label: "알레르기" },
     { type: "DDI", label: "약물 상호작용" },
     { type: "AGE", label: "연령 주의" },
-    { type: "PREGNANCY", label: "임부·수유부" },
+    { type: "PREGNANCY", label: "임신 정보" },
     { type: "DOSE", label: "용량 주의" },
     { type: "ELDERLY", label: "노인 주의" },
     { type: "DUPLICATE", label: "중복 처방" },
@@ -332,24 +337,9 @@ export default function MedicationSafetyPage({ context, onSelectPatient, onOpenP
     setOverrideReasons({});
   }
 
-  async function handleSearch(diseaseGroupOverride = diseaseGroup) {
-    const requestId = ++medicationSearchRequestId.current;
-    setSearchLoading(true);
-    setError(null);
-    try {
-      const response = await searchMedications(query.trim(), diseaseGroupOverride);
-      if (requestId !== medicationSearchRequestId.current) return;
-      setResults(response.results);
-      setResultCount(response.count);
-    } catch (requestFailure) {
-      if (requestId === medicationSearchRequestId.current) setError(requestError(requestFailure));
-    } finally {
-      if (requestId === medicationSearchRequestId.current) setSearchLoading(false);
-    }
-  }
-
   function addMedication(medication: MedicationItem) {
     if (locked || items.some((item) => item.medication_id === medication.id)) return;
+    const defaults = medicationDefaults(medication);
     setItems((current) => [
       ...current,
       {
@@ -358,11 +348,11 @@ export default function MedicationSafetyPage({ context, onSelectPatient, onOpenP
         medication_code: medication.medication_code,
         medication_name: medication.medication_name,
         strength: medication.strength,
-        dose: 0,
-        dose_unit: "mg",
-        route: "PO",
+        dose: defaults.dose,
+        dose_unit: defaults.unit,
+        route: defaults.route,
         frequency_per_day: 1,
-        timing: "",
+        timing: "08:00",
         start_date: today,
         duration_days: 1,
         instructions: "",
@@ -376,11 +366,21 @@ export default function MedicationSafetyPage({ context, onSelectPatient, onOpenP
     invalidateSafety();
   }
 
+  function changeMedicationTimes(key: string, times: string[]) {
+    const normalized = [...new Set(times)].sort();
+    setItems((current) => current.map((item) => item.key === key ? {
+      ...item,
+      timing: normalized.join(", "),
+      frequency_per_day: Math.max(normalized.length, 1),
+    } : item));
+    invalidateSafety();
+  }
+
   function prescriptionItems(): PrescriptionItemInput[] {
     return items.map((item) => ({
       ...(item.item_id ? { item_id: item.item_id } : {}),
       medication_id: item.medication_id,
-      dose: item.dose,
+      dose: item.dose > 0 ? item.dose : strengthDose(item.strength),
       dose_unit: item.dose_unit,
       route: item.route,
       frequency_per_day: item.frequency_per_day,
@@ -397,7 +397,7 @@ export default function MedicationSafetyPage({ context, onSelectPatient, onOpenP
         ? null
         : "처방 약물을 한 개 이상 추가해주세요.";
     }
-    if (items.some((item) => item.dose <= 0 || item.frequency_per_day < 1 || item.duration_days < 1)) {
+    if (items.some((item) => (item.dose <= 0 && strengthDose(item.strength) <= 0) || item.frequency_per_day < 1 || item.duration_days < 1)) {
       return "용량, 1일 횟수, 처방 기간은 1 이상이어야 합니다.";
     }
     if (items.some((item) => !item.dose_unit.trim() || !item.route.trim() || !item.timing.trim() || !item.start_date)) {
@@ -453,7 +453,7 @@ export default function MedicationSafetyPage({ context, onSelectPatient, onOpenP
         patient_id: context.patient.id,
         medications: items.map((item) => ({
           medication_id: item.medication_id,
-          dose: item.dose,
+          dose: item.dose > 0 ? item.dose : strengthDose(item.strength),
           unit: item.dose_unit,
           frequency_per_day: item.frequency_per_day,
           duration_days: item.duration_days,
@@ -488,6 +488,9 @@ export default function MedicationSafetyPage({ context, onSelectPatient, onOpenP
     }
     begin("finalize");
     try {
+      const finalItems = prescriptionItems().map((item) => ({ ...item, start_date: today }));
+      await updatePrescription(prescription.prescription_id, { items: finalItems });
+      setItems((current) => current.map((item) => ({ ...item, start_date: today })));
       const response = await finalizePrescription(
         prescription.prescription_id,
         blockingAlerts.map((alert) => ({
@@ -591,8 +594,7 @@ export default function MedicationSafetyPage({ context, onSelectPatient, onOpenP
             <div className="clinical-card__title medication-section-title medication-search-header">
               <h3><span aria-hidden="true">⌕</span> 처방 작성</h3>
               <div className="clinical-toolbar medication-search medication-search--header">
-                <input aria-label="약물 검색" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="약물명 또는 약품코드 검색" onKeyDown={(event) => { if (event.key === "Enter") void handleSearch(); }} />
-                <button type="button" className="is-primary" disabled={loading !== null || searchLoading} onClick={() => void handleSearch()}>검색</button>
+                <input aria-label="약물 검색" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="약물명 또는 약품코드 검색" />
                 <select
                   aria-label="질환별 상세 검색"
                   value={diseaseGroup}
@@ -651,43 +653,27 @@ export default function MedicationSafetyPage({ context, onSelectPatient, onOpenP
                   삭제
                 </button></div>
                 <div className="medication-form-grid medication-form-grid--primary">
-                  <label>1회 용량<input type="number" min="0.01" step="0.01" disabled={locked} value={item.dose || ""} onChange={(event) => changeItem(item.key, "dose", Number(event.target.value))} /></label>
-                  <label>단위<input disabled={locked} value={item.dose_unit} onChange={(event) => changeItem(item.key, "dose_unit", event.target.value)} /></label>
-                  <label>1일 횟수<input type="number" min="1" disabled={locked} value={item.frequency_per_day} onChange={(event) => changeItem(item.key, "frequency_per_day", Number(event.target.value))} /></label>
+                  <label>1회 용량<input type="number" readOnly value={item.dose > 0 ? item.dose : strengthDose(item.strength)} /></label>
+                  <label>단위<select disabled={locked} value={item.dose_unit} onChange={(event) => changeItem(item.key, "dose_unit", event.target.value)}><option value="mg">mg</option><option value="mcg">mcg</option><option value="g">g</option><option value="mL">mL</option><option value="IU">IU</option><option value="정">정</option><option value="캡슐">캡슐</option></select></label>
+                  <label>투여 경로<select disabled={locked} value={item.route} onChange={(event) => changeItem(item.key, "route", event.target.value)}><option value="PO">경구(PO)</option><option value="IV">정맥(IV)</option><option value="IM">근육(IM)</option><option value="SC">피하(SC)</option><option value="SL">설하(SL)</option><option value="INH">흡입(INH)</option><option value="TOPICAL">외용</option></select></label>
+                  <label>1일 횟수<input readOnly value={item.frequency_per_day} /></label>
                   <label>기간(일)<input type="number" min="1" disabled={locked} value={item.duration_days} onChange={(event) => changeItem(item.key, "duration_days", Number(event.target.value))} /></label>
                 </div>
-                <details className="medication-item__details">
-                  <summary>상세 설정</summary>
-                  <div className="medication-form-grid medication-form-grid--details">
-                    <label>투여 경로<input disabled={locked} value={item.route} onChange={(event) => changeItem(item.key, "route", event.target.value)} /></label>
-                    <label>
-                      복용 시간
-                      <input
-                        disabled={locked}
-                        value={item.timing}
-                        placeholder={
-                          item.frequency_per_day > 1
-                            ? "예: 08:00, 20:00"
-                            : "예: 08:00"
-                        }
-                        onChange={(event) =>
-                          changeItem(
-                            item.key,
-                            "timing",
-                            formatMedicationTimeInput(
-                              event.target.value,
-                            ),
-                          )
-                        }
-                      />
-                      <small>
-                        24시간 형식으로 입력하세요. 1일 횟수만큼 시간을 입력합니다.
-                      </small>
-                    </label>
-                    <label>시작일<input type="date" disabled={locked} value={item.start_date} onChange={(event) => changeItem(item.key, "start_date", event.target.value)} /></label>
-                    <label className="medication-form-grid__wide">복약 지시<input disabled={locked} value={item.instructions} onChange={(event) => changeItem(item.key, "instructions", event.target.value)} /></label>
+                <div className="medication-timing-editor">
+                  <span>복용 시간</span>
+                  <div className="medication-time-slots">
+                    {medicationTimeSlots.map((slot) => {
+                      const times = medicationTimes(item.timing);
+                      const selected = times.includes(slot.value);
+                      return <button key={slot.value} type="button" disabled={locked} className={selected ? "is-selected" : ""} onClick={() => changeMedicationTimes(item.key, selected ? times.filter((time) => time !== slot.value) : [...times, slot.value])}>{slot.label}<small>{slot.value}</small></button>;
+                    })}
+                    <label>기타<input type="time" disabled={locked} value={medicationTimes(item.timing).find((time) => !medicationTimeSlots.some((slot) => slot.value === time)) ?? ""} onChange={(event) => {
+                      const standardTimes = medicationTimes(item.timing).filter((time) => medicationTimeSlots.some((slot) => slot.value === time));
+                      changeMedicationTimes(item.key, event.target.value ? [...standardTimes, event.target.value] : standardTimes);
+                    }} /></label>
                   </div>
-                </details>
+                  <small>선택 시간에 환자 앱 알림이 생성됩니다.</small>
+                </div>
               </div>)}</div>
             )}
             {!hasEncounter && <div className="medication-encounter-notice">진료 Encounter가 없어 처방 임시저장과 최종확정은 사용할 수 없습니다.</div>}
@@ -710,8 +696,15 @@ export default function MedicationSafetyPage({ context, onSelectPatient, onOpenP
           <div className="dur-criteria" aria-label="DUR 8종 안전성 검토 상태">
             {safetyCriteria.map((criterion) => {
               const alert = safety?.alerts.find((item) => item.alert_type === criterion.type);
-              const status = !safety ? "검토 대기" : alert ? severityLabel(alert.severity) : "PASS";
-              return <div key={criterion.type} className={`dur-criteria__item${alert ? ` dur-criteria__item--${alert.severity.toLowerCase()}` : ""}`}><span>{criterion.label} ({alertTypeLabel(criterion.type)})</span><strong>{status}</strong></div>;
+              const pregnancyStatus = safety?.context.pregnancy_status?.trim().toUpperCase();
+              const status = !safety
+                ? "검토 대기"
+                : alert
+                  ? severityLabel(alert.severity)
+                  : criterion.type === "PREGNANCY" && (!pregnancyStatus || pregnancyStatus === "UNKNOWN")
+                    ? "정보 없음"
+                    : "PASS";
+              return <div key={criterion.type} className={`dur-criteria__item${alert ? ` dur-criteria__item--${alert.severity.toLowerCase()}` : ""}`}><span>{criterion.label}</span><strong>{status}</strong></div>;
             })}
           </div>
           {!safety ? <div className="clinical-state">환자 ID와 처방 항목을 입력한 뒤 실제 DUR 검증을 실행하세요.</div> : safety.alerts.length === 0 ? <div className="medication-safe">안전성 경고가 없습니다.</div> : <div className="dur-alerts">{safety.alerts.map((alert) => <div className={`dur-alert dur-alert--${alert.severity.toLowerCase()}`} key={`${alert.alert_type}-${alert.rule_id}`}>

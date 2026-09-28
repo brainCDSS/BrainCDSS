@@ -13,7 +13,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Prefetch, Q
 from django.utils import timezone
-from django.utils.dateparse import parse_date, parse_datetime
+from django.utils.dateparse import parse_date, parse_datetime, parse_time
 from rest_framework.exceptions import APIException, AuthenticationFailed, NotFound, PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -910,13 +910,7 @@ def _appointment_generate_available_slots(clinician, target_date):
             continue
 
         start_at = schedule_start
-        while start_at < timezone.make_aware(datetime.combine(target_date, time(9))):
-            start_at += timedelta(minutes=schedule.slot_minutes)
-
-        while (
-            timezone.localtime(start_at).time().replace(tzinfo=None) <= time(18)
-            and start_at + timedelta(minutes=schedule.slot_minutes) <= schedule_end
-        ):
+        while start_at + timedelta(minutes=schedule.slot_minutes) <= schedule_end:
             candidates.setdefault(start_at, schedule)
             start_at += timedelta(minutes=schedule.slot_minutes)
 
@@ -985,6 +979,7 @@ def _appointment_available_slots(request, spec, kwargs):
             clinician_id=clinician.id,
             status="AVAILABLE",
             start_at__date=target_date,
+            start_at__gt=timezone.now(),
         )
         payload_from = target_date.isoformat()
         payload_to = target_date.isoformat()
@@ -1270,34 +1265,91 @@ def _schedule_put(request, spec, kwargs):
     if not isinstance(rows, list):
         raise ContractError({"schedules": "must be a list"})
 
-    fields = _field_map(model)
-    model.objects.filter(clinician_id=clinician_id).delete()
-    created = []
+    clinician_model = apps.get_model("organizations", "Clinician")
+    slot_model = apps.get_model("appointments", "AppointmentSlot")
+    try:
+        clinician_obj = clinician_model.objects.select_related("user").get(
+            pk=clinician_id,
+        )
+    except (clinician_model.DoesNotExist, ValueError, TypeError) as exc:
+        raise NotFound({"code": "CLINICIAN_NOT_FOUND"}) from exc
 
-    for row in rows:
+    normalized = []
+    for index, row in enumerate(rows):
         if not isinstance(row, dict):
-            continue
-        data = {}
-        for key, value in row.items():
-            field = fields.get(key)
-            if field and not field.primary_key:
-                data[field.attname if field.is_relation else field.name] = value
-        clinician = fields.get("clinician")
-        if clinician and clinician.is_relation:
-            data[clinician.attname] = clinician_id
-        created.append(model.objects.create(**data))
+            raise ContractError({"code": "VALIDATION_ERROR", "schedules": f"Item {index} must be an object."})
+        try:
+            weekday = int(row.get("weekday"))
+            slot_minutes = int(row.get("slot_minutes"))
+            start_time = parse_time(str(row.get("start_time") or ""))
+            end_time = parse_time(str(row.get("end_time") or ""))
+            effective_from = parse_date(str(row.get("effective_from") or ""))
+            effective_to = parse_date(str(row.get("effective_to"))) if row.get("effective_to") else None
+        except (TypeError, ValueError) as exc:
+            raise ContractError({"code": "VALIDATION_ERROR", "schedules": f"Item {index} contains invalid values."}) from exc
+        if weekday not in range(7) or slot_minutes not in {15, 30}:
+            raise ContractError({"code": "VALIDATION_ERROR", "schedules": "weekday must be 0-6 and slot_minutes must be 15 or 30."})
+        if start_time is None or end_time is None or start_time >= end_time or effective_from is None:
+            raise ContractError({"code": "VALIDATION_ERROR", "schedules": "A valid start/end time and effective_from are required."})
+        if effective_to is not None and effective_to < effective_from:
+            raise ContractError({"code": "VALIDATION_ERROR", "schedules": "effective_to cannot precede effective_from."})
+        normalized.append({
+            "clinician_id": clinician_id,
+            "weekday": weekday,
+            "start_time": start_time,
+            "end_time": end_time,
+            "slot_minutes": slot_minutes,
+            "effective_from": effective_from,
+            "effective_to": effective_to,
+            "is_active": bool(row.get("is_active", True)),
+        })
 
-    payload = {"results": [serialize_instance(x) for x in created]}
+    for index, left in enumerate(normalized):
+        if not left["is_active"]:
+            continue
+        for right in normalized[index + 1:]:
+            periods_overlap = (
+                left["effective_to"] is None or right["effective_from"] <= left["effective_to"]
+            ) and (
+                right["effective_to"] is None or left["effective_from"] <= right["effective_to"]
+            )
+            times_overlap = left["start_time"] < right["end_time"] and right["start_time"] < left["end_time"]
+            if right["is_active"] and left["weekday"] == right["weekday"] and periods_overlap and times_overlap:
+                raise ContractConflict({"code": "SCHEDULE_OVERLAP", "detail": "Active schedule rules overlap."})
+
+    old_rules = model.objects.select_for_update().filter(clinician_id=clinician_id)
+    occupied = slot_model.objects.filter(
+        clinician_id=clinician_id,
+        status__in=("HELD", "BOOKED", "BLOCKED"),
+    ).count()
+    slot_model.objects.filter(
+        clinician_id=clinician_id,
+        status="AVAILABLE",
+        start_at__gte=timezone.now(),
+    ).delete()
+    # Occupied historical/future slots survive a rule replacement and no longer
+    # point at rules that are about to be removed.
+    slot_model.objects.filter(schedule__in=old_rules).update(schedule=None)
+    old_rules.delete()
+    created = [model.objects.create(**item) for item in normalized]
+
+    payload = {
+        "clinician": {"id": str(clinician_obj.id), "name": clinician_obj.user.name},
+        "rules": [serialize_instance(x) for x in created],
+        "results": [serialize_instance(x) for x in created],
+        "generated_slot_count": 0,
+        "preserved_occupied_slot_count": occupied,
+        "updated_at": _safe_value(timezone.now()),
+    }
     _audit(request, spec, created[0] if created else None, None, payload)
     return Response(payload, status=200)
 
 
 def _appointment_validate_start_time(start_at):
-    local_start = timezone.localtime(start_at)
-    if not time(9) <= local_start.time().replace(tzinfo=None) <= time(18):
+    if start_at <= timezone.now():
         raise ContractError({
             "code": "VALIDATION_ERROR",
-            "start_at": "Appointment times must be between 09:00 and 18:00.",
+            "start_at": "Appointment time must be in the future.",
         })
 
 
@@ -1490,6 +1542,71 @@ def _appointment_create(request, spec, kwargs):
         body="A new appointment request requires review.",
     )
     return Response(after, status=201)
+
+
+@transaction.atomic
+def _staff_appointment_create(request, spec, kwargs):
+    """Create a confirmed appointment on behalf of a selected patient."""
+    del kwargs
+    if not isinstance(request.data, dict):
+        raise ContractError({"code": "VALIDATION_ERROR"})
+    patient_id = request.data.get("patient_id")
+    slot_id = request.data.get("slot_id")
+    if not patient_id or not slot_id:
+        raise ContractError({
+            "code": "VALIDATION_ERROR",
+            "detail": "patient_id and slot_id are required.",
+        })
+    patient_model = apps.get_model("patients", "Patient")
+    try:
+        patient = patient_model.objects.get(pk=patient_id)
+    except (patient_model.DoesNotExist, ValueError, TypeError) as exc:
+        raise NotFound({"code": "PATIENT_NOT_FOUND"}) from exc
+
+    slot_model = apps.get_model("appointments", "AppointmentSlot")
+    try:
+        slot = slot_model.objects.select_for_update().select_related(
+            "clinician__department__hospital", "clinician__user",
+        ).get(pk=slot_id)
+    except (slot_model.DoesNotExist, ValueError, TypeError) as exc:
+        raise NotFound({"code": "SLOT_NOT_FOUND"}) from exc
+    _appointment_validate_start_time(slot.start_at)
+    if slot.status != "AVAILABLE":
+        raise ContractConflict({"code": "SLOT_NOT_AVAILABLE"})
+
+    appointment_model = apps.get_model("appointments", "Appointment")
+    if appointment_model.objects.filter(
+        patient=patient,
+        status__in=("REQUESTED", "CONFIRMED", "IN_PROGRESS"),
+        slot__start_at=slot.start_at,
+    ).exists():
+        raise ContractConflict({"code": "PATIENT_APPOINTMENT_CONFLICT"})
+
+    now = timezone.now()
+    slot.status = "BOOKED"
+    slot.held_until = None
+    slot.version += 1
+    slot.save(update_fields=["status", "held_until", "version"])
+    appointment = appointment_model.objects.create(
+        patient=patient,
+        hospital=slot.clinician.department.hospital,
+        department=slot.clinician.department,
+        clinician=slot.clinician,
+        slot=slot,
+        status="CONFIRMED",
+        request_type="NEW",
+        requested_at=now,
+        confirmed_at=now,
+        handled_by=request.user,
+        created_at=now,
+        updated_at=now,
+    )
+    _appointment_history(appointment, None, "CONFIRMED", request)
+    appointment = _appointment_refresh(appointment)
+    payload = _appointment_payload(appointment)
+    _audit(request, spec, appointment, None, payload)
+    _outbox(spec, appointment, payload)
+    return Response(payload, status=201)
 
 
 def _appointment_locked(kwargs):
@@ -5502,6 +5619,7 @@ CUSTOM_HANDLERS = {
     "API-APP-009": _staff_appointment_list,
     "API-APP-010": _appointment_complete,
     "API-APP-011": _appointment_correct,
+    "API-APP-012": _staff_appointment_create,
     "API-NOTI-003": _notification_preferences_get,
     "API-NOTI-004": _notification_preferences_patch,
     "API-ASM-002": _assessment_start,

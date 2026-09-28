@@ -6,6 +6,8 @@ import {
 } from "react";
 
 import type { LoginUser } from "../auth/types";
+import { getPatients } from "../patients/api";
+import type { Patient } from "../patients/types";
 import {
   getClinicians,
 } from "../assessments/api";
@@ -17,6 +19,8 @@ import {
   acceptAppointment,
   completeAppointment,
   correctAppointment,
+  createStaffAppointment,
+  getAvailableSlots,
   getAppointmentDetail,
   getAppointmentRequests,
   getActiveHospitals,
@@ -28,6 +32,7 @@ import {
 } from "./api";
 
 import type {
+  AvailableSlot,
   ScheduleRule,
   StaffAppointment,
 } from "./types";
@@ -698,6 +703,14 @@ export default function AppointmentsPage({
     is_active: true,
   });
 
+  const [bookingPatients, setBookingPatients] = useState<Patient[]>([]);
+  const [bookingPatientId, setBookingPatientId] = useState("");
+  const [bookingDate, setBookingDate] = useState(todayValue());
+  const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([]);
+  const [bookingSlotId, setBookingSlotId] = useState("");
+  const [bookingLoading, setBookingLoading] = useState(false);
+  const [bookingMessage, setBookingMessage] = useState<string | null>(null);
+
   const [
     loading,
     setLoading,
@@ -832,6 +845,54 @@ export default function AppointmentsPage({
       currentUser,
       "schedule.manage",
     );
+
+  const loadAvailableSlots = useCallback(async () => {
+    if (!clinicianId || !bookingDate || !isNurse) {
+      setAvailableSlots([]);
+      return;
+    }
+    setBookingLoading(true);
+    setBookingMessage(null);
+    try {
+      const response = await getAvailableSlots(clinicianId, bookingDate);
+      setAvailableSlots(response.slots);
+      setBookingSlotId((current) =>
+        response.slots.some((slot) => slot.id === current) ? current : "",
+      );
+    } catch {
+      setAvailableSlots([]);
+      setBookingMessage("예약 가능한 시간을 불러오지 못했습니다.");
+    } finally {
+      setBookingLoading(false);
+    }
+  }, [bookingDate, clinicianId, isNurse]);
+
+  useEffect(() => {
+    if (activeTab !== "manage" || !isNurse) return;
+    void getPatients(undefined, 1, "all").then((response) => {
+      setBookingPatients(response.results);
+    }).catch(() => setBookingPatients([]));
+  }, [activeTab, isNurse]);
+
+  useEffect(() => {
+    if (activeTab === "manage" && isNurse) void loadAvailableSlots();
+  }, [activeTab, isNurse, loadAvailableSlots]);
+
+  async function submitStaffBooking() {
+    if (!bookingPatientId || !bookingSlotId) return;
+    setBookingLoading(true);
+    setBookingMessage(null);
+    try {
+      await createStaffAppointment(bookingPatientId, bookingSlotId);
+      setBookingMessage("예약이 확정되었습니다.");
+      setBookingSlotId("");
+      await loadAvailableSlots();
+    } catch {
+      setBookingMessage("선택한 시간이 방금 예약되었거나 예약 등록에 실패했습니다.");
+    } finally {
+      setBookingLoading(false);
+    }
+  }
 
 
   /* =========================================================
@@ -2856,7 +2917,56 @@ export default function AppointmentsPage({
         </>
       )}
 
-      {isDoctor && isNurse && activeTab ===
+      {activeTab === "manage" && isNurse && (
+        <section className="appointment-schedule-card appointment-booking-card">
+          <header>
+            <div>
+              <span>신규 예약</span>
+              <h3>환자 진료 예약 등록</h3>
+            </div>
+          </header>
+          <div className="schedule-rule-editor">
+            <label>
+              환자
+              <select value={bookingPatientId} onChange={(event) => setBookingPatientId(event.target.value)}>
+                <option value="">환자를 선택해 주세요</option>
+                {bookingPatients.map((patient) => (
+                  <option key={patient.id} value={patient.id}>{patient.name} ({patient.patient_no})</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              담당의
+              <select value={clinicianId} onChange={(event) => setClinicianId(event.target.value)}>
+                <option value="">담당의를 선택해 주세요</option>
+                {clinicianOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+              </select>
+            </label>
+            <label>
+              예약일
+              <input type="date" min={todayValue()} value={bookingDate} onChange={(event) => setBookingDate(event.target.value)} />
+            </label>
+            <label>
+              예약 시간
+              <select value={bookingSlotId} onChange={(event) => setBookingSlotId(event.target.value)} disabled={bookingLoading || !clinicianId}>
+                <option value="">시간을 선택해 주세요</option>
+                {availableSlots.map((slot) => (
+                  <option key={slot.id} value={slot.id}>{formatTime(slot.start_at)} – {formatTime(slot.end_at)}</option>
+                ))}
+              </select>
+            </label>
+            <button type="button" disabled={bookingLoading || !bookingPatientId || !bookingSlotId} onClick={() => void submitStaffBooking()}>
+              {bookingLoading ? "처리 중..." : "예약 확정"}
+            </button>
+          </div>
+          {!bookingLoading && clinicianId && availableSlots.length === 0 && !bookingMessage && (
+            <div className="appointment-empty is-compact">선택한 날짜에 예약 가능한 시간이 없습니다. 먼저 담당의 일정을 등록해 주세요.</div>
+          )}
+          {bookingMessage && <p className="appointment-action-error">{bookingMessage}</p>}
+        </section>
+      )}
+
+      {(isDoctor || isNurse) && activeTab ===
         "manage" && (
         <section className="appointment-schedule-card">
 
@@ -3028,9 +3138,7 @@ export default function AppointmentsPage({
                 <label>
                   간격
 
-                  <input
-                    type="number"
-                    min="1"
+                  <select
                     value={
                       draftRule.slot_minutes
                     }
@@ -3051,7 +3159,10 @@ export default function AppointmentsPage({
                         }),
                       )
                     }
-                  />
+                  >
+                    <option value={15}>15분</option>
+                    <option value={30}>30분</option>
+                  </select>
                 </label>
 
 

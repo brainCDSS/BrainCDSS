@@ -6,476 +6,2468 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "id": null,
-  "links": [
-    {
-      "type": "link",
-      "title": "운영 Overview",
-      "url": "/grafana/d/brainon-admin-overview/brainon-operations-overview?orgId=1",
-      "targetBlank": false,
-      "keepTime": true,
-      "includeVars": true
-    },
-    {
-      "type": "link",
-      "title": "API · Performance",
-      "url": "/grafana/d/brainon-admin-api/brainon-api-performance?orgId=1",
-      "targetBlank": false,
-      "keepTime": true,
-      "includeVars": true
-    },
-    {
-      "type": "link",
-      "title": "AI Operations",
-      "url": "/grafana/d/brainon-admin-ai/brainon-ai-operations?orgId=1",
-      "targetBlank": false,
-      "keepTime": true,
-      "includeVars": true
-    },
-    {
-      "type": "link",
-      "title": "Infrastructure",
-      "url": "/grafana/d/brainon-admin-infrastructure/brainon-infrastructure?orgId=1",
-      "targetBlank": false,
-      "keepTime": true,
-      "includeVars": true
-    },
-    {
-      "type": "link",
-      "title": "Async",
-      "url": "/grafana/d/brainon-admin-async/brainon-async-processing?orgId=1",
-      "targetBlank": false,
-      "keepTime": true,
-      "includeVars": true
-    },
-    {
-      "type": "link",
-      "title": "Incidents",
-      "url": "/grafana/d/brainon-admin-incidents/brainon-incidents?orgId=1",
-      "targetBlank": false,
-      "keepTime": true,
-      "includeVars": true
-    },
-    {
-      "type": "link",
-      "title": "Audit · Trace",
-      "url": "/grafana/d/brainon-admin-audit-trace/brainon-audit-request-trace?orgId=1",
-      "targetBlank": false,
-      "keepTime": true,
-      "includeVars": true
-    }
-  ],
-  "liveNow": true,
+  "links": [],
+  "liveNow": false,
   "panels": [
     {
-      "id": 1,
-      "type": "row",
-      "title": "01. 서비스 상태",
-      "collapsed": false,
+      "id": 101,
+      "type": "canvas",
+      "title": "",
+      "transparent": true,
+      "pluginVersion": "11.4.0",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "gridPos": {
         "x": 0,
         "y": 0,
         "w": 24,
-        "h": 1
+        "h": 5
       },
-      "panels": []
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max(brainon_service_up{job=\"brainon-infra-monitor\",service=\"backend\"})",
+          "legendFormat": "SERVICE_0",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max(brainon_service_up{job=\"brainon-infra-monitor\",service=\"postgresql\"})",
+          "legendFormat": "SERVICE_1",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max(brainon_service_up{job=\"brainon-infra-monitor\",service=\"rabbitmq\"})",
+          "legendFormat": "SERVICE_2",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max(brainon_service_up{job=\"brainon-infra-monitor\",service=\"ai_inference\"})",
+          "legendFormat": "SERVICE_3",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "E",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max(brainon_celery_workers_online{job=\"celery-monitor\"}) > bool 0",
+          "legendFormat": "SERVICE_4",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "F",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max(brainon_service_up{job=\"brainon-infra-monitor\",service=\"prometheus\"})",
+          "legendFormat": "SERVICE_5",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "G",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max(brainon_service_up{job=\"brainon-infra-monitor\",service=\"loki\"})",
+          "legendFormat": "SERVICE_6",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "H",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max(brainon_service_up{job=\"brainon-infra-monitor\",service=\"grafana\"})",
+          "legendFormat": "SERVICE_7",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN"
+                },
+                "1": {
+                  "text": "UP"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "inlineEditing": false,
+        "showAdvancedTypes": true,
+        "panZoom": false,
+        "infinitePan": false,
+        "root": {
+          "type": "frame",
+          "name": "Infrastructure Services",
+          "background": {
+            "color": {
+              "fixed": "transparent"
+            }
+          },
+          "border": {
+            "width": 0,
+            "color": {
+              "fixed": "transparent"
+            }
+          },
+          "elements": [
+            {
+              "type": "rectangle",
+              "name": "service-0-card",
+              "placement": {
+                "left": 1.0,
+                "right": 75.25,
+                "top": 4,
+                "height": 58,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#171A1F"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 8,
+                "color": {
+                  "fixed": "#2A3038"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "service-0-icon-bg",
+              "placement": {
+                "left": 2.0,
+                "right": 94.0,
+                "top": 13,
+                "height": 28,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#1D2B40"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 6,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "service-0-icon",
+              "placement": {
+                "left": 2.6,
+                "right": 94.60000000000001,
+                "top": 16,
+                "height": 21,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 12,
+                "color": {
+                  "fixed": "#5794F2"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "B",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "service-0-title",
+              "placement": {
+                "left": 6.5,
+                "right": 82.0,
+                "top": 10,
+                "height": 22,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 13,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Backend",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "service-0-subtitle",
+              "placement": {
+                "left": 6.5,
+                "right": 82.0,
+                "top": 31,
+                "height": 17,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Django API",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "service-0-status-bg",
+              "placement": {
+                "left": 19.15,
+                "right": 76.35,
+                "top": 42,
+                "height": 17,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#20242A"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 9,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "service-0-status",
+              "placement": {
+                "left": 19.15,
+                "right": 76.35,
+                "top": 42,
+                "height": 17,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "SERVICE_0"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": [
+                {
+                  "title": "서비스 상세 보기",
+                  "url": "/d/brainon-admin-infrastructure/brainon?${__url_time_range}&viewPanel=15",
+                  "targetBlank": false,
+                  "oneClick": true
+                }
+              ]
+            },
+            {
+              "type": "rectangle",
+              "name": "service-1-card",
+              "placement": {
+                "left": 25.75,
+                "right": 50.5,
+                "top": 4,
+                "height": 58,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#171A1F"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 8,
+                "color": {
+                  "fixed": "#2A3038"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "service-1-icon-bg",
+              "placement": {
+                "left": 26.75,
+                "right": 69.25,
+                "top": 13,
+                "height": 28,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#183A38"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 6,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "service-1-icon",
+              "placement": {
+                "left": 27.35,
+                "right": 69.85000000000001,
+                "top": 16,
+                "height": 21,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 12,
+                "color": {
+                  "fixed": "#2DD4BF"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "DB",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "service-1-title",
+              "placement": {
+                "left": 31.25,
+                "right": 57.25,
+                "top": 10,
+                "height": 22,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 13,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "PostgreSQL",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "service-1-subtitle",
+              "placement": {
+                "left": 31.25,
+                "right": 57.25,
+                "top": 31,
+                "height": 17,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Database",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "service-1-status-bg",
+              "placement": {
+                "left": 43.9,
+                "right": 51.6,
+                "top": 42,
+                "height": 17,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#20242A"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 9,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "service-1-status",
+              "placement": {
+                "left": 43.9,
+                "right": 51.6,
+                "top": 42,
+                "height": 17,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "SERVICE_1"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": [
+                {
+                  "title": "서비스 상세 보기",
+                  "url": "/d/brainon-admin-infrastructure/brainon?${__url_time_range}&viewPanel=15",
+                  "targetBlank": false,
+                  "oneClick": true
+                }
+              ]
+            },
+            {
+              "type": "rectangle",
+              "name": "service-2-card",
+              "placement": {
+                "left": 50.5,
+                "right": 25.75,
+                "top": 4,
+                "height": 58,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#171A1F"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 8,
+                "color": {
+                  "fixed": "#2A3038"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "service-2-icon-bg",
+              "placement": {
+                "left": 51.5,
+                "right": 44.5,
+                "top": 13,
+                "height": 28,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#3B2B16"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 6,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "service-2-icon",
+              "placement": {
+                "left": 52.1,
+                "right": 45.1,
+                "top": 16,
+                "height": 21,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 12,
+                "color": {
+                  "fixed": "#F59E0B"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Q",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "service-2-title",
+              "placement": {
+                "left": 56.0,
+                "right": 32.5,
+                "top": 10,
+                "height": 22,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 13,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "RabbitMQ",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "service-2-subtitle",
+              "placement": {
+                "left": 56.0,
+                "right": 32.5,
+                "top": 31,
+                "height": 17,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Message Broker",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "service-2-status-bg",
+              "placement": {
+                "left": 68.65,
+                "right": 26.849999999999994,
+                "top": 42,
+                "height": 17,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#20242A"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 9,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "service-2-status",
+              "placement": {
+                "left": 68.65,
+                "right": 26.849999999999994,
+                "top": 42,
+                "height": 17,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "SERVICE_2"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": [
+                {
+                  "title": "서비스 상세 보기",
+                  "url": "/d/brainon-admin-infrastructure/brainon?${__url_time_range}&viewPanel=15",
+                  "targetBlank": false,
+                  "oneClick": true
+                }
+              ]
+            },
+            {
+              "type": "rectangle",
+              "name": "service-3-card",
+              "placement": {
+                "left": 75.25,
+                "right": 1.0,
+                "top": 4,
+                "height": 58,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#171A1F"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 8,
+                "color": {
+                  "fixed": "#2A3038"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "service-3-icon-bg",
+              "placement": {
+                "left": 76.25,
+                "right": 19.75,
+                "top": 13,
+                "height": 28,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#2B2042"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 6,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "service-3-icon",
+              "placement": {
+                "left": 76.85,
+                "right": 20.350000000000005,
+                "top": 16,
+                "height": 21,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 12,
+                "color": {
+                  "fixed": "#8B5CF6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "AI",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "service-3-title",
+              "placement": {
+                "left": 80.75,
+                "right": 7.75,
+                "top": 10,
+                "height": 22,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 13,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "AI Inference",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "service-3-subtitle",
+              "placement": {
+                "left": 80.75,
+                "right": 7.75,
+                "top": 31,
+                "height": 17,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Inference Service",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "service-3-status-bg",
+              "placement": {
+                "left": 93.4,
+                "right": 2.0999999999999943,
+                "top": 42,
+                "height": 17,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#20242A"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 9,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "service-3-status",
+              "placement": {
+                "left": 93.4,
+                "right": 2.0999999999999943,
+                "top": 42,
+                "height": 17,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "SERVICE_3"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": [
+                {
+                  "title": "서비스 상세 보기",
+                  "url": "/d/brainon-admin-infrastructure/brainon?${__url_time_range}&viewPanel=15",
+                  "targetBlank": false,
+                  "oneClick": true
+                }
+              ]
+            },
+            {
+              "type": "rectangle",
+              "name": "service-4-card",
+              "placement": {
+                "left": 1.0,
+                "right": 75.25,
+                "top": 70,
+                "height": 58,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#171A1F"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 8,
+                "color": {
+                  "fixed": "#2A3038"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "service-4-icon-bg",
+              "placement": {
+                "left": 2.0,
+                "right": 94.0,
+                "top": 79,
+                "height": 28,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#17372F"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 6,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "service-4-icon",
+              "placement": {
+                "left": 2.6,
+                "right": 94.60000000000001,
+                "top": 82,
+                "height": 21,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 12,
+                "color": {
+                  "fixed": "#35C79B"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "C",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "service-4-title",
+              "placement": {
+                "left": 6.5,
+                "right": 82.0,
+                "top": 76,
+                "height": 22,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 13,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Celery",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "service-4-subtitle",
+              "placement": {
+                "left": 6.5,
+                "right": 82.0,
+                "top": 97,
+                "height": 17,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Async Worker",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "service-4-status-bg",
+              "placement": {
+                "left": 19.15,
+                "right": 76.35,
+                "top": 108,
+                "height": 17,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#20242A"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 9,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "service-4-status",
+              "placement": {
+                "left": 19.15,
+                "right": 76.35,
+                "top": 108,
+                "height": 17,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "SERVICE_4"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": [
+                {
+                  "title": "서비스 상세 보기",
+                  "url": "/d/brainon-admin-infrastructure/brainon?${__url_time_range}&viewPanel=15",
+                  "targetBlank": false,
+                  "oneClick": true
+                }
+              ]
+            },
+            {
+              "type": "rectangle",
+              "name": "service-5-card",
+              "placement": {
+                "left": 25.75,
+                "right": 50.5,
+                "top": 70,
+                "height": 58,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#171A1F"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 8,
+                "color": {
+                  "fixed": "#2A3038"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "service-5-icon-bg",
+              "placement": {
+                "left": 26.75,
+                "right": 69.25,
+                "top": 79,
+                "height": 28,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#3B2B16"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 6,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "service-5-icon",
+              "placement": {
+                "left": 27.35,
+                "right": 69.85000000000001,
+                "top": 82,
+                "height": 21,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 12,
+                "color": {
+                  "fixed": "#F59E0B"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "P",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "service-5-title",
+              "placement": {
+                "left": 31.25,
+                "right": 57.25,
+                "top": 76,
+                "height": 22,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 13,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Prometheus",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "service-5-subtitle",
+              "placement": {
+                "left": 31.25,
+                "right": 57.25,
+                "top": 97,
+                "height": 17,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Metrics",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "service-5-status-bg",
+              "placement": {
+                "left": 43.9,
+                "right": 51.6,
+                "top": 108,
+                "height": 17,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#20242A"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 9,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "service-5-status",
+              "placement": {
+                "left": 43.9,
+                "right": 51.6,
+                "top": 108,
+                "height": 17,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "SERVICE_5"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": [
+                {
+                  "title": "서비스 상세 보기",
+                  "url": "/d/brainon-admin-infrastructure/brainon?${__url_time_range}&viewPanel=15",
+                  "targetBlank": false,
+                  "oneClick": true
+                }
+              ]
+            },
+            {
+              "type": "rectangle",
+              "name": "service-6-card",
+              "placement": {
+                "left": 50.5,
+                "right": 25.75,
+                "top": 70,
+                "height": 58,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#171A1F"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 8,
+                "color": {
+                  "fixed": "#2A3038"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "service-6-icon-bg",
+              "placement": {
+                "left": 51.5,
+                "right": 44.5,
+                "top": 79,
+                "height": 28,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#1D2B40"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 6,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "service-6-icon",
+              "placement": {
+                "left": 52.1,
+                "right": 45.1,
+                "top": 82,
+                "height": 21,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 12,
+                "color": {
+                  "fixed": "#5794F2"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "L",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "service-6-title",
+              "placement": {
+                "left": 56.0,
+                "right": 32.5,
+                "top": 76,
+                "height": 22,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 13,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Loki",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "service-6-subtitle",
+              "placement": {
+                "left": 56.0,
+                "right": 32.5,
+                "top": 97,
+                "height": 17,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Logs",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "service-6-status-bg",
+              "placement": {
+                "left": 68.65,
+                "right": 26.849999999999994,
+                "top": 108,
+                "height": 17,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#20242A"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 9,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "service-6-status",
+              "placement": {
+                "left": 68.65,
+                "right": 26.849999999999994,
+                "top": 108,
+                "height": 17,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "SERVICE_6"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": [
+                {
+                  "title": "서비스 상세 보기",
+                  "url": "/d/brainon-admin-infrastructure/brainon?${__url_time_range}&viewPanel=15",
+                  "targetBlank": false,
+                  "oneClick": true
+                }
+              ]
+            },
+            {
+              "type": "rectangle",
+              "name": "service-7-card",
+              "placement": {
+                "left": 75.25,
+                "right": 1.0,
+                "top": 70,
+                "height": 58,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#171A1F"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 8,
+                "color": {
+                  "fixed": "#2A3038"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "service-7-icon-bg",
+              "placement": {
+                "left": 76.25,
+                "right": 19.75,
+                "top": 79,
+                "height": 28,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#3B2B16"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 6,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "service-7-icon",
+              "placement": {
+                "left": 76.85,
+                "right": 20.350000000000005,
+                "top": 82,
+                "height": 21,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 12,
+                "color": {
+                  "fixed": "#F59E0B"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "G",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "service-7-title",
+              "placement": {
+                "left": 80.75,
+                "right": 7.75,
+                "top": 76,
+                "height": 22,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 13,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Grafana",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "service-7-subtitle",
+              "placement": {
+                "left": 80.75,
+                "right": 7.75,
+                "top": 97,
+                "height": 17,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Dashboard",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "service-7-status-bg",
+              "placement": {
+                "left": 93.4,
+                "right": 2.0999999999999943,
+                "top": 108,
+                "height": 17,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#20242A"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 9,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "service-7-status",
+              "placement": {
+                "left": 93.4,
+                "right": 2.0999999999999943,
+                "top": 108,
+                "height": 17,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "SERVICE_7"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": [
+                {
+                  "title": "서비스 상세 보기",
+                  "url": "/d/brainon-admin-infrastructure/brainon?${__url_time_range}&viewPanel=15",
+                  "targetBlank": false,
+                  "oneClick": true
+                }
+              ]
+            }
+          ]
+        }
+      }
     },
     {
-      "id": 2,
-      "type": "stat",
-      "title": "Backend",
+      "id": 24,
+      "type": "logs",
+      "title": "실시간 BrainOn Service Logs · Loki",
       "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
+        "type": "loki",
+        "uid": "loki"
       },
       "gridPos": {
         "x": 0,
-        "y": 1,
-        "w": 6,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "1": {
-                  "text": "UP",
-                  "color": "green"
-                },
-                "0": {
-                  "text": "DOWN",
-                  "color": "red"
-                },
-                "-1": {
-                  "text": "AUTH N/A",
-                  "color": "orange"
-                }
-              }
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
-              }
-            ]
-          },
-          "color": {
-            "mode": "thresholds"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "value_and_name",
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "max(up{job=\"brainon-backend\"})",
-          "instant": true,
-          "range": false
-        }
-      ],
-      "description": "Prometheus가 실제 Backend metrics endpoint를 scrape한 상태."
-    },
-    {
-      "id": 3,
-      "type": "stat",
-      "title": "PostgreSQL",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 6,
-        "y": 1,
-        "w": 6,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "1": {
-                  "text": "UP",
-                  "color": "green"
-                },
-                "0": {
-                  "text": "DOWN",
-                  "color": "red"
-                },
-                "-1": {
-                  "text": "AUTH N/A",
-                  "color": "orange"
-                }
-              }
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
-              }
-            ]
-          },
-          "color": {
-            "mode": "thresholds"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "value_and_name",
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "max(brainon_service_health_state{job=\"brainon-service-probe\",service=\"postgresql\"})",
-          "instant": true,
-          "range": false
-        }
-      ],
-      "description": "Read-only SELECT 1 기반 실제 PostgreSQL 연결 상태."
-    },
-    {
-      "id": 4,
-      "type": "stat",
-      "title": "RabbitMQ",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 1,
-        "w": 6,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "1": {
-                  "text": "UP",
-                  "color": "green"
-                },
-                "0": {
-                  "text": "DOWN",
-                  "color": "red"
-                },
-                "-1": {
-                  "text": "AUTH N/A",
-                  "color": "orange"
-                }
-              }
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
-              }
-            ]
-          },
-          "color": {
-            "mode": "thresholds"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "value_and_name",
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "max(up{job=~\"rabbitmq|rabbitmq-per-object\"})",
-          "instant": true,
-          "range": false
-        }
-      ],
-      "description": "RabbitMQ Prometheus endpoint 실제 scrape 상태."
-    },
-    {
-      "id": 5,
-      "type": "stat",
-      "title": "Orthanc / PACS",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 18,
-        "y": 1,
-        "w": 6,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "decimals": 0,
-          "noValue": "0",
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": {
-                  "text": "DOWN",
-                  "color": "red"
-                },
-                "1": {
-                  "text": "UP",
-                  "color": "green"
-                }
-              }
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red"
-              },
-              {
-                "color": "green",
-                "value": 1
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "value_and_name",
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "editorMode": "code",
-          "expr": "max(brainon_service_up{service=\"orthanc\"})",
-          "instant": true,
-          "range": false
-        }
-      ]
-    },
-    {
-      "id": 6,
-      "type": "stat",
-      "title": "AI Inference",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 0,
         "y": 5,
-        "w": 6,
-        "h": 4
+        "w": 17,
+        "h": 7
       },
       "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "1": {
-                  "text": "UP",
-                  "color": "green"
-                },
-                "0": {
-                  "text": "DOWN",
-                  "color": "red"
-                },
-                "-1": {
-                  "text": "AUTH N/A",
-                  "color": "orange"
-                }
-              }
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
-              }
-            ]
-          },
-          "color": {
-            "mode": "thresholds"
-          }
-        },
+        "defaults": {},
         "overrides": []
       },
       "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "value_and_name",
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center"
+        "showTime": true,
+        "showUniqueLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{service=~\"backend|frontend|celery-worker|celery-inference-worker|celery-monitor|infra-monitor|rabbitmq|prometheus|loki|grafana\"}",
+          "queryType": "range"
+        }
+      ],
+      "description": "Backend · Celery · RabbitMQ · Prometheus · Loki · Grafana 등 주요 서비스의 실시간 로그입니다."
+    },
+    {
+      "id": 201,
+      "type": "canvas",
+      "title": "",
+      "transparent": true,
+      "pluginVersion": "11.4.0",
+      "datasource": {
+        "type": "datasource",
+        "uid": "-- Mixed --"
+      },
+      "gridPos": {
+        "x": 17,
+        "y": 5,
+        "w": 7,
+        "h": 7
       },
       "targets": [
         {
@@ -484,467 +2476,1862 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "editorMode": "code",
-          "expr": "max(brainon_service_health_state{job=\"brainon-service-probe\",service=\"ai_inference\"})",
-          "instant": true,
-          "range": false
-        }
-      ],
-      "description": "실제 inference /health 상태. 로컬 환경에 Cloud Run ID-token credentials가 없으면 AUTH N/A로 표시될 수 있음."
-    },
-    {
-      "id": 7,
-      "type": "stat",
-      "title": "Prometheus",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 6,
-        "y": 5,
-        "w": 6,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "1": {
-                  "text": "UP",
-                  "color": "green"
-                },
-                "0": {
-                  "text": "DOWN",
-                  "color": "red"
-                },
-                "-1": {
-                  "text": "AUTH N/A",
-                  "color": "orange"
-                }
-              }
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
-              }
-            ]
-          },
-          "color": {
-            "mode": "thresholds"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "value_and_name",
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "max(up{job=\"prometheus\"})",
-          "instant": true,
-          "range": false
-        }
-      ],
-      "description": "Prometheus 자체 실제 scrape 상태."
-    },
-    {
-      "id": 8,
-      "type": "stat",
-      "title": "Loki",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 5,
-        "w": 6,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "1": {
-                  "text": "UP",
-                  "color": "green"
-                },
-                "0": {
-                  "text": "DOWN",
-                  "color": "red"
-                },
-                "-1": {
-                  "text": "AUTH N/A",
-                  "color": "orange"
-                }
-              }
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
-              }
-            ]
-          },
-          "color": {
-            "mode": "thresholds"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "value_and_name",
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "max(up{job=\"loki\"})",
-          "instant": true,
-          "range": false
-        }
-      ],
-      "description": "Loki /metrics 실제 scrape 상태."
-    },
-    {
-      "id": 9,
-      "type": "stat",
-      "title": "Grafana",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 18,
-        "y": 5,
-        "w": 6,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "decimals": 0,
-          "noValue": "0",
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": {
-                  "text": "DOWN",
-                  "color": "red"
-                },
-                "1": {
-                  "text": "UP",
-                  "color": "green"
-                }
-              }
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red"
-              },
-              {
-                "color": "green",
-                "value": 1
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "value_and_name",
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "editorMode": "code",
-          "expr": "max(brainon_service_up{service=\"grafana\"})",
-          "instant": true,
-          "range": false
-        }
-      ]
-    },
-    {
-      "id": 10,
-      "type": "stat",
-      "title": "Celery Workers",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 9,
-        "w": 6,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "noValue": "0"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "value_and_name",
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center"
-      },
-      "targets": [
-        {
-          "refId": "A",
           "editorMode": "code",
           "expr": "max(brainon_celery_workers_online{job=\"celery-monitor\"})",
+          "legendFormat": "CELERY_WORKERS",
           "instant": true,
           "range": false
-        }
-      ]
-    },
-    {
-      "id": 11,
-      "type": "stat",
-      "title": "Celery Active Tasks",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 6,
-        "y": 9,
-        "w": 6,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "noValue": "0"
         },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "value_and_name",
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center"
-      },
-      "targets": [
         {
-          "refId": "A",
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "editorMode": "code",
           "expr": "sum(brainon_celery_tasks_active{job=\"celery-monitor\"})",
+          "legendFormat": "CELERY_ACTIVE",
           "instant": true,
           "range": false
-        }
-      ]
-    },
-    {
-      "id": 12,
-      "type": "stat",
-      "title": "RabbitMQ Queue Depth",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 9,
-        "w": 6,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "noValue": "0"
         },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "value_and_name",
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center"
-      },
-      "targets": [
         {
-          "refId": "A",
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "editorMode": "code",
           "expr": "sum(rabbitmq_queue_messages{job=\"rabbitmq-per-object\"})",
+          "legendFormat": "RABBIT_QUEUE",
           "instant": true,
           "range": false
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "rawSql": "\nSELECT\n    COUNT(*)::bigint\n        AS \"INTERNAL_INCIDENTS_1H\"\n\nFROM audit_auditlog\n\nWHERE\n    occurred_at\n    >= NOW() - INTERVAL '1 hour'\n\n    AND COALESCE(\n        outcome,\n        'UNKNOWN'\n    ) NOT IN (\n        'SUCCESS',\n        'SUCCEEDED',\n        'COMPLETED',\n        'OK'\n    )\n"
         }
-      ]
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "inlineEditing": false,
+        "showAdvancedTypes": true,
+        "panZoom": false,
+        "infinitePan": false,
+        "root": {
+          "type": "frame",
+          "name": "Infrastructure Runtime",
+          "background": {
+            "color": {
+              "fixed": "transparent"
+            }
+          },
+          "border": {
+            "width": 0,
+            "color": {
+              "fixed": "transparent"
+            }
+          },
+          "elements": [
+            {
+              "type": "rectangle",
+              "name": "icon-bg",
+              "placement": {
+                "left": 4,
+                "right": 84,
+                "top": 10,
+                "height": 32,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#1D2B40"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 7,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "icon",
+              "placement": {
+                "left": 7,
+                "right": 87,
+                "top": 13,
+                "height": 23,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 15,
+                "color": {
+                  "fixed": "#5794F2"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "⚙",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "title",
+              "placement": {
+                "left": 19,
+                "right": 16,
+                "top": 9,
+                "height": 23,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 15,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Runtime 운영 현황",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "subtitle",
+              "placement": {
+                "left": 19,
+                "right": 11,
+                "top": 31,
+                "height": 17,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "비동기 처리 · Queue · 내부 장애",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "title-0",
+              "placement": {
+                "left": 7,
+                "right": 45,
+                "top": 68,
+                "height": 19,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Celery Workers",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "value-0",
+              "placement": {
+                "left": 63,
+                "right": 7,
+                "top": 68,
+                "height": 19,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "size": 12,
+                "color": {
+                  "fixed": "#35C79B"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "CELERY_WORKERS"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "subtitle-0",
+              "placement": {
+                "left": 7,
+                "right": 28,
+                "top": 88,
+                "height": 16,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#626B78"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "온라인 Worker",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "divider-1",
+              "placement": {
+                "left": 5,
+                "right": 5,
+                "top": 105,
+                "height": 1,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#303640"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "title-1",
+              "placement": {
+                "left": 7,
+                "right": 45,
+                "top": 112,
+                "height": 19,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Active Tasks",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "value-1",
+              "placement": {
+                "left": 63,
+                "right": 7,
+                "top": 112,
+                "height": 19,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "size": 12,
+                "color": {
+                  "fixed": "#5794F2"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "CELERY_ACTIVE"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "subtitle-1",
+              "placement": {
+                "left": 7,
+                "right": 28,
+                "top": 132,
+                "height": 16,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#626B78"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "현재 처리 중",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "divider-2",
+              "placement": {
+                "left": 5,
+                "right": 5,
+                "top": 149,
+                "height": 1,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#303640"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "title-2",
+              "placement": {
+                "left": 7,
+                "right": 45,
+                "top": 156,
+                "height": 19,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "RabbitMQ Queue",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "value-2",
+              "placement": {
+                "left": 63,
+                "right": 7,
+                "top": 156,
+                "height": 19,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "size": 12,
+                "color": {
+                  "fixed": "#F59E0B"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "RABBIT_QUEUE"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "subtitle-2",
+              "placement": {
+                "left": 7,
+                "right": 28,
+                "top": 176,
+                "height": 16,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#626B78"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "대기 Message",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "divider-3",
+              "placement": {
+                "left": 5,
+                "right": 5,
+                "top": 193,
+                "height": 1,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#303640"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "title-3",
+              "placement": {
+                "left": 7,
+                "right": 45,
+                "top": 200,
+                "height": 19,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "최근 내부 장애",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "value-3",
+              "placement": {
+                "left": 63,
+                "right": 7,
+                "top": 200,
+                "height": 19,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "size": 12,
+                "color": {
+                  "fixed": "#FF5A67"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "INTERNAL_INCIDENTS_1H"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "subtitle-3",
+              "placement": {
+                "left": 7,
+                "right": 28,
+                "top": 220,
+                "height": 16,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#626B78"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "최근 1시간",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            }
+          ]
+        }
+      }
     },
     {
-      "id": 13,
-      "type": "stat",
-      "title": "최근 내부 장애",
+      "id": 202,
+      "type": "canvas",
+      "title": "",
+      "transparent": true,
+      "pluginVersion": "11.4.0",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 18,
-        "y": 9,
-        "w": 6,
+        "x": 0,
+        "y": 12,
+        "w": 24,
         "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "noValue": "0"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "value_and_name",
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center"
       },
       "targets": [
         {
           "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "editorMode": "code",
-          "expr": "sum(increase(brainon_dependency_results_total{outcome=~\"failed|error|timeout|warning|degraded|partial_failure|partial_success|unavailable|unhealthy|not_configured|disconnected|circuit_open\"}[1h]))",
+          "expr": "brainon_postgres_database_size_bytes{job=\"brainon-infra-monitor\"}",
+          "legendFormat": "DB_SIZE",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "brainon_postgres_connections{job=\"brainon-infra-monitor\"}",
+          "legendFormat": "DB_CONNECTIONS",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "100 * brainon_postgres_cache_hit_ratio{job=\"brainon-infra-monitor\"}",
+          "legendFormat": "DB_CACHE_HIT",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "brainon_postgres_deadlocks_total{job=\"brainon-infra-monitor\"}",
+          "legendFormat": "DB_DEADLOCKS",
           "instant": true,
           "range": false
         }
-      ]
-    },
-    {
-      "id": 14,
-      "type": "row",
-      "title": "02. 서비스 응답시간",
-      "collapsed": false,
-      "gridPos": {
-        "x": 0,
-        "y": 13,
-        "w": 24,
-        "h": 1
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": []
+        },
+        "overrides": []
       },
-      "panels": []
+      "options": {
+        "inlineEditing": false,
+        "showAdvancedTypes": true,
+        "panZoom": false,
+        "infinitePan": false,
+        "root": {
+          "type": "frame",
+          "name": "PostgreSQL Summary",
+          "background": {
+            "color": {
+              "fixed": "transparent"
+            }
+          },
+          "border": {
+            "width": 0,
+            "color": {
+              "fixed": "transparent"
+            }
+          },
+          "elements": [
+            {
+              "type": "rectangle",
+              "name": "db-0-card",
+              "placement": {
+                "left": 1.0,
+                "right": 75.25,
+                "top": 7,
+                "height": 90,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#171A1F"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 8,
+                "color": {
+                  "fixed": "#2A3038"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "db-0-icon-bg",
+              "placement": {
+                "left": 2.0,
+                "right": 94.7,
+                "top": 18,
+                "height": 30,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#1D2B40"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 7,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "db-0-icon",
+              "placement": {
+                "left": 2.4,
+                "right": 95.19999999999999,
+                "top": 21,
+                "height": 22,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 12,
+                "color": {
+                  "fixed": "#5794F2"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "DB",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "db-0-title",
+              "placement": {
+                "left": 6.0,
+                "right": 78.0,
+                "top": 16,
+                "height": 22,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 13,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "DB Size",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "db-0-value",
+              "placement": {
+                "left": 3.0,
+                "right": 77.5,
+                "top": 47,
+                "height": 27,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 18,
+                "color": {
+                  "fixed": "#5794F2"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "DB_SIZE"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "db-0-subtitle",
+              "placement": {
+                "left": 3.0,
+                "right": 77.5,
+                "top": 76,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "데이터베이스 크기",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "db-1-card",
+              "placement": {
+                "left": 25.75,
+                "right": 50.5,
+                "top": 7,
+                "height": 90,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#171A1F"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 8,
+                "color": {
+                  "fixed": "#2A3038"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "db-1-icon-bg",
+              "placement": {
+                "left": 26.75,
+                "right": 69.95,
+                "top": 18,
+                "height": 30,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#183A38"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 7,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "db-1-icon",
+              "placement": {
+                "left": 27.15,
+                "right": 70.44999999999999,
+                "top": 21,
+                "height": 22,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 12,
+                "color": {
+                  "fixed": "#2DD4BF"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "↔",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "db-1-title",
+              "placement": {
+                "left": 30.75,
+                "right": 53.25,
+                "top": 16,
+                "height": 22,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 13,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Connections",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "db-1-value",
+              "placement": {
+                "left": 27.75,
+                "right": 52.75,
+                "top": 47,
+                "height": 27,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 18,
+                "color": {
+                  "fixed": "#2DD4BF"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "DB_CONNECTIONS"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "db-1-subtitle",
+              "placement": {
+                "left": 27.75,
+                "right": 52.75,
+                "top": 76,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "현재 DB 연결",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "db-2-card",
+              "placement": {
+                "left": 50.5,
+                "right": 25.75,
+                "top": 7,
+                "height": 90,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#171A1F"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 8,
+                "color": {
+                  "fixed": "#2A3038"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "db-2-icon-bg",
+              "placement": {
+                "left": 51.5,
+                "right": 45.2,
+                "top": 18,
+                "height": 30,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#17372F"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 7,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "db-2-icon",
+              "placement": {
+                "left": 51.9,
+                "right": 45.7,
+                "top": 21,
+                "height": 22,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 12,
+                "color": {
+                  "fixed": "#35C79B"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "%",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "db-2-title",
+              "placement": {
+                "left": 55.5,
+                "right": 28.5,
+                "top": 16,
+                "height": 22,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 13,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Cache Hit Ratio",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "db-2-value",
+              "placement": {
+                "left": 52.5,
+                "right": 28.0,
+                "top": 47,
+                "height": 27,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 18,
+                "color": {
+                  "fixed": "#35C79B"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "DB_CACHE_HIT"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "db-2-subtitle",
+              "placement": {
+                "left": 52.5,
+                "right": 28.0,
+                "top": 76,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Buffer cache 효율",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "db-3-card",
+              "placement": {
+                "left": 75.25,
+                "right": 1.0,
+                "top": 7,
+                "height": 90,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#171A1F"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 8,
+                "color": {
+                  "fixed": "#2A3038"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "db-3-icon-bg",
+              "placement": {
+                "left": 76.25,
+                "right": 20.45,
+                "top": 18,
+                "height": 30,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#3F1E26"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 7,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "db-3-icon",
+              "placement": {
+                "left": 76.65,
+                "right": 20.949999999999996,
+                "top": 21,
+                "height": 22,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 12,
+                "color": {
+                  "fixed": "#FF5A67"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "!",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "db-3-title",
+              "placement": {
+                "left": 80.25,
+                "right": 3.75,
+                "top": 16,
+                "height": 22,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 13,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Deadlocks",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "db-3-value",
+              "placement": {
+                "left": 77.25,
+                "right": 3.25,
+                "top": 47,
+                "height": 27,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 18,
+                "color": {
+                  "fixed": "#FF5A67"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "DB_DEADLOCKS"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "db-3-subtitle",
+              "placement": {
+                "left": 77.25,
+                "right": 3.25,
+                "top": 76,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "누적 Deadlock",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            }
+          ]
+        }
+      }
     },
     {
       "id": 15,
       "type": "timeseries",
-      "title": "서비스 Health Probe Latency",
+      "title": "서비스 Health Probe 응답시간",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 0,
-        "y": 14,
-        "w": 24,
-        "h": 7
+        "y": 16,
+        "w": 8,
+        "h": 5
       },
       "fieldConfig": {
         "defaults": {
@@ -955,9 +4342,10 @@
       },
       "options": {
         "legend": {
-          "displayMode": "table",
+          "displayMode": "list",
           "placement": "bottom",
-          "showLegend": true
+          "showLegend": true,
+          "calcs": []
         },
         "tooltip": {
           "mode": "multi"
@@ -971,218 +4359,22 @@
           "legendFormat": "{{service}}",
           "range": true
         }
-      ]
-    },
-    {
-      "id": 16,
-      "type": "row",
-      "title": "03. PostgreSQL",
-      "collapsed": false,
-      "gridPos": {
-        "x": 0,
-        "y": 21,
-        "w": 24,
-        "h": 1
-      },
-      "panels": []
-    },
-    {
-      "id": 17,
-      "type": "stat",
-      "title": "DB Size",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 22,
-        "w": 6,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "bytes",
-          "decimals": 1,
-          "noValue": "0"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "value_and_name",
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "editorMode": "code",
-          "expr": "brainon_postgres_database_size_bytes",
-          "instant": true,
-          "range": false
-        }
-      ]
-    },
-    {
-      "id": 18,
-      "type": "stat",
-      "title": "DB Connections",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 6,
-        "y": 22,
-        "w": 6,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "noValue": "0"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "value_and_name",
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "editorMode": "code",
-          "expr": "brainon_postgres_connections",
-          "instant": true,
-          "range": false
-        }
-      ]
-    },
-    {
-      "id": 19,
-      "type": "stat",
-      "title": "Cache Hit Ratio",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 22,
-        "w": 6,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "decimals": 2,
-          "noValue": "0"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "value_and_name",
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "editorMode": "code",
-          "expr": "100 * brainon_postgres_cache_hit_ratio",
-          "instant": true,
-          "range": false
-        }
-      ]
-    },
-    {
-      "id": 20,
-      "type": "stat",
-      "title": "Deadlocks",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 18,
-        "y": 22,
-        "w": 6,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "noValue": "0"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "value_and_name",
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "editorMode": "code",
-          "expr": "brainon_postgres_deadlocks_total",
-          "instant": true,
-          "range": false
-        }
-      ]
+      ],
+      "description": "Backend · PostgreSQL · RabbitMQ · AI 등 내부 서비스 health probe 응답시간을 확인합니다."
     },
     {
       "id": 21,
       "type": "timeseries",
-      "title": "PostgreSQL Transactions",
+      "title": "PostgreSQL Transaction",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 0,
-        "y": 26,
-        "w": 12,
-        "h": 7
+        "x": 8,
+        "y": 16,
+        "w": 8,
+        "h": 5
       },
       "fieldConfig": {
         "defaults": {
@@ -1193,9 +4385,10 @@
       },
       "options": {
         "legend": {
-          "displayMode": "table",
+          "displayMode": "list",
           "placement": "bottom",
-          "showLegend": true
+          "showLegend": true,
+          "calcs": []
         },
         "tooltip": {
           "mode": "multi"
@@ -1225,10 +4418,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 12,
-        "y": 26,
-        "w": 12,
-        "h": 7
+        "x": 16,
+        "y": 16,
+        "w": 8,
+        "h": 5
       },
       "fieldConfig": {
         "defaults": {},
@@ -1236,9 +4429,10 @@
       },
       "options": {
         "legend": {
-          "displayMode": "table",
+          "displayMode": "list",
           "placement": "bottom",
-          "showLegend": true
+          "showLegend": true,
+          "calcs": []
         },
         "tooltip": {
           "mode": "multi"
@@ -1258,285 +4452,9 @@
           "range": true
         }
       ]
-    },
-    {
-      "id": 23,
-      "type": "row",
-      "title": "04. 실시간 서비스 로그",
-      "collapsed": false,
-      "gridPos": {
-        "x": 0,
-        "y": 33,
-        "w": 24,
-        "h": 1
-      },
-      "panels": []
-    },
-    {
-      "id": 24,
-      "type": "logs",
-      "title": "BrainOn Service Logs",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 34,
-        "w": 24,
-        "h": 10
-      },
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "options": {
-        "showTime": true,
-        "showUniqueLabels": false,
-        "wrapLogMessage": true,
-        "prettifyLogMessage": false,
-        "enableLogDetails": true,
-        "dedupStrategy": "none",
-        "sortOrder": "Descending"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "{service=~\"backend|frontend|celery-worker|celery-inference-worker|celery-monitor|infra-monitor|rabbitmq|orthanc|prometheus|loki|grafana\"}",
-          "queryType": "range"
-        }
-      ],
-      "description": "Docker stdout/stderr → Grafana Alloy → Loki 실시간 로그."
-    },
-    {
-      "id": 25,
-      "type": "row",
-      "title": "실제 서비스 / DB 상태",
-      "collapsed": false,
-      "gridPos": {
-        "x": 0,
-        "y": 44,
-        "w": 24,
-        "h": 1
-      },
-      "panels": []
-    },
-    {
-      "id": 26,
-      "type": "stat",
-      "title": "Frontend",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 45,
-        "w": 6,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "noValue": "N/A"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "value_and_name",
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "max(brainon_service_health_state{job=\"brainon-service-probe\",service=\"frontend\"})",
-          "instant": true,
-          "range": false
-        }
-      ],
-      "description": "실제 Frontend HTTP 응답 상태.",
-      "transparent": false
-    },
-    {
-      "id": 27,
-      "type": "stat",
-      "title": "PostgreSQL Connections",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 45,
-        "w": 6,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "noValue": "N/A"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "value_and_name",
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "max(brainon_postgres_connections{job=\"brainon-service-probe\"})",
-          "instant": true,
-          "range": false
-        }
-      ],
-      "description": "현재 BrainOn DB 실제 connection 수.",
-      "transparent": false
-    },
-    {
-      "id": 28,
-      "type": "stat",
-      "title": "PostgreSQL DB Size",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 18,
-        "y": 45,
-        "w": 6,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "bytes",
-          "decimals": 1,
-          "noValue": "N/A"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "value_and_name",
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "max(brainon_postgres_database_size_bytes{job=\"brainon-service-probe\"})",
-          "instant": true,
-          "range": false
-        }
-      ],
-      "description": "현재 BrainOn PostgreSQL 실제 DB 크기.",
-      "transparent": false
-    },
-    {
-      "id": 29,
-      "type": "timeseries",
-      "title": "서비스 Probe 응답시간",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 49,
-        "w": 24,
-        "h": 7
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "decimals": 3,
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "smooth",
-            "lineWidth": 2,
-            "fillOpacity": 10,
-            "showPoints": "never"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "brainon_service_probe_duration_seconds{job=\"brainon-service-probe\"}",
-          "legendFormat": "{{service}}",
-          "range": true
-        }
-      ],
-      "description": "Backend / PostgreSQL / Orthanc / AI / Frontend / Grafana / Loki / Prometheus의 실제 probe latency.",
-      "transparent": false
     }
   ],
-  "refresh": "30s",
+  "refresh": "",
   "schemaVersion": 41,
   "tags": [
     "BrainOn",
@@ -1588,7 +4506,7 @@
   "timezone": "browser",
   "title": "BrainOn · Infrastructure",
   "uid": "brainon-admin-infrastructure",
-  "version": 3,
+  "version": 9,
   "weekStart": "",
   "description": "Backend, DB, Messaging, PACS, AI, Observability 서비스 상태."
 }

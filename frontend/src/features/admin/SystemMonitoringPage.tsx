@@ -15,6 +15,9 @@ import "./admin.css";
 const GRAFANA_LOGIN =
   "/grafana/login";
 
+const GRAFANA_ACTIVE_VIEW_STORAGE_KEY =
+  "brainon-grafana-active-view";
+
 
 type GrafanaView = {
   id: string;
@@ -181,6 +184,13 @@ const GRAFANA_VIEWS: GrafanaView[] = [
    * BrainOn PostgreSQL SQL Query Editor.
    */
   {
+    id: "query-console",
+    label: "Query Console",
+    kind: "tool",
+    path: "/explore",
+  },
+
+  {
     id: "explore-sql",
     label: "SQL / PostgreSQL",
     kind: "tool",
@@ -306,6 +316,7 @@ const GRAFANA_GROUPS: GrafanaNavGroup[] = [
     label: "Explore",
     icon: "explore",
     children: [
+      "query-console",
       "explore-sql",
       "explore-metrics",
       "explore-logs",
@@ -500,6 +511,220 @@ function grafanaViewUrl(
     + "&theme=dark"
     + "&kiosk"
   );
+}
+
+
+
+/* ============================================================
+   Audit · Request Trace
+   Embedded Explore datasource URL
+   ============================================================ */
+
+type AuditExploreSource =
+  | "explore-sql"
+  | "explore-metrics"
+  | "explore-logs";
+
+
+function buildAuditExploreUrl(
+  source: AuditExploreSource,
+) {
+
+  const config = {
+
+    "explore-sql": {
+      uid: "brainon-postgres",
+      type: "postgres",
+
+      query: {
+        format: "table",
+        rawSql: "",
+        editorMode: "code",
+      },
+    },
+
+    "explore-metrics": {
+      uid: "prometheus",
+      type: "prometheus",
+
+      query: {
+        expr: "",
+        range: true,
+        instant: false,
+        editorMode: "code",
+      },
+    },
+
+    "explore-logs": {
+      uid: "loki",
+      type: "loki",
+
+      query: {
+        expr: "",
+        queryType: "range",
+        editorMode: "code",
+      },
+    },
+
+  }[source];
+
+
+  const panes = {
+    brainon: {
+
+      /*
+       * 중요:
+       * pane datasource와
+       * query datasource를 동일하게 지정한다.
+       */
+      datasource:
+        config.uid,
+
+      queries: [
+        {
+          refId: "A",
+
+          datasource: {
+            uid:
+              config.uid,
+
+            type:
+              config.type,
+          },
+
+          ...config.query,
+        },
+      ],
+
+      range: {
+        from: "now-1h",
+        to: "now",
+      },
+    },
+  };
+
+
+  const params =
+    new URLSearchParams();
+
+
+  params.set(
+    "panes",
+    JSON.stringify(
+      panes,
+    ),
+  );
+
+  params.set(
+    "schemaVersion",
+    "1",
+  );
+
+  params.set(
+    "orgId",
+    "1",
+  );
+
+  params.set(
+    "theme",
+    "dark",
+  );
+
+  /*
+   * full kiosk
+   *
+   * Grafana 자체 상단 navigation /
+   * sidebar를 숨긴다.
+   */
+  params.set(
+    "kiosk",
+    "1",
+  );
+
+
+  return (
+    "/grafana/explore?"
+    + params.toString()
+  );
+}
+
+
+/*
+ * Explore iframe은 같은 origin의 /grafana를 사용하므로
+ * iframe 내부 breadcrumb만 추가로 숨길 수 있다.
+ *
+ * Grafana 버전에 따라 breadcrumb markup이 일부 달라질 수
+ * 있으므로 semantic/test-id 기반 selector만 사용한다.
+ */
+function cleanAuditExploreFrame(
+  frame: HTMLIFrameElement,
+) {
+
+  try {
+
+    const doc =
+      frame.contentDocument;
+
+
+    if (!doc) {
+      return;
+    }
+
+
+    const styleId =
+      "brainon-audit-explore-clean";
+
+
+    if (
+      doc.getElementById(
+        styleId,
+      )
+    ) {
+      return;
+    }
+
+
+    const style =
+      doc.createElement(
+        "style",
+      );
+
+
+    style.id =
+      styleId;
+
+
+    style.textContent = `
+      [data-testid*="Breadcrumb"],
+      [aria-label*="Breadcrumb"] {
+        display: none !important;
+      }
+
+      nav:has(
+        [data-testid*="Breadcrumb"]
+      ) {
+        display: none !important;
+      }
+
+      nav:has(
+        [aria-label*="Breadcrumb"]
+      ) {
+        display: none !important;
+      }
+    `;
+
+
+    doc.head.appendChild(
+      style,
+    );
+
+  } catch {
+    /*
+     * same-origin proxy 상태에서는 접근 가능.
+     * 혹시 iframe origin 정책이 달라지더라도
+     * Query Console 자체 동작은 유지한다.
+     */
+  }
 }
 
 
@@ -716,8 +941,71 @@ export default function SystemMonitoringPage() {
     activeViewId,
     setActiveViewId,
   ] = useState(
-    "overview",
+    () => {
+      try {
+        const stored =
+          sessionStorage.getItem(
+            GRAFANA_ACTIVE_VIEW_STORAGE_KEY,
+          );
+
+        if (
+          stored
+          && GRAFANA_VIEWS.some(
+            (item) =>
+              item.id === stored,
+          )
+        ) {
+          return stored;
+        }
+      } catch {
+        // sessionStorage unavailable:
+        // use default dashboard.
+      }
+
+      return "overview";
+    },
   );
+
+
+  useEffect(
+    () => {
+      try {
+        sessionStorage.setItem(
+          GRAFANA_ACTIVE_VIEW_STORAGE_KEY,
+          activeViewId,
+        );
+      } catch {
+        // Ignore storage restrictions.
+      }
+    },
+    [
+      activeViewId,
+    ],
+  );
+
+
+  const [
+    quickTraceInput,
+    setQuickTraceInput,
+  ] = useState("");
+
+
+  const [
+    appliedTrackingCode,
+    setAppliedTrackingCode,
+  ] = useState("");
+
+
+  const [
+    dashboardRange,
+    setDashboardRange,
+  ] = useState("24h");
+
+
+  const [
+    dashboardRefreshKey,
+    setDashboardRefreshKey,
+  ] = useState(0);
 
 
   const activeView =
@@ -758,6 +1046,83 @@ export default function SystemMonitoringPage() {
       },
       [
         activeViewId,
+      ],
+    );
+
+
+  const activeGrafanaUrl =
+    useMemo(
+      () => {
+
+        const url =
+          grafanaViewUrl(
+            activeView,
+          );
+
+
+        if (
+          activeView.kind
+          !== "dashboard"
+        ) {
+          return url;
+        }
+
+
+        const params =
+          new URLSearchParams();
+
+        params.set(
+          "_dash.hideTimePicker",
+          "true",
+        );
+
+        params.set(
+          "_dash.hideVariables",
+          "true",
+        );
+
+        params.set(
+          "_dash.hideLinks",
+          "true",
+        );
+
+        params.set(
+          "from",
+          `now-${dashboardRange}`,
+        );
+
+        params.set(
+          "to",
+          "now",
+        );
+
+
+        if (
+          activeView.id === "audit"
+          && appliedTrackingCode
+        ) {
+          params.set(
+            "var-tracking_code",
+            appliedTrackingCode,
+          );
+        }
+
+
+        return (
+          url
+          + (
+            url.includes("?")
+              ? "&"
+              : "?"
+          )
+          + params.toString()
+        );
+
+      },
+      [
+        activeView,
+        dashboardRange,
+        appliedTrackingCode,
       ],
     );
 
@@ -969,6 +1334,75 @@ export default function SystemMonitoringPage() {
         current === group.id
           ? null
           : group.id,
+    );
+  }
+
+
+  function handleQuickDashboard(
+    viewId: string,
+  ) {
+
+    const group =
+      GRAFANA_GROUPS.find(
+        (item) =>
+          item.children.includes(
+            viewId,
+          )
+          || item.directViewId
+          === viewId,
+      );
+
+
+    setActiveViewId(
+      viewId,
+    );
+
+
+    setExpandedGroup(
+      group?.id
+      ?? "overview",
+    );
+  }
+
+
+  function handleQuickTraceSubmit(
+    event:
+      React.FormEvent<HTMLFormElement>,
+  ) {
+
+    event.preventDefault();
+
+
+    const normalized =
+      quickTraceInput
+        .trim()
+        .toUpperCase();
+
+
+    if (
+      normalized
+      && !/^ERR-[0-9A-F]{16}$/.test(
+        normalized,
+      )
+    ) {
+      return;
+    }
+
+
+    setQuickTraceInput(
+      normalized,
+    );
+
+    setAppliedTrackingCode(
+      normalized,
+    );
+
+    setActiveViewId(
+      "audit",
+    );
+
+    setExpandedGroup(
+      "operations",
     );
   }
 
@@ -1379,9 +1813,288 @@ export default function SystemMonitoringPage() {
             </div>
 
 
-            <iframe
+            {
+              activeView.kind
+              === "dashboard"
+              && (
+                <div
+                  className="
+                    brainon-ops-toolbar
+                  "
+                >
+                  <form
+                    className="
+                      brainon-ops-trace-search
+                    "
+                    onSubmit={
+                      handleQuickTraceSubmit
+                    }
+                  >
+                    <span>
+                      Error 추적번호
+                    </span>
+
+                    <input
+                      value={
+                        quickTraceInput
+                      }
+                      onChange={
+                        (event) =>
+                          setQuickTraceInput(
+                            event.target.value,
+                          )
+                      }
+                      placeholder="
+                        ERR-0000000000000000
+                      "
+                      pattern="
+                        ERR-[0-9A-Fa-f]{16}
+                      "
+                      title="
+                        ERR- 뒤에 16자리 Error 추적번호를 입력하세요.
+                      "
+                    />
+
+                    <button
+                      type="submit"
+                    >
+                      추적
+                    </button>
+                  </form>
+
+
+                  <nav
+                    className="
+                      brainon-ops-quick-nav
+                    "
+                    aria-label="
+                      운영 대시보드 바로가기
+                    "
+                  >
+                    {
+                      GRAFANA_VIEWS
+                        .filter(
+                          (view) =>
+                            view.kind
+                            === "dashboard",
+                        )
+                        .map(
+                          (view) => (
+                            <button
+                              key={
+                                view.id
+                              }
+                              type="button"
+                              className={
+                                (
+                                  "brainon-ops-quick-nav__item "
+                                  + (
+                                    activeView.id
+                                    === view.id
+                                      ? "is-active"
+                                      : ""
+                                  )
+                                )
+                              }
+                              onClick={
+                                () =>
+                                  handleQuickDashboard(
+                                    view.id,
+                                  )
+                              }
+                            >
+                              {
+                                view.label
+                              }
+                            </button>
+                          ),
+                        )
+                    }
+                  </nav>
+
+
+                  <div
+                    className="
+                      brainon-ops-toolbar__controls
+                    "
+                  >
+                    <select
+                      value={
+                        dashboardRange
+                      }
+                      onChange={
+                        (event) =>
+                          setDashboardRange(
+                            event.target.value,
+                          )
+                      }
+                      aria-label="
+                        조회 기간
+                      "
+                    >
+                      <option value="1h">
+                        최근 1시간
+                      </option>
+
+                      <option value="6h">
+                        최근 6시간
+                      </option>
+
+                      <option value="24h">
+                        최근 24시간
+                      </option>
+
+                      <option value="7d">
+                        최근 7일
+                      </option>
+                    </select>
+
+                    <button
+                      type="button"
+                      onClick={
+                        () =>
+                          setDashboardRefreshKey(
+                            (value) =>
+                              value + 1,
+                          )
+                      }
+                    >
+                      ↻ 새로고침
+                    </button>
+                  </div>
+                </div>
+              )
+            }
+
+
+            {/* BRAINON_EXPLORE_QUERY_CONSOLE */}
+            {activeViewId === "query-console" ? (
+              <section
+                className="
+                  brainon-audit-query-console
+                  brainon-explore-query-console
+                "
+              >
+                <header
+                  className="
+                    brainon-audit-query-console__header
+                  "
+                >
+                  <div
+                    className="
+                      brainon-audit-query-console__heading
+                    "
+                  >
+                    <strong>
+                      Query Console
+                    </strong>
+
+                    <span>
+                      PostgreSQL · Prometheus · Loki
+                      원본 데이터를 직접 조회합니다.
+                    </span>
+                  </div>
+
+                  <label
+                    className="
+                      brainon-audit-query-console__source
+                    "
+                  >
+                    <span>
+                      Datasource
+                    </span>
+
+                    <select
+                      defaultValue="explore-sql"
+                      onChange={
+                        (event) => {
+
+                          const source =
+                            event.target.value;
+
+
+                          if (
+                            source !== "explore-sql"
+                            && source !== "explore-metrics"
+                            && source !== "explore-logs"
+                          ) {
+                            return;
+                          }
+
+
+                          const consoleRoot =
+                            event.currentTarget.closest(
+                              ".brainon-explore-query-console",
+                            );
+
+
+                          const queryFrame =
+                            consoleRoot?.querySelector<
+                              HTMLIFrameElement
+                            >(
+                              ".brainon-audit-query-frame",
+                            );
+
+
+                          if (queryFrame) {
+                            queryFrame.src =
+                              buildAuditExploreUrl(
+                                source,
+                              );
+                          }
+                        }
+                      }
+                    >
+                      <option
+                        value="explore-sql"
+                      >
+                        PostgreSQL · SQL
+                      </option>
+
+                      <option
+                        value="explore-metrics"
+                      >
+                        Prometheus · PromQL
+                      </option>
+
+                      <option
+                        value="explore-logs"
+                      >
+                        Loki · LogQL
+                      </option>
+                    </select>
+                  </label>
+                </header>
+
+                <iframe
+                  title="
+                    BrainOn Query Console
+                  "
+                  className="
+                    brainon-audit-query-frame
+                  "
+                  src={
+                    buildAuditExploreUrl(
+                      "explore-sql",
+                    )
+                  }
+                  onLoad={
+                    (event) =>
+                      cleanAuditExploreFrame(
+                        event.currentTarget,
+                      )
+                  }
+                />
+              </section>
+            ) : (
+<iframe
               key={
-                activeView.id
+                [
+                  activeView.id,
+                  dashboardRange,
+                  dashboardRefreshKey,
+                  appliedTrackingCode,
+                ].join(":")
               }
               title={
                 (
@@ -1393,11 +2106,173 @@ export default function SystemMonitoringPage() {
                 brainon-grafana-frame
               "
               src={
-                grafanaViewUrl(
-                  activeView,
-                )
+                activeGrafanaUrl
               }
             />
+            )}
+
+            {/* BRAINON_AUDIT_INLINE_EXPLORE */}
+            {activeViewId === "audit" && (
+              <section
+                className="
+                  brainon-audit-query-console
+                "
+              >
+                <header
+                  className="
+                    brainon-audit-query-console__header
+                  "
+                >
+                  <div
+                    className="
+                      brainon-audit-query-console__heading
+                    "
+                  >
+                    <strong>
+                      Query Console
+                    </strong>
+
+                    <span>
+                      추적 결과를 DB · Metrics · Logs
+                      원본 데이터로 바로 확인합니다.
+                    </span>
+                  </div>
+
+
+                  {/* BRAINON_QUERY_CONSOLE_SHORTCUT */}
+                  <button
+                    type="button"
+                    className="
+                      brainon-query-console-shortcut
+                    "
+                    title="
+                      Explore Query Console 바로가기
+                    "
+                    aria-label="
+                      Explore Query Console 바로가기
+                    "
+                    onClick={
+                      () => {
+                        setActiveViewId(
+                          "query-console",
+                        );
+
+                        setExpandedGroup(
+                          "grafana-explore",
+                        );
+
+                        setNavigationExpanded(
+                          true,
+                        );
+                      }
+                    }
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M14 5h5v5" />
+                      <path d="M10 14 19 5" />
+                      <path d="M19 13v6H5V5h6" />
+                    </svg>
+                  </button>
+
+                  <label
+                    className="
+                      brainon-audit-query-console__source
+                    "
+                  >
+                    <span>
+                      Datasource
+                    </span>
+
+                    <select
+                      defaultValue="explore-sql"
+                      onChange={
+                        (event) => {
+
+                          const source =
+                            event.target.value;
+
+
+                          if (
+                            source !== "explore-sql"
+                            && source !== "explore-metrics"
+                            && source !== "explore-logs"
+                          ) {
+                            return;
+                          }
+
+
+                          const queryFrame =
+                            document.querySelector<
+                              HTMLIFrameElement
+                            >(
+                              ".brainon-audit-query-frame",
+                            );
+
+
+                          if (
+                            queryFrame
+                          ) {
+
+                            queryFrame.src =
+                              buildAuditExploreUrl(
+                                source,
+                              );
+                          }
+                        }
+                      }
+                    >
+                      <option
+                        value="explore-sql"
+                      >
+                        PostgreSQL · SQL
+                      </option>
+
+                      <option
+                        value="explore-metrics"
+                      >
+                        Prometheus · PromQL
+                      </option>
+
+                      <option
+                        value="explore-logs"
+                      >
+                        Loki · LogQL
+                      </option>
+                    </select>
+                  </label>
+                </header>
+
+
+                <iframe
+                  title="
+                    Audit Query Console
+                  "
+                  className="
+                    brainon-audit-query-frame
+                  "
+                  src={
+                    buildAuditExploreUrl(
+                      "explore-sql",
+                    )
+                  }
+                  onLoad={
+                    (event) =>
+                      cleanAuditExploreFrame(
+                        event.currentTarget,
+                      )
+                  }
+                />
+              </section>
+            )}
+
           </section>
         </section>
       )}

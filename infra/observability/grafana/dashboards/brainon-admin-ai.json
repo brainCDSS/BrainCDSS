@@ -6,259 +6,2465 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "id": null,
-  "links": [
-    {
-      "type": "link",
-      "title": "운영 Overview",
-      "url": "/grafana/d/brainon-admin-overview/brainon-operations-overview?orgId=1",
-      "targetBlank": false,
-      "keepTime": true,
-      "includeVars": true
-    },
-    {
-      "type": "link",
-      "title": "API · Performance",
-      "url": "/grafana/d/brainon-admin-api/brainon-api-performance?orgId=1",
-      "targetBlank": false,
-      "keepTime": true,
-      "includeVars": true
-    },
-    {
-      "type": "link",
-      "title": "AI Operations",
-      "url": "/grafana/d/brainon-admin-ai/brainon-ai-operations?orgId=1",
-      "targetBlank": false,
-      "keepTime": true,
-      "includeVars": true
-    },
-    {
-      "type": "link",
-      "title": "Infrastructure",
-      "url": "/grafana/d/brainon-admin-infrastructure/brainon-infrastructure?orgId=1",
-      "targetBlank": false,
-      "keepTime": true,
-      "includeVars": true
-    },
-    {
-      "type": "link",
-      "title": "Async",
-      "url": "/grafana/d/brainon-admin-async/brainon-async-processing?orgId=1",
-      "targetBlank": false,
-      "keepTime": true,
-      "includeVars": true
-    },
-    {
-      "type": "link",
-      "title": "Incidents",
-      "url": "/grafana/d/brainon-admin-incidents/brainon-incidents?orgId=1",
-      "targetBlank": false,
-      "keepTime": true,
-      "includeVars": true
-    },
-    {
-      "type": "link",
-      "title": "Audit · Trace",
-      "url": "/grafana/d/brainon-admin-audit-trace/brainon-audit-request-trace?orgId=1",
-      "targetBlank": false,
-      "keepTime": true,
-      "includeVars": true
-    }
-  ],
-  "liveNow": true,
+  "links": [],
+  "liveNow": false,
   "panels": [
     {
-      "id": 1,
-      "type": "stat",
-      "title": "AI 분석 건수",
+      "id": 101,
+      "type": "canvas",
+      "title": "",
+      "transparent": true,
+      "pluginVersion": "11.4.0",
       "datasource": {
-        "type": "postgres",
+        "type": "grafana-postgresql-datasource",
         "uid": "brainon-postgres"
       },
       "gridPos": {
         "x": 0,
         "y": 0,
-        "w": 8,
+        "w": 24,
         "h": 5
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#7C3AED"
-          },
-          "noValue": "N/A"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "horizontal",
-        "textMode": "value_and_name",
-        "wideLayout": true,
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "showPercentChange": false
       },
       "targets": [
         {
           "refId": "A",
           "datasource": {
-            "type": "postgres",
+            "type": "grafana-postgresql-datasource",
             "uid": "brainon-postgres"
           },
           "format": "table",
-          "rawSql": "\nSELECT\n    COUNT(*) FILTER (\n        WHERE $__timeFilter(requested_at)\n    )::bigint AS \"선택 범위\",\n\n    COUNT(*) FILTER (\n        WHERE\n            (requested_at AT TIME ZONE 'Asia/Seoul')::date\n            =\n            (NOW() AT TIME ZONE 'Asia/Seoul')::date\n    )::bigint AS \"오늘\",\n\n    COUNT(*) FILTER (\n        WHERE\n            $__timeFilter(requested_at)\n            AND status IN (\n                'FAILED',\n                'ERROR',\n                'TIMEOUT',\n                'CANCELLED'\n            )\n    )::bigint AS \"실패\"\nFROM ai_aianalysis\n"
+          "rawSql": "\nSELECT\n    COUNT(*) FILTER (\n        WHERE $__timeFilter(requested_at)\n    )::bigint\n        AS \"AI_REQUESTS\",\n\n    CASE\n        WHEN COUNT(*) FILTER (\n            WHERE\n                $__timeFilter(requested_at)\n                AND status IN (\n                    'COMPLETED',\n                    'FAILED',\n                    'ERROR',\n                    'TIMEOUT',\n                    'CANCELLED'\n                )\n        ) = 0\n        THEN NULL\n\n        ELSE ROUND(\n            100.0\n            * COUNT(*) FILTER (\n                WHERE\n                    $__timeFilter(requested_at)\n                    AND status = 'COMPLETED'\n            )\n            /\n            NULLIF(\n                COUNT(*) FILTER (\n                    WHERE\n                        $__timeFilter(requested_at)\n                        AND status IN (\n                            'COMPLETED',\n                            'FAILED',\n                            'ERROR',\n                            'TIMEOUT',\n                            'CANCELLED'\n                        )\n                ),\n                0\n            ),\n            1\n        )\n    END\n        AS \"AI_SUCCESS_RATE\",\n\n    COUNT(*) FILTER (\n        WHERE\n            $__timeFilter(requested_at)\n            AND status IN (\n                'PROCESSING',\n                'RUNNING',\n                'IN_PROGRESS'\n            )\n    )::bigint\n        AS \"AI_PROCESSING\",\n\n    COUNT(*) FILTER (\n        WHERE\n            $__timeFilter(requested_at)\n            AND status IN (\n                'FAILED',\n                'ERROR',\n                'TIMEOUT',\n                'CANCELLED'\n            )\n    )::bigint\n        AS \"AI_FAILED\",\n\n    COUNT(*) FILTER (\n        WHERE\n            $__timeFilter(requested_at)\n            AND status = 'COMPLETED'\n    )::bigint\n        AS \"AI_COMPLETED\",\n\n    COUNT(*) FILTER (\n        WHERE\n            $__timeFilter(requested_at)\n            AND status IN (\n                'PENDING',\n                'QUEUED',\n                'REQUESTED'\n            )\n    )::bigint\n        AS \"AI_QUEUED\"\n\nFROM ai_aianalysis\n"
         }
       ],
-      "description": "실제 AIAnalysis 기준 선택 기간/오늘/실패 건수.",
-      "transparent": false
-    },
-    {
-      "id": 2,
-      "type": "gauge",
-      "title": "AI 성공률",
-      "datasource": {
-        "type": "postgres",
-        "uid": "brainon-postgres"
-      },
-      "gridPos": {
-        "x": 8,
-        "y": 0,
-        "w": 8,
-        "h": 5
-      },
       "fieldConfig": {
         "defaults": {
-          "unit": "percent",
-          "decimals": 1,
-          "min": 0,
-          "max": 100,
-          "noValue": "N/A",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#DC2626",
-                "value": null
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "inlineEditing": false,
+        "showAdvancedTypes": true,
+        "panZoom": false,
+        "infinitePan": false,
+        "root": {
+          "type": "frame",
+          "name": "AI Operations Summary",
+          "background": {
+            "color": {
+              "fixed": "transparent"
+            }
+          },
+          "border": {
+            "width": 0,
+            "color": {
+              "fixed": "transparent"
+            }
+          },
+          "elements": [
+            {
+              "type": "rectangle",
+              "name": "kpi-0-card",
+              "placement": {
+                "left": 1.0,
+                "right": 75.25,
+                "top": 6,
+                "height": 145,
+                "rotation": 0
               },
-              {
-                "color": "#D97706",
-                "value": 70
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
               },
-              {
-                "color": "#059669",
-                "value": 90
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#171A1F"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 9,
+                "color": {
+                  "fixed": "#2A3038"
+                }
               }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "showThresholdLabels": false,
-        "showThresholdMarkers": true,
-        "sizing": "auto",
-        "minVizHeight": 75,
-        "minVizWidth": 75
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "postgres",
-            "uid": "brainon-postgres"
-          },
-          "format": "table",
-          "rawSql": "\nSELECT\n    CASE\n        WHEN COUNT(*) FILTER (\n            WHERE\n                status IN ('COMPLETED', 'FAILED')\n                AND $__timeFilter(requested_at)\n        ) = 0\n        THEN NULL\n\n        ELSE ROUND(\n            (\n                100.0\n                * COUNT(*) FILTER (\n                    WHERE\n                        status = 'COMPLETED'\n                        AND $__timeFilter(requested_at)\n                )\n                /\n                NULLIF(\n                    COUNT(*) FILTER (\n                        WHERE\n                            status IN ('COMPLETED', 'FAILED')\n                            AND $__timeFilter(requested_at)\n                    ),\n                    0\n                )\n            ),\n            1\n        )\n    END AS \"성공률\"\nFROM ai_aianalysis\n"
+            },
+            {
+              "type": "rectangle",
+              "name": "kpi-0-icon-bg",
+              "placement": {
+                "left": 2.0,
+                "right": 94.8,
+                "top": 16,
+                "height": 32,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#2B2042"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 7,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-0-icon",
+              "placement": {
+                "left": 2.5,
+                "right": 95.3,
+                "top": 19,
+                "height": 23,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 15,
+                "color": {
+                  "fixed": "#8B5CF6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "◈",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-0-title",
+              "placement": {
+                "left": 5.8,
+                "right": 76.45,
+                "top": 15,
+                "height": 23,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 14,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "AI 분석 요청",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "kpi-0-value",
+              "placement": {
+                "left": 3.0,
+                "right": 77.25,
+                "top": 62,
+                "height": 38,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 24,
+                "color": {
+                  "fixed": "#8B5CF6"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "AI_REQUESTS"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": [
+                {
+                  "title": "상세 보기",
+                  "url": "/d/brainon-admin-ai/brainon?${__url_time_range}&viewPanel=311",
+                  "targetBlank": false,
+                  "oneClick": true
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "name": "kpi-0-subtitle",
+              "placement": {
+                "left": 3.0,
+                "right": 77.25,
+                "top": 107,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "선택 기간 분석 요청 건수",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-0-unit",
+              "placement": {
+                "left": 3.0,
+                "right": 77.25,
+                "top": 128,
+                "height": 15,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#626B78"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "건",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "kpi-1-card",
+              "placement": {
+                "left": 25.75,
+                "right": 50.5,
+                "top": 6,
+                "height": 145,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#171A1F"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 9,
+                "color": {
+                  "fixed": "#2A3038"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "kpi-1-icon-bg",
+              "placement": {
+                "left": 26.75,
+                "right": 70.05,
+                "top": 16,
+                "height": 32,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#17372F"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 7,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-1-icon",
+              "placement": {
+                "left": 27.25,
+                "right": 70.55,
+                "top": 19,
+                "height": 23,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 15,
+                "color": {
+                  "fixed": "#35C79B"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "✓",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-1-title",
+              "placement": {
+                "left": 30.55,
+                "right": 51.7,
+                "top": 15,
+                "height": 23,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 14,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "AI 분석 성공률",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "kpi-1-value",
+              "placement": {
+                "left": 27.75,
+                "right": 52.5,
+                "top": 62,
+                "height": 38,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 24,
+                "color": {
+                  "fixed": "#35C79B"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "AI_SUCCESS_RATE"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": [
+                {
+                  "title": "상세 보기",
+                  "url": "/d/brainon-admin-ai/brainon?${__url_time_range}&viewPanel=312",
+                  "targetBlank": false,
+                  "oneClick": true
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "name": "kpi-1-subtitle",
+              "placement": {
+                "left": 27.75,
+                "right": 52.5,
+                "top": 107,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "완료된 분석의 성공 비율",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-1-unit",
+              "placement": {
+                "left": 27.75,
+                "right": 52.5,
+                "top": 128,
+                "height": 15,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#626B78"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "%",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "kpi-2-card",
+              "placement": {
+                "left": 50.5,
+                "right": 25.75,
+                "top": 6,
+                "height": 145,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#171A1F"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 9,
+                "color": {
+                  "fixed": "#2A3038"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "kpi-2-icon-bg",
+              "placement": {
+                "left": 51.5,
+                "right": 45.3,
+                "top": 16,
+                "height": 32,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#1D2B40"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 7,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-2-icon",
+              "placement": {
+                "left": 52.0,
+                "right": 45.8,
+                "top": 19,
+                "height": 23,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 15,
+                "color": {
+                  "fixed": "#5794F2"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "↻",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-2-title",
+              "placement": {
+                "left": 55.3,
+                "right": 26.950000000000003,
+                "top": 15,
+                "height": 23,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 14,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "AI 처리 중",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "kpi-2-value",
+              "placement": {
+                "left": 52.5,
+                "right": 27.75,
+                "top": 62,
+                "height": 38,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 24,
+                "color": {
+                  "fixed": "#5794F2"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "AI_PROCESSING"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": [
+                {
+                  "title": "상세 보기",
+                  "url": "/d/brainon-admin-ai/brainon?${__url_time_range}&viewPanel=313",
+                  "targetBlank": false,
+                  "oneClick": true
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "name": "kpi-2-subtitle",
+              "placement": {
+                "left": 52.5,
+                "right": 27.75,
+                "top": 107,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "현재 실행 중인 분석",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-2-unit",
+              "placement": {
+                "left": 52.5,
+                "right": 27.75,
+                "top": 128,
+                "height": 15,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#626B78"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "건",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "kpi-3-card",
+              "placement": {
+                "left": 75.25,
+                "right": 1.0,
+                "top": 6,
+                "height": 145,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#171A1F"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 9,
+                "color": {
+                  "fixed": "#2A3038"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "kpi-3-icon-bg",
+              "placement": {
+                "left": 76.25,
+                "right": 20.55,
+                "top": 16,
+                "height": 32,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#3F1E26"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 7,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-3-icon",
+              "placement": {
+                "left": 76.75,
+                "right": 21.05,
+                "top": 19,
+                "height": 23,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 15,
+                "color": {
+                  "fixed": "#FF5A67"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "!",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-3-title",
+              "placement": {
+                "left": 80.05,
+                "right": 2.200000000000003,
+                "top": 15,
+                "height": 23,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 14,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "AI 실패 / 오류",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "kpi-3-value",
+              "placement": {
+                "left": 77.25,
+                "right": 3.0,
+                "top": 62,
+                "height": 38,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 24,
+                "color": {
+                  "fixed": "#FF5A67"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "AI_FAILED"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": [
+                {
+                  "title": "상세 보기",
+                  "url": "/d/brainon-admin-ai/brainon?${__url_time_range}&viewPanel=314",
+                  "targetBlank": false,
+                  "oneClick": true
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "name": "kpi-3-subtitle",
+              "placement": {
+                "left": 77.25,
+                "right": 3.0,
+                "top": 107,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "실패 · 오류 · 시간초과",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-3-unit",
+              "placement": {
+                "left": 77.25,
+                "right": 3.0,
+                "top": 128,
+                "height": 15,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#626B78"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "건",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            }
+          ]
         }
-      ],
-      "description": "선택 기간의 종료 상태 COMPLETED/FAILED 중 COMPLETED 비율.",
-      "transparent": false
+      }
     },
     {
-      "id": 3,
-      "type": "stat",
-      "title": "AI 실패",
+      "id": 203,
+      "type": "timeseries",
+      "title": "GPU 사용률 추이",
+      "description": "Cloud Run inference GPU / VRAM 실제 사용률.",
       "datasource": {
-        "type": "postgres",
-        "uid": "brainon-postgres"
-      },
-      "gridPos": {
-        "x": 16,
-        "y": 0,
-        "w": 8,
-        "h": 5
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "noValue": "0",
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#DC2626"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "value",
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center",
-        "wideLayout": true
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "postgres",
-            "uid": "brainon-postgres"
-          },
-          "format": "table",
-          "rawSql": "\nSELECT COUNT(*)::bigint AS value\nFROM ai_aianalysis\nWHERE\n    $__timeFilter(requested_at)\n    AND status IN (\n        'FAILED',\n        'ERROR',\n        'TIMEOUT',\n        'CANCELLED'\n    )\n"
-        }
-      ],
-      "description": "선택 기간 AIAnalysis 실패 상태 건수.",
-      "transparent": false
-    },
-    {
-      "id": 4,
-      "type": "bargauge",
-      "title": "AI 처리 현황",
-      "datasource": {
-        "type": "postgres",
-        "uid": "brainon-postgres"
+        "type": "stackdriver",
+        "uid": "gcp-monitoring"
       },
       "gridPos": {
         "x": 0,
         "y": 5,
-        "w": 24,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcp-monitoring"
+          },
+          "queryType": "metrics",
+          "intervalMs": 60000,
+          "maxDataPoints": 600,
+          "metricQuery": {
+            "aliasBy": "GPU 사용률",
+            "alignmentPeriod": "cloud-monitoring-auto",
+            "crossSeriesReducer": "REDUCE_MEAN",
+            "editorMode": "visual",
+            "filters": [
+              "resource.type",
+              "=",
+              "cloud_run_revision",
+              "AND",
+              "resource.label.service_name",
+              "=",
+              "brainon-inference-v2"
+            ],
+            "groupBys": [],
+            "metricKind": "GAUGE",
+            "metricType": "run.googleapis.com/container/gpu/utilizations",
+            "perSeriesAligner": "ALIGN_PERCENTILE_50",
+            "preprocessor": "none",
+            "projectName": "project-77d13b0f-3be4-4791-a87",
+            "query": "",
+            "valueType": "DISTRIBUTION",
+            "view": "FULL"
+          }
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcp-monitoring"
+          },
+          "queryType": "metrics",
+          "intervalMs": 60000,
+          "maxDataPoints": 600,
+          "metricQuery": {
+            "aliasBy": "VRAM 사용률",
+            "alignmentPeriod": "cloud-monitoring-auto",
+            "crossSeriesReducer": "REDUCE_MEAN",
+            "editorMode": "visual",
+            "filters": [
+              "resource.type",
+              "=",
+              "cloud_run_revision",
+              "AND",
+              "resource.label.service_name",
+              "=",
+              "brainon-inference-v2"
+            ],
+            "groupBys": [],
+            "metricKind": "GAUGE",
+            "metricType": "run.googleapis.com/container/gpu/memory_utilizations",
+            "perSeriesAligner": "ALIGN_PERCENTILE_50",
+            "preprocessor": "none",
+            "projectName": "project-77d13b0f-3be4-4791-a87",
+            "query": "",
+            "valueType": "DISTRIBUTION",
+            "view": "FULL"
+          }
+        }
+      ]
+    },
+    {
+      "id": 202,
+      "type": "canvas",
+      "title": "",
+      "transparent": true,
+      "pluginVersion": "11.4.0",
+      "gridPos": {
+        "x": 12,
+        "y": 5,
+        "w": 12,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcp-monitoring"
+          },
+          "queryType": "metrics",
+          "intervalMs": 60000,
+          "maxDataPoints": 600,
+          "metricQuery": {
+            "aliasBy": "GPU_UTIL",
+            "alignmentPeriod": "cloud-monitoring-auto",
+            "crossSeriesReducer": "REDUCE_MEAN",
+            "editorMode": "visual",
+            "filters": [
+              "resource.type",
+              "=",
+              "cloud_run_revision",
+              "AND",
+              "resource.label.service_name",
+              "=",
+              "brainon-inference-v2"
+            ],
+            "groupBys": [],
+            "metricKind": "GAUGE",
+            "metricType": "run.googleapis.com/container/gpu/utilizations",
+            "perSeriesAligner": "ALIGN_PERCENTILE_50",
+            "preprocessor": "none",
+            "projectName": "project-77d13b0f-3be4-4791-a87",
+            "query": "",
+            "valueType": "DISTRIBUTION",
+            "view": "FULL"
+          }
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcp-monitoring"
+          },
+          "queryType": "metrics",
+          "intervalMs": 60000,
+          "maxDataPoints": 600,
+          "metricQuery": {
+            "aliasBy": "GPU_MEM_UTIL",
+            "alignmentPeriod": "cloud-monitoring-auto",
+            "crossSeriesReducer": "REDUCE_MEAN",
+            "editorMode": "visual",
+            "filters": [
+              "resource.type",
+              "=",
+              "cloud_run_revision",
+              "AND",
+              "resource.label.service_name",
+              "=",
+              "brainon-inference-v2"
+            ],
+            "groupBys": [],
+            "metricKind": "GAUGE",
+            "metricType": "run.googleapis.com/container/gpu/memory_utilizations",
+            "perSeriesAligner": "ALIGN_PERCENTILE_50",
+            "preprocessor": "none",
+            "projectName": "project-77d13b0f-3be4-4791-a87",
+            "query": "",
+            "valueType": "DISTRIBUTION",
+            "view": "FULL"
+          }
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcp-monitoring"
+          },
+          "queryType": "metrics",
+          "intervalMs": 60000,
+          "maxDataPoints": 600,
+          "metricQuery": {
+            "aliasBy": "GPU_MEM_BYTES",
+            "alignmentPeriod": "cloud-monitoring-auto",
+            "crossSeriesReducer": "REDUCE_MEAN",
+            "editorMode": "visual",
+            "filters": [
+              "resource.type",
+              "=",
+              "cloud_run_revision",
+              "AND",
+              "resource.label.service_name",
+              "=",
+              "brainon-inference-v2"
+            ],
+            "groupBys": [],
+            "metricKind": "GAUGE",
+            "metricType": "run.googleapis.com/container/gpu/memory_usages",
+            "perSeriesAligner": "ALIGN_PERCENTILE_50",
+            "preprocessor": "none",
+            "projectName": "project-77d13b0f-3be4-4791-a87",
+            "query": "",
+            "valueType": "DISTRIBUTION",
+            "view": "FULL"
+          }
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcp-monitoring"
+          },
+          "queryType": "metrics",
+          "intervalMs": 60000,
+          "maxDataPoints": 600,
+          "metricQuery": {
+            "aliasBy": "INFERENCE_INSTANCES",
+            "alignmentPeriod": "cloud-monitoring-auto",
+            "crossSeriesReducer": "REDUCE_SUM",
+            "editorMode": "visual",
+            "filters": [
+              "resource.type",
+              "=",
+              "cloud_run_revision",
+              "AND",
+              "resource.label.service_name",
+              "=",
+              "brainon-inference-v2",
+              "AND",
+              "metric.label.state",
+              "=",
+              "active"
+            ],
+            "groupBys": [],
+            "metricKind": "GAUGE",
+            "metricType": "run.googleapis.com/container/instance_count",
+            "perSeriesAligner": "ALIGN_MAX",
+            "preprocessor": "none",
+            "projectName": "project-77d13b0f-3be4-4791-a87",
+            "query": "",
+            "valueType": "INT64",
+            "view": "FULL"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "inlineEditing": false,
+        "showAdvancedTypes": true,
+        "panZoom": false,
+        "infinitePan": false,
+        "root": {
+          "type": "frame",
+          "name": "GPU Runtime Status",
+          "background": {
+            "color": {
+              "fixed": "transparent"
+            }
+          },
+          "border": {
+            "width": 0,
+            "color": {
+              "fixed": "transparent"
+            }
+          },
+          "elements": [
+            {
+              "type": "rectangle",
+              "name": "gpu-icon-bg",
+              "placement": {
+                "left": 3,
+                "right": 90,
+                "top": 11,
+                "height": 34,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#2B2042"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 7,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "gpu-icon",
+              "placement": {
+                "left": 4,
+                "right": 91,
+                "top": 15,
+                "height": 24,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#8B5CF6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "GPU",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "title",
+              "placement": {
+                "left": 12,
+                "right": 33,
+                "top": 9,
+                "height": 24,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 15,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "GPU Runtime 상태",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "subtitle",
+              "placement": {
+                "left": 12,
+                "right": 28,
+                "top": 32,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "GCP Inference · Cloud Monitoring",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "binding-badge-bg",
+              "placement": {
+                "left": 73,
+                "right": 4,
+                "top": 13,
+                "height": 24,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#20242A"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "binding-badge",
+              "placement": {
+                "left": 73,
+                "right": 4,
+                "top": 15,
+                "height": 19,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "N/A",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "gpu-0-title",
+              "placement": {
+                "left": 6,
+                "right": 51,
+                "top": 68,
+                "height": 19,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "GPU 사용률",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "gpu-0-value",
+              "placement": {
+                "left": 62,
+                "right": 14,
+                "top": 68,
+                "height": 19,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "size": 13,
+                "color": {
+                  "fixed": "#8B5CF6"
+                },
+                "text": {
+                  "mode": "field",
+                  "field": "GPU_UTIL",
+                  "fixed": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "gpu-0-unit",
+              "placement": {
+                "left": 87,
+                "right": 6,
+                "top": 68,
+                "height": 19,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "%",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "gpu-0-subtitle",
+              "placement": {
+                "left": 6,
+                "right": 28,
+                "top": 87,
+                "height": 15,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#626B78"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "현재 GPU 연산 사용 비율",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "divider-1",
+              "placement": {
+                "left": 4,
+                "right": 4,
+                "top": 105,
+                "height": 1,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#303640"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "gpu-1-title",
+              "placement": {
+                "left": 6,
+                "right": 51,
+                "top": 111,
+                "height": 19,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "GPU 메모리 사용률",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "gpu-1-value",
+              "placement": {
+                "left": 62,
+                "right": 14,
+                "top": 111,
+                "height": 19,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "size": 13,
+                "color": {
+                  "fixed": "#2DD4BF"
+                },
+                "text": {
+                  "mode": "field",
+                  "field": "GPU_MEM_UTIL",
+                  "fixed": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "gpu-1-unit",
+              "placement": {
+                "left": 87,
+                "right": 6,
+                "top": 111,
+                "height": 19,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "%",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "gpu-1-subtitle",
+              "placement": {
+                "left": 6,
+                "right": 28,
+                "top": 130,
+                "height": 15,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#626B78"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "전체 VRAM 대비 사용 비율",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "divider-2",
+              "placement": {
+                "left": 4,
+                "right": 4,
+                "top": 148,
+                "height": 1,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#303640"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "gpu-2-title",
+              "placement": {
+                "left": 6,
+                "right": 51,
+                "top": 154,
+                "height": 19,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "GPU 메모리 사용량",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "gpu-2-value",
+              "placement": {
+                "left": 62,
+                "right": 14,
+                "top": 154,
+                "height": 19,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "size": 13,
+                "color": {
+                  "fixed": "#5794F2"
+                },
+                "text": {
+                  "mode": "field",
+                  "field": "GPU_MEM_BYTES",
+                  "fixed": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "gpu-2-unit",
+              "placement": {
+                "left": 87,
+                "right": 6,
+                "top": 154,
+                "height": 19,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "GPU_MEM_BYTES"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "gpu-2-subtitle",
+              "placement": {
+                "left": 6,
+                "right": 28,
+                "top": 173,
+                "height": 15,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#626B78"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "현재 사용 중인 GPU Memory",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "divider-3",
+              "placement": {
+                "left": 4,
+                "right": 4,
+                "top": 191,
+                "height": 1,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#303640"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "gpu-3-title",
+              "placement": {
+                "left": 6,
+                "right": 51,
+                "top": 197,
+                "height": 19,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Inference Instance",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "gpu-3-value",
+              "placement": {
+                "left": 62,
+                "right": 14,
+                "top": 197,
+                "height": 19,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "size": 13,
+                "color": {
+                  "fixed": "#35C79B"
+                },
+                "text": {
+                  "mode": "field",
+                  "field": "INFERENCE_INSTANCES",
+                  "fixed": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "gpu-3-unit",
+              "placement": {
+                "left": 87,
+                "right": 6,
+                "top": 197,
+                "height": 19,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "개",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "gpu-3-subtitle",
+              "placement": {
+                "left": 6,
+                "right": 28,
+                "top": 216,
+                "height": 15,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#626B78"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "현재 실행 중인 추론 Instance",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "gcp-monitoring"
+      }
+    },
+    {
+      "id": 4,
+      "type": "bargauge",
+      "title": "AI 처리 상태 분포",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 8,
         "h": 6
       },
       "fieldConfig": {
@@ -268,7 +2474,7 @@
           "color": {
             "mode": "palette-classic"
           },
-          "noValue": "0"
+          "noValue": "미수집"
         },
         "overrides": []
       },
@@ -291,29 +2497,29 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "postgres",
+            "type": "grafana-postgresql-datasource",
             "uid": "brainon-postgres"
           },
           "format": "table",
           "rawSql": "\nSELECT\n    COUNT(*) FILTER (\n        WHERE status = 'COMPLETED'\n    )::bigint AS \"완료\",\n\n    COUNT(*) FILTER (\n        WHERE status IN (\n            'FAILED',\n            'ERROR',\n            'TIMEOUT',\n            'CANCELLED'\n        )\n    )::bigint AS \"실패\",\n\n    COUNT(*) FILTER (\n        WHERE status IN (\n            'PROCESSING',\n            'RUNNING',\n            'IN_PROGRESS'\n        )\n    )::bigint AS \"처리 중\",\n\n    COUNT(*) FILTER (\n        WHERE status IN (\n            'PENDING',\n            'QUEUED',\n            'REQUESTED'\n        )\n    )::bigint AS \"대기\"\nFROM ai_aianalysis\nWHERE $__timeFilter(requested_at)\n"
         }
       ],
-      "description": "현재 선택 기간의 AIAnalysis 상태를 운영 그룹별로 집계.",
+      "description": "완료 · 처리 중 · 대기 · 실패 상태별 AI 분석 건수를 확인합니다.",
       "transparent": false
     },
     {
       "id": 5,
       "type": "timeseries",
-      "title": "AI 실패 추이",
+      "title": "AI 실패 발생 추이",
       "datasource": {
-        "type": "postgres",
+        "type": "grafana-postgresql-datasource",
         "uid": "brainon-postgres"
       },
       "gridPos": {
-        "x": 0,
-        "y": 11,
-        "w": 24,
-        "h": 8
+        "x": 8,
+        "y": 12,
+        "w": 8,
+        "h": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -329,19 +2535,17 @@
             "fillOpacity": 50,
             "showPoints": "never",
             "spanNulls": true
-          }
+          },
+          "noValue": "미수집"
         },
         "overrides": []
       },
       "options": {
         "legend": {
-          "displayMode": "table",
+          "displayMode": "list",
           "placement": "bottom",
           "showLegend": true,
-          "calcs": [
-            "sum",
-            "max"
-          ]
+          "calcs": []
         },
         "tooltip": {
           "mode": "single",
@@ -352,18 +2556,1212 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "postgres",
+            "type": "grafana-postgresql-datasource",
             "uid": "brainon-postgres"
           },
           "format": "time_series",
-          "rawSql": "\nSELECT\n    $__timeGroupAlias(\n        requested_at,\n        '1h'\n    ),\n    COUNT(*)::double precision\n        AS \"실패\"\nFROM ai_aianalysis\nWHERE\n    $__timeFilter(requested_at)\n    AND status IN (\n        'FAILED',\n        'ERROR',\n        'TIMEOUT',\n        'CANCELLED'\n    )\nGROUP BY 1\nORDER BY 1\n"
+          "rawSql": "\nSELECT\n    $__timeGroupAlias(requested_at,'1h'),\n    COUNT(*)::double precision\n        AS \"실패\"\nFROM ai_aianalysis\nWHERE\n    $__timeFilter(requested_at)\n    AND status IN (\n        'FAILED',\n        'ERROR',\n        'TIMEOUT',\n        'CANCELLED'\n    )\nGROUP BY 1\nORDER BY 1\n"
         }
       ],
-      "description": "실제 AIAnalysis 실패 상태의 시간대별 발생 추이.",
+      "description": "실패 · 오류 · 시간초과 · 취소된 AI 분석의 발생 추이를 확인합니다.",
+      "transparent": false
+    },
+    {
+      "id": 201,
+      "type": "canvas",
+      "title": "",
+      "transparent": true,
+      "pluginVersion": "11.4.0",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 12,
+        "w": 8,
+        "h": 6
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "rawSql": "\nSELECT\n    COUNT(*) FILTER (\n        WHERE $__timeFilter(requested_at)\n    )::bigint\n        AS \"AI_REQUESTS\",\n\n    CASE\n        WHEN COUNT(*) FILTER (\n            WHERE\n                $__timeFilter(requested_at)\n                AND status IN (\n                    'COMPLETED',\n                    'FAILED',\n                    'ERROR',\n                    'TIMEOUT',\n                    'CANCELLED'\n                )\n        ) = 0\n        THEN NULL\n\n        ELSE ROUND(\n            100.0\n            * COUNT(*) FILTER (\n                WHERE\n                    $__timeFilter(requested_at)\n                    AND status = 'COMPLETED'\n            )\n            /\n            NULLIF(\n                COUNT(*) FILTER (\n                    WHERE\n                        $__timeFilter(requested_at)\n                        AND status IN (\n                            'COMPLETED',\n                            'FAILED',\n                            'ERROR',\n                            'TIMEOUT',\n                            'CANCELLED'\n                        )\n                ),\n                0\n            ),\n            1\n        )\n    END\n        AS \"AI_SUCCESS_RATE\",\n\n    COUNT(*) FILTER (\n        WHERE\n            $__timeFilter(requested_at)\n            AND status IN (\n                'PROCESSING',\n                'RUNNING',\n                'IN_PROGRESS'\n            )\n    )::bigint\n        AS \"AI_PROCESSING\",\n\n    COUNT(*) FILTER (\n        WHERE\n            $__timeFilter(requested_at)\n            AND status IN (\n                'FAILED',\n                'ERROR',\n                'TIMEOUT',\n                'CANCELLED'\n            )\n    )::bigint\n        AS \"AI_FAILED\",\n\n    COUNT(*) FILTER (\n        WHERE\n            $__timeFilter(requested_at)\n            AND status = 'COMPLETED'\n    )::bigint\n        AS \"AI_COMPLETED\",\n\n    COUNT(*) FILTER (\n        WHERE\n            $__timeFilter(requested_at)\n            AND status IN (\n                'PENDING',\n                'QUEUED',\n                'REQUESTED'\n            )\n    )::bigint\n        AS \"AI_QUEUED\"\n\nFROM ai_aianalysis\n"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "inlineEditing": false,
+        "showAdvancedTypes": true,
+        "panZoom": false,
+        "infinitePan": false,
+        "root": {
+          "type": "frame",
+          "name": "AI Processing Status",
+          "background": {
+            "color": {
+              "fixed": "transparent"
+            }
+          },
+          "border": {
+            "width": 0,
+            "color": {
+              "fixed": "transparent"
+            }
+          },
+          "elements": [
+            {
+              "type": "rectangle",
+              "name": "icon-bg",
+              "placement": {
+                "left": 4,
+                "right": 84,
+                "top": 12,
+                "height": 32,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#2B2042"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 7,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "icon",
+              "placement": {
+                "left": 7,
+                "right": 87,
+                "top": 16,
+                "height": 24,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 16,
+                "color": {
+                  "fixed": "#8B5CF6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "◈",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "title",
+              "placement": {
+                "left": 19,
+                "right": 21,
+                "top": 9,
+                "height": 24,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 15,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "현재 처리 상태",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "subtitle",
+              "placement": {
+                "left": 19,
+                "right": 14,
+                "top": 32,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "AI 분석 파이프라인 운영 현황",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "dot-0",
+              "placement": {
+                "left": 7,
+                "right": 91,
+                "top": 72,
+                "height": 10,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#35C79B"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 5,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "label-0",
+              "placement": {
+                "left": 11,
+                "right": 64,
+                "top": 68,
+                "height": 19,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "완료",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "value-0",
+              "placement": {
+                "left": 68,
+                "right": 7,
+                "top": 68,
+                "height": 19,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "size": 12,
+                "color": {
+                  "fixed": "#35C79B"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "AI_COMPLETED"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "desc-0",
+              "placement": {
+                "left": 11,
+                "right": 9,
+                "top": 88,
+                "height": 16,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#626B78"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "정상적으로 완료된 분석",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "divider-1",
+              "placement": {
+                "left": 5,
+                "right": 5,
+                "top": 105,
+                "height": 1,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#303640"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "dot-1",
+              "placement": {
+                "left": 7,
+                "right": 91,
+                "top": 117,
+                "height": 10,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#5794F2"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 5,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "label-1",
+              "placement": {
+                "left": 11,
+                "right": 64,
+                "top": 113,
+                "height": 19,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "처리 중",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "value-1",
+              "placement": {
+                "left": 68,
+                "right": 7,
+                "top": 113,
+                "height": 19,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "size": 12,
+                "color": {
+                  "fixed": "#5794F2"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "AI_PROCESSING"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "desc-1",
+              "placement": {
+                "left": 11,
+                "right": 9,
+                "top": 133,
+                "height": 16,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#626B78"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "현재 추론 · 분석 실행 중",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "divider-2",
+              "placement": {
+                "left": 5,
+                "right": 5,
+                "top": 150,
+                "height": 1,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#303640"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "dot-2",
+              "placement": {
+                "left": 7,
+                "right": 91,
+                "top": 162,
+                "height": 10,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#F59E0B"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 5,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "label-2",
+              "placement": {
+                "left": 11,
+                "right": 64,
+                "top": 158,
+                "height": 19,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "대기",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "value-2",
+              "placement": {
+                "left": 68,
+                "right": 7,
+                "top": 158,
+                "height": 19,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "size": 12,
+                "color": {
+                  "fixed": "#F59E0B"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "AI_QUEUED"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "desc-2",
+              "placement": {
+                "left": 11,
+                "right": 9,
+                "top": 178,
+                "height": 16,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#626B78"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Queue 또는 요청 대기",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "divider-3",
+              "placement": {
+                "left": 5,
+                "right": 5,
+                "top": 195,
+                "height": 1,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#303640"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "dot-3",
+              "placement": {
+                "left": 7,
+                "right": 91,
+                "top": 207,
+                "height": 10,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#FF5A67"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 5,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "label-3",
+              "placement": {
+                "left": 11,
+                "right": 64,
+                "top": 203,
+                "height": 19,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "실패",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "value-3",
+              "placement": {
+                "left": 68,
+                "right": 7,
+                "top": 203,
+                "height": 19,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "size": 12,
+                "color": {
+                  "fixed": "#FF5A67"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "AI_FAILED"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "desc-3",
+              "placement": {
+                "left": 11,
+                "right": 9,
+                "top": 223,
+                "height": 16,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#626B78"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "실패 · 오류 · 시간초과",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": 311,
+      "type": "table",
+      "title": "AI 분석 요청 · 상세",
+      "description": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 19,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "오류 참조번호"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Request Trace 열기",
+                    "url": "/d/brainon-admin-audit-trace/brainon?${__url_time_range}&var-request_id=${__data.fields.request_id}",
+                    "targetBlank": false
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true,
+          "rawSql": "\nSELECT\n    requested_at\n        AS \"요청 시각\",\n\n    id::text\n        AS \"Analysis ID\",\n\n    analysis_type\n        AS \"분석 유형\",\n\n    status\n        AS \"상태\",\n\n    COALESCE(\n        failure_code,\n        '-'\n    )\n        AS \"오류 코드\",\n\n    COALESCE(\n        trace_id::text,\n        '-'\n    )\n        AS request_id,\n\n    CASE\n        WHEN trace_id IS NULL\n        THEN '-'\n\n        ELSE\n            'ERR-'\n            ||\n            UPPER(\n                SUBSTRING(\n                    REPLACE(\n                        trace_id::text,\n                        '-',\n                        ''\n                    )\n                    FROM 1 FOR 16\n                )\n            )\n    END\n        AS \"오류 참조번호\"\n\nFROM ai_aianalysis\n\nWHERE $__timeFilter(requested_at)\n\nORDER BY requested_at DESC\n\nLIMIT 300\n"
+        }
+      ],
+      "transparent": false
+    },
+    {
+      "id": 312,
+      "type": "table",
+      "title": "AI 분석 성공 · 상세",
+      "description": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 27,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "오류 참조번호"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Request Trace 열기",
+                    "url": "/d/brainon-admin-audit-trace/brainon?${__url_time_range}&var-request_id=${__data.fields.request_id}",
+                    "targetBlank": false
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true,
+          "rawSql": "\nSELECT\n    requested_at\n        AS \"요청 시각\",\n\n    id::text\n        AS \"Analysis ID\",\n\n    analysis_type\n        AS \"분석 유형\",\n\n    status\n        AS \"상태\",\n\n    COALESCE(\n        failure_code,\n        '-'\n    )\n        AS \"오류 코드\",\n\n    COALESCE(\n        trace_id::text,\n        '-'\n    )\n        AS request_id,\n\n    CASE\n        WHEN trace_id IS NULL\n        THEN '-'\n\n        ELSE\n            'ERR-'\n            ||\n            UPPER(\n                SUBSTRING(\n                    REPLACE(\n                        trace_id::text,\n                        '-',\n                        ''\n                    )\n                    FROM 1 FOR 16\n                )\n            )\n    END\n        AS \"오류 참조번호\"\n\nFROM ai_aianalysis\n\nWHERE\n    $__timeFilter(requested_at)\n    AND status = 'COMPLETED'\n\nORDER BY requested_at DESC\n\nLIMIT 300\n"
+        }
+      ],
+      "transparent": false
+    },
+    {
+      "id": 313,
+      "type": "table",
+      "title": "AI 처리 중 · 상세",
+      "description": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 35,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "오류 참조번호"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Request Trace 열기",
+                    "url": "/d/brainon-admin-audit-trace/brainon?${__url_time_range}&var-request_id=${__data.fields.request_id}",
+                    "targetBlank": false
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true,
+          "rawSql": "\nSELECT\n    requested_at\n        AS \"요청 시각\",\n\n    id::text\n        AS \"Analysis ID\",\n\n    analysis_type\n        AS \"분석 유형\",\n\n    status\n        AS \"상태\",\n\n    COALESCE(\n        failure_code,\n        '-'\n    )\n        AS \"오류 코드\",\n\n    COALESCE(\n        trace_id::text,\n        '-'\n    )\n        AS request_id,\n\n    CASE\n        WHEN trace_id IS NULL\n        THEN '-'\n\n        ELSE\n            'ERR-'\n            ||\n            UPPER(\n                SUBSTRING(\n                    REPLACE(\n                        trace_id::text,\n                        '-',\n                        ''\n                    )\n                    FROM 1 FOR 16\n                )\n            )\n    END\n        AS \"오류 참조번호\"\n\nFROM ai_aianalysis\n\nWHERE\n    $__timeFilter(requested_at)\n\n    AND status IN (\n        'PENDING',\n        'QUEUED',\n        'REQUESTED',\n        'PROCESSING',\n        'RUNNING',\n        'IN_PROGRESS'\n    )\n\nORDER BY requested_at DESC\n\nLIMIT 300\n"
+        }
+      ],
+      "transparent": false
+    },
+    {
+      "id": 314,
+      "type": "table",
+      "title": "AI 실패 / 오류 · 상세",
+      "description": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 43,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "오류 참조번호"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Request Trace 열기",
+                    "url": "/d/brainon-admin-audit-trace/brainon?${__url_time_range}&var-request_id=${__data.fields.request_id}",
+                    "targetBlank": false
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true,
+          "rawSql": "\nSELECT\n    requested_at\n        AS \"요청 시각\",\n\n    id::text\n        AS \"Analysis ID\",\n\n    analysis_type\n        AS \"분석 유형\",\n\n    status\n        AS \"상태\",\n\n    COALESCE(\n        failure_code,\n        '-'\n    )\n        AS \"오류 코드\",\n\n    COALESCE(\n        trace_id::text,\n        '-'\n    )\n        AS request_id,\n\n    CASE\n        WHEN trace_id IS NULL\n        THEN '-'\n\n        ELSE\n            'ERR-'\n            ||\n            UPPER(\n                SUBSTRING(\n                    REPLACE(\n                        trace_id::text,\n                        '-',\n                        ''\n                    )\n                    FROM 1 FOR 16\n                )\n            )\n    END\n        AS \"오류 참조번호\"\n\nFROM ai_aianalysis\n\nWHERE\n    $__timeFilter(requested_at)\n\n    AND status IN (\n        'FAILED',\n        'ERROR',\n        'TIMEOUT',\n        'CANCELLED'\n    )\n\nORDER BY requested_at DESC\n\nLIMIT 300\n"
+        }
+      ],
       "transparent": false
     }
   ],
-  "refresh": "30s",
+  "refresh": "",
   "schemaVersion": 41,
   "tags": [
     "BrainOn",
@@ -415,7 +3813,7 @@
   "timezone": "browser",
   "title": "BrainOn · AI Operations",
   "uid": "brainon-admin-ai",
-  "version": 1,
+  "version": 13,
   "weekStart": "",
   "description": "AI 분석 요청, 처리 상태, 성공률 및 실패 추이."
 }

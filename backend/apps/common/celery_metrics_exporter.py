@@ -59,6 +59,63 @@ TASK_EVENTS = Counter(
 )
 
 
+# BRAINON_WORKER_METRICS_V2
+#
+# Worker identity:
+#   worker = full Celery node name, e.g. general@host
+#   role   = general / inference / other
+#   host   = actual hostname part after "@"
+#
+# Do not use request_id / task UUID as labels.
+# These metrics intentionally remain low-cardinality.
+
+WORKER_ONLINE = Gauge(
+    "brainon_celery_worker_online",
+    "Whether an individual BrainOn Celery worker is alive.",
+    [
+        "worker",
+        "role",
+        "host",
+    ],
+)
+
+
+WORKER_TASKS_ACTIVE = Gauge(
+    "brainon_celery_worker_tasks_active",
+    "Current active tasks by BrainOn Celery worker.",
+    [
+        "worker",
+        "role",
+        "host",
+    ],
+)
+
+
+WORKER_TASKS_PENDING = Gauge(
+    "brainon_celery_worker_tasks_pending",
+    "Current received/started/retry tasks by BrainOn Celery worker.",
+    [
+        "worker",
+        "role",
+        "host",
+    ],
+)
+
+
+WORKER_TASK_EVENTS = Counter(
+    "brainon_celery_worker_task_events",
+    "Celery task lifecycle events by worker and task.",
+    [
+        "worker",
+        "role",
+        "host",
+        "event",
+        "task",
+    ],
+)
+
+
+
 TASK_RUNTIME = Histogram(
     "brainon_celery_task_runtime_seconds",
     "Runtime of successfully completed Celery tasks.",
@@ -146,23 +203,179 @@ def _task_name(
     )[:160]
 
 
+def _worker_labels(
+    worker_name,
+):
+    raw = str(
+        worker_name
+        or "unknown"
+    )[:160]
+
+    if "@" in raw:
+        prefix, host = raw.split(
+            "@",
+            1,
+        )
+    else:
+        prefix = raw
+        host = "unknown"
+
+    normalized = (
+        prefix
+        .strip()
+        .lower()
+    )
+
+    if normalized.startswith(
+        "general"
+    ):
+        role = "general"
+
+    elif normalized.startswith(
+        "inference"
+    ):
+        role = "inference"
+
+    else:
+        role = "other"
+
+    return (
+        raw,
+        role,
+        str(
+            host
+            or "unknown"
+        )[:128],
+    )
+
+
+def _task_worker_name(
+    task,
+):
+    worker = getattr(
+        task,
+        "worker",
+        None,
+    )
+
+    hostname = getattr(
+        worker,
+        "hostname",
+        None,
+    )
+
+    if hostname:
+        return str(
+            hostname
+        )
+
+    return "unknown"
+
+
+def _event_worker_name(
+    event,
+):
+    hostname = event.get(
+        "hostname"
+    )
+
+    if hostname:
+        return str(
+            hostname
+        )
+
+    uuid = event.get(
+        "uuid"
+    )
+
+    if uuid:
+        task = state.tasks.get(
+            uuid
+        )
+
+        if task is not None:
+            return (
+                _task_worker_name(
+                    task
+                )
+            )
+
+    return "unknown"
+
+
+
 def refresh_gauges():
     workers = 0
 
+    active = 0
+    pending = 0
+
+    worker_identities = {}
+
+    active_by_worker = {}
+    pending_by_worker = {}
+
+
+    # Gauges are rebuilt from current Celery State.
+    # This prevents stale workers from remaining at 1.
+    WORKER_ONLINE.clear()
+    WORKER_TASKS_ACTIVE.clear()
+    WORKER_TASKS_PENDING.clear()
+
+
     for worker in state.workers.values():
+
+        hostname = (
+            getattr(
+                worker,
+                "hostname",
+                None,
+            )
+            or getattr(
+                worker,
+                "id",
+                None,
+            )
+            or "unknown"
+        )
+
+        labels = (
+            _worker_labels(
+                hostname
+            )
+        )
+
+        worker_identities[
+            labels
+        ] = True
+
+
         try:
-            if worker.alive:
-                workers += 1
+            alive = bool(
+                worker.alive
+            )
+
         except Exception:
-            pass
+            alive = False
+
+
+        if alive:
+            workers += 1
+
+
+        WORKER_ONLINE.labels(
+            worker=labels[0],
+            role=labels[1],
+            host=labels[2],
+        ).set(
+            1 if alive else 0
+        )
+
 
     WORKERS_ONLINE.set(
         workers
     )
 
-
-    active = 0
-    pending = 0
 
     for task in state.tasks.values():
 
@@ -175,8 +388,40 @@ def refresh_gauges():
             or ""
         ).upper()
 
+
+        worker_name = (
+            _task_worker_name(
+                task
+            )
+        )
+
+        labels = (
+            _worker_labels(
+                worker_name
+            )
+        )
+
+
+        if worker_name != "unknown":
+            worker_identities[
+                labels
+            ] = True
+
+
         if task_state == "STARTED":
             active += 1
+
+            if worker_name != "unknown":
+                active_by_worker[
+                    labels
+                ] = (
+                    active_by_worker.get(
+                        labels,
+                        0,
+                    )
+                    + 1
+                )
+
 
         if task_state in {
             "RECEIVED",
@@ -184,6 +429,17 @@ def refresh_gauges():
             "RETRY",
         }:
             pending += 1
+
+            if worker_name != "unknown":
+                pending_by_worker[
+                    labels
+                ] = (
+                    pending_by_worker.get(
+                        labels,
+                        0,
+                    )
+                    + 1
+                )
 
 
     TASKS_ACTIVE.set(
@@ -193,6 +449,32 @@ def refresh_gauges():
     TASKS_PENDING.set(
         pending
     )
+
+
+    for labels in worker_identities:
+
+        WORKER_TASKS_ACTIVE.labels(
+            worker=labels[0],
+            role=labels[1],
+            host=labels[2],
+        ).set(
+            active_by_worker.get(
+                labels,
+                0,
+            )
+        )
+
+
+        WORKER_TASKS_PENDING.labels(
+            worker=labels[0],
+            role=labels[1],
+            host=labels[2],
+        ).set(
+            pending_by_worker.get(
+                labels,
+                0,
+            )
+        )
 
 
 def process_event(
@@ -226,6 +508,28 @@ def process_event(
 
     if normalized:
         TASK_EVENTS.labels(
+            event=normalized,
+            task=task_name,
+        ).inc()
+
+
+        worker_name = (
+            _event_worker_name(
+                event
+            )
+        )
+
+        worker, role, host = (
+            _worker_labels(
+                worker_name
+            )
+        )
+
+
+        WORKER_TASK_EVENTS.labels(
+            worker=worker,
+            role=role,
+            host=host,
             event=normalized,
             task=task_name,
         ).inc()

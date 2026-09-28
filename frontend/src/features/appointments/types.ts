@@ -143,6 +143,20 @@ export interface ScheduleResponse {
   count?: number;
 }
 
+export interface AvailableSlot {
+  id: string;
+  start_at: string;
+  end_at: string;
+  status: "AVAILABLE";
+}
+
+export interface AvailableSlotsResponse {
+  clinician: EntitySummary;
+  from: string;
+  to: string;
+  slots: AvailableSlot[];
+}
+
 export interface AppointmentActionResponse {
   id?: string;
   appointment_id?: string;

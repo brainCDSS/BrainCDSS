@@ -1786,6 +1786,744 @@
   .ml-routing-strip__label{border-right:0;padding-right:0}
   .ml-routing-strip__items{grid-template-columns:1fr}
 }
+
+
+/* ==========================================================
+   BrainOn Operations Global Toolbar
+   ========================================================== */
+
+.brainon-ops-toolbar{
+  display:flex;
+  align-items:center;
+  gap:8px;
+
+  width:100%;
+  min-height:48px;
+
+  padding:7px 12px;
+
+  overflow-x:auto;
+  overflow-y:hidden;
+
+  border-bottom:
+    1px solid #2a2d33;
+
+  background:#111217;
+
+  white-space:nowrap;
+
+  scrollbar-width:thin;
+}
+
+
+.brainon-ops-trace-search{
+  display:flex;
+  align-items:center;
+
+  flex:0 0 auto;
+
+  height:32px;
+
+  border:
+    1px solid #343941;
+
+  border-radius:4px;
+
+  overflow:hidden;
+
+  background:#181b1f;
+}
+
+
+.brainon-ops-trace-search > span{
+  display:flex;
+  align-items:center;
+
+  height:100%;
+
+  padding:0 9px;
+
+  border-right:
+    1px solid #343941;
+
+  color:#e6e9ed;
+
+  font-size:11px;
+  font-weight:600;
+}
+
+
+.brainon-ops-trace-search input{
+  width:158px;
+  height:100%;
+
+  padding:0 9px;
+
+  border:0;
+  outline:0;
+
+  background:#111217;
+
+  color:#f4f5f5;
+
+  font:inherit;
+  font-size:11px;
+}
+
+
+.brainon-ops-trace-search input::placeholder{
+  color:#69717d;
+}
+
+
+.brainon-ops-trace-search button{
+  height:100%;
+
+  padding:0 10px;
+
+  border:0;
+  border-left:
+    1px solid #343941;
+
+  background:#20242a;
+
+  color:#dce1e7;
+
+  cursor:pointer;
+
+  font:inherit;
+  font-size:11px;
+  font-weight:600;
+}
+
+
+.brainon-ops-quick-nav{
+  display:flex;
+  align-items:center;
+  gap:6px;
+
+  flex:1 1 auto;
+
+  min-width:max-content;
+}
+
+
+.brainon-ops-quick-nav__item{
+  height:32px;
+
+  padding:0 11px;
+
+  border:
+    1px solid #343941;
+
+  border-radius:3px;
+
+  background:#111217;
+
+  color:#d8dce2;
+
+  cursor:pointer;
+
+  font:inherit;
+  font-size:11px;
+  font-weight:600;
+}
+
+
+.brainon-ops-quick-nav__item:hover{
+  border-color:#59616d;
+
+  background:#1b1f24;
+
+  color:#ffffff;
+}
+
+
+.brainon-ops-quick-nav__item.is-active{
+  border-color:#ff780a;
+
+  background:#23201d;
+
+  color:#ffffff;
+}
+
+
+.brainon-ops-toolbar__controls{
+  display:flex;
+  align-items:center;
+  gap:6px;
+
+  flex:0 0 auto;
+
+  margin-left:auto;
+}
+
+
+.brainon-ops-toolbar__controls select,
+.brainon-ops-toolbar__controls button{
+  height:32px;
+
+  border:
+    1px solid #343941;
+
+  border-radius:3px;
+
+  background:#20242a;
+
+  color:#e6e9ed;
+
+  font:inherit;
+  font-size:11px;
+  font-weight:600;
+}
+
+
+.brainon-ops-toolbar__controls select{
+  min-width:105px;
+
+  padding:0 8px;
+}
+
+
+.brainon-ops-toolbar__controls button{
+  padding:0 12px;
+
+  cursor:pointer;
+}
+
+
+.brainon-ops-toolbar__controls button:hover{
+  background:#292e35;
+
+  color:#ffffff;
+}
+
+
+/*
+ * Toolbar 한 줄을 추가했으므로
+ * iframe 높이만 보정.
+ */
+.brainon-grafana-frame{
+  height:
+    calc(
+      100vh - 262px
+    );
+
+  min-height:690px;
+}
+
+
+.brainon-ops-toolbar::-webkit-scrollbar{
+  height:5px;
+}
+
+
+.brainon-ops-toolbar::-webkit-scrollbar-thumb{
+  border-radius:5px;
+
+  background:#454a53;
+}
+
+
+/* ==========================================================
+   BrainOn Operations Toolbar Alignment
+   ========================================================== */
+
+.brainon-ops-toolbar{
+  display:grid;
+
+  grid-template-columns:
+    minmax(240px, 290px)
+    minmax(0,1fr)
+    auto;
+
+  align-items:center;
+
+  column-gap:14px;
+
+  min-height:50px;
+
+  padding:
+    8px
+    16px;
+
+  overflow-x:auto;
+
+  border-bottom:
+    1px solid #2a2d33;
+
+  background:#111217;
+}
+
+
+/* Error trace */
+.brainon-ops-trace-search{
+  width:100%;
+  min-width:0;
+}
+
+
+.brainon-ops-trace-search input{
+  flex:1;
+
+  min-width:0;
+  width:auto;
+}
+
+
+/* Dashboard navigation */
+.brainon-ops-quick-nav{
+  display:flex;
+
+  align-items:center;
+  justify-content:center;
+
+  gap:7px;
+
+  min-width:max-content;
+}
+
+
+.brainon-ops-quick-nav__item{
+  flex:0 0 auto;
+
+  min-height:32px;
+
+  padding:
+    0
+    11px;
+}
+
+
+/* Right controls */
+.brainon-ops-toolbar__controls{
+  display:flex;
+
+  align-items:center;
+  justify-content:flex-end;
+
+  gap:7px;
+
+  margin-left:0;
+}
+
+
+/* ----------------------------------------------------------
+   Narrow screens
+   ---------------------------------------------------------- */
+
+@media(max-width:1250px){
+
+  .brainon-ops-toolbar{
+    grid-template-columns:
+      250px
+      minmax(max-content,1fr)
+      auto;
+
+    padding-left:12px;
+    padding-right:12px;
+  }
+
+}
+
+
+/* ==========================================================
+   Grafana Workspace Height
+   ========================================================== */
+
+.brainon-grafana-content{
+  min-height:950px;
+}
+
+
+.brainon-grafana-frame{
+  height:
+    calc(
+      100vh - 215px
+    );
+
+  min-height:900px;
+}
+
+
+/* Grafana native 화면도 동일한 세로 공간 사용 */
+.brainon-grafana-shell.is-grafana-native
+.brainon-grafana-frame{
+  height:
+    calc(
+      100vh - 170px
+    );
+
+  min-height:900px;
+}
+
+
+/* ==========================================================
+   BrainOn Overview Final Workspace Height
+   - 3 rows fill the available dashboard workspace
+   ========================================================== */
+
+.brainon-grafana-content{
+  min-height:870px;
+}
+
+.brainon-grafana-frame{
+  height:
+    calc(
+      100vh - 215px
+    );
+
+  min-height:820px;
+}
+
+.brainon-grafana-shell.is-grafana-native
+.brainon-grafana-frame{
+  height:
+    calc(
+      100vh - 170px
+    );
+
+  min-height:820px;
+}
+
+
+/* BRAINON_AUDIT_QUERY_CONSOLE */
+
+/*
+ * Audit에서는 위쪽 Grafana dashboard를
+ * Trace summary 용도로만 압축하고,
+ * 아래에 실제 Grafana Explore를 배치한다.
+ */
+.brainon-grafana-content:has(
+  .brainon-audit-query-console
+)
+> .brainon-grafana-frame {
+  height: 280px !important;
+  min-height: 280px !important;
+}
+
+
+.brainon-audit-query-console {
+  width: 100%;
+  margin-top: 4px;
+
+  background:
+    #111318;
+
+  border:
+    1px solid #2a3038;
+
+  border-radius:
+    6px;
+
+  overflow:
+    hidden;
+}
+
+
+.brainon-audit-query-console__header {
+  min-height:
+    50px;
+
+  display:
+    flex;
+
+  align-items:
+    center;
+
+  justify-content:
+    space-between;
+
+  gap:
+    16px;
+
+  padding:
+    8px 12px;
+
+  background:
+    #171a1f;
+
+  border-bottom:
+    1px solid #2a3038;
+}
+
+
+.brainon-audit-query-console__heading {
+  min-width: 0;
+
+  display:
+    flex;
+
+  flex-direction:
+    column;
+
+  gap:
+    3px;
+}
+
+
+.brainon-audit-query-console__heading strong {
+  color:
+    #f3f4f6;
+
+  font-size:
+    15px;
+
+  font-weight:
+    700;
+}
+
+
+.brainon-audit-query-console__heading span {
+  color:
+    #8b93a1;
+
+  font-size:
+    10px;
+}
+
+
+.brainon-audit-query-console__source {
+  display:
+    flex;
+
+  align-items:
+    center;
+
+  gap:
+    9px;
+
+  flex-shrink:
+    0;
+}
+
+
+.brainon-audit-query-console__source > span {
+  color:
+    #8b93a1;
+
+  font-size:
+    10px;
+
+  font-weight:
+    600;
+}
+
+
+.brainon-audit-query-console__source select {
+  min-width:
+    190px;
+
+  height:
+    34px;
+
+  padding:
+    0 30px 0 10px;
+
+  color:
+    #f3f4f6;
+
+  background:
+    #1b1f24;
+
+  border:
+    1px solid #363d47;
+
+  border-radius:
+    5px;
+
+  font-size:
+    11px;
+
+  outline:
+    none;
+}
+
+
+.brainon-audit-query-console__source select:hover,
+.brainon-audit-query-console__source select:focus {
+  border-color:
+    #ff780a;
+}
+
+
+.brainon-audit-query-frame {
+  display:
+    block;
+
+  width:
+    100%;
+
+  height:
+    430px;
+
+  border:
+    0;
+
+  background:
+    #111318;
+}
+
+
+/*
+ * 작은 화면에서도 Query Console이
+ * 너무 찌그러지지 않도록 한다.
+ */
+@media (
+  max-width: 1100px
+) {
+
+  .brainon-audit-query-console__header {
+    align-items:
+      flex-start;
+
+    flex-direction:
+      column;
+  }
+
+
+  .brainon-audit-query-console__source {
+    width:
+      100%;
+  }
+
+
+  .brainon-audit-query-console__source select {
+    flex:
+      1;
+  }
+}
+
+
+/* ============================================================
+   AUDIT QUERY CONSOLE HEIGHT NORMALIZATION
+
+   다른 Dashboard와 전체 세로 높이는 동일하게 유지하고
+   Audit 내부에서만 Trace + Query Console로 분할한다.
+   ============================================================ */
+
+.brainon-grafana-content:has(
+  .brainon-audit-query-console
+) {
+  min-height: 870px;
+}
+
+
+/* Audit 상단 Trace Dashboard */
+.brainon-grafana-content:has(
+  .brainon-audit-query-console
+)
+> .brainon-grafana-frame {
+  height: 280px !important;
+  min-height: 280px !important;
+  flex: 0 0 280px;
+}
+
+
+/* Query Console 전체 */
+.brainon-audit-query-console {
+  margin-top: 4px;
+
+  display: flex;
+  flex-direction: column;
+
+  min-height: 534px;
+  height: 534px;
+}
+
+
+/* Query Console Header */
+.brainon-audit-query-console__header {
+  flex: 0 0 50px;
+  min-height: 50px;
+}
+
+
+/* 실제 Grafana Explore */
+.brainon-audit-query-frame {
+  flex: 1 1 auto;
+
+  width: 100%;
+
+  height: auto !important;
+  min-height: 480px;
+
+  border: 0;
+
+  background: #111318;
+}
+
+
+
+/* ============================================================
+   BRAINON QUERY CONSOLE NAVIGATION
+   ============================================================ */
+
+.brainon-query-console-shortcut {
+  width: 34px;
+  height: 34px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  flex: 0 0 34px;
+
+  margin-left: auto;
+  margin-right: 8px;
+
+  color: #9ca6b5;
+  background: #1b1f24;
+
+  border:
+    1px solid #363d47;
+
+  border-radius: 5px;
+
+  cursor: pointer;
+}
+
+
+.brainon-query-console-shortcut svg {
+  width: 16px;
+  height: 16px;
+}
+
+
+.brainon-query-console-shortcut:hover {
+  color: #f3f4f6;
+
+  border-color: #ff780a;
+
+  background: #22272e;
+}
+
+
+/*
+ * Explore > Query Console은
+ * Audit 내부 Console보다 크게 사용한다.
+ */
+.brainon-explore-query-console {
+  margin-top: 0;
+
+  width: 100%;
+
+  height:
+    calc(100vh - 170px);
+
+  min-height: 760px;
+}
+
+
+.brainon-explore-query-console
+.brainon-audit-query-frame {
+  flex: 1 1 auto;
+
+  height: auto !important;
+
+  min-height: 700px;
+}
+
 @media(max-width:720px){
   .ml-run-identity,.ml-run-columns,.ml-workflow-summary,.ml-workflow-steps{grid-template-columns:1fr}
   .ml-detail-metrics--wide{grid-template-columns:repeat(2,minmax(0,1fr))}

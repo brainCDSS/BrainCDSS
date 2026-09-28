@@ -2,6 +2,7 @@ import { apiRequest } from "../../api/client";
 
 import type {
   AppointmentActionResponse,
+  AvailableSlotsResponse,
   AppointmentCorrectionRequest,
   AppointmentCorrectionResponse,
   AppointmentRequestResponse,
@@ -12,6 +13,20 @@ import type {
   StaffAppointment,
   StaffAppointmentsResponse,
 } from "./types";
+
+export function getAvailableSlots(clinicianId: string, date: string) {
+  return apiRequest<AvailableSlotsResponse>(
+    `/api/v1/clinicians/${encodeURIComponent(clinicianId)}/slots${queryString({ date })}`,
+  );
+}
+
+export function createStaffAppointment(patientId: string, slotId: string) {
+  return apiRequest<StaffAppointment>("/api/v1/staff/appointment-bookings", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ patient_id: patientId, slot_id: slotId }),
+  });
+}
 
 export function getActiveHospitals() {
   return apiRequest<HospitalListResponse>(

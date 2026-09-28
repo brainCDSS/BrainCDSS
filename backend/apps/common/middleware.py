@@ -11,6 +11,8 @@ import json
 import time
 import uuid
 
+from apps.common.tracking import build_tracking_code
+
 
 def _request_id(value=None):
     if value:
@@ -113,6 +115,13 @@ class CorrelationIdMiddleware:
 
         response["X-Request-ID"] = request_id
         response["X-Trace-ID"] = request_id
+
+        if response.status_code >= 400:
+            response["X-Tracking-Code"] = (
+                build_tracking_code(
+                    request_id
+                )
+            )
 
         duration_ms = round(
             (

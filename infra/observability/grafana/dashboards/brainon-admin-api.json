@@ -1,0 +1,2473 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 101,
+      "type": "canvas",
+      "title": "",
+      "transparent": true,
+      "pluginVersion": "11.4.0",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(brainon_http_requests_total[1m]))",
+          "legendFormat": "CURRENT_RPS",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(brainon_http_requests_total[$__range]))",
+          "legendFormat": "PERIOD_REQUESTS",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "1000 * histogram_quantile(0.95, sum by (le) (rate(brainon_http_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "P95_MS",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "100 * sum(rate(brainon_http_requests_total{status_class=~\"2xx|3xx|4xx\"}[5m])) / clamp_min(sum(rate(brainon_http_requests_total[5m])),0.000001)",
+          "legendFormat": "SERVER_OK_RATE",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "inlineEditing": false,
+        "showAdvancedTypes": true,
+        "panZoom": false,
+        "infinitePan": false,
+        "root": {
+          "type": "frame",
+          "name": "API Performance Summary",
+          "background": {
+            "color": {
+              "fixed": "transparent"
+            }
+          },
+          "border": {
+            "width": 0,
+            "color": {
+              "fixed": "transparent"
+            }
+          },
+          "elements": [
+            {
+              "type": "rectangle",
+              "name": "kpi-0-card",
+              "placement": {
+                "left": 1.0,
+                "right": 75.25,
+                "top": 6,
+                "height": 145,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#171A1F"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 9,
+                "color": {
+                  "fixed": "#2A3038"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "kpi-0-icon-bg",
+              "placement": {
+                "left": 2.0,
+                "right": 94.8,
+                "top": 16,
+                "height": 32,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#1D2B40"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 7,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-0-icon",
+              "placement": {
+                "left": 2.5,
+                "right": 95.3,
+                "top": 19,
+                "height": 23,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 15,
+                "color": {
+                  "fixed": "#5794F2"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "↗",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-0-title",
+              "placement": {
+                "left": 5.8,
+                "right": 76.45,
+                "top": 15,
+                "height": 23,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 14,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "현재 RPS",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-0-info",
+              "placement": {
+                "left": 22.35,
+                "right": 76.45,
+                "top": 16,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "ⓘ",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "kpi-0-value",
+              "placement": {
+                "left": 3.0,
+                "right": 77.25,
+                "top": 63,
+                "height": 38,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 24,
+                "color": {
+                  "fixed": "#5794F2"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "CURRENT_RPS"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": [
+                {
+                  "title": "상세 보기",
+                  "url": "/d/brainon-admin-api/brainon?${__url_time_range}&viewPanel=342",
+                  "targetBlank": false,
+                  "oneClick": true
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "name": "kpi-0-subtitle",
+              "placement": {
+                "left": 3.0,
+                "right": 77.25,
+                "top": 108,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "전체 API 초당 요청 수",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-0-unit",
+              "placement": {
+                "left": 3.0,
+                "right": 77.25,
+                "top": 128,
+                "height": 15,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#626B78"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "건/초",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "kpi-1-card",
+              "placement": {
+                "left": 25.75,
+                "right": 50.5,
+                "top": 6,
+                "height": 145,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#171A1F"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 9,
+                "color": {
+                  "fixed": "#2A3038"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "kpi-1-icon-bg",
+              "placement": {
+                "left": 26.75,
+                "right": 70.05,
+                "top": 16,
+                "height": 32,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#2B2042"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 7,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-1-icon",
+              "placement": {
+                "left": 27.25,
+                "right": 70.55,
+                "top": 19,
+                "height": 23,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 15,
+                "color": {
+                  "fixed": "#8B5CF6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "▤",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-1-title",
+              "placement": {
+                "left": 30.55,
+                "right": 51.7,
+                "top": 15,
+                "height": 23,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 14,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "기간 요청 건수",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-1-info",
+              "placement": {
+                "left": 47.1,
+                "right": 51.699999999999996,
+                "top": 16,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "ⓘ",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "kpi-1-value",
+              "placement": {
+                "left": 27.75,
+                "right": 52.5,
+                "top": 63,
+                "height": 38,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 24,
+                "color": {
+                  "fixed": "#8B5CF6"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "PERIOD_REQUESTS"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": [
+                {
+                  "title": "상세 보기",
+                  "url": "/d/brainon-admin-api/brainon?${__url_time_range}&viewPanel=341",
+                  "targetBlank": false,
+                  "oneClick": true
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "name": "kpi-1-subtitle",
+              "placement": {
+                "left": 27.75,
+                "right": 52.5,
+                "top": 108,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "선택 구간 누적 요청",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-1-unit",
+              "placement": {
+                "left": 27.75,
+                "right": 52.5,
+                "top": 128,
+                "height": 15,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#626B78"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "건",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "kpi-2-card",
+              "placement": {
+                "left": 50.5,
+                "right": 25.75,
+                "top": 6,
+                "height": 145,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#171A1F"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 9,
+                "color": {
+                  "fixed": "#2A3038"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "kpi-2-icon-bg",
+              "placement": {
+                "left": 51.5,
+                "right": 45.3,
+                "top": 16,
+                "height": 32,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#3B2B16"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 7,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-2-icon",
+              "placement": {
+                "left": 52.0,
+                "right": 45.8,
+                "top": 19,
+                "height": 23,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 15,
+                "color": {
+                  "fixed": "#F59E0B"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "⌁",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-2-title",
+              "placement": {
+                "left": 55.3,
+                "right": 26.950000000000003,
+                "top": 15,
+                "height": 23,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 14,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "API 응답시간 P95 · 5m",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-2-info",
+              "placement": {
+                "left": 71.85,
+                "right": 26.950000000000006,
+                "top": 16,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "ⓘ",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "kpi-2-value",
+              "placement": {
+                "left": 52.5,
+                "right": 27.75,
+                "top": 63,
+                "height": 38,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 24,
+                "color": {
+                  "fixed": "#F59E0B"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "P95_MS"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": [
+                {
+                  "title": "상세 보기",
+                  "url": "/d/brainon-admin-api/brainon?${__url_time_range}&viewPanel=343",
+                  "targetBlank": false,
+                  "oneClick": true
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "name": "kpi-2-subtitle",
+              "placement": {
+                "left": 52.5,
+                "right": 27.75,
+                "top": 108,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "최근 5분 요청 95% 처리시간",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-2-unit",
+              "placement": {
+                "left": 52.5,
+                "right": 27.75,
+                "top": 128,
+                "height": 15,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#626B78"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "ms",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "kpi-3-card",
+              "placement": {
+                "left": 75.25,
+                "right": 1.0,
+                "top": 6,
+                "height": 145,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#171A1F"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 9,
+                "color": {
+                  "fixed": "#2A3038"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "kpi-3-icon-bg",
+              "placement": {
+                "left": 76.25,
+                "right": 20.55,
+                "top": 16,
+                "height": 32,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#17372F"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 7,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-3-icon",
+              "placement": {
+                "left": 76.75,
+                "right": 21.05,
+                "top": 19,
+                "height": 23,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 15,
+                "color": {
+                  "fixed": "#35C79B"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "✓",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-3-title",
+              "placement": {
+                "left": 80.05,
+                "right": 2.200000000000003,
+                "top": 15,
+                "height": 23,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 14,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "서버 정상 처리율 · 5m",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-3-info",
+              "placement": {
+                "left": 96.6,
+                "right": 2.2000000000000055,
+                "top": 16,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "ⓘ",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "kpi-3-value",
+              "placement": {
+                "left": 77.25,
+                "right": 3.0,
+                "top": 63,
+                "height": 38,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 24,
+                "color": {
+                  "fixed": "#35C79B"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "SERVER_OK_RATE"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": [
+                {
+                  "title": "상세 보기",
+                  "url": "/d/brainon-admin-api/brainon?${__url_time_range}&viewPanel=344",
+                  "targetBlank": false,
+                  "oneClick": true
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "name": "kpi-3-subtitle",
+              "placement": {
+                "left": 77.25,
+                "right": 3.0,
+                "top": 108,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "5xx 제외 요청 비율",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "kpi-3-unit",
+              "placement": {
+                "left": 77.25,
+                "right": 3.0,
+                "top": 128,
+                "height": 15,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#626B78"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "%",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "HTTP 상태코드별 요청 추이",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 17,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "decimals": 3,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(brainon_http_requests_total{status_class=\"2xx\"}[1m]))",
+          "legendFormat": "2xx",
+          "range": true
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(brainon_http_requests_total{status_class=\"3xx\"}[1m]))",
+          "legendFormat": "3xx",
+          "range": true
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(brainon_http_requests_total{status_class=\"4xx\"}[1m]))",
+          "legendFormat": "4xx",
+          "range": true
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(brainon_http_requests_total{status_class=\"5xx\"}[1m]))",
+          "legendFormat": "5xx",
+          "range": true
+        }
+      ],
+      "transparent": false,
+      "description": "2xx · 3xx · 4xx · 5xx 요청의 초당 발생량을 시간 흐름으로 확인합니다."
+    },
+    {
+      "id": 201,
+      "type": "canvas",
+      "title": "",
+      "transparent": true,
+      "pluginVersion": "11.4.0",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 17,
+        "y": 5,
+        "w": 7,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(brainon_http_requests_total{status_class=\"4xx\"}[5m]))",
+          "legendFormat": "HTTP_4XX_RPS",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(brainon_http_requests_total{status_class=\"5xx\"}[5m]))",
+          "legendFormat": "HTTP_5XX_RPS",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "100 * sum(rate(brainon_http_requests_total{status_class=\"5xx\"}[5m])) / clamp_min(sum(rate(brainon_http_requests_total[5m])),0.000001)",
+          "legendFormat": "HTTP_5XX_RATE",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "inlineEditing": false,
+        "showAdvancedTypes": true,
+        "panZoom": false,
+        "infinitePan": false,
+        "root": {
+          "type": "frame",
+          "name": "API Error Summary",
+          "background": {
+            "color": {
+              "fixed": "transparent"
+            }
+          },
+          "border": {
+            "width": 0,
+            "color": {
+              "fixed": "transparent"
+            }
+          },
+          "elements": [
+            {
+              "type": "rectangle",
+              "name": "icon-bg",
+              "placement": {
+                "left": 4,
+                "right": 84,
+                "top": 12,
+                "height": 32,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#3F1E26"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 7,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "icon",
+              "placement": {
+                "left": 7,
+                "right": 87,
+                "top": 16,
+                "height": 24,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 16,
+                "color": {
+                  "fixed": "#FF5A67"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "!",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "title",
+              "placement": {
+                "left": 19,
+                "right": 23,
+                "top": 10,
+                "height": 24,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 15,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "오류 상태 요약",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "subtitle",
+              "placement": {
+                "left": 19,
+                "right": 16,
+                "top": 33,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "요청 오류와 서버 장애 신호",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "divider-1",
+              "placement": {
+                "left": 5,
+                "right": 5,
+                "top": 69,
+                "height": 1,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#303640"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "4xx-title",
+              "placement": {
+                "left": 7,
+                "right": 41,
+                "top": 82,
+                "height": 20,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "4xx 요청 오류 RPS",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "4xx-value",
+              "placement": {
+                "left": 63,
+                "right": 7,
+                "top": 80,
+                "height": 24,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "size": 13,
+                "color": {
+                  "fixed": "#F59E0B"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "HTTP_4XX_RPS"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "4xx-help",
+              "placement": {
+                "left": 7,
+                "right": 13,
+                "top": 105,
+                "height": 17,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#626B78"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "인증 · 권한 · 잘못된 요청 등",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "divider-2",
+              "placement": {
+                "left": 5,
+                "right": 5,
+                "top": 132,
+                "height": 1,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#303640"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "5xx-title",
+              "placement": {
+                "left": 7,
+                "right": 41,
+                "top": 145,
+                "height": 20,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "5xx 서버 오류 RPS",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "5xx-value",
+              "placement": {
+                "left": 63,
+                "right": 7,
+                "top": 143,
+                "height": 24,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "size": 13,
+                "color": {
+                  "fixed": "#FF5A67"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "HTTP_5XX_RPS"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "5xx-help",
+              "placement": {
+                "left": 7,
+                "right": 13,
+                "top": 168,
+                "height": 17,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#626B78"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Backend · Gateway · Service 처리 실패",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "divider-3",
+              "placement": {
+                "left": 5,
+                "right": 5,
+                "top": 195,
+                "height": 1,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#303640"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "rate-title",
+              "placement": {
+                "left": 7,
+                "right": 35,
+                "top": 207,
+                "height": 20,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "5xx 서버 오류율 · 5m",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "rate-value",
+              "placement": {
+                "left": 65,
+                "right": 7,
+                "top": 205,
+                "height": 24,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "size": 13,
+                "color": {
+                  "fixed": "#FF5A67"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "HTTP_5XX_RATE"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "rate-help",
+              "placement": {
+                "left": 7,
+                "right": 13,
+                "top": 230,
+                "height": 17,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 9,
+                "color": {
+                  "fixed": "#626B78"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "전체 요청 중 5xx 응답 비율",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "HTTP 오류 추이 · 4xx vs 5xx",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 24,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "decimals": 3,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(brainon_http_requests_total{status_class=\"4xx\"}[1m]))",
+          "legendFormat": "4xx",
+          "range": true
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(brainon_http_requests_total{status_class=\"5xx\"}[1m]))",
+          "legendFormat": "5xx",
+          "range": true
+        }
+      ],
+      "description": "4xx 요청 오류와 5xx 서버 오류의 발생 시점을 시간 흐름으로 비교합니다.",
+      "transparent": false
+    },
+    {
+      "id": 341,
+      "type": "table",
+      "title": "HTTP 요청 · Route / 상태별",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (method,route,status_class)(increase(brainon_http_requests_total[$__range]))",
+          "legendFormat": "{{method}} {{route}} {{status_class}}",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "transparent": false
+    },
+    {
+      "id": 342,
+      "type": "table",
+      "title": "현재 API RPS · Route별",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (method,route)(rate(brainon_http_requests_total[1m]))",
+          "legendFormat": "{{method}} {{route}}",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "transparent": false
+    },
+    {
+      "id": 343,
+      "type": "table",
+      "title": "P95 응답시간 · Route별",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 36,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "1000 * histogram_quantile(0.95,sum by (le,method,route)(rate(brainon_http_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "{{method}} {{route}}",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "transparent": false
+    },
+    {
+      "id": 344,
+      "type": "logs",
+      "title": "HTTP 5xx 실제 요청 로그",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 44,
+        "w": 24,
+        "h": 9
+      },
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": true,
+        "enableLogDetails": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{environment=~\"local|runtime\"} | json | event=\"HTTP_REQUEST\" | status >= 500",
+          "queryType": "range",
+          "maxLines": 200
+        }
+      ]
+    }
+  ],
+  "refresh": "",
+  "schemaVersion": 41,
+  "tags": [
+    "BrainOn",
+    "Operations",
+    "SYSTEM_ADMIN"
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "request_id",
+        "label": "Request ID",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "hide": 0
+      },
+      {
+        "name": "runtime_container",
+        "label": "Runtime Container",
+        "type": "query",
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "query": "label_values({host=\"braincdss-rabbitmq\"}, container)",
+        "definition": "label_values({host=\"braincdss-rabbitmq\"}, container)",
+        "refresh": 1,
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "hide": 2
+      }
+    ]
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {
+    "hidden": false
+  },
+  "timezone": "browser",
+  "title": "BrainOn · API Performance",
+  "uid": "brainon-admin-api",
+  "version": 9,
+  "weekStart": "",
+  "description": "Backend API 트래픽, 응답시간, HTTP 상태코드 및 오류 추이."
+}

@@ -1,0 +1,2628 @@
+@import url("https://cdn.jsdelivr.net/gh/sun-typeface/SUIT@2/fonts/variable/woff2/SUIT-Variable.css");
+
+/* =========================================================
+   Brain CDSS Common Layout
+   - Light / Dark Mode
+   - Header / Sidebar / Content
+   ========================================================= */
+
+
+/* =========================================================
+   0. 기본 설정
+   ========================================================= */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  min-width: 1180px;
+
+  background: var(--bg-page);
+  color: var(--text-primary);
+
+  font-family:
+    "SUIT Variable",
+    SUIT,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+/* 사이드바, 헤더, 버튼, 앱, 입력창 등의 글씨체 통일 */
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+/* =========================================================
+   1. LIGHT MODE - REGATTA
+   ========================================================= */
+
+:root {
+  /* Page / Surface */
+  --bg-page: #f6f8fb;
+  --bg-surface: #ffffff;
+
+  /* Brand / Sidebar */
+  --bg-sidebar: #4379b8;
+
+  /* Interaction */
+  --bg-hover: #f1f4f8;
+  --bg-active: #eaf1f8;
+
+  /* Text */
+  --text-primary: #1f2a37;
+  --text-secondary: #667487;
+  --text-sidebar: #eef5fc;
+
+  /* Border */
+  --border-color: #e2e8f0;
+
+  /* Accent */
+  --primary: #4f82bd;
+  --primary-dark: #3f70a9;
+
+  /* Shadow */
+  --shadow-soft: 0 2px 12px rgba(38, 52, 71, 0.045);
+}
+
+
+/* =========================================================
+   2. DARK MODE - REGATTA
+   ========================================================= */
+
+[data-theme="dark"] {
+  --bg-page: #101824;
+  --bg-surface: #182332;
+  --bg-sidebar: #345f91;
+
+  --bg-hover: #223044;
+  --bg-active: #29415e;
+
+  --text-primary: #e7edf5;
+  --text-secondary: #9daabc;
+  --text-sidebar: #f4f8fc;
+
+  --border-color: #2c3a4c;
+
+  --primary: #6b9dd5;
+  --primary-dark: #5688c1;
+
+  --shadow-soft: 0 2px 14px rgba(0, 0, 0, 0.22);
+}
+
+
+/* =========================================================
+   3. APP SHELL
+
+   Header
+   ─────────────────────────────
+   Sidebar │ Content
+   ========================================================= */
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+
+  width: 100%;
+  min-height: 100vh;
+
+  margin: 0;
+  padding: 0;
+
+  background: var(--bg-page);
+
+  color: var(--text-primary);
+}
+
+
+/* =========================================================
+   4. HEADER
+   ========================================================= */
+
+.header {
+  position: sticky;
+  top: 0;
+
+  z-index: 100;
+
+  display: flex;
+
+  width: 100%;
+  height: 72px;
+
+  flex-shrink: 0;
+
+  margin: 0;
+  padding: 0;
+
+  background: var(--bg-surface);
+
+  border-bottom: 1px solid var(--border-color);
+
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+
+/* =========================================================
+   5. HEADER 왼쪽 BRAND
+
+   Sidebar와 동일하게 220px
+   ========================================================= */
+
+.header-brand-slot {
+  display: flex;
+
+  width: 220px;
+  height: 72px;
+
+  flex-shrink: 0;
+
+  align-items: center;
+
+  margin: 0;
+  padding: 0 16px;
+
+  /*
+   * Sidebar와 동일한 색상.
+   * 위 Brand부터 아래 Sidebar까지
+   * 하나의 세로 패널처럼 연결됨.
+   */
+  background: var(--bg-sidebar);
+
+  border-right: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+
+.header-product {
+  display: flex;
+
+  width: 100%;
+  height: 100%;
+
+  align-items: center;
+
+  gap: 10px;
+
+  min-width: 0;
+
+  overflow: hidden;
+}
+
+.header-brand-logo {
+  display: block;
+
+  width: 40px;
+  height: 40px;
+
+  flex-shrink: 0;
+
+  object-fit: contain;
+  object-position: center;
+}
+
+.header-product-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.header-product-text strong {
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.header-product-text span {
+  margin-top: 3px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 9px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+
+/* =========================================================
+   6. HEADER 오른쪽 업무 영역
+
+   소속기관 | 환자검색 | 알림/Theme/User
+   ========================================================= */
+
+.header-main-area {
+  display: grid;
+
+  grid-template-columns:
+    max-content
+    minmax(320px, 560px)
+    max-content;
+
+  justify-content: space-between;
+
+  flex: 1;
+
+  min-width: 0;
+  height: 72px;
+
+  align-items: center;
+
+  gap: 24px;
+
+  margin: 0;
+  padding: 0 20px;
+
+  background: var(--bg-surface);
+}
+
+
+/* =========================================================
+   7. 소속 기관
+   ========================================================= */
+
+.header-organization {
+  display: flex;
+
+  width: auto;
+  height: 38px;
+
+  align-items: center;
+
+  justify-self: start;
+
+  gap: 8px;
+
+  flex-shrink: 0;
+
+  padding: 0 12px;
+
+  border: 1px solid var(--border-color);
+
+  border-radius: 8px;
+
+  background: var(--bg-surface);
+
+  color: var(--text-secondary);
+
+  white-space: nowrap;
+
+  cursor: pointer;
+
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+
+.header-organization:hover {
+  background: var(--bg-hover);
+
+  color: var(--text-primary);
+}
+
+
+/* =========================================================
+   8. 환자 통합 검색
+   ========================================================= */
+
+.header-search {
+  display: flex;
+
+  width: 100%;
+
+  min-width: 0;
+
+  justify-self: center;
+}
+
+
+.header-search input {
+  width: 100%;
+  height: 38px;
+
+  min-width: 0;
+
+  padding: 0 14px;
+
+  border: 1px solid var(--border-color);
+
+  border-right: 0;
+
+  border-radius: 9px 0 0 9px;
+
+  outline: none;
+
+  background: var(--bg-page);
+
+  color: var(--text-primary);
+
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+
+.header-search input::placeholder {
+  color: var(--text-secondary);
+}
+
+
+.header-search input:focus {
+  border-color: var(--primary);
+
+  background: var(--bg-surface);
+}
+
+
+.header-search-button {
+  min-width: 64px;
+  height: 38px;
+
+  flex-shrink: 0;
+
+  padding: 0 16px;
+
+  white-space: nowrap;
+
+  border: 1px solid var(--primary);
+
+  border-radius: 0 9px 9px 0;
+
+  background: var(--primary);
+
+  color: #ffffff;
+
+  cursor: pointer;
+}
+
+
+.header-search-button:hover {
+  background: var(--primary-dark);
+}
+
+
+/* =========================================================
+   9. HEADER 오른쪽
+   ========================================================= */
+
+.header-actions {
+  display: flex;
+
+  align-items: center;
+
+  justify-content: flex-end;
+
+  gap: 9px;
+
+  min-width: max-content;
+
+  white-space: nowrap;
+}
+
+
+/* 알림 / Theme 공통 */
+
+.header-icon-button {
+  height: 38px;
+
+  min-width: 38px;
+
+  padding: 0 11px;
+
+  flex-shrink: 0;
+
+  border: 1px solid var(--border-color);
+
+  border-radius: 8px;
+
+  background: var(--bg-surface);
+
+  color: var(--text-secondary);
+
+  cursor: pointer;
+
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+
+.header-icon-button:hover {
+  background: var(--bg-hover);
+
+  color: var(--text-primary);
+}
+
+
+.theme-toggle {
+  font-size: 17px;
+}
+
+
+/* =========================================================
+   10. 사용자 영역
+   ========================================================= */
+
+.user-info {
+  display: flex;
+
+  align-items: center;
+
+  gap: 9px;
+
+  margin-left: 4px;
+
+  padding-left: 14px;
+
+  border-left: 1px solid var(--border-color);
+}
+
+
+.user-avatar {
+  display: flex;
+
+  width: 36px;
+  height: 36px;
+
+  flex-shrink: 0;
+
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background: var(--bg-active);
+
+  color: var(--primary);
+
+  font-size: 10px;
+  font-weight: 800;
+}
+
+
+.user-text {
+  display: flex;
+
+  flex-direction: column;
+}
+
+
+.user-text strong {
+  color: var(--text-primary);
+
+  font-size: 12px;
+
+  white-space: nowrap;
+}
+
+
+.user-text span {
+  margin-top: 2px;
+
+  color: var(--text-secondary);
+
+  font-size: 10px;
+
+  white-space: nowrap;
+}
+
+
+.user-menu-arrow {
+  color: var(--text-secondary);
+
+  font-size: 11px;
+}
+
+/* 로그아웃 버튼 */
+
+.header-logout-button {
+  height: 36px;
+
+  padding: 0 12px;
+
+  flex-shrink: 0;
+
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+
+  font-size: 11px;
+  font-weight: 700;
+
+  white-space: nowrap;
+  cursor: pointer;
+
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.header-logout-button:hover {
+  border-color: #fca5a5;
+
+  background: #fff1f2;
+  color: #dc2626;
+}
+
+[data-theme="dark"] .header-logout-button {
+  background: #1c2838;
+  border-color: var(--border-color);
+  color: var(--text-secondary);
+}
+
+[data-theme="dark"] .header-logout-button:hover {
+  background: #3b2025;
+  border-color: #b94b58;
+  color: #fda4af;
+}
+
+
+/* =========================================================
+   11. WORKSPACE
+
+   중요:
+   여기 자체에는 흰색 Sidebar 배경을 주지 않는다.
+
+   Sidebar 자체는 흰색,
+   Content는 회색으로 명확하게 분리한다.
+
+   하지만 gap / margin은 0이므로
+   실제 틈은 생기지 않는다.
+   ========================================================= */
+
+.app-workspace {
+  display: flex;
+
+  flex: 1;
+
+  width: 100%;
+
+  min-width: 0;
+  min-height: 0;
+
+  margin: 0;
+  padding: 0;
+
+  gap: 0;
+
+  /*
+   * 오른쪽 Content와 동일한 전체 업무 배경
+   */
+  background: var(--bg-page);
+
+  align-items: stretch;
+}
+
+
+/* =========================================================
+   12. SIDEBAR
+   ========================================================= */
+
+.sidebar {
+  display: flex;
+
+  flex-direction: column;
+
+  width: 220px;
+
+  overflow: hidden;
+
+  flex-shrink: 0;
+
+  align-self: stretch;
+
+  min-height: calc(100vh - 116px);
+
+  /*
+   * Brand와 실제로 붙어 있도록
+   * 외부 여백 0
+   */
+  margin: 0;
+
+  /*
+   * Sidebar 내부 메뉴 간격
+   */
+  padding: 20px 18px 14px;
+
+  background: var(--bg-sidebar);
+
+  /*
+   * 공간으로 나누지 않고
+   * 선으로 Sidebar / Content 구분
+   */
+  border-right: 0;
+
+  /*
+   * 아주 약한 Shadow로
+   * Web Software 패널 느낌 강화
+   */
+  box-shadow: 2px 0 8px rgba(15, 23, 42, 0.025);
+
+  color: var(--text-sidebar);
+
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+
+/* =========================================================
+   13. SIDEBAR NAV
+   ========================================================= */
+
+.sidebar-nav {
+  display: flex;
+
+  flex: 1;
+
+  flex-direction: column;
+
+  gap: 4px;
+
+  margin: 0;
+  padding: 0;
+}
+
+
+/* 그룹 제목 */
+
+.sidebar-section-label {
+  padding: 0 12px 8px;
+
+  color: rgba(255, 255, 255, 0.56);
+
+  font-size: 9px;
+  font-weight: 700;
+
+  letter-spacing: 0.08em;
+}
+
+
+/* Sidebar Menu */
+
+.sidebar-menu {
+  display: flex;
+
+  width: 100%;
+
+  align-items: center;
+
+  gap: 11px;
+
+  padding: 11px 13px;
+
+  border: 0;
+
+  border-radius: 8px;
+
+  background: transparent;
+
+  color: var(--text-sidebar);
+
+  text-align: left;
+
+  /* 추가 */
+  font-size: 14px;
+  font-weight: 700;
+
+  cursor: pointer;
+
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+/* 실제 Page 선택 스타일은 아래의
+   .sidebar-page-menu.active 공통 규칙에서 처리한다. */
+
+/* Sidebar Icon */
+
+.sidebar-menu-icon {
+  display: flex;
+
+  width: 20px;
+
+  flex-shrink: 0;
+
+  align-items: center;
+  justify-content: center;
+
+  font-size: 14px;
+}
+
+.sidebar-menu-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* 펼친 Sidebar에서는 짧은 접힘 전용 라벨을 숨긴다. */
+.sidebar-collapsed-label {
+  display: none;
+}
+
+/* =========================================================
+   SIDEBAR 1Depth / 2Depth
+   ========================================================= */
+
+
+/* ---------------------------------------------------------
+   1Depth Group
+   --------------------------------------------------------- */
+
+.sidebar-group {
+  display: flex;
+
+  width: 100%;
+
+  flex-direction: column;
+}
+
+
+/* Group 버튼은 기존 sidebar-menu 스타일을 사용하되
+   하위 메뉴가 선택되어 있어도
+   일반 단일 메뉴의 연결형 Active 모양은 사용하지 않는다. */
+
+.sidebar-group-button.expanded {
+  width: 100%;
+
+  margin-right: 0;
+
+  padding-right: 13px;
+
+  border-radius: 8px;
+
+  background:
+    rgba(255, 255, 255, 0.10);
+
+  color: #ffffff;
+
+  font-weight: 700;
+}
+
+
+/* 기존 sidebar-menu.active 곡선 제거 */
+
+.sidebar-group-button.expanded::before,
+.sidebar-group-button.expanded::after {
+  display: none;
+}
+
+
+/* ---------------------------------------------------------
+   메뉴 Label
+   --------------------------------------------------------- */
+
+.sidebar-menu-label {
+  min-width: 0;
+
+  flex: 1;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+
+  white-space: nowrap;
+}
+
+
+/* ---------------------------------------------------------
+   펼침 / 닫힘 화살표
+   --------------------------------------------------------- */
+
+.sidebar-group-arrow {
+  display: flex;
+
+  width: 18px;
+  height: 18px;
+
+  flex-shrink: 0;
+
+  align-items: center;
+  justify-content: center;
+
+  margin-left: auto;
+
+  color:
+    rgba(255, 255, 255, 0.64);
+
+  font-size: 10px;
+
+  transition:
+    transform 0.18s ease,
+    color 0.18s ease;
+}
+
+.sidebar-group-arrow svg {
+  width: 14px;
+  height: 14px;
+}
+
+
+.sidebar-group-button:hover
+.sidebar-group-arrow {
+  color: #ffffff;
+}
+
+
+.sidebar-group-arrow.open {
+  transform: rotate(180deg);
+}
+
+
+/* =========================================================
+   2Depth Submenu
+   ========================================================= */
+
+.sidebar-submenu {
+  display: flex;
+
+  width: calc(100% - 26px);
+
+  flex-direction: column;
+
+  gap: 2px;
+
+  margin:
+    3px
+    0
+    5px
+    26px;
+
+  padding:
+    3px
+    0
+    3px
+    10px;
+
+  border-left:
+    1px solid
+    rgba(255, 255, 255, 0.18);
+}
+
+
+/* ---------------------------------------------------------
+   2Depth Menu Item
+   --------------------------------------------------------- */
+
+.sidebar-submenu-item {
+  display: flex;
+
+  width: 100%;
+  min-height: 34px;
+
+  align-items: center;
+
+  gap: 7px;
+
+  padding:
+    7px
+    9px;
+
+  border: 0;
+
+  border-radius: 7px;
+
+  background: transparent;
+
+  color:
+    rgba(255, 255, 255, 0.72);
+
+  /* 사이드바 글씨 폰트 굵기 및 크기*/
+  font-size: 14px;
+  font-weight: 600;
+
+  text-align: left;
+
+  cursor: pointer;
+
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+
+.sidebar-submenu-item:hover {
+  background:
+    rgba(255, 255, 255, 0.08);
+
+  color: #ffffff;
+}
+
+
+/* ---------------------------------------------------------
+   선택된 2Depth
+   --------------------------------------------------------- */
+
+/* 작은 점 */
+
+.sidebar-submenu-dot {
+  display: flex;
+
+  width: 8px;
+
+  flex-shrink: 0;
+
+  align-items: center;
+  justify-content: center;
+
+  color:
+    rgba(255, 255, 255, 0.50);
+
+  font-size: 0;
+}
+
+.sidebar-submenu-dot::before {
+  width: 4px;
+  height: 4px;
+
+  border-radius: 50%;
+
+  background: currentColor;
+
+  content: "";
+}
+
+
+.sidebar-submenu-item.active
+.sidebar-submenu-dot {
+  color: var(--primary-dark);
+}
+
+
+/* ---------------------------------------------------------
+   실제 Page 메뉴 공통 Active
+   ---------------------------------------------------------
+   Dashboard와 단일 메뉴, 2Depth leaf 모두 같은 선택 모양을
+   사용한다. Group 펼침 상태는 이 규칙을 사용하지 않는다.
+   --------------------------------------------------------- */
+
+.sidebar-page-menu.active {
+  position: relative;
+
+  z-index: 2;
+
+  width: calc(100% + 18px);
+
+  margin-right: -18px;
+
+  padding: 11px 31px 11px 13px;
+
+  border-radius: 10px 0 0 10px;
+
+  background: var(--bg-page);
+
+  color: var(--primary-dark);
+
+  font-weight: 700;
+}
+
+.sidebar-page-menu.active::before,
+.sidebar-page-menu.active::after {
+  position: absolute;
+
+  right: 0;
+
+  display: block;
+
+  width: 12px;
+  height: 12px;
+
+  pointer-events: none;
+
+  background: var(--bg-sidebar);
+
+  z-index: -1;
+}
+
+.sidebar-page-menu.active::before {
+  top: -12px;
+
+  border-bottom-right-radius: 12px;
+
+  box-shadow: 4px 4px 0 4px var(--bg-page);
+
+  content: "";
+}
+
+.sidebar-page-menu.active::after {
+  bottom: -12px;
+
+  border-top-right-radius: 12px;
+
+  box-shadow: 4px -4px 0 4px var(--bg-page);
+
+  content: "";
+}
+
+
+/* =========================================================
+   Sidebar 접힌 상태
+   ---------------------------------------------------------
+   접었을 때는 1Depth 아이콘만 표시하고
+   2Depth는 숨긴다.
+   ========================================================= */
+
+.sidebar-collapsed
+.sidebar-submenu {
+  display: none;
+}
+
+
+.sidebar-collapsed
+.sidebar-group-arrow {
+  display: none;
+}
+
+
+.sidebar-collapsed
+.sidebar-menu-label {
+  display: none;
+}
+
+
+/* Group이 active여도 접힌 상태에서는
+   기존 Icon Button 모양으로 표시 */
+
+.sidebar-collapsed
+.sidebar-group-button.expanded {
+  width: 44px;
+
+  margin-left: auto;
+  margin-right: auto;
+
+  padding-right: 0;
+
+  border-radius: 10px;
+
+  background:
+    rgba(255, 255, 255, 0.16);
+
+  color: #ffffff;
+}
+
+
+/* =========================================================
+   14. SIDEBAR FOOTER
+   ========================================================= */
+
+.sidebar-footer {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 3px;
+
+  margin-top: 24px;
+
+  padding: 16px 10px 0;
+
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.sidebar-policy-link {
+  display: flex;
+
+  width: 100%;
+
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 8px;
+
+  margin: 0 0 12px;
+
+  padding: 6px 0;
+
+  border: 0;
+
+  background: transparent;
+
+  color: rgba(255, 255, 255, 0.72);
+
+  font-family: inherit;
+
+  font-size: 11px;
+  font-weight: 500;
+
+  text-align: left;
+
+  cursor: pointer;
+
+  transition:
+    color 0.15s ease,
+    opacity 0.15s ease;
+}
+
+
+.sidebar-policy-link:hover {
+  color: #ffffff;
+}
+
+
+.sidebar-policy-link.active {
+  color: #ffffff;
+
+  font-weight: 700;
+}
+
+
+.sidebar-policy-label {
+  min-width: 0;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+.sidebar-policy-arrow {
+  flex-shrink: 0;
+
+  font-size: 15px;
+  font-weight: 400;
+}
+
+/* .sidebar-footer span {
+  font-size: 10px;
+
+  font-weight: 700;
+} */
+.sidebar-footer-title {
+  font-size: 10px;
+
+  font-weight: 700;
+}
+
+.sidebar-footer small {
+  font-size: 9px;
+}
+
+
+/* =========================================================
+   15. CONTENT
+
+   실제 Dashboard / Patients / Imaging 등의
+   페이지가 들어가는 업무 영역
+   ========================================================= */
+
+.app-content {
+  flex: 1;
+
+  min-width: 0;
+
+  min-height: calc(100vh - 116px);
+
+  margin: 0;
+
+  padding: 16px 28px 16px;
+
+  /*
+   * 사용자가 원하는
+   * 확실한 Light Gray 업무 배경
+   */
+  background: var(--bg-page);
+
+  transition:
+    background-color 0.2s ease;
+}
+
+
+/* =========================================================
+   16. 작은 화면 Header 대응
+   ========================================================= */
+
+@media (max-width: 1350px) {
+  .header-main-area {
+    grid-template-columns:
+      max-content
+      minmax(260px, 1fr)
+      max-content;
+
+    gap: 14px;
+  }
+
+  /*
+   * 공간이 부족해지면
+   * Role 텍스트만 숨김
+   */
+  .user-text {
+    display: none;
+  }
+}
+
+/* =========================================================
+   17. WORKSPACE TAB BAR
+
+   Header 아래 / Sidebar + Content 위에 위치하는
+   공통 업무 Tab 영역
+   ========================================================= */
+
+
+/* =========================================================
+   Tab Bar 전체
+   ========================================================= */
+
+.workspace-tabs {
+  display: flex;
+
+  width: 100%;
+  height: 44px;
+
+  flex-shrink: 0;
+
+  margin: 0;
+  padding: 0;
+
+  /*
+   * ★ Tab Bar 배경
+   *
+   * Header는 흰색이고,
+   * Tab 영역은 한 톤 어둡게 만들어서
+   * 서로 다른 영역이라는 느낌을 준다.
+   */
+  background: #f2f5f8;
+
+  /*
+   * ★ 네가 빨간색으로 표시한 바로 그 경계
+   *
+   * Header 아래쪽과 Tab Bar 시작점을
+   * 확실하게 분리한다.
+   */
+  border-top: 1px solid #e0e6ed;
+
+  /*
+   * Tab Bar 아래쪽도 Content와 분리
+   */
+  border-bottom: 1px solid var(--border-color);
+
+  /*
+   * ★ 아주 약한 그림자
+   *
+   * Header / Tab / Content가
+   * 층으로 나뉘어 보이게 한다.
+   */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    0 2px 5px rgba(15, 23, 42, 0.05);
+}
+
+/* Dark Mode */
+[data-theme="dark"] .workspace-tabs {
+  background: #131d2a;
+
+  border-top-color: #2c3a4c;
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 2px 6px rgba(0, 0, 0, 0.22);
+}
+
+
+/* =========================================================
+   왼쪽 Hamburger 영역
+   ========================================================= */
+
+.workspace-tabs-sidebar-control {
+  display: flex;
+
+  /*
+   * ★ Sidebar 폭과 동일
+   *
+   * 현재 Sidebar = 220px
+   */
+  width: 220px;
+  height: 44px;
+
+  flex-shrink: 0;
+
+  align-items: center;
+  justify-content: flex-start;
+
+  /*
+   * ★ 햄버거 왼쪽 위치
+   */
+  padding: 0 18px;
+
+  background: var(--bg-sidebar);
+
+  border-right: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+
+/* =========================================================
+   Hamburger 버튼
+   ========================================================= */
+
+.workspace-hamburger-button {
+  display: flex;
+
+  /*
+   * ★ 버튼 크기
+   */
+  width: 34px;
+  height: 34px;
+
+  align-items: center;
+  justify-content: center;
+
+  padding: 0;
+
+  border: 1px solid transparent;
+
+  border-radius: 7px;
+
+  background: transparent;
+
+  color: var(--text-sidebar);
+
+  font-size: 18px;
+
+  cursor: pointer;
+
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+
+.workspace-hamburger-button:hover {
+  background: rgba(255, 255, 255, 0.10);
+
+  border-color: rgba(255, 255, 255, 0.16);
+
+  color: #ffffff;
+}
+
+
+/* =========================================================
+   실제 Tab 목록
+   ========================================================= */
+
+.workspace-tabs-list {
+  display: flex;
+
+  flex: 1;
+
+  min-width: 0;
+  height: 44px;
+
+  align-items: stretch;
+
+/*
+ * ★ 새 업무 팝업이 Tab Bar 아래로 나올 수 있도록
+ * 세로 방향을 숨기지 않는다.
+ */
+  overflow: visible;
+
+  background: transparent;
+}
+
+.workspace-tabs-scroll {
+  display: flex;
+  min-width: 0;
+  height: 44px;
+  flex: 1 1 auto;
+  align-items: stretch;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  overscroll-behavior-x: contain;
+}
+
+
+/* Scrollbar */
+.workspace-tabs-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+
+
+.workspace-tabs-scroll::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+
+  border-radius: 999px;
+}
+
+
+/* =========================================================
+   개별 Tab
+   ========================================================= */
+
+.workspace-tab {
+  position: relative;
+
+  display: flex;
+
+  /*
+   * ★ 탭 기본 너비
+   */
+  min-width: 150px;
+
+  height: 44px;
+
+  flex-shrink: 0;
+
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 10px;
+
+  /*
+   * ★ 탭 내부 좌우 여백
+   */
+  padding: 0 16px;
+
+  border: 0;
+
+  /*
+   * 옆 탭과 명확히 분리
+   */
+  border-right: 1px solid var(--border-color);
+
+  border-radius: 0;
+
+  /*
+   * 비활성 탭은 탭바 배경보다
+   * 아주 살짝 진하게
+   */
+  background: #eef2f6;
+
+  color: var(--text-secondary);
+
+  font-size: 12px;
+
+  cursor: pointer;
+
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+
+[data-theme="dark"] .workspace-tab {
+  background: #172333;
+}
+
+
+.workspace-tab:hover {
+  background: var(--bg-hover);
+
+  color: var(--text-primary);
+}
+
+
+/* =========================================================
+   선택된 Tab
+   ========================================================= */
+
+.workspace-tab.active {
+  /*
+   * 현재 선택 Tab만 흰색
+   *
+   * → 비활성 영역과 확실히 구분
+   */
+  background: var(--bg-surface);
+
+  color: var(--primary);
+
+  font-weight: 700;
+}
+
+
+/* 선택 표시 Blue Line */
+.workspace-tab.active::after {
+  content: "";
+
+  position: absolute;
+
+  left: 0;
+  right: 0;
+  bottom: 0;
+
+  /*
+   * ★ 선택 표시선 두께
+   */
+  height: 3px;
+
+  background: var(--primary);
+}
+
+
+/* Tab Text */
+.workspace-tab-label {
+  min-width: 0;
+  flex: 1 1 auto;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+
+  white-space: nowrap;
+}
+
+
+/* =========================================================
+   Tab 닫기 X
+   ========================================================= */
+
+.workspace-tab-close {
+  display: flex;
+
+  width: 20px;
+  height: 20px;
+
+  flex-shrink: 0;
+
+  position: relative;
+  z-index: 2;
+
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 5px;
+
+  color: var(--text-secondary);
+
+  font-size: 15px;
+}
+
+
+.workspace-tab-close:hover {
+  background: var(--bg-hover);
+
+  color: var(--text-primary);
+}
+
+
+/* =========================================================
+   새 작업 +
+   ========================================================= */
+
+.workspace-add-tab-button {
+  display: flex;
+
+  /*
+   * ★ + 버튼 영역 폭
+   */
+  width: 46px;
+  height: 44px;
+
+  flex-shrink: 0;
+
+  align-items: center;
+  justify-content: center;
+
+  padding: 0;
+
+  border: 0;
+
+  border-right: 1px solid var(--border-color);
+
+  border-radius: 0;
+
+  background: #eef2f6;
+
+  color: var(--text-secondary);
+
+  font-size: 20px;
+
+  cursor: pointer;
+}
+
+
+[data-theme="dark"] .workspace-add-tab-button {
+  background: #172333;
+}
+
+
+.workspace-add-tab-button:hover {
+  background: var(--bg-hover);
+
+  color: var(--primary);
+}
+
+/* =========================================================
+   18. SIDEBAR COLLAPSED
+   Hamburger 버튼으로 Sidebar 접기 / 펼치기
+   ========================================================= */
+
+
+/* =========================================================
+   1. Sidebar 접힘
+   ========================================================= */
+
+.sidebar-collapsed .sidebar {
+  /*
+   * ★ 접힌 Sidebar 폭
+   *
+   * 펼침 : 220px
+   * 접힘 : 64px
+   *
+   * 너무 좁으면 68~72px 정도로 바꿔도 된다.
+   */
+  width: 80px;
+
+  /*
+   * 접힌 상태에서는 아이콘이 가운데 오도록
+   * 좌우 Padding을 줄인다.
+   */
+  padding-left: 10px;
+  padding-right: 10px;
+
+  /*
+   * 메뉴 Text가 Sidebar 밖으로 튀어나오지 않게 한다.
+   */
+  overflow: hidden;
+
+  transition:
+    width 0.2s ease,
+    padding 0.2s ease,
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+
+/* =========================================================
+   2. Tab Bar 왼쪽 Hamburger 영역도 같이 축소
+
+   Sidebar만 64px이 되고
+   위 Hamburger 영역이 220px이면
+   세로 경계선이 어긋나므로 반드시 같이 줄인다.
+   ========================================================= */
+
+.sidebar-collapsed .workspace-tabs-sidebar-control {
+  /*
+   * ★ Sidebar와 반드시 동일한 값
+   */
+  width: 80px;
+
+  padding-left: 0;
+  padding-right: 0;
+
+  justify-content: center;
+
+  transition:
+    width 0.2s ease,
+    padding 0.2s ease;
+}
+
+
+/* =========================================================
+   3. Sidebar 그룹 제목 숨김
+
+   CLINICAL WORKSPACE 같은 Text는
+   접힌 Sidebar에서는 표시하지 않는다.
+   ========================================================= */
+
+.sidebar-collapsed .sidebar-section-label {
+  display: none;
+}
+
+
+/* =========================================================
+   4. Sidebar 하단 Footer 숨김
+   ========================================================= */
+
+.sidebar-collapsed .sidebar-footer {
+  display: none;
+}
+
+
+/* =========================================================
+   5. 메뉴 버튼을 Icon 중심으로 변경
+   ========================================================= */
+
+.sidebar-collapsed .sidebar-menu {
+  /*
+   * 아이콘을 Sidebar 중앙에 위치시킨다.
+   */
+  flex-direction: column;
+
+  justify-content: center;
+
+  /*
+   * 기존 icon-text gap 제거
+   */
+  gap: 4px;
+
+  /*
+   * ★ 접힌 메뉴 버튼 높이/폭
+   *
+   * Sidebar 64px 안에서
+   * 약 40px 정도 버튼이 보이도록 한다.
+   */
+  width: 60px;
+
+  min-height: 52px;
+
+  margin-left: auto;
+  margin-right: auto;
+
+  padding-left: 0;
+  padding-right: 0;
+
+  /*
+   * 중요:
+   * 메뉴 이름 Text를 시각적으로 숨긴다.
+   *
+   * Sidebar.tsx 구조를 추가로 변경하지 않고도
+   * 현재 단계에서 아이콘만 표시할 수 있다.
+   */
+  font-size: 0;
+
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+
+/* =========================================================
+   6. Icon 자체 크기는 유지
+
+   위에서 menu font-size를 0으로 했기 때문에
+   아이콘은 다시 명시적으로 크기를 준다.
+   ========================================================= */
+
+/* 접힌 Sidebar에서는 연결형 Active 모양 대신
+   작은 Icon Button 형태로 단순화한다. */
+.sidebar-collapsed .sidebar-menu.active {
+  width: 60px;
+
+  margin-left: auto;
+  margin-right: auto;
+
+  padding-right: 0;
+
+  border-radius: 10px;
+
+  background: rgba(255, 255, 255, 0.16);
+
+  color: #ffffff;
+}
+
+.sidebar-collapsed .sidebar-menu.active::before,
+.sidebar-collapsed .sidebar-menu.active::after {
+  display: none;
+}
+
+
+.sidebar-collapsed .sidebar-menu-icon {
+  width: 22px;
+
+  flex-shrink: 0;
+
+  font-size: 0;
+}
+
+/*
+ * 접힌 Sidebar 전용 아이콘/라벨 크기.
+ * 폭을 다시 조정할 때는 위의 Sidebar와 Hamburger 폭을 같은 값으로
+ * 유지하고, 버튼 폭(60px)만 함께 조정하면 된다.
+ */
+.sidebar-collapsed .sidebar-menu-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.sidebar-collapsed .sidebar-collapsed-label {
+  display: block;
+
+  color: inherit;
+
+  font-size: 10px;
+  font-weight: 700;
+
+  line-height: 1;
+
+  white-space: nowrap;
+}
+
+
+/* =========================================================
+   7. Sidebar 높이 보정
+
+   현재 상단에는
+   Header 72px + Workspace Tab 44px가 있으므로
+
+   100vh - 116px
+
+   만큼이 실제 Sidebar 영역이다.
+   ========================================================= */
+
+.sidebar {
+  min-height: calc(100vh - 116px);
+}
+
+
+/* =========================================================
+   8. Content 최소 높이도 동일하게 보정
+   ========================================================= */
+
+.app-content {
+  min-height: calc(100vh - 116px);
+}
+
+/* =========================================================
+   19. NEW WORK MENU
+   + 버튼 클릭 시 표시되는 새 업무 선택 Popup
+   ========================================================= */
+
+
+/* + 버튼과 Popup의 기준점 */
+.workspace-new-work {
+  position: relative;
+
+  display: flex;
+
+  flex-shrink: 0;
+}
+
+
+/* =========================================================
+   Popup 전체
+   ========================================================= */
+
+.workspace-new-work-menu {
+  /*
+   * + 버튼 바로 아래에 띄운다.
+   */
+  position: absolute;
+
+  top: calc(100% + 6px);
+  left: 0;
+
+  /*
+   * ★ Popup 폭
+   *
+   * 190px = 현재 추천
+   * 조금 넓게 하고 싶으면 210~220px
+   */
+  width: 230px;
+
+  max-height: calc(100vh - 138px);
+  overflow-y: auto;
+
+  padding: 8px;
+
+  /*
+   * Dashboard 위로 확실히 올라오도록
+   */
+  z-index: 300;
+
+  background: var(--bg-surface);
+
+  border: 1px solid var(--border-color);
+
+  border-radius: 9px;
+
+  box-shadow:
+    0 10px 28px rgba(15, 23, 42, 0.14);
+
+  color: var(--text-primary);
+}
+
+
+/* =========================================================
+   Popup 제목
+   ========================================================= */
+
+.workspace-new-work-title {
+  padding: 7px 9px 8px;
+
+  color: var(--text-secondary);
+
+  font-size: 10px;
+  font-weight: 800;
+
+  letter-spacing: 0.06em;
+}
+
+.workspace-new-work-group +
+.workspace-new-work-group {
+  margin-top: 5px;
+
+  padding-top: 5px;
+
+  border-top: 1px solid var(--border-color);
+}
+
+.workspace-new-work-group-title {
+  padding: 5px 9px 3px;
+
+  color: var(--text-secondary);
+
+  font-size: 10px;
+  font-weight: 800;
+}
+
+
+/* =========================================================
+   업무 선택 버튼
+   ========================================================= */
+
+.workspace-new-work-item {
+  display: flex;
+
+  width: 100%;
+  min-height: 40px;
+
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 7px 9px;
+
+  border: 0;
+
+  border-radius: 7px;
+
+  background: transparent;
+
+  color: var(--text-primary);
+
+  font-size: 11px;
+
+  text-align: left;
+
+  cursor: pointer;
+}
+
+
+.workspace-new-work-item:hover {
+  background: var(--bg-hover);
+
+  color: var(--primary);
+}
+
+
+/* =========================================================
+   업무 Icon
+   ========================================================= */
+
+.workspace-new-work-icon {
+  display: flex;
+
+  /*
+   * ★ Icon Box 크기
+   */
+  width: 28px;
+  height: 28px;
+
+  flex-shrink: 0;
+
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 6px;
+
+  background: var(--bg-active);
+
+  color: var(--primary);
+
+  font-size: 10px;
+  font-weight: 800;
+}
+
+
+/* =========================================================
+   Header 환자 자동완성 Dropdown
+   ========================================================= */
+
+
+/* ---------------------------------------------------------
+   검색창 + 자동완성 결과 전체 영역
+
+   position: relative
+   → Dropdown이 이 영역을 기준으로
+     검색창 바로 아래에 위치할 수 있게 한다.
+
+   width: 100%
+   → Header 중앙 검색 영역 너비를 그대로 사용
+   --------------------------------------------------------- */
+.header-patient-search-area {
+  position: relative;
+
+  width: 100%;
+  min-width: 0;
+}
+
+
+/* ---------------------------------------------------------
+   자동완성 결과 전체 박스
+
+   top: calc(100% + 6px)
+   → 검색창 아래에서 6px 떨어져 표시
+
+   left: 0 / right: 0
+   → 검색 영역과 동일한 너비
+
+   max-height: 290px
+   → 결과가 많더라도 박스가 끝없이 길어지지 않음
+
+   overflow-y: auto
+   → 높이를 초과하면 내부 스크롤
+
+   z-index: 400
+   → Dashboard 등 다른 화면 위에 표시
+   --------------------------------------------------------- */
+.header-search-dropdown {
+  position: absolute;
+
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+
+  z-index: 400;
+
+  max-height: 290px;
+  overflow-y: auto;
+
+  padding: 6px;
+
+  background: var(--bg-surface);
+
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+
+  box-shadow:
+    0 10px 28px rgba(15, 23, 42, 0.14);
+}
+
+
+.header-search-result {
+  display: flex;
+
+  /* 이름 + 등록번호를 같은 줄에 배치 */
+  flex-direction: row;
+
+  width: 100%;
+
+  /* 한 줄이므로 높이를 조금 줄임 */
+  min-height: 46px;
+
+  /* 세로 중앙 정렬 */
+  align-items: center;
+
+  /* 이름과 등록번호 사이 간격
+     숫자를 키우면 더 멀어진다. */
+  gap: 10px;
+
+  padding: 8px 10px;
+
+  border: 0;
+  border-radius: 7px;
+
+  background: transparent;
+
+  color: var(--text-primary);
+
+  text-align: left;
+
+  cursor: pointer;
+}
+
+
+/* 환자 결과에 마우스를 올렸을 때 */
+.header-search-result:hover {
+  background: var(--bg-hover);
+}
+
+
+/* ---------------------------------------------------------
+   환자 이름
+
+   font-size: 13px
+   → 이름 글자 크기
+
+   font-weight: 700
+   → 이름을 조금 강조
+   --------------------------------------------------------- */
+.header-search-result strong {
+  color: var(--text-primary);
+
+  font-size: 13px;
+  font-weight: 700;
+
+  line-height: 1.3;
+}
+
+
+/* ---------------------------------------------------------
+   환자 등록번호 patient_no
+   --------------------------------------------------------- */
+.header-search-result span {
+  color: var(--text-secondary);
+
+  font-size: 11px;
+
+  line-height: 1.3;
+
+  /*등록번호 줄바꿈 안되게함*/
+  white-space: nowrap;
+}
+
+
+/* ---------------------------------------------------------
+   검색 결과 없음 / API 오류 메시지
+   --------------------------------------------------------- */
+.header-search-message {
+  padding: 16px 12px;
+
+  color: var(--text-secondary);
+
+  font-size: 12px;
+
+  text-align: center;
+}
+
+
+/* ---------------------------------------------------------
+   Dark Mode Dropdown 그림자
+   --------------------------------------------------------- */
+[data-theme="dark"] .header-search-dropdown {
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.3);
+}
+
+
+/* =========================================================
+   20. CLINICAL WORKSPACE SCROLL
+   ---------------------------------------------------------
+   Header        : 고정
+   WorkspaceTabs : 고정
+   Sidebar       : 고정
+   Main Content  : 오른쪽 본문만 스크롤
+   ========================================================= */
+
+
+/* =========================================================
+   1. 브라우저 전체 스크롤 차단
+
+   브라우저 자체가 움직이지 않고
+   App 내부에서만 스크롤되도록 한다.
+   ========================================================= */
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+
+  min-height: 0;
+
+  margin: 0;
+
+  overflow: hidden;
+}
+
+
+/* =========================================================
+   2. App 전체 높이 고정
+
+   화면 높이 = 100vh
+
+   Header 72px
+   WorkspaceTabs 44px
+   나머지는 Workspace가 사용
+   ========================================================= */
+
+.app-shell {
+  width: 100%;
+  height: 100vh;
+
+  min-height: 0;
+
+  overflow: hidden;
+}
+
+
+/* =========================================================
+   3. Header
+
+   높이 72px 고정
+   ========================================================= */
+
+.header {
+  flex: 0 0 72px;
+
+  width: 100%;
+  height: 72px;
+}
+
+
+/* =========================================================
+   4. Workspace Tabs
+
+   높이 44px 고정
+
+   Dashboard / 환자 Tab / +
+   스크롤해도 계속 화면에 남는다.
+   ========================================================= */
+
+.workspace-tabs {
+  flex: 0 0 44px;
+
+  width: 100%;
+  height: 44px;
+}
+
+
+/* =========================================================
+   5. 실제 업무 영역
+
+   Header 72px + Tabs 44px를 제외한
+   나머지 화면을 전부 사용한다.
+
+   min-height: 0 이 중요하다.
+   자식 Content가 길어져도 Workspace 자체가
+   아래로 늘어나지 않게 한다.
+   ========================================================= */
+
+.app-workspace {
+  flex: 1 1 auto;
+
+  width: 100%;
+
+  min-width: 0;
+  min-height: 0;
+
+  overflow: hidden;
+}
+
+
+/* =========================================================
+   6. Sidebar
+
+   본문을 내려도 Sidebar는 그대로 유지.
+
+   Sidebar 메뉴가 화면 높이를 넘을 때만
+   Sidebar 자체에서 스크롤된다.
+   ========================================================= */
+
+.sidebar {
+  height: 100%;
+
+  min-height: 0;
+
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+
+/* =========================================================
+   7. Main Content
+
+   ★ 실제 화면 스크롤 영역
+
+   Triage
+   Worklist
+   Patient Chart
+   Imaging
+   AI
+   CDSS
+   Consultation
+
+   앞으로 모든 긴 업무 화면은
+   오른쪽 Content 안에서만 스크롤된다.
+   ========================================================= */
+
+.app-content {
+  flex: 1 1 auto;
+
+  height: 100%;
+
+  min-width: 0;
+  min-height: 0;
+
+  overflow-x: hidden;
+  overflow-y: auto;
+
+  overscroll-behavior: contain;
+}
+
+/* Patient CDSS dashboard keeps its clinical columns usable on narrow desktops. */
+.app-content:has(.patient-context-dashboard) {
+  overflow-x: auto;
+}
+
+/* =========================================================
+   21. DARK MODE SURFACE REFINEMENT
+   ---------------------------------------------------------
+   색상만 보정한다.
+   Height / Flex / Overflow / Position은 변경하지 않는다.
+   ========================================================= */
+
+[data-theme="dark"] .header,
+[data-theme="dark"] .header-main-area {
+  background: var(--bg-surface);
+}
+
+[data-theme="dark"] .header-organization,
+[data-theme="dark"] .header-icon-button {
+  background: #1c2838;
+
+  border-color: var(--border-color);
+
+  color: var(--text-secondary);
+}
+
+[data-theme="dark"] .header-organization:hover,
+[data-theme="dark"] .header-icon-button:hover {
+  background: var(--bg-hover);
+
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .header-search input {
+  background: #131e2c;
+
+  border-color: var(--border-color);
+
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .header-search input:focus {
+  background: #172435;
+
+  border-color: var(--primary);
+}
+
+[data-theme="dark"] .workspace-tab.active {
+  background: #1d2a3b;
+
+  color: var(--primary);
+}
+
+[data-theme="dark"] .workspace-tab:hover,
+[data-theme="dark"] .workspace-add-tab-button:hover {
+  background: #1e2c3e;
+
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .header-brand-slot,
+[data-theme="dark"] .workspace-tabs-sidebar-control,
+[data-theme="dark"] .sidebar {
+  background: var(--bg-sidebar);
+}
+
+/* Workspace tabs shrink to a readable minimum before their own strip scrolls. */
+.workspace-tabs-scroll > .workspace-tab {
+  width: 170px;
+  min-width: 125px;
+  max-width: 170px;
+  flex: 0 1 170px;
+}
+
+.workspace-tab-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-tab-close,
+.workspace-new-work,
+.workspace-add-tab-button {
+  flex-shrink: 0;
+}
+
+/* Fixed controls precede the independently scrolling work-tab strip. */
+.workspace-tabs {
+  position: relative;
+  z-index: 200;
+  overflow: visible;
+}
+
+.workspace-tabs-list > .workspace-tab--dashboard {
+  order: 0;
+}
+
+.workspace-tabs-list > .workspace-new-work {
+  order: 1;
+  z-index: 401;
+}
+
+.workspace-tabs-list > .workspace-tabs-scroll {
+  order: 2;
+  flex: 1 1 auto;
+}
+
+.workspace-tabs-list > .workspace-tab--dashboard {
+  width: 126px;
+  min-width: 126px;
+  max-width: 126px;
+  flex: 0 0 126px;
+}
+
+.workspace-new-work-menu {
+  top: calc(100% + 6px);
+  right: auto;
+  left: 0;
+  z-index: 500;
+}
+/* Preserve the original Sidebar geometry; only soften interaction states. */
+.sidebar-menu:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+}
+
+.sidebar-group-button.expanded {
+  background: rgba(255, 255, 255, 0.10);
+}
+
+
+/* =========================================================
+   Header 검색 Dropdown Layer Fix
+   WorkspaceTabs보다 환자 검색 결과가 항상 위에 표시되도록 함
+   ========================================================= */
+
+.header {
+  z-index: 1000;
+  overflow: visible;
+}
+
+.header-main-area,
+.header-patient-search-area {
+  overflow: visible;
+}
+
+.header-search-dropdown {
+  z-index: 1100;
+}
+
+/* Workspace state is restored from sessionStorage before any clinical view mounts. 로딩랜더링 */
+.workspace-loading {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 24px;
+  background: #fff;
+  color: #29476f;
+}
+
+.brainon-loading__visual {
+  position: relative;
+  width: min(550px, 100vw); /*여기가 화면랜터링 크기*/
+  aspect-ratio: 4 / 3;
+}
+
+.brainon-loading__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.brainon-loading__text { /* 로딩 문구 위치*/
+  position: absolute;
+  top: 100%; 
+  left: 50%;
+  margin: 0;
+  color: #8a97a8;
+  font-size: 16px;
+  font-weight: 500;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.brainon-loading__spinner {
+  position: absolute;
+  top: 90%; /*위아래(높을수록 아래로 내려감)*/
+  left: 50%; /*좌우*/
+  width: 42px;
+  height: 42px;
+  border: 4px solid #e4ebf3;
+  border-top-color: #4f8fe8;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: brainon-spin 0.8s linear infinite;
+}
+
+@keyframes brainon-spin {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+
+/* === POLICY UTILITY FOOTER === */
+.sidebar-footer {
+  gap: 0;
+  padding: 0 10px 0;
+  border-top: 0;
+}
+
+.sidebar-policy-link {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 10px;
+  padding: 7px 2px;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.76);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: color 0.15s ease, opacity 0.15s ease;
+}
+
+.sidebar-policy-link:hover,
+.sidebar-policy-link.active {
+  color: #ffffff;
+}
+
+.sidebar-policy-link .sidebar-policy-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.sidebar-policy-link.active .sidebar-policy-label {
+  font-weight: 700;
+}
+
+.sidebar-policy-link .sidebar-policy-arrow {
+  flex-shrink: 0;
+  font-size: 15px;
+  font-weight: 400;
+}
+
+.sidebar-footer-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.sidebar-footer-brand .sidebar-footer-title {
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.sidebar-footer-brand small {
+  font-size: 9px;
+}

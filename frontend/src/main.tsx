@@ -1,6 +1,17 @@
+import OperationalErrorHost from "./shared/errors/OperationalErrorHost";
 /** Browser entry point for the clinician web shell. */
-import React from 'react';
-import { createRoot } from 'react-dom/client';
-import { App } from './app/App';
-import './styles/global.css';
-createRoot(document.getElementById('root')!).render(<React.StrictMode><App /></React.StrictMode>);
+
+
+import React from "react";
+import { createRoot } from "react-dom/client";
+import { App } from "./app/App";
+import "./styles/global.css";
+
+createRoot(
+  document.getElementById("root")!,
+).render(
+  <React.StrictMode>
+    <App />
+    <OperationalErrorHost />
+  </React.StrictMode>,
+);

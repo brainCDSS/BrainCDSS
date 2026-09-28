@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://brainon.local/contracts/rest-api/clinical-evidence.schema.json",
+  "title": "Clinical evidence disease response",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["updated_at", "disease", "items"],
+  "properties": {
+    "updated_at": {"type": ["string", "null"], "format": "date-time"},
+    "disease": {"enum": ["ischemic_stroke", "intracranial_hemorrhage", "intracranial_aneurysm"]},
+    "items": {"type": "array", "maxItems": 10, "items": {"$ref": "#/$defs/item"}}
+  },
+  "$defs": {"item": {"type": "object", "required": ["pmid", "title", "publication_type", "summary_status", "pubmed_url", "display_rank"],
+    "properties": {"pmid": {"type": "string", "pattern": "^[1-9][0-9]{0,15}$"}, "title": {"type": "string"},
+      "publication_type": {"type": "array", "items": {"type": "string"}}, "summary_status": {"type": "string"},
+      "pubmed_url": {"type": "string", "format": "uri"}, "display_rank": {"type": "integer", "minimum": 1}}}}
+}

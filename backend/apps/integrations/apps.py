@@ -1,5 +1,12 @@
-"""Django application configuration for integrations."""
 from django.apps import AppConfig
+
+
 class IntegrationsConfig(AppConfig):
-    default_auto_field="django.db.models.BigAutoField"; name="apps.integrations"
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "apps.integrations"
+
+# """Django application configuration for integrations."""
+# from django.apps import AppConfig
+# class IntegrationsConfig(AppConfig):
+#     default_auto_field="django.db.models.BigAutoField"; name="apps.integrations"
 

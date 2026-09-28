@@ -1,0 +1,5636 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 101,
+      "type": "canvas",
+      "title": "",
+      "transparent": true,
+      "pluginVersion": "11.4.0",
+      "datasource": {
+        "type": "datasource",
+        "uid": "-- Mixed --"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "USER",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true,
+          "rawSql": "\nSELECT\n    COUNT(*)::bigint\n        AS \"USER_TOTAL\",\n\n    COUNT(*) FILTER (\n        WHERE is_active = TRUE\n    )::bigint\n        AS \"USER_ACTIVE\",\n\n    COUNT(*) FILTER (\n        WHERE\n            (\n                created_at\n                AT TIME ZONE 'Asia/Seoul'\n            )::date\n            =\n            (\n                NOW()\n                AT TIME ZONE 'Asia/Seoul'\n            )::date\n    )::bigint\n        AS \"USER_TODAY\",\n\n    CASE\n        WHEN COUNT(*) = 0\n        THEN 0\n\n        ELSE ROUND(\n            100.0\n            * COUNT(*) FILTER (\n                WHERE is_active = TRUE\n            )\n            /\n            COUNT(*),\n            1\n        )\n    END\n        AS \"USER_ACTIVE_RATE\"\n\nFROM accounts_user\n"
+        },
+        {
+          "refId": "API_OK",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "100 * sum(rate(brainon_http_requests_total{status_class=~\"2xx|3xx|4xx\"}[5m])) / clamp_min(sum(rate(brainon_http_requests_total[5m])),0.000001)",
+          "legendFormat": "API_HEALTH",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "API_OK_COUNT",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(brainon_http_requests_total{status_class=~\"2xx|3xx|4xx\"}[5m]))",
+          "legendFormat": "API_OK_REQ_5M",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "API_5XX_COUNT",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(brainon_http_requests_total{status_class=\"5xx\"}[5m]))",
+          "legendFormat": "API_5XX_REQ_5M",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "API_5XX_RATE",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "100 * sum(rate(brainon_http_requests_total{status_class=\"5xx\"}[5m])) / clamp_min(sum(rate(brainon_http_requests_total[5m])),0.000001)",
+          "legendFormat": "API_5XX_RATE",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "ASYNC_Q",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rabbitmq_queue_messages{job=\"rabbitmq-per-object\"}) or vector(0)",
+          "legendFormat": "ASYNC_QUEUE",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "ASYNC_W",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max(brainon_celery_workers_online{job=\"celery-monitor\"}) or vector(0)",
+          "legendFormat": "ASYNC_WORKERS",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "ASYNC_I",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(brainon_celery_task_events_total{job=\"celery-monitor\",event=~\"failed|retried\"}[$__range])) or vector(0)",
+          "legendFormat": "ASYNC_ISSUES",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "AI",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true,
+          "rawSql": "\nSELECT\n    COUNT(*) FILTER (\n        WHERE $__timeFilter(requested_at)\n    )::bigint\n        AS \"AI_REQUESTS\",\n\n    CASE\n        WHEN COUNT(*) FILTER (\n            WHERE\n                $__timeFilter(requested_at)\n                AND status IN (\n                    'COMPLETED',\n                    'FAILED',\n                    'ERROR',\n                    'TIMEOUT',\n                    'CANCELLED'\n                )\n        ) = 0\n        THEN NULL\n\n        ELSE ROUND(\n            100.0\n            *\n            COUNT(*) FILTER (\n                WHERE\n                    $__timeFilter(requested_at)\n                    AND status = 'COMPLETED'\n            )\n            /\n            NULLIF(\n                COUNT(*) FILTER (\n                    WHERE\n                        $__timeFilter(requested_at)\n                        AND status IN (\n                            'COMPLETED',\n                            'FAILED',\n                            'ERROR',\n                            'TIMEOUT',\n                            'CANCELLED'\n                        )\n                ),\n                0\n            ),\n            1\n        )\n    END\n        AS \"AI_SUCCESS_RATE\",\n\n    COUNT(*) FILTER (\n        WHERE\n            $__timeFilter(requested_at)\n            AND status = 'COMPLETED'\n    )::bigint\n        AS \"AI_COMPLETED\",\n\n    COUNT(*) FILTER (\n        WHERE\n            $__timeFilter(requested_at)\n            AND status IN (\n                'FAILED',\n                'ERROR',\n                'TIMEOUT',\n                'CANCELLED'\n            )\n    )::bigint\n        AS \"AI_FAILED\"\n\nFROM ai_aianalysis\n"
+        },
+        {
+          "refId": "INCIDENT",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true,
+          "rawSql": "\nWITH audit_stats AS (\n    SELECT\n        COUNT(*) FILTER (\n            WHERE\n                $__timeFilter(occurred_at)\n                AND COALESCE(\n                    outcome,\n                    'UNKNOWN'\n                ) NOT IN (\n                    'SUCCESS',\n                    'SUCCEEDED',\n                    'COMPLETED',\n                    'OK'\n                )\n        )::bigint\n            AS bad,\n\n        COUNT(*) FILTER (\n            WHERE\n                occurred_at\n                >= NOW() - INTERVAL '1 hour'\n\n                AND COALESCE(\n                    outcome,\n                    'UNKNOWN'\n                ) NOT IN (\n                    'SUCCESS',\n                    'SUCCEEDED',\n                    'COMPLETED',\n                    'OK'\n                )\n        )::bigint\n            AS recent,\n\n        COUNT(*) FILTER (\n            WHERE\n                $__timeFilter(occurred_at)\n                AND outcome IN (\n                    'FAILED',\n                    'ERROR'\n                )\n        )::bigint\n            AS critical,\n\n        COUNT(*) FILTER (\n            WHERE\n                $__timeFilter(occurred_at)\n                AND outcome = 'WARNING'\n        )::bigint\n            AS warning\n\n    FROM audit_auditlog\n),\n\nai_stats AS (\n    SELECT\n        COUNT(*) FILTER (\n            WHERE\n                $__timeFilter(requested_at)\n                AND status IN (\n                    'FAILED',\n                    'ERROR',\n                    'TIMEOUT',\n                    'CANCELLED'\n                )\n        )::bigint\n            AS bad\n\n    FROM ai_aianalysis\n)\n\nSELECT\n    (\n        audit_stats.bad\n        + ai_stats.bad\n    )::bigint\n        AS \"INCIDENT_TOTAL\",\n\n    audit_stats.recent\n        AS \"INCIDENT_1H\",\n\n    (\n        audit_stats.critical\n        + ai_stats.bad\n    )::bigint\n        AS \"CRITICAL\",\n\n    audit_stats.warning\n        AS \"WARNING\"\n\nFROM audit_stats\nCROSS JOIN ai_stats\n"
+        }
+      ],
+      "options": {
+        "inlineEditing": false,
+        "showAdvancedTypes": true,
+        "panZoom": false,
+        "infinitePan": false,
+        "root": {
+          "type": "frame",
+          "name": "BrainOn Overview Summary",
+          "background": {
+            "color": {
+              "fixed": "transparent"
+            }
+          },
+          "border": {
+            "width": 0,
+            "color": {
+              "fixed": "transparent"
+            }
+          },
+          "elements": [
+            {
+              "type": "rectangle",
+              "name": "summary-1-card",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 0.5019,
+                "right": 80.3011,
+                "top": 6,
+                "height": 192,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "#171A1F"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 10,
+                "color": {
+                  "fixed": "#2A3038"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "summary-1-icon-bg",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 1.2547,
+                "right": 96.6123,
+                "top": 18,
+                "height": 34,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "#1D2B40"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 8,
+                "color": {
+                  "fixed": "#1D2B40"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "summary-1-icon",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#5794F2"
+                },
+                "size": 18,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "●",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 1.5684,
+                "right": 96.926,
+                "top": 21,
+                "height": 24,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "summary-1-title",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "size": 14,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "전체 사용자"
+                }
+              },
+              "placement": {
+                "left": 4.1405,
+                "right": 84.3162,
+                "top": 18,
+                "height": 26,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "summary-1-info",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "size": 12,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "ⓘ",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 17.6913,
+                "right": 81.1794,
+                "top": 19,
+                "height": 20,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "ellipse",
+              "name": "summary-1-ring-outer",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 1.6311,
+                "right": 93.4755,
+                "top": 64,
+                "height": 78,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "#5794F2"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "ellipse",
+              "name": "summary-1-ring-inner",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 2.3212,
+                "right": 94.1656,
+                "top": 75,
+                "height": 56,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "#171A1F"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "summary-1-ring-value",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#5794F2"
+                },
+                "size": 12,
+                "text": {
+                  "mode": "field",
+                  "field": "USER_ACTIVE_RATE",
+                  "fixed": ""
+                }
+              },
+              "placement": {
+                "left": 2.3839,
+                "right": 94.2284,
+                "top": 92,
+                "height": 22,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": [
+                {
+                  "title": "상세 보기",
+                  "url": "/d/brainon-admin-overview/brainon?${__url_time_range}&viewPanel=301",
+                  "targetBlank": false,
+                  "oneClick": true
+                }
+              ]
+            },
+            {
+              "type": "metric-value",
+              "name": "summary-1-main",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "size": 20,
+                "text": {
+                  "mode": "field",
+                  "field": "USER_TOTAL",
+                  "fixed": ""
+                }
+              },
+              "placement": {
+                "left": 7.7792,
+                "right": 81.5558,
+                "top": 61,
+                "height": 34,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": [
+                {
+                  "title": "상세 보기",
+                  "url": "/d/brainon-admin-overview/brainon?${__url_time_range}&viewPanel=301",
+                  "targetBlank": false,
+                  "oneClick": true
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "name": "summary-1-delta-label",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "활성률"
+                }
+              },
+              "placement": {
+                "left": 7.7792,
+                "right": 87.7039,
+                "top": 95,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "summary-1-delta-value",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#5794F2"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "field",
+                  "field": "USER_ACTIVE_RATE",
+                  "fixed": ""
+                }
+              },
+              "placement": {
+                "left": 12.6725,
+                "right": 82.4341,
+                "top": 95,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "summary-1-divider",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 7.7792,
+                "right": 81.6813,
+                "top": 117,
+                "height": 1,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "#303640"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "summary-1-sub1-label",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "활성 사용자"
+                }
+              },
+              "placement": {
+                "left": 7.7792,
+                "right": 86.7001,
+                "top": 122,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "summary-1-sub1-value",
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "field",
+                  "field": "USER_ACTIVE",
+                  "fixed": ""
+                }
+              },
+              "placement": {
+                "left": 13.6763,
+                "right": 81.9322,
+                "top": 122,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "summary-1-sub2-label",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "오늘 신규"
+                }
+              },
+              "placement": {
+                "left": 7.7792,
+                "right": 86.7001,
+                "top": 143,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "summary-1-sub2-value",
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "field",
+                  "field": "USER_TODAY",
+                  "fixed": ""
+                }
+              },
+              "placement": {
+                "left": 13.6763,
+                "right": 81.9322,
+                "top": 143,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "summary-2-card",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 20.4517,
+                "right": 60.3513,
+                "top": 6,
+                "height": 192,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "#171A1F"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 10,
+                "color": {
+                  "fixed": "#2A3038"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "summary-2-icon-bg",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 21.2045,
+                "right": 76.6625,
+                "top": 18,
+                "height": 34,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "#17372F"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 8,
+                "color": {
+                  "fixed": "#17372F"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "summary-2-icon",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#35C79B"
+                },
+                "size": 18,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "◉",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 21.5182,
+                "right": 76.9762,
+                "top": 21,
+                "height": 24,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "summary-2-title",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "size": 14,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "서버 정상 처리율 · 5m",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 24.0903,
+                "right": 64.3664,
+                "top": 18,
+                "height": 26,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "summary-2-info",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "size": 12,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "ⓘ",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 37.6412,
+                "right": 61.2296,
+                "top": 19,
+                "height": 20,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "ellipse",
+              "name": "summary-2-ring-outer",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 21.5809,
+                "right": 73.5257,
+                "top": 64,
+                "height": 78,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "#35C79B"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "ellipse",
+              "name": "summary-2-ring-inner",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 22.271,
+                "right": 74.2158,
+                "top": 75,
+                "height": 56,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "#171A1F"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "summary-2-ring-value",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#35C79B"
+                },
+                "size": 12,
+                "text": {
+                  "mode": "field",
+                  "field": "API_HEALTH",
+                  "fixed": ""
+                }
+              },
+              "placement": {
+                "left": 22.3338,
+                "right": 74.2785,
+                "top": 92,
+                "height": 22,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": [
+                {
+                  "title": "상세 보기",
+                  "url": "/d/brainon-admin-overview/brainon?${__url_time_range}&viewPanel=302",
+                  "targetBlank": false,
+                  "oneClick": true
+                }
+              ]
+            },
+            {
+              "type": "metric-value",
+              "name": "summary-2-main",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "size": 20,
+                "text": {
+                  "mode": "field",
+                  "field": "API_HEALTH",
+                  "fixed": ""
+                }
+              },
+              "placement": {
+                "left": 27.729,
+                "right": 61.606,
+                "top": 61,
+                "height": 34,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": [
+                {
+                  "title": "상세 보기",
+                  "url": "/d/brainon-admin-overview/brainon?${__url_time_range}&viewPanel=302",
+                  "targetBlank": false,
+                  "oneClick": true
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "name": "summary-2-delta-label",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "5xx 비율"
+                }
+              },
+              "placement": {
+                "left": 27.729,
+                "right": 67.7541,
+                "top": 95,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "summary-2-delta-value",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#35C79B"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "field",
+                  "field": "API_5XX_RATE",
+                  "fixed": ""
+                }
+              },
+              "placement": {
+                "left": 32.6223,
+                "right": 62.4843,
+                "top": 95,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "summary-2-divider",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 27.729,
+                "right": 61.7315,
+                "top": 117,
+                "height": 1,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "#303640"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "summary-2-sub1-label",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "정상 요청 · 5m"
+                }
+              },
+              "placement": {
+                "left": 27.729,
+                "right": 66.7503,
+                "top": 122,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "summary-2-sub1-value",
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "field",
+                  "field": "API_OK_REQ_5M",
+                  "fixed": ""
+                }
+              },
+              "placement": {
+                "left": 33.6261,
+                "right": 61.9824,
+                "top": 122,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "summary-2-sub2-label",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "5xx 요청 · 5m"
+                }
+              },
+              "placement": {
+                "left": 27.729,
+                "right": 66.7503,
+                "top": 143,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "summary-2-sub2-value",
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "field",
+                  "field": "API_5XX_REQ_5M",
+                  "fixed": ""
+                }
+              },
+              "placement": {
+                "left": 33.6261,
+                "right": 61.9824,
+                "top": 143,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "summary-3-card",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 40.4015,
+                "right": 40.4015,
+                "top": 6,
+                "height": 192,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "#171A1F"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 10,
+                "color": {
+                  "fixed": "#2A3038"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "summary-3-icon-bg",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 41.1543,
+                "right": 56.7127,
+                "top": 18,
+                "height": 34,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "#2B2042"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 8,
+                "color": {
+                  "fixed": "#2B2042"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "summary-3-icon",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#8B5CF6"
+                },
+                "size": 18,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "◈",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 41.468,
+                "right": 57.0263,
+                "top": 21,
+                "height": 24,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "summary-3-title",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "size": 14,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Async 처리 상태",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 44.0402,
+                "right": 44.4166,
+                "top": 18,
+                "height": 26,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "summary-3-info",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "size": 12,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "ⓘ",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 57.591,
+                "right": 41.2798,
+                "top": 19,
+                "height": 20,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "ellipse",
+              "name": "summary-3-ring-outer",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 41.5307,
+                "right": 53.5759,
+                "top": 64,
+                "height": 78,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "#8B5CF6"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "ellipse",
+              "name": "summary-3-ring-inner",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 42.2208,
+                "right": 54.266,
+                "top": 75,
+                "height": 56,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "#171A1F"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "summary-3-ring-value",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#8B5CF6"
+                },
+                "size": 12,
+                "text": {
+                  "mode": "field",
+                  "field": "ASYNC_WORKERS",
+                  "fixed": ""
+                }
+              },
+              "placement": {
+                "left": 42.2836,
+                "right": 54.3287,
+                "top": 92,
+                "height": 22,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": [
+                {
+                  "title": "상세 보기",
+                  "url": "/d/brainon-admin-overview/brainon?${__url_time_range}&viewPanel=303",
+                  "targetBlank": false,
+                  "oneClick": true
+                }
+              ]
+            },
+            {
+              "type": "metric-value",
+              "name": "summary-3-main",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "size": 20,
+                "text": {
+                  "mode": "field",
+                  "field": "ASYNC_QUEUE",
+                  "fixed": ""
+                }
+              },
+              "placement": {
+                "left": 47.6788,
+                "right": 41.6562,
+                "top": 61,
+                "height": 34,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": [
+                {
+                  "title": "상세 보기",
+                  "url": "/d/brainon-admin-overview/brainon?${__url_time_range}&viewPanel=303",
+                  "targetBlank": false,
+                  "oneClick": true
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "name": "summary-3-delta-label",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "실패 / 재시도"
+                }
+              },
+              "placement": {
+                "left": 47.6788,
+                "right": 47.8043,
+                "top": 95,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "summary-3-delta-value",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#8B5CF6"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "field",
+                  "field": "ASYNC_ISSUES",
+                  "fixed": ""
+                }
+              },
+              "placement": {
+                "left": 52.5721,
+                "right": 42.5345,
+                "top": 95,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "summary-3-divider",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 47.6788,
+                "right": 41.7817,
+                "top": 117,
+                "height": 1,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "#303640"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "summary-3-sub1-label",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Queue 대기"
+                }
+              },
+              "placement": {
+                "left": 47.6788,
+                "right": 46.8005,
+                "top": 122,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "summary-3-sub1-value",
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "field",
+                  "field": "ASYNC_QUEUE",
+                  "fixed": ""
+                }
+              },
+              "placement": {
+                "left": 53.5759,
+                "right": 42.0326,
+                "top": 122,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "summary-3-sub2-label",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "실패 / 재시도"
+                }
+              },
+              "placement": {
+                "left": 47.6788,
+                "right": 46.8005,
+                "top": 143,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "summary-3-sub2-value",
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "field",
+                  "field": "ASYNC_ISSUES",
+                  "fixed": ""
+                }
+              },
+              "placement": {
+                "left": 53.5759,
+                "right": 42.0326,
+                "top": 143,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "summary-4-card",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 60.3513,
+                "right": 20.4517,
+                "top": 6,
+                "height": 192,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "#171A1F"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 10,
+                "color": {
+                  "fixed": "#2A3038"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "summary-4-icon-bg",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 61.1041,
+                "right": 36.7629,
+                "top": 18,
+                "height": 34,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "#183A38"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 8,
+                "color": {
+                  "fixed": "#183A38"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "summary-4-icon",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#2DD4BF"
+                },
+                "size": 18,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "◎",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 61.4178,
+                "right": 37.0765,
+                "top": 21,
+                "height": 24,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "summary-4-title",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "size": 14,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "AI 분석 성공률",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 63.99,
+                "right": 24.4668,
+                "top": 18,
+                "height": 26,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "summary-4-info",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "size": 12,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "ⓘ",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 77.5408,
+                "right": 21.33,
+                "top": 19,
+                "height": 20,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "ellipse",
+              "name": "summary-4-ring-outer",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 61.4806,
+                "right": 33.6261,
+                "top": 64,
+                "height": 78,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "#2DD4BF"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "ellipse",
+              "name": "summary-4-ring-inner",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 62.1706,
+                "right": 34.3162,
+                "top": 75,
+                "height": 56,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "#171A1F"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "summary-4-ring-value",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#2DD4BF"
+                },
+                "size": 12,
+                "text": {
+                  "mode": "field",
+                  "field": "AI_SUCCESS_RATE",
+                  "fixed": ""
+                }
+              },
+              "placement": {
+                "left": 62.2334,
+                "right": 34.3789,
+                "top": 92,
+                "height": 22,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": [
+                {
+                  "title": "상세 보기",
+                  "url": "/d/brainon-admin-overview/brainon?${__url_time_range}&viewPanel=304",
+                  "targetBlank": false,
+                  "oneClick": true
+                }
+              ]
+            },
+            {
+              "type": "metric-value",
+              "name": "summary-4-main",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "size": 20,
+                "text": {
+                  "mode": "field",
+                  "field": "AI_SUCCESS_RATE",
+                  "fixed": ""
+                }
+              },
+              "placement": {
+                "left": 67.6286,
+                "right": 21.7064,
+                "top": 61,
+                "height": 34,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": [
+                {
+                  "title": "상세 보기",
+                  "url": "/d/brainon-admin-overview/brainon?${__url_time_range}&viewPanel=304",
+                  "targetBlank": false,
+                  "oneClick": true
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "name": "summary-4-delta-label",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "분석 요청"
+                }
+              },
+              "placement": {
+                "left": 67.6286,
+                "right": 27.8545,
+                "top": 95,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "summary-4-delta-value",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#2DD4BF"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "field",
+                  "field": "AI_REQUESTS",
+                  "fixed": ""
+                }
+              },
+              "placement": {
+                "left": 72.522,
+                "right": 22.5847,
+                "top": 95,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "summary-4-divider",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 67.6286,
+                "right": 21.8319,
+                "top": 117,
+                "height": 1,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "#303640"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "summary-4-sub1-label",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "성공 분석"
+                }
+              },
+              "placement": {
+                "left": 67.6286,
+                "right": 26.8507,
+                "top": 122,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "summary-4-sub1-value",
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "field",
+                  "field": "AI_COMPLETED",
+                  "fixed": ""
+                }
+              },
+              "placement": {
+                "left": 73.5257,
+                "right": 22.0828,
+                "top": 122,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "summary-4-sub2-label",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "실패 분석"
+                }
+              },
+              "placement": {
+                "left": 67.6286,
+                "right": 26.8507,
+                "top": 143,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "summary-4-sub2-value",
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "field",
+                  "field": "AI_FAILED",
+                  "fixed": ""
+                }
+              },
+              "placement": {
+                "left": 73.5257,
+                "right": 22.0828,
+                "top": 143,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "summary-5-card",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 80.3011,
+                "right": 0.5019,
+                "top": 6,
+                "height": 192,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "#171A1F"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 10,
+                "color": {
+                  "fixed": "#2A3038"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "summary-5-icon-bg",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 81.054,
+                "right": 16.813,
+                "top": 18,
+                "height": 34,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "#3F1E26"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 8,
+                "color": {
+                  "fixed": "#3F1E26"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "summary-5-icon",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#FF5A67"
+                },
+                "size": 18,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "△",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 81.3676,
+                "right": 17.1267,
+                "top": 21,
+                "height": 24,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "summary-5-title",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "size": 14,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "장애 / 경고",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 83.9398,
+                "right": 4.5169,
+                "top": 18,
+                "height": 26,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "summary-5-info",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "size": 12,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "ⓘ",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 97.4906,
+                "right": 1.3802,
+                "top": 19,
+                "height": 20,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "ellipse",
+              "name": "summary-5-ring-outer",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 81.4304,
+                "right": 13.6763,
+                "top": 64,
+                "height": 78,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "#FF5A67"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "ellipse",
+              "name": "summary-5-ring-inner",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 82.1205,
+                "right": 14.3664,
+                "top": 75,
+                "height": 56,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "#171A1F"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "summary-5-ring-value",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#FF5A67"
+                },
+                "size": 12,
+                "text": {
+                  "mode": "field",
+                  "field": "INCIDENT_TOTAL",
+                  "fixed": ""
+                }
+              },
+              "placement": {
+                "left": 82.1832,
+                "right": 14.4291,
+                "top": 92,
+                "height": 22,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": [
+                {
+                  "title": "상세 보기",
+                  "url": "/d/brainon-admin-overview/brainon?${__url_time_range}&viewPanel=305",
+                  "targetBlank": false,
+                  "oneClick": true
+                }
+              ]
+            },
+            {
+              "type": "metric-value",
+              "name": "summary-5-main",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "size": 20,
+                "text": {
+                  "mode": "field",
+                  "field": "INCIDENT_TOTAL",
+                  "fixed": ""
+                }
+              },
+              "placement": {
+                "left": 87.5784,
+                "right": 1.7566,
+                "top": 61,
+                "height": 34,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": [
+                {
+                  "title": "상세 보기",
+                  "url": "/d/brainon-admin-overview/brainon?${__url_time_range}&viewPanel=305",
+                  "targetBlank": false,
+                  "oneClick": true
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "name": "summary-5-delta-label",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "최근 1시간"
+                }
+              },
+              "placement": {
+                "left": 87.5784,
+                "right": 7.9046,
+                "top": 95,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "summary-5-delta-value",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#FF5A67"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "field",
+                  "field": "INCIDENT_1H",
+                  "fixed": ""
+                }
+              },
+              "placement": {
+                "left": 92.4718,
+                "right": 2.6349,
+                "top": 95,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "summary-5-divider",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "placement": {
+                "left": 87.5784,
+                "right": 1.8821,
+                "top": 117,
+                "height": 1,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "#303640"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "summary-5-sub1-label",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Critical"
+                }
+              },
+              "placement": {
+                "left": 87.5784,
+                "right": 6.9009,
+                "top": 122,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "summary-5-sub1-value",
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "field",
+                  "field": "CRITICAL",
+                  "fixed": ""
+                }
+              },
+              "placement": {
+                "left": 93.4755,
+                "right": 2.133,
+                "top": 122,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "summary-5-sub2-label",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Warning"
+                }
+              },
+              "placement": {
+                "left": 87.5784,
+                "right": 6.9009,
+                "top": 143,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "summary-5-sub2-value",
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "field",
+                  "field": "WARNING",
+                  "fixed": ""
+                }
+              },
+              "placement": {
+                "left": 93.4755,
+                "right": 2.133,
+                "top": 143,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": 201,
+      "type": "timeseries",
+      "title": "전체 서비스 사용량 · 실시간",
+      "description": "API 요청, AI 분석 요청, Async 이벤트의 실제 발생 추이.",
+      "datasource": {
+        "type": "datasource",
+        "uid": "-- Mixed --"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 17,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(brainon_http_requests_total[5m]))",
+          "legendFormat": "API RPS",
+          "instant": false,
+          "range": true
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "brainon-postgres"
+          },
+          "format": "time_series",
+          "rawSql": "\nSELECT\n    $__timeGroupAlias(requested_at,'5m'),\n\n    COUNT(*)::double precision\n        AS \"AI 요청\"\n\nFROM ai_aianalysis\n\nWHERE $__timeFilter(requested_at)\n\nGROUP BY 1\nORDER BY 1\n"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "brainon-postgres"
+          },
+          "format": "time_series",
+          "rawSql": "\nSELECT\n    $__timeGroupAlias(created_at,'5m'),\n\n    COUNT(*)::double precision\n        AS \"Async 이벤트\"\n\nFROM common_outboxevent\n\nWHERE $__timeFilter(created_at)\n\nGROUP BY 1\nORDER BY 1\n"
+        }
+      ]
+    },
+    {
+      "id": 202,
+      "type": "canvas",
+      "title": "",
+      "transparent": true,
+      "pluginVersion": "11.4.0",
+      "gridPos": {
+        "x": 17,
+        "y": 6,
+        "w": 7,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(brainon_http_requests_total[1m]))",
+          "legendFormat": "LIVE_RPS",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "1000 * histogram_quantile(0.95, sum by (le) (rate(brainon_http_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "P95_MS",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "100 * sum(rate(brainon_http_requests_total{status_class=\"5xx\"}[5m])) / clamp_min(sum(rate(brainon_http_requests_total[5m])), 0.000001)",
+          "legendFormat": "SERVER_5XX_RATE",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "options": {
+        "inlineEditing": false,
+        "showAdvancedTypes": true,
+        "panZoom": false,
+        "infinitePan": false,
+        "root": {
+          "type": "frame",
+          "name": "Overview Realtime Summary",
+          "background": {
+            "color": {
+              "fixed": "#171A1F"
+            }
+          },
+          "border": {
+            "width": 1,
+            "radius": 8,
+            "color": {
+              "fixed": "#2A3038"
+            }
+          },
+          "elements": [
+            {
+              "type": "rectangle",
+              "name": "icon-bg",
+              "placement": {
+                "left": 4,
+                "right": 83,
+                "top": 11,
+                "height": 32,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#1D2B40"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 7,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "icon",
+              "placement": {
+                "left": 6,
+                "right": 85,
+                "top": 14,
+                "height": 24,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 15,
+                "color": {
+                  "fixed": "#5794F2"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "⚙",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "title",
+              "placement": {
+                "left": 20,
+                "right": 28,
+                "top": 9,
+                "height": 23,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 15,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "실시간 사용량 현황",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "live-bg",
+              "placement": {
+                "left": 78,
+                "right": 4,
+                "top": 11,
+                "height": 25,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#18372E"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "live",
+              "placement": {
+                "left": 79,
+                "right": 5,
+                "top": 13,
+                "height": 20,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#35C79B"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "● LIVE",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "rps-label",
+              "placement": {
+                "left": 8,
+                "right": 8,
+                "top": 57,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 12,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "현재 API 요청 · RPS",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "rps-value",
+              "placement": {
+                "left": 10,
+                "right": 10,
+                "top": 82,
+                "height": 42,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 27,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "LIVE_RPS"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "rps-unit",
+              "placement": {
+                "left": 72,
+                "right": 10,
+                "top": 91,
+                "height": 20,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 12,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "건/초",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "divider",
+              "placement": {
+                "left": 5,
+                "right": 5,
+                "top": 132,
+                "height": 1,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#2B3139"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "p95-label",
+              "placement": {
+                "left": 8,
+                "right": 50,
+                "top": 146,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 12,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "API 응답시간 P95 · 5m",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "p95-value",
+              "placement": {
+                "left": 56,
+                "right": 8,
+                "top": 146,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "size": 13,
+                "color": {
+                  "fixed": "#F59E0B"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "P95_MS"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "error-label",
+              "placement": {
+                "left": 8,
+                "right": 50,
+                "top": 171,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 12,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "5xx 서버 오류율 · 5m",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "error-value",
+              "placement": {
+                "left": 56,
+                "right": 8,
+                "top": 171,
+                "height": 18,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "size": 13,
+                "color": {
+                  "fixed": "#FF5A67"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "SERVER_5XX_RATE"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      }
+    },
+    {
+      "id": 203,
+      "type": "canvas",
+      "title": "",
+      "transparent": true,
+      "pluginVersion": "11.4.0",
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 8,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "GENERAL_WORKER"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "DOWN"
+                      },
+                      "1": {
+                        "text": "UP"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "INFERENCE_WORKER"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "DOWN"
+                      },
+                      "1": {
+                        "text": "UP"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max(brainon_celery_worker_online{job=\"celery-monitor\",role=\"general\"}) or vector(0)",
+          "legendFormat": "GENERAL_WORKER",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(brainon_celery_worker_tasks_active{job=\"celery-monitor\",role=\"general\"}) or vector(0)",
+          "legendFormat": "GENERAL_ACTIVE",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rabbitmq_queue_messages{job=\"rabbitmq-per-object\",queue=~\"brainon\\\\.(default|notifications|integrations)\"}) or vector(0)",
+          "legendFormat": "GENERAL_QUEUE",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(brainon_celery_worker_task_events_total{job=\"celery-monitor\",role=\"general\",event=\"failed\"}[$__range])) or vector(0)",
+          "legendFormat": "GENERAL_FAILED",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "E",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max(brainon_celery_worker_online{job=\"celery-monitor\",role=\"inference\"}) or vector(0)",
+          "legendFormat": "INFERENCE_WORKER",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "F",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(brainon_celery_worker_tasks_active{job=\"celery-monitor\",role=\"inference\"}) or vector(0)",
+          "legendFormat": "INFERENCE_ACTIVE",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "G",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rabbitmq_queue_messages{job=\"rabbitmq-per-object\",queue=\"brainon.inference\"}) or vector(0)",
+          "legendFormat": "INFERENCE_QUEUE",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "H",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(brainon_celery_worker_task_events_total{job=\"celery-monitor\",role=\"inference\",event=\"failed\"}[$__range])) or vector(0)",
+          "legendFormat": "INFERENCE_FAILED",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "options": {
+        "inlineEditing": false,
+        "showAdvancedTypes": true,
+        "panZoom": false,
+        "infinitePan": false,
+        "root": {
+          "type": "frame",
+          "name": "Overview Async VM Status",
+          "background": {
+            "color": {
+              "fixed": "#171A1F"
+            }
+          },
+          "border": {
+            "width": 1,
+            "radius": 8,
+            "color": {
+              "fixed": "#2A3038"
+            }
+          },
+          "elements": [
+            {
+              "type": "rectangle",
+              "name": "icon-bg",
+              "placement": {
+                "left": 2,
+                "right": 90,
+                "top": 10,
+                "height": 31,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#1D2B40"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 7,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "icon",
+              "placement": {
+                "left": 3.2,
+                "right": 91.3,
+                "top": 12,
+                "height": 24,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 16,
+                "color": {
+                  "fixed": "#5794F2"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "↻",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "title",
+              "placement": {
+                "left": 12,
+                "right": 38,
+                "top": 9,
+                "height": 22,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 15,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "비동기 작업 상태",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "subtitle",
+              "placement": {
+                "left": 12,
+                "right": 17,
+                "top": 31,
+                "height": 17,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "VM 인스턴스 2개 비동기 처리 운영 현황",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "vm-0-bg",
+              "placement": {
+                "left": 2,
+                "right": 51,
+                "top": 58,
+                "height": 145,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#1B1F24"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 6,
+                "color": {
+                  "fixed": "#2B3139"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "vm-0-name",
+              "placement": {
+                "left": 5,
+                "right": 71,
+                "top": 67,
+                "height": 19,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 12,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "VM #1",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "vm-0-status-bg",
+              "placement": {
+                "left": 32,
+                "right": 55,
+                "top": 66,
+                "height": 20,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#232831"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 10,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "vm-0-status",
+              "placement": {
+                "left": 32,
+                "right": 55,
+                "top": 67,
+                "height": 17,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "GENERAL_WORKER"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "vm-0-Worker-label",
+              "placement": {
+                "left": 6,
+                "right": 74,
+                "top": 92,
+                "height": 16,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Worker",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "vm-0-Worker-value",
+              "placement": {
+                "left": 28,
+                "right": 56,
+                "top": 92,
+                "height": 16,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "GENERAL_WORKER"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "vm-0-Active-label",
+              "placement": {
+                "left": 6,
+                "right": 74,
+                "top": 114,
+                "height": 16,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Active",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "vm-0-Active-value",
+              "placement": {
+                "left": 28,
+                "right": 56,
+                "top": 114,
+                "height": 16,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "GENERAL_ACTIVE"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "vm-0-Queue-label",
+              "placement": {
+                "left": 6,
+                "right": 74,
+                "top": 136,
+                "height": 16,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Queue",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "vm-0-Queue-value",
+              "placement": {
+                "left": 28,
+                "right": 56,
+                "top": 136,
+                "height": 16,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "GENERAL_QUEUE"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "vm-0-Failed-label",
+              "placement": {
+                "left": 6,
+                "right": 74,
+                "top": 158,
+                "height": 16,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Failed",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "vm-0-Failed-value",
+              "placement": {
+                "left": 28,
+                "right": 56,
+                "top": 158,
+                "height": 16,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "GENERAL_FAILED"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "vm-1-bg",
+              "placement": {
+                "left": 51,
+                "right": 2,
+                "top": 58,
+                "height": 145,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#1B1F24"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 6,
+                "color": {
+                  "fixed": "#2B3139"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "vm-1-name",
+              "placement": {
+                "left": 54,
+                "right": 22,
+                "top": 67,
+                "height": 19,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 12,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "VM #2",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "vm-1-status-bg",
+              "placement": {
+                "left": 81,
+                "right": 6,
+                "top": 66,
+                "height": 20,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#232831"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 10,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "vm-1-status",
+              "placement": {
+                "left": 81,
+                "right": 6,
+                "top": 67,
+                "height": 17,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "size": 10,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "GENERAL_WORKER"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "vm-1-Worker-label",
+              "placement": {
+                "left": 55,
+                "right": 25,
+                "top": 92,
+                "height": 16,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Worker",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "vm-1-Worker-value",
+              "placement": {
+                "left": 77,
+                "right": 7,
+                "top": 92,
+                "height": 16,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "GENERAL_WORKER"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "vm-1-Active-label",
+              "placement": {
+                "left": 55,
+                "right": 25,
+                "top": 114,
+                "height": 16,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Active",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "vm-1-Active-value",
+              "placement": {
+                "left": 77,
+                "right": 7,
+                "top": 114,
+                "height": 16,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "GENERAL_ACTIVE"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "vm-1-Queue-label",
+              "placement": {
+                "left": 55,
+                "right": 25,
+                "top": 136,
+                "height": 16,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Queue",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "vm-1-Queue-value",
+              "placement": {
+                "left": 77,
+                "right": 7,
+                "top": 136,
+                "height": 16,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "GENERAL_QUEUE"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "name": "vm-1-Failed-label",
+              "placement": {
+                "left": 55,
+                "right": 25,
+                "top": 158,
+                "height": 16,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#8B93A1"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Failed",
+                  "field": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "vm-1-Failed-value",
+              "placement": {
+                "left": 77,
+                "right": 7,
+                "top": 158,
+                "height": 16,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "top"
+              },
+              "config": {
+                "align": "right",
+                "valign": "middle",
+                "size": 11,
+                "color": {
+                  "fixed": "#F3F4F6"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "GENERAL_FAILED"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "color": {
+                  "fixed": "transparent"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "실제 Celery worker/event 및 RabbitMQ queue 기준. VM #1 영역은 General worker role, VM #2 영역은 Inference worker role에 연결됩니다. worker metric에는 실제 worker/host label이 포함됩니다."
+    },
+    {
+      "id": 204,
+      "type": "table",
+      "title": "최근 장애 및 운영 알림",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 13,
+        "w": 8,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "rawSql": "\nSELECT\n    occurred_at AS \"시간\",\n    outcome AS \"구분\",\n    COALESCE(\n        reason,\n        action\n    ) AS \"메시지\"\n\nFROM audit_auditlog\n\nWHERE\n    $__timeFilter(occurred_at)\n\n    AND COALESCE(\n        outcome,\n        'UNKNOWN'\n    ) NOT IN (\n        'SUCCESS',\n        'SUCCEEDED',\n        'COMPLETED',\n        'OK'\n    )\n\nORDER BY occurred_at DESC\nLIMIT 10\n"
+        }
+      ]
+    },
+    {
+      "id": 205,
+      "type": "table",
+      "title": "최근 관리자 작업 / AuditLog",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 13,
+        "w": 8,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "rawSql": "\nSELECT\n    occurred_at AS \"일시\",\n\n    COALESCE(\n        actor_login_id,\n        'SYSTEM'\n    ) AS \"사용자\",\n\n    action AS \"작업 내용\",\n\n    outcome AS \"결과\"\n\nFROM audit_auditlog\n\nWHERE $__timeFilter(occurred_at)\n\nORDER BY occurred_at DESC\n\nLIMIT 10\n"
+        }
+      ]
+    },
+    {
+      "id": 301,
+      "type": "table",
+      "title": "전체 사용자 · 상세",
+      "description": "실제 accounts_user / roles 기준 사용자 현황.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 21,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true,
+          "rawSql": "\nSELECT\n    u.created_at\n        AS \"생성 시각\",\n\n    u.login_id\n        AS \"Login ID\",\n\n    u.name\n        AS \"사용자\",\n\n    COALESCE(\n        r.code,\n        '-'\n    )\n        AS \"Role\",\n\n    CASE\n        WHEN u.is_active\n        THEN 'ACTIVE'\n        ELSE 'INACTIVE'\n    END\n        AS \"상태\"\n\nFROM accounts_user u\n\nLEFT JOIN roles r\n    ON r.id = u.role_id\n\nORDER BY u.created_at DESC\n\nLIMIT 300\n"
+        }
+      ],
+      "transparent": false
+    },
+    {
+      "id": 302,
+      "type": "logs",
+      "title": "서버 오류 요청 · 상세",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 29,
+        "w": 24,
+        "h": 9
+      },
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": true,
+        "enableLogDetails": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{environment=~\"local|runtime\"} | json | event=\"HTTP_REQUEST\" | status >= 500",
+          "queryType": "range",
+          "maxLines": 200
+        }
+      ]
+    },
+    {
+      "id": 303,
+      "type": "table",
+      "title": "Async 처리 · 상세",
+      "description": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 38,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true,
+          "rawSql": "\nSELECT\n    created_at\n        AS \"생성 시각\",\n\n    event_type\n        AS \"이벤트\",\n\n    aggregate_type\n        AS \"대상 유형\",\n\n    aggregate_id\n        AS \"대상 ID\",\n\n    status\n        AS \"상태\",\n\n    retry_count\n        AS \"재시도\",\n\n    published_at\n        AS \"발행 시각\",\n\n    COALESCE(\n        payload ->> 'request_id',\n        '-'\n    )\n        AS request_id\n\nFROM common_outboxevent\n\nWHERE $__timeFilter(created_at)\n\nORDER BY created_at DESC\n\nLIMIT 300\n"
+        }
+      ],
+      "transparent": false
+    },
+    {
+      "id": 304,
+      "type": "table",
+      "title": "AI 분석 · 상세",
+      "description": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 46,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "오류 참조번호"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Request Trace 열기",
+                    "url": "/d/brainon-admin-audit-trace/brainon?${__url_time_range}&var-request_id=${__data.fields.request_id}",
+                    "targetBlank": false
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true,
+          "rawSql": "\nSELECT\n    requested_at\n        AS \"요청 시각\",\n\n    id::text\n        AS \"Analysis ID\",\n\n    analysis_type\n        AS \"분석 유형\",\n\n    status\n        AS \"상태\",\n\n    COALESCE(\n        failure_code,\n        '-'\n    )\n        AS \"오류 코드\",\n\n    COALESCE(\n        trace_id::text,\n        '-'\n    )\n        AS request_id,\n\n    CASE\n        WHEN trace_id IS NULL\n        THEN '-'\n\n        ELSE\n            'ERR-'\n            ||\n            UPPER(\n                SUBSTRING(\n                    REPLACE(\n                        trace_id::text,\n                        '-',\n                        ''\n                    )\n                    FROM 1 FOR 16\n                )\n            )\n    END\n        AS \"오류 참조번호\"\n\nFROM ai_aianalysis\n\nWHERE $__timeFilter(requested_at)\n\nORDER BY requested_at DESC\n\nLIMIT 300\n"
+        }
+      ],
+      "transparent": false
+    },
+    {
+      "id": 305,
+      "type": "table",
+      "title": "장애 / 경고 · 상세",
+      "description": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 54,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "오류 참조번호"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Request Trace 열기",
+                    "url": "/d/brainon-admin-audit-trace/brainon?${__url_time_range}&var-request_id=${__data.fields.request_id}",
+                    "targetBlank": false
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true,
+          "rawSql": "\nSELECT *\nFROM (\n    SELECT\n        occurred_at\n            AS \"시간\",\n\n        'Audit'::text\n            AS \"유형\",\n\n        source_service\n            AS \"서비스\",\n\n        action\n            AS \"이벤트\",\n\n        outcome\n            AS \"상태\",\n\n        COALESCE(\n            reason,\n            '-'\n        )\n            AS \"원인\",\n\n        COALESCE(\n            request_id::text,\n            '-'\n        )\n            AS request_id,\n\n        CASE\n            WHEN request_id IS NULL\n            THEN '-'\n\n            ELSE\n                'ERR-'\n                ||\n                UPPER(\n                    SUBSTRING(\n                        REPLACE(\n                            request_id::text,\n                            '-',\n                            ''\n                        )\n                        FROM 1 FOR 16\n                    )\n                )\n        END\n            AS \"오류 참조번호\"\n\n    FROM audit_auditlog\n\n    WHERE\n        $__timeFilter(occurred_at)\n\n        AND COALESCE(\n            outcome,\n            'UNKNOWN'\n        ) NOT IN (\n            'SUCCESS',\n            'SUCCEEDED',\n            'COMPLETED',\n            'OK'\n        )\n\n\n    UNION ALL\n\n\n    SELECT\n        requested_at\n            AS \"시간\",\n\n        'AI'::text\n            AS \"유형\",\n\n        'AI Inference'::text\n            AS \"서비스\",\n\n        analysis_type\n            AS \"이벤트\",\n\n        status\n            AS \"상태\",\n\n        COALESCE(\n            failure_code,\n            '-'\n        )\n            AS \"원인\",\n\n        COALESCE(\n            trace_id::text,\n            '-'\n        )\n            AS request_id,\n\n        CASE\n            WHEN trace_id IS NULL\n            THEN '-'\n\n            ELSE\n                'ERR-'\n                ||\n                UPPER(\n                    SUBSTRING(\n                        REPLACE(\n                            trace_id::text,\n                            '-',\n                            ''\n                        )\n                        FROM 1 FOR 16\n                    )\n                )\n        END\n            AS \"오류 참조번호\"\n\n    FROM ai_aianalysis\n\n    WHERE\n        $__timeFilter(requested_at)\n\n        AND status IN (\n            'FAILED',\n            'ERROR',\n            'TIMEOUT',\n            'CANCELLED'\n        )\n) x\n\nORDER BY \"시간\" DESC\n\nLIMIT 300\n"
+        }
+      ],
+      "transparent": false
+    }
+  ],
+  "refresh": "",
+  "schemaVersion": 41,
+  "tags": [
+    "BrainOn",
+    "Operations",
+    "SYSTEM_ADMIN"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {
+    "hidden": false
+  },
+  "timezone": "browser",
+  "title": "BrainOn · 운영 Overview",
+  "uid": "brainon-admin-overview",
+  "version": 46,
+  "weekStart": "",
+  "description": "BrainOn 시스템 핵심 KPI, 서비스 상태 및 최근 운영 이상 현황."
+}

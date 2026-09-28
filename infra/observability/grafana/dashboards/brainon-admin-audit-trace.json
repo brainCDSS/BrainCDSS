@@ -1,0 +1,549 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "추적 이벤트",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 3
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "미수집",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#5794F2"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "horizontal",
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "rawSql": "\nSELECT\n    COUNT(*)::bigint AS \"추적 이벤트\"\nFROM audit_auditlog\nWHERE\n    $__timeFilter(occurred_at)\n\n    AND (\n        ${tracking_code:sqlstring} = ''\n        OR (\n            'ERR-' ||\n            UPPER(\n                SUBSTRING(\n                    REPLACE(\n                        request_id::text,\n                        '-',\n                        ''\n                    )\n                    FROM 1 FOR 16\n                )\n            )\n        ) = UPPER(\n            ${tracking_code:sqlstring}\n        )\n    )\n\n    AND (\n        ${request_id:sqlstring} = ''\n        OR request_id::text =\n            ${request_id:sqlstring}\n    )\n\n"
+        }
+      ],
+      "description": "현재 검색 조건에 해당하는 Audit 이벤트 수.",
+      "transparent": false,
+      "links": [
+        {
+          "title": "상세 추적",
+          "url": "/d/brainon-admin-audit-trace/brainon?${__url_time_range}&viewPanel=6",
+          "targetBlank": false
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "비정상 이벤트",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 3
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "미수집",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#E02F44"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "horizontal",
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "rawSql": "\nSELECT\n    COUNT(*)::bigint AS \"비정상 이벤트\"\nFROM audit_auditlog\nWHERE\n    $__timeFilter(occurred_at)\n\n    AND COALESCE(\n        outcome,\n        'UNKNOWN'\n    ) NOT IN (\n        \n'SUCCESS',\n'SUCCEEDED',\n'COMPLETED',\n'OK'\n\n    )\n\n    AND (\n        ${tracking_code:sqlstring} = ''\n        OR (\n            'ERR-' ||\n            UPPER(\n                SUBSTRING(\n                    REPLACE(\n                        request_id::text,\n                        '-',\n                        ''\n                    )\n                    FROM 1 FOR 16\n                )\n            )\n        ) = UPPER(\n            ${tracking_code:sqlstring}\n        )\n    )\n\n    AND (\n        ${request_id:sqlstring} = ''\n        OR request_id::text =\n            ${request_id:sqlstring}\n    )\n\n"
+        }
+      ],
+      "description": "SUCCESS 계열이 아닌 Audit 이벤트 수.",
+      "transparent": false,
+      "links": [
+        {
+          "title": "상세 추적",
+          "url": "/d/brainon-admin-audit-trace/brainon?${__url_time_range}&viewPanel=6",
+          "targetBlank": false
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Request",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 3
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "미수집",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#8F6FE8"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "horizontal",
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "rawSql": "\nSELECT\n    COUNT(\n        DISTINCT request_id\n    )::bigint AS \"요청 수\"\nFROM audit_auditlog\nWHERE\n    $__timeFilter(occurred_at)\n\n    AND request_id IS NOT NULL\n\n    AND (\n        ${tracking_code:sqlstring} = ''\n        OR (\n            'ERR-' ||\n            UPPER(\n                SUBSTRING(\n                    REPLACE(\n                        request_id::text,\n                        '-',\n                        ''\n                    )\n                    FROM 1 FOR 16\n                )\n            )\n        ) = UPPER(\n            ${tracking_code:sqlstring}\n        )\n    )\n\n    AND (\n        ${request_id:sqlstring} = ''\n        OR request_id::text =\n            ${request_id:sqlstring}\n    )\n\n"
+        }
+      ],
+      "description": "관련된 고유 request_id 수.",
+      "transparent": false,
+      "links": [
+        {
+          "title": "상세 추적",
+          "url": "/d/brainon-admin-audit-trace/brainon?${__url_time_range}&viewPanel=5",
+          "targetBlank": false
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "관련 서비스",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 3
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "미수집",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#73BF69"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "horizontal",
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "rawSql": "\nSELECT\n    COUNT(\n        DISTINCT source_service\n    )::bigint AS \"관련 서비스\"\nFROM audit_auditlog\nWHERE\n    $__timeFilter(occurred_at)\n\n    AND (\n        ${tracking_code:sqlstring} = ''\n        OR (\n            'ERR-' ||\n            UPPER(\n                SUBSTRING(\n                    REPLACE(\n                        request_id::text,\n                        '-',\n                        ''\n                    )\n                    FROM 1 FOR 16\n                )\n            )\n        ) = UPPER(\n            ${tracking_code:sqlstring}\n        )\n    )\n\n    AND (\n        ${request_id:sqlstring} = ''\n        OR request_id::text =\n            ${request_id:sqlstring}\n    )\n\n"
+        }
+      ],
+      "description": "해당 요청 흐름에 참여한 서비스 수.",
+      "transparent": false,
+      "links": [
+        {
+          "title": "상세 추적",
+          "url": "/d/brainon-admin-audit-trace/brainon?${__url_time_range}&viewPanel=5",
+          "targetBlank": false
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "table",
+      "title": "요청 상세 Trace",
+      "datasource": {
+        "type": "postgres",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 3,
+        "w": 14,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "rawSql": "SELECT\n    request_id::text\n        AS \"Request ID\",\n\n    (\n        'ERR-'\n        ||\n        LEFT(\n            REPLACE(\n                UPPER(\n                    request_id::text\n                ),\n                '-',\n                ''\n            ),\n            16\n        )\n    )\n        AS \"오류 참조번호\",\n\n    COUNT(*)::bigint\n        AS \"이벤트 수\",\n\n    MIN(occurred_at)\n        AS \"시작\",\n\n    MAX(occurred_at)\n        AS \"마지막\",\n\n    STRING_AGG(\n        DISTINCT source_service,\n        ', '\n        ORDER BY source_service\n    )\n        AS \"서비스\",\n\n    COUNT(*) FILTER (\n        WHERE\n            COALESCE(\n                outcome,\n                'UNKNOWN'\n            )\n            NOT IN (\n                'SUCCESS',\n                'SUCCEEDED',\n                'COMPLETED',\n                'OK'\n            )\n    )::bigint\n        AS \"비정상\"\n\nFROM audit_auditlog\n\nWHERE\n    request_id IS NOT NULL\n\n    AND (\n        (\n            TRIM(\n                BOTH FROM ${request_id:sqlstring}\n            ) = ''\n\n            AND\n\n            $__timeFilter(\n                occurred_at\n            )\n        )\n\n        OR\n\n        (\n            TRIM(\n                BOTH FROM ${request_id:sqlstring}\n            ) <> ''\n\n            AND\n\n            request_id::text\n            =\n            ${resolved_request_id:sqlstring}\n        )\n    )\n\nGROUP BY\n    request_id\n\nORDER BY\n    MAX(occurred_at) DESC\n\nLIMIT 100"
+        }
+      ],
+      "description": "ERR 오류 참조번호 또는 원본 Request ID를 입력하면 동일 request_id의 Audit 이벤트를 묶어 추적합니다.",
+      "transparent": false
+    },
+    {
+      "id": 6,
+      "type": "table",
+      "title": "이벤트 타임라인",
+      "datasource": {
+        "type": "postgres",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 14,
+        "y": 3,
+        "w": 10,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "rawSql": "SELECT\n    occurred_at\n        AS \"시각\",\n\n    COALESCE(\n        source_service,\n        '-'\n    )\n        AS \"서비스\",\n\n    COALESCE(\n        action,\n        '-'\n    )\n        AS \"이벤트\",\n\n    COALESCE(\n        resource_type,\n        '-'\n    )\n        AS \"리소스\",\n\n    COALESCE(\n        outcome,\n        '-'\n    )\n        AS \"결과\",\n\n    COALESCE(\n        reason,\n        '-'\n    )\n        AS \"상세\",\n\n    COALESCE(\n        actor_login_id,\n        'SYSTEM'\n    )\n        AS \"사용자\",\n\n    request_id::text\n        AS \"Request ID\",\n\n    (\n        'ERR-'\n        ||\n        LEFT(\n            REPLACE(\n                UPPER(\n                    request_id::text\n                ),\n                '-',\n                ''\n            ),\n            16\n        )\n    )\n        AS \"오류 참조번호\"\n\nFROM audit_auditlog\n\nWHERE\n    request_id IS NOT NULL\n\n    AND (\n        (\n            TRIM(\n                BOTH FROM ${request_id:sqlstring}\n            ) = ''\n\n            AND\n\n            $__timeFilter(\n                occurred_at\n            )\n        )\n\n        OR\n\n        (\n            TRIM(\n                BOTH FROM ${request_id:sqlstring}\n            ) <> ''\n\n            AND\n\n            request_id::text\n            =\n            ${resolved_request_id:sqlstring}\n        )\n    )\n\nORDER BY\n    occurred_at ASC\n\nLIMIT 500"
+        }
+      ],
+      "description": "선택된 request_id의 Audit 이벤트를 발생 순서대로 표시합니다.",
+      "transparent": false
+    },
+    {
+      "id": 890,
+      "type": "table",
+      "title": "오류 참조번호 해석",
+      "datasource": {
+        "type": "postgres",
+        "uid": "brainon-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 24,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "brainon-postgres"
+          },
+          "format": "table",
+          "rawSql": "SELECT\n    ${request_id:sqlstring}::text\n        AS \"입력값\",\n\n    request_id::text\n        AS \"원본 Request ID\",\n\n    (\n        'ERR-'\n        ||\n        LEFT(\n            REPLACE(\n                UPPER(\n                    request_id::text\n                ),\n                '-',\n                ''\n            ),\n            16\n        )\n    )\n        AS \"오류 참조번호\",\n\n    MIN(occurred_at)\n        AS \"최초 이벤트\",\n\n    MAX(occurred_at)\n        AS \"최근 이벤트\",\n\n    COUNT(*)::bigint\n        AS \"Audit 이벤트 수\",\n\n    STRING_AGG(\n        DISTINCT source_service,\n        ', '\n        ORDER BY source_service\n    )\n        AS \"관련 서비스\"\n\nFROM audit_auditlog\n\nWHERE\n    request_id IS NOT NULL\n\n    AND\n    TRIM(\n        BOTH FROM ${request_id:sqlstring}\n    ) <> ''\n\n    AND\n    (\n    (\n        UPPER(\n            TRIM(\n                BOTH FROM ${request_id:sqlstring}\n            )\n        ) LIKE 'ERR-%'\n\n        AND\n\n        LEFT(\n            REPLACE(\n                UPPER(\n                    request_id::text\n                ),\n                '-',\n                ''\n            ),\n            16\n        )\n        =\n        LEFT(\n            REGEXP_REPLACE(\n                UPPER(\n                    REPLACE(\n                        TRIM(\n                            BOTH FROM ${request_id:sqlstring}\n                        ),\n                        'ERR-',\n                        ''\n                    )\n                ),\n                '[^0-9A-F]',\n                '',\n                'g'\n            ),\n            16\n        )\n    )\n\n    OR\n\n    (\n        UPPER(\n            TRIM(\n                BOTH FROM ${request_id:sqlstring}\n            )\n        ) NOT LIKE 'ERR-%'\n\n        AND\n\n        REPLACE(\n            UPPER(\n                request_id::text\n            ),\n            '-',\n            ''\n        )\n        =\n        REGEXP_REPLACE(\n            UPPER(\n                TRIM(\n                    BOTH FROM ${request_id:sqlstring}\n                )\n            ),\n            '[^0-9A-F]',\n            '',\n            'g'\n        )\n    )\n)\n\nGROUP BY\n    request_id\n\nORDER BY\n    MAX(occurred_at) DESC\n\nLIMIT 1"
+        }
+      ],
+      "description": "사용자에게 표시된 ERR-XXXXXXXXXXXXXXX를 원본 request_id UUID로 역추적합니다.",
+      "transparent": false
+    },
+    {
+      "id": 893,
+      "type": "logs",
+      "title": "Request Correlated Logs · Loki",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 12,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{host=~\".+\"} | json | request_id=\"${resolved_request_id}\"",
+          "queryType": "range",
+          "editorMode": "code"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{host=~\".+\"} | json | trace_id=\"${resolved_request_id}\"",
+          "queryType": "range",
+          "editorMode": "code"
+        }
+      ],
+      "description": "동일 request_id / trace_id의 구조화 로그. Backend 및 내부 서비스의 원인 추적에 사용합니다.",
+      "transparent": false
+    },
+    {
+      "id": 894,
+      "type": "logs",
+      "title": "Celery Correlated Logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 13,
+        "w": 12,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{host=\"braincdss-rabbitmq\",container=~\".*celery.*\"} | json | request_id=\"${resolved_request_id}\"",
+          "queryType": "range",
+          "editorMode": "code"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{host=\"braincdss-rabbitmq\",container=~\".*celery.*\"} | json | trace_id=\"${resolved_request_id}\"",
+          "queryType": "range",
+          "editorMode": "code"
+        }
+      ],
+      "description": "동일 request_id가 전달된 Celery 작업 로그를 별도로 확인합니다.",
+      "transparent": false
+    }
+  ],
+  "refresh": "",
+  "schemaVersion": 41,
+  "tags": [
+    "BrainOn",
+    "Operations",
+    "SYSTEM_ADMIN"
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "tracking_code",
+        "label": "Error 추적번호",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "hide": 0
+      },
+      {
+        "name": "request_id",
+        "label": "오류 참조번호 / Request ID",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "hide": 0
+      },
+      {
+        "name": "resolved_request_id",
+        "label": "Resolved Request ID",
+        "type": "query",
+        "datasource": {
+          "type": "postgres",
+          "uid": "brainon-postgres"
+        },
+        "query": "SELECT\n    request_id::text\n        AS __text,\n\n    request_id::text\n        AS __value\n\nFROM audit_auditlog\n\nWHERE\n    request_id IS NOT NULL\n\n    AND\n    TRIM(\n        BOTH FROM ${request_id:sqlstring}\n    ) <> ''\n\n    AND\n    (\n    (\n        UPPER(\n            TRIM(\n                BOTH FROM ${request_id:sqlstring}\n            )\n        ) LIKE 'ERR-%'\n\n        AND\n\n        LEFT(\n            REPLACE(\n                UPPER(\n                    request_id::text\n                ),\n                '-',\n                ''\n            ),\n            16\n        )\n        =\n        LEFT(\n            REGEXP_REPLACE(\n                UPPER(\n                    REPLACE(\n                        TRIM(\n                            BOTH FROM ${request_id:sqlstring}\n                        ),\n                        'ERR-',\n                        ''\n                    )\n                ),\n                '[^0-9A-F]',\n                '',\n                'g'\n            ),\n            16\n        )\n    )\n\n    OR\n\n    (\n        UPPER(\n            TRIM(\n                BOTH FROM ${request_id:sqlstring}\n            )\n        ) NOT LIKE 'ERR-%'\n\n        AND\n\n        REPLACE(\n            UPPER(\n                request_id::text\n            ),\n            '-',\n            ''\n        )\n        =\n        REGEXP_REPLACE(\n            UPPER(\n                TRIM(\n                    BOTH FROM ${request_id:sqlstring}\n                )\n            ),\n            '[^0-9A-F]',\n            '',\n            'g'\n        )\n    )\n)\n\nGROUP BY\n    request_id\n\nORDER BY\n    MAX(occurred_at) DESC\n\nLIMIT 1",
+        "definition": "SELECT\n    request_id::text\n        AS __text,\n\n    request_id::text\n        AS __value\n\nFROM audit_auditlog\n\nWHERE\n    request_id IS NOT NULL\n\n    AND\n    TRIM(\n        BOTH FROM ${request_id:sqlstring}\n    ) <> ''\n\n    AND\n    (\n    (\n        UPPER(\n            TRIM(\n                BOTH FROM ${request_id:sqlstring}\n            )\n        ) LIKE 'ERR-%'\n\n        AND\n\n        LEFT(\n            REPLACE(\n                UPPER(\n                    request_id::text\n                ),\n                '-',\n                ''\n            ),\n            16\n        )\n        =\n        LEFT(\n            REGEXP_REPLACE(\n                UPPER(\n                    REPLACE(\n                        TRIM(\n                            BOTH FROM ${request_id:sqlstring}\n                        ),\n                        'ERR-',\n                        ''\n                    )\n                ),\n                '[^0-9A-F]',\n                '',\n                'g'\n            ),\n            16\n        )\n    )\n\n    OR\n\n    (\n        UPPER(\n            TRIM(\n                BOTH FROM ${request_id:sqlstring}\n            )\n        ) NOT LIKE 'ERR-%'\n\n        AND\n\n        REPLACE(\n            UPPER(\n                request_id::text\n            ),\n            '-',\n            ''\n        )\n        =\n        REGEXP_REPLACE(\n            UPPER(\n                TRIM(\n                    BOTH FROM ${request_id:sqlstring}\n                )\n            ),\n            '[^0-9A-F]',\n            '',\n            'g'\n        )\n    )\n)\n\nGROUP BY\n    request_id\n\nORDER BY\n    MAX(occurred_at) DESC\n\nLIMIT 1",
+        "refresh": 1,
+        "includeAll": false,
+        "multi": false,
+        "hide": 2,
+        "current": {
+          "text": "",
+          "value": ""
+        }
+      }
+    ]
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {
+    "hidden": false
+  },
+  "timezone": "browser",
+  "title": "BrainOn · 오류 추적 & Audit",
+  "uid": "brainon-admin-audit-trace",
+  "version": 11,
+  "weekStart": "",
+  "description": "사용자 오류 참조번호부터 내부 request_id, Audit 이벤트와 장애 원인까지 추적합니다. ERR 오류 참조번호를 원본 request_id로 해석하여 Audit/Loki/Celery까지 상관관계 추적합니다."
+}

@@ -1,2 +1,976 @@
-"""assessments app test placeholder."""
+from django.urls import reverse
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
+from rest_framework.test import APITestCase
 
+from apps.accounts.models import Role, RoleCode, User
+from apps.assessments.models import (
+    AssessmentItem,
+    EmergencyEvent,
+    InitialAssessment,
+    TriageReview,
+)
+from apps.audit.models import AuditLog
+from apps.clinical_records.models import Encounter
+from apps.common.models import OutboxEvent
+from apps.notifications.models import Notification
+from apps.organizations.models import Department, Hospital
+from apps.patients.models import Patient
+
+
+class AssessmentStartAPITests(APITestCase):
+    def setUp(self):
+        self.role = Role.objects.get(code=RoleCode.NURSE)
+        self.nurse = User.objects.create_user(
+            login_id="assessment-start-nurse",
+            password="test-password",
+            name="Assessment start nurse",
+            role=self.role,
+        )
+        self.client.force_authenticate(self.nurse)
+        self.patient = Patient.objects.create(
+            patient_no="ASSESSMENT-START-001",
+            name="Assessment Start Patient",
+            created_by=self.nurse,
+        )
+        self.encounter = Encounter.objects.create(
+            patient=self.patient,
+            encounter_no="ENC-ASSESSMENT-START-001",
+            encounter_type="EMERGENCY",
+            status="REGISTERED",
+            arrived_at=timezone.now(),
+            created_at=timezone.now(),
+            updated_at=timezone.now(),
+        )
+        self.url = reverse("api-asm-assessment-list-by-encounter")
+
+    def test_start_creates_new_draft_assessment(self):
+        response = self.client.post(
+            self.url,
+            {"encounter_id": str(self.encounter.id)},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["status"], "DRAFT")
+        self.assertEqual(
+            response.data["encounter_id"],
+            str(self.encounter.id),
+        )
+
+        assessment = InitialAssessment.objects.get(
+            pk=response.data["assessment_id"],
+        )
+        self.assertEqual(assessment.status, "DRAFT")
+        self.assertEqual(assessment.encounter_id, self.encounter.id)
+        self.assertEqual(assessment.assessor_id, self.nurse.id)
+        self.assertTrue(
+            OutboxEvent.objects.filter(
+                event_type="assessment_created",
+                aggregate=str(assessment.id),
+            ).exists()
+        )
+
+    def test_start_rejects_duplicate_draft(self):
+        InitialAssessment.objects.create(
+            encounter=self.encounter,
+            assessor=self.nurse,
+            status="DRAFT",
+            created_at=timezone.now(),
+            updated_at=timezone.now(),
+        )
+
+        response = self.client.post(
+            self.url,
+            {"encounter_id": str(self.encounter.id)},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(
+            response.data["error"]["details"]["code"],
+            "ASSESSMENT_ALREADY_IN_PROGRESS",
+        )
+        self.assertEqual(
+            InitialAssessment.objects.filter(
+                encounter=self.encounter,
+                status="DRAFT",
+            ).count(),
+            1,
+        )
+
+    def test_start_rejects_closed_encounter(self):
+        self.encounter.status = "COMPLETED"
+        self.encounter.ended_at = timezone.now()
+        self.encounter.save(
+            update_fields=["status", "ended_at"],
+        )
+
+        response = self.client.post(
+            self.url,
+            {"encounter_id": str(self.encounter.id)},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(
+            response.data["error"]["details"]["code"],
+            "ENCOUNTER_NOT_ACTIVE",
+        )
+        self.assertFalse(
+            InitialAssessment.objects.filter(
+                encounter=self.encounter,
+            ).exists()
+        )
+
+
+class AssessmentWorklistAPITests(APITestCase):
+    def setUp(self):
+        self.role = Role.objects.get(code=RoleCode.NURSE)
+        self.nurse = User.objects.create_user(
+            login_id="worklist-nurse",
+            password="test-password",
+            name="테스트 간호사",
+            role=self.role,
+        )
+        self.client.force_authenticate(self.nurse)
+        self.patient = Patient.objects.create(
+            patient_no="TEST-TRIAGE-001",
+            name="김트리아지",
+            estimated_age=65,
+            sex="M",
+            created_by=self.nurse,
+        )
+        self.encounter = Encounter.objects.create(
+            patient=self.patient,
+            encounter_no="ENC-TRIAGE-001",
+            encounter_type="EMERGENCY",
+            status="REGISTERED",
+            arrived_at=timezone.now(),
+            created_at=timezone.now(),
+            updated_at=timezone.now(),
+        )
+        self.url = reverse("api-asm-001-real")
+
+    def test_waiting_encounter_contains_patient_summary(self):
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        item = response.data["results"][0]
+        self.assertIsNone(item["assessment_id"])
+        self.assertEqual(item["encounter_id"], str(self.encounter.id))
+        self.assertEqual(item["encounter_type"], "EMERGENCY")
+        self.assertEqual(item["status"], "WAITING")
+        self.assertEqual(item["patient_summary"]["patient_no"], "TEST-TRIAGE-001")
+        self.assertEqual(item["patient_summary"]["name"], "김트리아지")
+        self.assertEqual(item["patient_summary"]["estimated_age"], 65)
+        self.assertEqual(item["patient_summary"]["sex"], "M")
+
+    def test_draft_encounter_uses_existing_assessment(self):
+        assessment = InitialAssessment.objects.create(
+            encounter=self.encounter,
+            assessor=self.nurse,
+            status="DRAFT",
+            created_at=timezone.now(),
+            updated_at=timezone.now(),
+        )
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        item = response.data["results"][0]
+        self.assertEqual(item["assessment_id"], str(assessment.id))
+        self.assertEqual(item["status"], "DRAFT")
+
+    def test_completed_filter_returns_completed_assessment(self):
+        assessment = InitialAssessment.objects.create(
+            encounter=self.encounter,
+            assessor=self.nurse,
+            status="COMPLETED",
+            total_score=12,
+            triage_priority="NON_EMERGENCY",
+            completed_at=timezone.now(),
+            created_at=timezone.now(),
+            updated_at=timezone.now(),
+        )
+        self.encounter.status = "COMPLETED"
+        self.encounter.ended_at = timezone.now()
+        self.encounter.save(update_fields=["status", "ended_at"])
+
+        response = self.client.get(
+            self.url,
+            {"status": "COMPLETED"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 1)
+        item = response.data["results"][0]
+        self.assertEqual(item["assessment_id"], str(assessment.id))
+        self.assertEqual(item["status"], "COMPLETED")
+
+    def test_detail_includes_active_neurology_department_id(self):
+        hospital = Hospital.objects.create(
+            name="테스트 병원",
+            address="테스트 주소",
+        )
+        department = Department.objects.create(
+            hospital=hospital,
+            code="NEUROLOGY",
+            name="신경과",
+        )
+        assessment = InitialAssessment.objects.create(
+            encounter=self.encounter,
+            assessor=self.nurse,
+            status="DRAFT",
+            created_at=timezone.now(),
+            updated_at=timezone.now(),
+        )
+
+        response = self.client.get(
+            reverse("api-asm-003-real", args=[assessment.id])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.data["patient_id"],
+            str(self.patient.id),
+        )
+        self.assertEqual(
+            response.data["neurology_department_id"],
+            department.id,
+        )
+
+    def test_detail_route_keeps_generated_patch_behavior(self):
+        assessment = InitialAssessment.objects.create(
+            encounter=self.encounter,
+            assessor=self.nurse,
+            status="DRAFT",
+            created_at=timezone.now(),
+            updated_at=timezone.now(),
+        )
+
+        response = self.client.patch(
+            reverse("api-asm-003-real", args=[assessment.id]),
+            {},
+            format="json",
+        )
+
+        self.assertNotEqual(response.status_code, 405)
+
+
+class EmergencyWorklistAPITests(APITestCase):
+    def setUp(self):
+        self.neurologist_role = Role.objects.get(code=RoleCode.NEUROLOGIST)
+        self.nurse_role = Role.objects.get(
+            code=RoleCode.NURSE,
+        )
+        self.neurologist = User.objects.create_user(
+            login_id="emergency-neurologist",
+            password="test-password",
+            name="Assigned neurologist",
+            role=self.neurologist_role,
+        )
+        self.other_neurologist = User.objects.create_user(
+            login_id="other-neurologist",
+            password="test-password",
+            name="Other neurologist",
+            role=self.neurologist_role,
+        )
+        self.nurse = User.objects.create_user(
+            login_id="emergency-nurse",
+            password="test-password",
+            name="Assessment nurse",
+            role=self.nurse_role,
+        )
+        self.patient = Patient.objects.create(
+            patient_no="EMERGENCY-001",
+            name="Emergency patient",
+            estimated_age=68,
+            sex="M",
+            created_by=self.nurse,
+        )
+        now = timezone.now()
+        self.encounter = Encounter.objects.create(
+            patient=self.patient,
+            encounter_no="ENC-EMERGENCY-001",
+            encounter_type="EMERGENCY",
+            status="IN_PROGRESS",
+            arrived_at=now,
+            created_at=now,
+            updated_at=now,
+        )
+        self.assessment = InitialAssessment.objects.create(
+            encounter=self.encounter,
+            assessor=self.nurse,
+            assigned_neurologist=self.neurologist,
+            status="COMPLETED",
+            total_score=12,
+            triage_priority="EMERGENCY",
+            lkw_at=now,
+            completed_at=now,
+            created_at=now,
+            updated_at=now,
+        )
+        self.event = EmergencyEvent.objects.create(
+            assessment=self.assessment,
+            encounter=self.encounter,
+            assigned_neurologist=self.neurologist,
+            event_type="EMERGENCY_DETECTED",
+            priority="EMERGENCY",
+            status="NOTIFIED",
+            occurred_at=now,
+            notified_at=now,
+            created_at=now,
+        )
+        self.worklist_url = reverse("api-asm-006-real")
+        self.acknowledge_url = reverse("api-evt-001-real", args=[self.event.id])
+
+    def test_assigned_neurologist_receives_emergency_worklist(self):
+        now = timezone.now()
+        AssessmentItem.objects.create(
+            assessment=self.assessment,
+            item_group="FAST",
+            item_code="FAST_FACE",
+            value_text="ABNORMAL",
+            is_red_flag=False,
+            recorded_at=now,
+        )
+        AssessmentItem.objects.create(
+            assessment=self.assessment,
+            item_group="VITAL",
+            item_code="BP_SYS",
+            value_numeric=0,
+            unit="mmHg",
+            is_red_flag=False,
+            recorded_at=now,
+        )
+        AssessmentItem.objects.create(
+            assessment=self.assessment,
+            item_group="INITIAL_SCREENING",
+            item_code="BALANCE",
+            value_numeric=4,
+            score=4,
+            is_red_flag=False,
+            recorded_at=now,
+        )
+        AssessmentItem.objects.create(
+            assessment=self.assessment,
+            item_group="INITIAL_SCREENING",
+            item_code="EYES",
+            value_numeric=1,
+            score=1,
+            is_red_flag=False,
+            recorded_at=now,
+        )
+        TriageReview.objects.create(
+            assessment=self.assessment,
+            reviewer=self.neurologist,
+            reviewer_role="NEUROLOGIST",
+            priority="NON_EMERGENCY",
+            reason="Symptoms improved after reassessment.",
+        )
+
+        self.client.force_authenticate(self.neurologist)
+
+        response = self.client.get(self.worklist_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 1)
+        item = response.data["results"][0]
+        self.assertEqual(item["assessment_id"], str(self.assessment.id))
+        self.assertEqual(item["encounter_id"], str(self.encounter.id))
+        self.assertEqual(item["patient_summary"]["patient_no"], "EMERGENCY-001")
+        self.assertEqual(item["triage_priority"], "EMERGENCY")
+        self.assertEqual(item["effective_priority"], "NON_EMERGENCY")
+        self.assertEqual(
+            item["abnormal_findings"],
+            [
+                {
+                    "item_code": "FAST_FACE",
+                    "label": "FAST Face",
+                    "detail": "이상",
+                },
+                {
+                    "item_code": "BALANCE",
+                    "label": "Balance / 균형",
+                    "detail": "뚜렷",
+                },
+            ],
+        )
+        self.assertEqual(item["event"]["id"], str(self.event.id))
+        self.assertEqual(
+            parse_datetime(item["arrived_at"]),
+            self.encounter.arrived_at,
+        )
+        self.assertEqual(item["assessor"]["name"], "Assessment nurse")
+        bp = next(value for value in item["assessment_items"] if value["item_code"] == "BP_SYS")
+        self.assertEqual(bp["value_numeric"], "0.00")
+        self.assertFalse(bp["is_red_flag"])
+
+    def test_other_neurologist_does_not_receive_assigned_event(self):
+        self.client.force_authenticate(self.other_neurologist)
+
+        response = self.client.get(self.worklist_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 0)
+
+    def test_nurse_cannot_access_emergency_worklist(self):
+        self.client.force_authenticate(self.nurse)
+
+        response = self.client.get(self.worklist_url)
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_assigned_neurologist_can_acknowledge_event(self):
+        self.client.force_authenticate(self.neurologist)
+
+        response = self.client.post(self.acknowledge_url, {}, format="json")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], "ACKNOWLEDGED")
+        self.assertEqual(response.data["acknowledged_by"], str(self.neurologist.id))
+        self.event.refresh_from_db()
+        self.assertEqual(self.event.status, "ACKNOWLEDGED")
+        self.assertEqual(self.event.acknowledged_by_id, self.neurologist.id)
+        self.assertIsNotNone(self.event.acknowledged_at)
+        self.assertTrue(
+            AuditLog.objects.filter(
+                action="ACKNOWLEDGE_EMERGENCY_EVENT",
+                resource=str(self.event.id),
+                outcome="SUCCESS",
+            ).exists()
+        )
+
+    def test_event_cannot_be_acknowledged_twice(self):
+        self.client.force_authenticate(self.neurologist)
+        self.client.post(self.acknowledge_url, {}, format="json")
+
+        response = self.client.post(self.acknowledge_url, {}, format="json")
+
+        self.assertEqual(response.status_code, 409)
+
+    def test_other_neurologist_cannot_acknowledge_event(self):
+        self.client.force_authenticate(self.other_neurologist)
+
+        response = self.client.post(self.acknowledge_url, {}, format="json")
+
+        self.assertEqual(response.status_code, 403)
+
+
+class AssessmentEncounterListAPITests(APITestCase):
+    def setUp(self):
+        self.neurologist_role = Role.objects.get(code=RoleCode.NEUROLOGIST)
+        self.nurse_role = Role.objects.get(
+            code=RoleCode.NURSE,
+        )
+        self.neurosurgeon_role = Role.objects.get(code=RoleCode.NEUROSURGEON)
+        self.radiology_role = Role.objects.get(code=RoleCode.RADIOLOGY)
+        self.patient_role = Role.objects.get(code=RoleCode.PATIENT)
+        self.neurologist = User.objects.create_user(
+            login_id="assessment-list-neurologist",
+            password="test-password",
+            name="Assessment neurologist",
+            role=self.neurologist_role,
+        )
+        self.nurse = User.objects.create_user(
+            login_id="assessment-list-nurse",
+            password="test-password",
+            name="Assessment nurse",
+            role=self.nurse_role,
+        )
+        self.neurosurgeon = User.objects.create_user(
+            login_id="assessment-list-neurosurgeon",
+            password="test-password",
+            name="Assessment neurosurgeon",
+            role=self.neurosurgeon_role,
+        )
+        self.radiologist = User.objects.create_user(
+            login_id="assessment-list-radiologist",
+            password="test-password",
+            name="Assessment radiologist",
+            role=self.radiology_role,
+        )
+        self.patient_user = User.objects.create_user(
+            login_id="assessment-list-patient",
+            password="test-password",
+            name="Assessment patient",
+            role=self.patient_role,
+        )
+        self.patient = Patient.objects.create(
+            patient_no="ASSESSMENT-LIST-001",
+            name="Assessment List Patient",
+            created_by=self.nurse,
+        )
+        self.encounter = Encounter.objects.create(
+            patient=self.patient,
+            encounter_no="ENC-ASSESSMENT-LIST-001",
+            encounter_type="EMERGENCY",
+            status="IN_PROGRESS",
+            arrived_at=timezone.now(),
+            created_at=timezone.now(),
+            updated_at=timezone.now(),
+        )
+        self.url = reverse("api-asm-assessment-list-by-encounter")
+
+    def _create_assessment(self, **kwargs):
+        now = timezone.now()
+        return InitialAssessment.objects.create(
+            encounter=self.encounter,
+            assessor=self.nurse,
+            status="COMPLETED",
+            created_at=now,
+            updated_at=now,
+            **kwargs,
+        )
+
+    def test_neurologist_reads_assessment_by_encounter_with_items(self):
+        assessment = self._create_assessment(
+            total_score=7,
+            triage_priority="EMERGENCY",
+            symptom_note="Assessment symptom",
+            assigned_neurologist=self.neurologist,
+        )
+        AssessmentItem.objects.create(
+            assessment=assessment,
+            item_group="FAST",
+            item_code="FAST_FACE",
+            value_text="ABNORMAL",
+            is_red_flag=True,
+            recorded_at=timezone.now(),
+        )
+
+        self.client.force_authenticate(self.neurologist)
+        response = self.client.get(self.url, {"encounter_id": self.encounter.id})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 1)
+        item = response.data["results"][0]
+        self.assertEqual(item["assessment_id"], str(assessment.id))
+        self.assertEqual(item["encounter_id"], str(self.encounter.id))
+        self.assertEqual(item["total_score"], 7)
+        self.assertEqual(item["items"][0]["item_code"], "FAST_FACE")
+
+    def test_returns_empty_results_when_encounter_has_no_assessment(self):
+        self.client.force_authenticate(self.neurologist)
+
+        response = self.client.get(self.url, {"encounter_id": self.encounter.id})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data, {"count": 0, "results": []})
+
+    def test_all_authorized_clinical_roles_read_assessments_by_encounter(self):
+        for user in (
+            self.neurologist,
+            self.neurosurgeon,
+            self.radiologist,
+            self.nurse,
+        ):
+            with self.subTest(role=user.role.code):
+                self.client.force_authenticate(user)
+                response = self.client.get(
+                    self.url,
+                    {"encounter_id": self.encounter.id},
+                )
+
+                self.assertEqual(response.status_code, 200)
+
+    def test_rejects_unknown_encounter_and_non_clinical_role(self):
+        self.client.force_authenticate(self.neurologist)
+        missing = self.client.get(self.url, {"encounter_id": "00000000-0000-0000-0000-000000000000"})
+
+        self.client.force_authenticate(self.patient_user)
+        forbidden = self.client.get(self.url, {"encounter_id": self.encounter.id})
+
+        self.assertEqual(missing.status_code, 404)
+        self.assertEqual(forbidden.status_code, 403)
+
+
+class InitialScreeningAssessmentAPITests(APITestCase):
+    def setUp(self):
+        role = Role.objects.get(code=RoleCode.NURSE)
+        neurologist_role = Role.objects.get(code=RoleCode.NEUROLOGIST)
+        self.nurse = User.objects.create_user(
+            login_id="screening-nurse",
+            password="test-password",
+            name="Screening nurse",
+            role=role,
+        )
+        self.client.force_authenticate(self.nurse)
+        self.neurologist = User.objects.create_user(
+            login_id="screening-neurologist",
+            password="test-password",
+            name="Screening neurologist",
+            role=neurologist_role,
+        )
+        patient = Patient.objects.create(
+            patient_no="SCREENING-001",
+            name="Screening patient",
+            created_by=self.nurse,
+        )
+        encounter = Encounter.objects.create(
+            patient=patient,
+            encounter_no="ENC-SCREENING-001",
+            encounter_type="EMERGENCY",
+            status="IN_PROGRESS",
+            arrived_at=timezone.now(),
+            created_at=timezone.now(),
+            updated_at=timezone.now(),
+        )
+        self.assessment = InitialAssessment.objects.create(
+            encounter=encounter,
+            assessor=self.nurse,
+            assigned_neurologist=self.neurologist,
+            status="DRAFT",
+            triage_priority=None,
+            created_at=timezone.now(),
+            updated_at=timezone.now(),
+        )
+        self.detail_url = reverse("api-asm-003-real", args=[self.assessment.id])
+        self.complete_url = f"/api/v1/assessments/{self.assessment.id}/complete"
+
+    def test_items_upsert_and_completion_calculates_initial_screening_total(self):
+        scores = {
+            "BALANCE": 1,
+            "EYES": 2,
+            "FACE": 3,
+            "ARM": 4,
+            "SPEECH": 5,
+            "CONSCIOUSNESS": 2,
+        }
+        response = self.client.patch(
+            self.detail_url,
+            {
+                "onset_at": None,
+                "lkw_at": timezone.now().isoformat(),
+                "symptom_note": "screening",
+                "items": [
+                    *[
+                        {"item_code": code, "value_numeric": score}
+                        for code, score in scores.items()
+                    ],
+                    {"item_code": "FAST_FACE", "value_text": "ABNORMAL"},
+                    {"item_code": "FAST_ARM", "value_text": "NORMAL"},
+                    {"item_code": "FAST_SPEECH", "value_text": "NORMAL"},
+                    {"item_code": "BP_SYS", "value_numeric": 148, "unit": "mmHg"},
+                    {"item_code": "BP_DIA", "value_numeric": 86, "unit": "mmHg"},
+                    {"item_code": "HEART_RATE", "value_numeric": 78, "unit": "bpm"},
+                    {"item_code": "BODY_TEMP", "value_numeric": 36.8, "unit": "°C"},
+                    {"item_code": "SPO2", "value_numeric": 98, "unit": "%"},
+                    {"item_code": "HEIGHT_CM", "value_numeric": 170, "unit": "cm"},
+                    {"item_code": "WEIGHT_KG", "value_numeric": 65.5, "unit": "kg"},
+                ],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(AssessmentItem.objects.filter(assessment=self.assessment).count(), 16)
+        self.assertTrue(AssessmentItem.objects.filter(
+            assessment=self.assessment,
+            item_code="BALANCE",
+            item_group="INITIAL_SCREENING",
+            value_numeric=1,
+            score=1,
+        ).exists())
+        self.assertTrue(AssessmentItem.objects.filter(
+            assessment=self.assessment,
+            item_code="FAST_FACE",
+            value_text="ABNORMAL",
+        ).exists())
+        self.assertTrue(AssessmentItem.objects.filter(
+            assessment=self.assessment,
+            item_code="SPO2",
+            item_group="VITAL",
+            value_numeric=98,
+        ).exists())
+        self.assertTrue(AssessmentItem.objects.filter(
+            assessment=self.assessment,
+            item_code="HEIGHT_CM",
+            item_group="MEASUREMENT",
+            value_numeric=170,
+        ).exists())
+
+        self.client.patch(
+            self.detail_url,
+            {"items": [{"item_code": "BALANCE", "value_numeric": 5}]},
+            format="json",
+        )
+        self.assertEqual(AssessmentItem.objects.filter(
+            assessment=self.assessment,
+            item_code="BALANCE",
+        ).count(), 1)
+
+        response = self.client.post(
+            self.complete_url,
+            {
+                "assigned_neurologist_id": str(self.neurologist.id),
+                "triage_priority": "URGENT",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["total_score"], 21)
+        self.assessment.refresh_from_db()
+        self.assertEqual(self.assessment.total_score, 21)
+        self.assertEqual(self.assessment.triage_priority, "URGENT")
+        self.assertTrue(Notification.objects.filter(
+            recipient_user=self.neurologist,
+            category="EMERGENCY",
+        ).exists())
+        self.assertTrue(EmergencyEvent.objects.filter(
+            assessment=self.assessment,
+            assigned_neurologist=self.neurologist,
+            priority="URGENT",
+            status="NOTIFIED",
+        ).exists())
+        self.assertTrue(OutboxEvent.objects.filter(
+            event_type="emergency_detected",
+            aggregate_type="EmergencyEvent",
+        ).exists())
+
+    def test_completion_requires_nurse_selected_triage_priority(self):
+        scores = {
+            "BALANCE": 1,
+            "EYES": 1,
+            "FACE": 1,
+            "ARM": 1,
+            "SPEECH": 1,
+            "CONSCIOUSNESS": 1,
+        }
+        self.client.patch(
+            self.detail_url,
+            {
+                "lkw_at": timezone.now().isoformat(),
+                "items": [
+                    *[
+                        {"item_code": code, "value_numeric": score}
+                        for code, score in scores.items()
+                    ],
+                    {"item_code": "FAST_FACE", "value_text": "NORMAL"},
+                    {"item_code": "FAST_ARM", "value_text": "NORMAL"},
+                    {"item_code": "FAST_SPEECH", "value_text": "NORMAL"},
+                    {"item_code": "BP_SYS", "value_numeric": 120, "unit": "mmHg"},
+                    {"item_code": "BP_DIA", "value_numeric": 80, "unit": "mmHg"},
+                    {"item_code": "HEART_RATE", "value_numeric": 72, "unit": "bpm"},
+                    {"item_code": "BODY_TEMP", "value_numeric": 36.7, "unit": "°C"},
+                ],
+            },
+            format="json",
+        )
+
+        response = self.client.post(
+            self.complete_url,
+            {"assigned_neurologist_id": str(self.neurologist.id)},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.data["error"]["details"]["code"],
+            "TRIAGE_PRIORITY_REQUIRED",
+        )
+        self.assessment.refresh_from_db()
+        self.assertEqual(self.assessment.status, "DRAFT")
+        self.assertIsNone(self.assessment.triage_priority)
+
+
+
+class TriageReviewAPITests(APITestCase):
+    def setUp(self):
+        self.neurologist_role = Role.objects.get(code=RoleCode.NEUROLOGIST)
+        self.nurse_role = Role.objects.get(code=RoleCode.NURSE)
+        self.neurologist = User.objects.create_user(
+            login_id="triage-review-neurologist",
+            password="test-password",
+            name="Review neurologist",
+            role=self.neurologist_role,
+        )
+        self.other_neurologist = User.objects.create_user(
+            login_id="triage-review-other",
+            password="test-password",
+            name="Other neurologist",
+            role=self.neurologist_role,
+        )
+        self.nurse = User.objects.create_user(
+            login_id="triage-review-nurse",
+            password="test-password",
+            name="Review nurse",
+            role=self.nurse_role,
+        )
+        patient = Patient.objects.create(
+            patient_no="TRIAGE-REVIEW-001",
+            name="Triage review patient",
+            created_by=self.nurse,
+        )
+        encounter = Encounter.objects.create(
+            patient=patient,
+            encounter_no="ENC-TRIAGE-REVIEW-001",
+            encounter_type="EMERGENCY",
+            status="IN_PROGRESS",
+            arrived_at=timezone.now(),
+            created_at=timezone.now(),
+            updated_at=timezone.now(),
+        )
+        self.assessment = InitialAssessment.objects.create(
+            encounter=encounter,
+            assessor=self.nurse,
+            assigned_neurologist=self.neurologist,
+            status="COMPLETED",
+            total_score=21,
+            triage_priority="URGENT",
+            lkw_at=timezone.now(),
+            completed_at=timezone.now(),
+            created_at=timezone.now(),
+            updated_at=timezone.now(),
+        )
+        self.url = reverse(
+            "api-asm-triage-review",
+            args=[self.assessment.id],
+        )
+
+    def test_assigned_neurologist_retriage_preserves_initial_priority(self):
+        self.client.force_authenticate(self.neurologist)
+
+        first = self.client.post(
+            self.url,
+            {
+                "priority": "EMERGENCY",
+                "reason": "Neurologic findings worsened.",
+            },
+            format="json",
+        )
+
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(first.data["initial_priority"], "URGENT")
+        self.assertEqual(first.data["effective_priority"], "EMERGENCY")
+        self.assertEqual(len(first.data["reviews"]), 1)
+
+        self.assessment.refresh_from_db()
+        self.assertEqual(self.assessment.triage_priority, "URGENT")
+        self.assertEqual(
+            TriageReview.objects.filter(
+                assessment=self.assessment,
+            ).count(),
+            1,
+        )
+        self.assertEqual(
+            EmergencyEvent.objects.filter(
+                assessment=self.assessment,
+            ).count(),
+            0,
+        )
+        self.assertEqual(
+            Notification.objects.filter(
+                recipient_user=self.neurologist,
+            ).count(),
+            0,
+        )
+
+        second = self.client.post(
+            self.url,
+            {
+                "priority": "URGENT",
+                "reason": "Symptoms improved after reassessment.",
+            },
+            format="json",
+        )
+
+        self.assertEqual(second.status_code, 201)
+        self.assertEqual(second.data["initial_priority"], "URGENT")
+        self.assertEqual(second.data["effective_priority"], "URGENT")
+        self.assertEqual(len(second.data["reviews"]), 2)
+        self.assertEqual(
+            TriageReview.objects.filter(
+                assessment=self.assessment,
+            ).count(),
+            2,
+        )
+        self.assessment.refresh_from_db()
+        self.assertEqual(self.assessment.triage_priority, "URGENT")
+        self.assertTrue(
+            AuditLog.objects.filter(
+                action="REVIEW_TRIAGE_PRIORITY",
+                resource_type="TriageReview",
+                actor_user=self.neurologist,
+                outcome="SUCCESS",
+            ).exists()
+        )
+
+    def test_review_get_returns_initial_and_latest_effective_priority(self):
+        TriageReview.objects.create(
+            assessment=self.assessment,
+            reviewer=self.neurologist,
+            reviewer_role="NEUROLOGIST",
+            priority="EMERGENCY",
+            reason="Worsening findings.",
+        )
+        self.client.force_authenticate(self.neurologist)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["initial_priority"], "URGENT")
+        self.assertEqual(response.data["effective_priority"], "EMERGENCY")
+        self.assertEqual(
+            response.data["latest_review"]["priority"],
+            "EMERGENCY",
+        )
+
+    def test_retriage_is_locked_after_encounter_completion(self):
+        encounter = self.assessment.encounter
+        encounter.status = "COMPLETED"
+        encounter.ended_at = timezone.now()
+        encounter.save(update_fields=["status", "ended_at"])
+
+        self.client.force_authenticate(self.neurologist)
+        response = self.client.post(
+            self.url,
+            {
+                "priority": "EMERGENCY",
+                "reason": "Attempt after encounter completion.",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.data["error"]["details"]["code"],
+            "TRIAGE_REVIEW_LOCKED",
+        )
+        self.assertEqual(
+            TriageReview.objects.filter(
+                assessment=self.assessment,
+            ).count(),
+            0,
+        )
+
+    def test_nurse_and_unassigned_neurologist_cannot_retriage(self):
+        self.client.force_authenticate(self.nurse)
+        nurse_response = self.client.post(
+            self.url,
+            {
+                "priority": "EMERGENCY",
+                "reason": "Attempted review.",
+            },
+            format="json",
+        )
+
+        self.client.force_authenticate(self.other_neurologist)
+        other_response = self.client.post(
+            self.url,
+            {
+                "priority": "EMERGENCY",
+                "reason": "Attempted review.",
+            },
+            format="json",
+        )
+
+        self.assertEqual(nurse_response.status_code, 403)
+        self.assertEqual(other_response.status_code, 403)
+        self.assertEqual(
+            TriageReview.objects.filter(
+                assessment=self.assessment,
+            ).count(),
+            0,
+        )

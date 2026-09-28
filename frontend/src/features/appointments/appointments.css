@@ -1,0 +1,2462 @@
+/* =========================================================
+   예약 · 일정
+   Worklist 가독성 / 단일 탭 / 고정 Pagination 최종 스타일
+========================================================= */
+
+.appointment-page {
+  display: flex;
+  flex-direction: column;
+
+  height: 100%;
+  min-height: 0;
+
+  padding: 16px 18px;
+
+  overflow: hidden;
+
+  background: #f4f7fb;
+  color: #17233f;
+}
+
+
+/* =========================================================
+   Page Header
+========================================================= */
+
+.appointment-heading {
+  display: flex;
+  flex: 0 0 auto;
+
+  align-items: flex-end;
+  justify-content: space-between;
+
+  gap: 20px;
+
+  margin-bottom: 12px;
+}
+
+.appointment-heading > div {
+  min-width: 0;
+}
+
+.appointment-heading > div > span {
+  display: block;
+
+  margin-bottom: 3px;
+
+  color: #3575c5;
+
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.appointment-heading h2 {
+  margin: 0;
+
+  color: #17233f;
+
+  font-size: 25px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.appointment-heading__title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+}
+
+.appointment-heading p {
+  margin: 0;
+
+  color: #718097;
+
+  font-size: 13px;
+}
+
+.appointment-heading > label,
+.appointment-filters label {
+  display: flex;
+  flex-direction: column;
+
+  gap: 5px;
+
+  color: #68778d;
+
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.appointment-heading input,
+.appointment-filters input,
+.appointment-filters select,
+.appointment-schedule-card select {
+  height: 36px;
+
+  padding: 0 11px;
+
+  border: 1px solid #d7e0ec;
+  border-radius: 8px;
+
+  outline: none;
+
+  background: #ffffff;
+  color: #283852;
+
+  font: inherit;
+  font-size: 12px;
+}
+
+.appointment-heading input:focus,
+.appointment-filters input:focus,
+.appointment-filters select:focus,
+.appointment-schedule-card select:focus {
+  border-color: #6da1db;
+
+  box-shadow: 0 0 0 3px rgba(53, 117, 197, 0.1);
+}
+
+
+/* =========================================================
+   Today Summary
+========================================================= */
+
+.appointment-today {
+  display: flex;
+  flex: 0 0 auto;
+
+  align-items: center;
+
+  gap: 18px;
+
+  padding: 10px 13px;
+
+  border: 1px solid #dce5ef;
+  border-radius: 12px;
+
+  background: #ffffff;
+
+  box-shadow: 0 4px 14px rgba(31, 54, 89, 0.04);
+}
+
+.appointment-today > header {
+  display: flex;
+
+  min-width: 290px;
+
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 12px;
+}
+
+.appointment-today > header span {
+  display: block;
+
+  margin-bottom: 3px;
+
+  color: #3575c5;
+
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.appointment-today h3 {
+  margin: 2px 0 0;
+
+  font-size: 16px;
+  white-space: nowrap;
+}
+
+.appointment-today h3 strong {
+  margin-left: 7px;
+
+  color: #58708f;
+
+  font-size: 13px;
+}
+
+.appointment-today header small {
+  max-width: 210px;
+
+  color: #8a96a7;
+
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.appointment-summary-grid {
+  display: grid;
+  flex: 1;
+
+  min-width: 0;
+
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+
+  gap: 8px;
+}
+
+.appointment-summary-grid article {
+  display: flex;
+
+  min-width: 0;
+
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 8px;
+
+  padding: 8px 12px;
+
+  border: 1px solid #e3eaf3;
+  border-radius: 9px;
+
+  background: #f8fafd;
+}
+
+.appointment-summary-grid span {
+  overflow: hidden;
+
+  color: #65748a;
+
+  font-size: 12px;
+  font-weight: 700;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.appointment-summary-grid strong {
+  color: #176fd5;
+
+  font-size: 19px;
+  font-weight: 850;
+}
+
+
+/* =========================================================
+   Main Tabs + Content
+   하나의 큰 카드처럼 보이도록 연결
+========================================================= */
+
+.appointment-tabs {
+  display: flex;
+  flex: 0 0 auto;
+
+  width: 100%;
+  height: 48px;
+
+  align-items: flex-end;
+
+  gap: 30px;
+
+  margin-top: 10px;
+
+  padding: 0 20px;
+
+  border: 1px solid #dce5ef;
+  border-bottom: 1px solid #e2e8f0;
+  border-radius: 12px 12px 0 0;
+
+  background: #ffffff;
+}
+
+.appointment-tabs button {
+  position: relative;
+
+  height: 100%;
+
+  padding: 0 4px;
+
+  border: 0;
+
+  background: transparent;
+  color: #5e6c80;
+
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+
+  cursor: pointer;
+}
+
+.appointment-tabs button::after {
+  position: absolute;
+
+  right: 0;
+  bottom: 0;
+  left: 0;
+
+  height: 3px;
+
+  border-radius: 3px 3px 0 0;
+
+  background: transparent;
+
+  content: "";
+}
+
+.appointment-tabs button:hover:not(:disabled),
+.appointment-tabs button.is-active {
+  color: #176fd5;
+}
+
+.appointment-tabs button.is-active::after {
+  background: #1775e4;
+}
+
+.appointment-tabs button:disabled {
+  cursor: not-allowed;
+
+  opacity: 0.35;
+}
+
+
+/* =========================================================
+   Workspace
+   목록 + 상세가 같은 탭 콘텐츠 안에 들어간 모양
+========================================================= */
+
+.appointment-workspace {
+  display: grid;
+  flex: 1;
+
+  min-height: 0;
+
+  grid-template-columns:
+    minmax(0, 2.2fr)
+    minmax(380px, 0.82fr);
+
+  gap: 0;
+
+  margin-top: 0;
+
+  overflow: hidden;
+
+  border: 1px solid #dce5ef;
+  border-top: 0;
+  border-radius: 0 0 12px 12px;
+
+  background: #ffffff;
+
+  box-shadow: 0 4px 14px rgba(31, 54, 89, 0.04);
+}
+
+.appointment-list-card {
+  display: flex;
+
+  min-width: 0;
+  min-height: 0;
+
+  flex-direction: column;
+
+  overflow: hidden;
+
+  border: 0;
+  border-radius: 0;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.appointment-detail-card {
+  display: flex;
+
+  min-width: 0;
+  min-height: 0;
+
+  height: 100%;
+
+  flex-direction: column;
+
+  overflow: hidden;
+
+  border: 0;
+  border-left: 1px solid #dce5ef;
+  border-radius: 0;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+
+/* =========================================================
+   Status Filter
+========================================================= */
+
+.appointment-status-filters {
+  display: flex;
+  flex: 0 0 auto;
+
+  align-items: center;
+
+  gap: 7px;
+
+  min-height: 54px;
+
+  padding: 9px 13px;
+
+  overflow-x: auto;
+
+  border-bottom: 1px solid #e5ebf3;
+
+  background: #fbfcfe;
+}
+
+.appointment-status-filters::before {
+  flex: 0 0 auto;
+
+  margin-right: 5px;
+
+  color: #52637a;
+
+  font-size: 11px;
+  font-weight: 850;
+
+  content: "예약 상태";
+}
+
+.appointment-status-filters button {
+  flex: 0 0 auto;
+
+  min-height: 34px;
+
+  padding: 6px 14px;
+
+  border: 1px solid #d5dfeb;
+  border-radius: 999px;
+
+  background: #ffffff;
+  color: #526176;
+
+  font: inherit;
+  font-size: 12px;
+  font-weight: 750;
+
+  cursor: pointer;
+
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.appointment-status-filters button:hover {
+  border-color: #aac7e9;
+
+  background: #f5f9fe;
+  color: #176fd5;
+}
+
+.appointment-status-filters button.is-active {
+  border-color: #4387d3;
+
+  background: #edf6ff;
+  color: #176fd5;
+
+  box-shadow: inset 0 0 0 1px rgba(23, 111, 213, 0.07);
+}
+
+
+/* =========================================================
+   Search Filters
+========================================================= */
+
+.appointment-filters {
+  display: grid;
+  flex: 0 0 auto;
+
+  grid-template-columns:
+    minmax(250px, 1.25fr)
+    minmax(170px, 0.7fr)
+    minmax(210px, 0.95fr);
+
+  gap: 10px;
+
+  padding: 10px 13px;
+
+  border-bottom: 1px solid #e5eaf1;
+
+  background: #ffffff;
+}
+
+.appointment-list-meta {
+  display: flex;
+  flex: 0 0 42px;
+
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 12px;
+
+  padding: 0 13px;
+
+  border-bottom: 1px solid #e7edf4;
+
+  background: #ffffff;
+  color: #52637a;
+
+  font-size: 12px;
+}
+
+.appointment-list-meta strong {
+  color: #405169;
+
+  font-weight: 850;
+}
+
+.appointment-list-meta strong span {
+  color: #8490a1;
+
+  font-weight: 650;
+}
+
+
+/* =========================================================
+   Table
+   6명 + Pagination이 항상 한 화면에 보이게 고정
+========================================================= */
+
+.appointment-table-wrap {
+  flex: 1 1 auto;
+
+  min-height: 0;
+
+  overflow-x: auto;
+  overflow-y: hidden;
+
+  background: #ffffff;
+}
+
+.appointment-table-wrap table {
+  width: 100%;
+
+  table-layout: fixed;
+
+  border-collapse: collapse;
+
+  font-size: 12px;
+}
+
+.appointment-table-wrap thead {
+  background: #edf3f9;
+}
+
+.appointment-table-wrap th {
+  height: 40px;
+
+  padding: 7px 10px;
+
+  border-bottom: 1px solid #dbe4ee;
+
+  background: #edf3f8;
+  color: #425770;
+
+  font-size: 11px;
+  font-weight: 850;
+
+  text-align: left;
+  white-space: nowrap;
+}
+
+.appointment-table-wrap td {
+  height: 56px;
+
+  padding: 7px 10px;
+
+  border-bottom: 1px solid #e9eef4;
+
+  color: #344861;
+
+  font-size: 12px;
+  line-height: 1.3;
+  vertical-align: middle;
+}
+
+.appointment-table-wrap tbody tr {
+  cursor: pointer;
+
+  transition:
+    background 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+.appointment-table-wrap tbody tr:nth-child(even):not(.is-selected) {
+  background: #fbfdff;
+}
+
+.appointment-table-wrap tbody tr:hover {
+  background: #f0f7ff;
+}
+
+.appointment-table-wrap tbody tr.is-selected {
+  background: #dceeff;
+
+  box-shadow:
+    inset 4px 0 0 #2176d2,
+    inset 0 1px 0 #c4def8,
+    inset 0 -1px 0 #c4def8;
+}
+
+.appointment-table-wrap tbody tr.is-selected:hover {
+  background: #d7ebff;
+}
+
+
+/* 열 너비: 공백을 줄이고 실제 정보 밀도를 높임 */
+
+/* 시간 */
+.appointment-table-wrap th:nth-child(1),
+.appointment-table-wrap td:nth-child(1) {
+  width: 68px;
+}
+
+/* 환자 */
+.appointment-table-wrap th:nth-child(2),
+.appointment-table-wrap td:nth-child(2) {
+  width: 20%;
+}
+
+/* 진료과 */
+.appointment-table-wrap th:nth-child(3),
+.appointment-table-wrap td:nth-child(3) {
+  width: 15%;
+}
+
+/* 담당의 */
+.appointment-table-wrap th:nth-child(4),
+.appointment-table-wrap td:nth-child(4) {
+  width: 30%;
+}
+
+/* 상태 */
+.appointment-table-wrap th:nth-child(5),
+.appointment-table-wrap td:nth-child(5) {
+  width: 92px;
+}
+
+/* 예약 유형 */
+.appointment-table-wrap th:nth-child(6),
+.appointment-table-wrap td:nth-child(6) {
+  width: 84px;
+}
+
+.appointment-table-wrap td strong,
+.appointment-table-wrap td small {
+  display: block;
+
+  min-width: 0;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.appointment-table-wrap td strong {
+  color: #132b48;
+
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.appointment-table-wrap td small {
+  margin-top: 3px;
+
+  color: #6f8097;
+
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.appointment-table-wrap td:first-child {
+  color: #284c75;
+  font-weight: 750;
+}
+
+.appointment-table-wrap tbody tr.is-selected td strong {
+  color: #0d5ead;
+}
+
+.appointment-table-wrap td:nth-child(3) {
+  color: #455a73;
+
+  font-weight: 700;
+}
+
+.appointment-table-wrap td:nth-child(4) {
+  overflow: hidden;
+
+  color: #334962;
+
+  font-weight: 700;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.appointment-department-label,
+.appointment-type-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  min-height: 27px;
+  padding: 4px 10px;
+
+  border: 1px solid #d5e2f0;
+  border-radius: 999px;
+
+  background: #f3f7fc;
+  color: #315574;
+
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.appointment-clinician-name {
+  display: block;
+
+  overflow: hidden;
+
+  color: #243c59;
+
+  font-size: 12px;
+  font-weight: 800;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.appointment-type-label {
+  border-color: #c9daf0;
+
+  background: #edf5ff;
+  color: #1d65af;
+}
+
+.appointment-table-wrap th:nth-child(5),
+.appointment-table-wrap td:nth-child(5),
+.appointment-table-wrap th:nth-child(6),
+.appointment-table-wrap td:nth-child(6) {
+  text-align: center;
+}
+
+
+/* =========================================================
+   Status Badges
+   상태가 즉시 구분되도록 대비 강화
+========================================================= */
+
+.appointment-status {
+  display: inline-flex;
+
+  min-width: 70px;
+
+  align-items: center;
+  justify-content: center;
+
+  padding: 6px 10px;
+
+  border: 1px solid transparent;
+  border-radius: 999px;
+
+  font-size: 11px;
+  font-weight: 900;
+
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* 승인 대기 */
+.appointment-status.is-requested {
+  border-color: #f2cf8b;
+
+  background: #fff0d4;
+  color: #a76200;
+}
+
+/* 예약 확정 */
+.appointment-status.is-confirmed {
+  border-color: #9bcaf5;
+
+  background: #dceeff;
+  color: #075fae;
+}
+
+/* 진료 중 */
+.appointment-status.is-in_progress {
+  border-color: #f0ca72;
+
+  background: #fff0c7;
+  color: #8a5900;
+}
+
+/* 진료 완료 */
+.appointment-status.is-completed {
+  border-color: #9fd7b8;
+
+  background: #dcf3e7;
+  color: #106943;
+}
+
+/* 예약 취소 */
+.appointment-status.is-cancelled {
+  border-color: #cbd1d9;
+
+  background: #eef0f3;
+  color: #596574;
+}
+
+/* 예약 거절 */
+.appointment-status.is-rejected {
+  border-color: #e7a9b0;
+
+  background: #ffe5e8;
+  color: #a83240;
+}
+
+
+/* =========================================================
+   Pagination
+   항상 카드 바닥에 노출
+========================================================= */
+
+.appointment-pagination {
+  display: flex;
+  flex: 0 0 46px;
+
+  min-height: 46px;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 12px;
+
+  padding: 0 12px;
+
+  border-top: 1px solid #e3eaf2;
+
+  background: #ffffff;
+}
+
+.appointment-pagination button {
+  display: grid;
+
+  width: 32px;
+  height: 30px;
+
+  place-items: center;
+
+  border: 1px solid #cfdbe8;
+  border-radius: 7px;
+
+  background: #ffffff;
+  color: #176fd5;
+
+  font-size: 17px;
+  line-height: 1;
+
+  cursor: pointer;
+}
+
+.appointment-pagination button:hover:not(:disabled) {
+  border-color: #8eb5df;
+
+  background: #edf5ff;
+}
+
+.appointment-pagination button:disabled {
+  cursor: not-allowed;
+
+  opacity: 0.28;
+}
+
+.appointment-pagination span {
+  min-width: 58px;
+
+  color: #68778d;
+
+  font-size: 12px;
+
+  text-align: center;
+}
+
+.appointment-pagination strong {
+  color: #176fd5;
+
+  font-weight: 850;
+}
+
+
+/* =========================================================
+   Detail
+   오른쪽 예약 상세를 압축하고 정보 계층 강화
+========================================================= */
+
+.appointment-detail-heading {
+  display: flex;
+  flex: 0 0 46px;
+
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 10px;
+
+  padding: 0 14px;
+
+  border-bottom: 1px solid #e3eaf2;
+
+  background: #ffffff;
+}
+
+/* 위쪽 작은 "예약 상세 정보" 문구는 숨김 */
+.appointment-detail-heading span {
+  display: none;
+}
+
+.appointment-detail-heading h3 {
+  margin: 0;
+
+  color: #1d2f48;
+
+  font-size: 17px;
+  font-weight: 900;
+}
+
+
+/* 상세 본문 */
+.appointment-detail-content {
+  display: flex;
+  flex: 1;
+
+  min-height: 0;
+
+  flex-direction: column;
+
+  overflow-y: auto;
+
+  background: #ffffff;
+}
+
+
+/* =========================================================
+   Patient Summary
+========================================================= */
+
+.appointment-patient-summary {
+  display: grid;
+
+  grid-template-columns:
+    42px
+    minmax(0, 1fr)
+    auto;
+
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 10px 14px;
+
+  border-bottom: 1px solid #e8edf4;
+
+  background: #ffffff;
+}
+
+.appointment-patient-avatar {
+  display: grid;
+
+  width: 42px;
+  height: 42px;
+
+  place-items: center;
+
+  border-radius: 50%;
+
+  background: #e6f2ff;
+  color: #176dcc;
+
+  font-size: 16px;
+  font-weight: 850;
+}
+
+.appointment-patient-main {
+  min-width: 0;
+}
+
+.appointment-patient-main h4 {
+  margin: 0;
+
+  color: #1c2d44;
+
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.appointment-patient-main p {
+  margin: 3px 0 0;
+
+  overflow: hidden;
+
+  color: #78869a;
+
+  font-size: 11px;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.appointment-patient-state {
+  display: flex;
+  flex-direction: column;
+
+  align-items: flex-end;
+
+  gap: 4px;
+}
+
+.appointment-patient-state small {
+  color: #7b8798;
+
+  font-size: 10px;
+
+  white-space: nowrap;
+}
+
+
+/* =========================================================
+   Request Notice
+========================================================= */
+
+.appointment-request-notice {
+  margin: 8px 12px 0;
+
+  padding: 8px 10px;
+
+  border: 1px solid #efd39c;
+  border-radius: 7px;
+
+  background: #fff8e8;
+  color: #875a0a;
+
+  font-size: 10px;
+  font-weight: 750;
+}
+
+
+/* =========================================================
+   Detail Sections
+========================================================= */
+
+.appointment-detail-section {
+  padding: 6px 12px 0;
+}
+
+.appointment-detail-section h4 {
+  margin: 0;
+
+  padding: 7px 9px;
+
+  border-left: 3px solid #2d7ed3;
+  border-radius: 6px;
+
+  background: #edf4fa;
+  color: #263b56;
+
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.appointment-detail-section dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 12px;
+
+  margin: 0;
+
+  padding: 0 2px;
+}
+
+.appointment-detail-section dl div {
+  display: block;
+
+  min-width: 0;
+  min-height: 46px;
+
+  padding: 6px;
+
+  border-bottom: 1px solid #edf1f6;
+
+  font-size: 11px;
+}
+
+.appointment-detail-section dt {
+  color: #7a8799;
+
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.appointment-detail-section dd {
+  margin: 3px 0 0;
+
+  overflow-wrap: anywhere;
+
+  color: #263850;
+
+  font-size: 13px;
+  font-weight: 850;
+  line-height: 1.35;
+}
+
+
+/* 요청 사유 / 사유형 긴 문장 */
+.appointment-detail-section .is-request-reason {
+  grid-column: 1 / -1;
+}
+
+.appointment-detail-section .is-request-reason dd,
+.appointment-detail-section .is-reason dd {
+  padding: 5px 7px;
+
+  border: 1px solid #d8e2ed;
+  border-radius: 7px;
+
+  background: #f8fafc;
+
+  color: #455871;
+
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.appointment-detail-section .is-request-reason.is-empty dd {
+  padding: 0;
+
+  border: 0;
+
+  background: transparent;
+  color: #8a97a8;
+
+  font-weight: 650;
+}
+
+.appointment-detail-section .is-reason {
+  grid-column: 1 / -1;
+}
+
+
+/* =========================================================
+   Detail Action
+========================================================= */
+
+.appointment-actions {
+  display: flex;
+  flex: 0 0 auto;
+
+  gap: 8px;
+
+  margin-top: auto;
+
+  padding: 10px 12px;
+
+  border-top: 1px solid #e3eaf2;
+
+  background: #ffffff;
+}
+
+.appointment-actions button,
+.appointment-request-list button,
+.appointment-schedule-card button {
+  min-height: 38px;
+
+  padding: 7px 12px;
+
+  border: 1px solid #c9daec;
+  border-radius: 8px;
+
+  background: #ffffff;
+  color: #236cbe;
+
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+
+  cursor: pointer;
+}
+
+.appointment-actions button {
+  flex: 1;
+}
+
+.appointment-actions .is-primary,
+.appointment-schedule-card footer button {
+  border-color: #1b73d5;
+
+  background: #1b73d5;
+  color: #ffffff;
+}
+
+.appointment-actions .is-primary:hover:not(:disabled) {
+  background: #1268c5;
+}
+
+.appointment-actions .is-danger {
+  border-color: #df5965;
+
+  background: #ffffff;
+  color: #c83d4a;
+}
+
+.appointment-actions .is-danger:hover:not(:disabled) {
+  background: #fff5f6;
+}
+
+
+/* =========================================================
+   Empty / Error
+========================================================= */
+
+.appointment-empty {
+  display: grid;
+
+  flex: 1;
+
+  min-height: 120px;
+
+  place-items: center;
+
+  padding: 22px;
+
+  color: #7c899b;
+
+  font-size: 12px;
+  line-height: 1.6;
+
+  text-align: center;
+}
+
+.appointment-empty.is-detail-empty {
+  min-height: 160px;
+}
+
+.appointment-empty.is-compact {
+  min-height: 50px;
+
+  width: 100%;
+}
+
+.appointment-empty.is-error,
+.appointment-action-error {
+  color: #b64b55;
+}
+
+.appointment-action-error {
+  margin: 8px 14px 12px;
+
+  font-size: 11px;
+}
+
+
+/* =========================================================
+   Appointment Request
+========================================================= */
+
+.appointment-request-list {
+  display: grid;
+
+  gap: 8px;
+
+  padding: 14px;
+}
+
+.appointment-request-list article {
+  display: grid;
+
+  grid-template-columns:
+    minmax(220px, 1fr)
+    auto
+    auto;
+
+  align-items: center;
+
+  gap: 12px;
+
+  padding: 12px 14px;
+
+  border: 1px solid #e3eaf3;
+  border-radius: 9px;
+
+  background: #ffffff;
+}
+
+.appointment-request-list article:hover {
+  background: #f8fbff;
+}
+
+.appointment-request-list article > div:first-child {
+  display: flex;
+  flex-direction: column;
+
+  min-width: 0;
+
+  gap: 4px;
+}
+
+.appointment-request-list article > div:first-child strong,
+.appointment-request-list article > div:first-child span {
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.appointment-request-list article span {
+  color: #758298;
+
+  font-size: 11px;
+}
+
+.appointment-request-list article > div:last-child {
+  display: flex;
+
+  gap: 6px;
+}
+
+.appointment-request-list button:last-child {
+  color: #a84c57;
+}
+
+
+/* =========================================================
+   Schedule
+========================================================= */
+
+.weekly-schedule-clinician {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+  color: #65758d;
+  font-size: 12px;
+}
+
+.weekly-schedule-clinician strong,
+.weekly-schedule-clinician select {
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid #c9daec;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #263a5a;
+  font: inherit;
+  font-weight: 800;
+}
+
+.schedule-management-overview {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+
+  min-height: 0;
+  overflow: hidden;
+
+  border: 1px solid #dce5ef;
+  border-top: 0;
+  border-radius: 0 0 12px 12px;
+
+  background: #ffffff;
+}
+
+.schedule-management-overview .weekly-schedule-clinician {
+  min-height: 58px;
+
+  margin-top: 0;
+  padding: 12px 20px;
+
+  border-bottom: 1px solid #e1eaf4;
+
+  background: #fbfcfe;
+}
+
+.schedule-management-overview .weekly-schedule-card {
+  flex: 1 1 0;
+  min-height: 0;
+
+  margin-top: 0;
+
+  border: 0;
+  border-radius: 0;
+}
+
+.weekly-schedule-card {
+  flex: 1;
+  min-height: 0;
+  margin-top: 10px;
+  overflow: hidden;
+  border: 1px solid #dce5ef;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.weekly-schedule-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px;
+  border-bottom: 1px solid #dfe7f1;
+}
+
+.weekly-schedule-heading h3,
+.weekly-schedule-heading p {
+  margin: 0;
+}
+
+.weekly-schedule-heading h3 {
+  color: #1b2d46;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.weekly-schedule-heading p {
+  margin-top: 4px;
+  color: #718097;
+  font-size: 12px;
+}
+
+.weekly-schedule-navigation {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.weekly-schedule-navigation strong {
+  min-width: 210px;
+  color: #203752;
+  font-size: 13px;
+  text-align: center;
+}
+
+.weekly-schedule-navigation button {
+  min-height: 34px;
+  padding: 6px 11px;
+  border: 1px solid #c9daec;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #176fd5;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.weekly-calendar-scroll {
+  height: calc(100% - 78px);
+  min-height: 480px;
+  overflow: auto;
+  padding: 0 16px 16px;
+}
+
+.weekly-calendar {
+  position: relative;
+  display: grid;
+  grid-template-columns: 66px repeat(7, minmax(120px, 1fr));
+  grid-template-rows: 42px 600px;
+  min-width: 940px;
+  border: 1px solid #dce5ef;
+  border-radius: 9px;
+  overflow: hidden;
+}
+
+.weekly-calendar-corner,
+.weekly-calendar-day {
+  display: grid;
+  place-items: center;
+  border-right: 1px solid #dfe7f1;
+  border-bottom: 1px solid #dfe7f1;
+  background: #f8fafc;
+  color: #2d435f;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.weekly-calendar-day.is-today {
+  background: #e9f3ff;
+  color: #0968d4;
+}
+
+.weekly-calendar-day.is-sunday {
+  background: #fff4f4;
+  color: #c63f48;
+}
+
+.weekly-calendar-times {
+  display: grid;
+  grid-template-rows: repeat(21, 1fr);
+  border-right: 1px solid #dfe7f1;
+  background: #fbfcfe;
+}
+
+.weekly-calendar-times span {
+  padding-top: 3px;
+  color: #62758f;
+  font-size: 11px;
+  text-align: center;
+  transform: translateY(-8px);
+}
+
+.weekly-calendar-column {
+  position: relative;
+  display: grid;
+  grid-template-rows: repeat(20, 1fr);
+  border-right: 1px solid #dfe7f1;
+  background: #ffffff;
+}
+
+.weekly-calendar-line {
+  border-bottom: 1px solid #e7edf4;
+}
+
+.weekly-calendar-availability {
+  position: absolute;
+  right: 4px;
+  left: 4px;
+  z-index: 1;
+  border-left: 3px solid #a7c9ee;
+  border-radius: 4px;
+  background: rgba(225, 239, 255, 0.55);
+  pointer-events: none;
+}
+
+.weekly-appointment {
+  position: absolute;
+  right: 6px;
+  left: 6px;
+  z-index: 2;
+  min-height: 42px;
+  overflow: hidden;
+  padding: 6px 7px;
+  border: 1px solid #bdd6f2;
+  border-left: 3px solid #1477e6;
+  border-radius: 6px;
+  background: #eef6ff;
+  color: #29405c;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.weekly-appointment strong,
+.weekly-appointment span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.weekly-appointment strong {
+  font-size: 11px;
+}
+
+.weekly-appointment.is-in_progress {
+  border-color: #a9dfc2;
+  border-left-color: #13a05d;
+  background: #edf9f2;
+}
+
+.weekly-appointment.is-completed {
+  border-color: #ccd6e3;
+  border-left-color: #8295ad;
+  background: #f3f6f9;
+}
+
+.weekly-calendar-empty {
+  position: absolute;
+  inset: 42px 0 0 66px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.82);
+  color: #76869b;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+@media (max-width: 1100px) {
+  .weekly-schedule-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .weekly-schedule-navigation {
+    width: 100%;
+  }
+}
+
+.appointment-schedule-card {
+  flex: 1;
+
+  min-height: 0;
+
+  margin-top: 10px;
+
+  overflow: auto;
+
+  border: 1px solid #dce5ef;
+  border-radius: 12px;
+
+  background: #ffffff;
+}
+
+.appointment-schedule-card > header {
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 14px;
+
+  border-bottom: 1px solid #e5eaf1;
+
+  background: #fbfcfe;
+}
+
+.appointment-schedule-card > header > div:last-child {
+  display: flex;
+
+  gap: 7px;
+}
+
+.appointment-booking-card {
+  margin-top: 0;
+
+  border-top: 0;
+  border-radius: 0 0 12px 12px;
+
+  overflow: hidden;
+}
+
+.appointment-booking-card > .appointment-booking-header {
+  min-height: 88px;
+
+  padding: 18px 20px;
+
+  border-bottom-color: #dce8f6;
+
+  background: linear-gradient(100deg, #f4f8fe 0%, #ffffff 72%);
+}
+
+.appointment-booking-title {
+  display: flex;
+
+  align-items: center;
+  gap: 7px;
+}
+
+.appointment-booking-title i {
+  color: #9aacc1;
+  font-size: 13px;
+  font-style: normal;
+}
+
+.appointment-booking-header h3 {
+  margin: 0;
+
+  color: #17365d;
+  font-size: 18px;
+  line-height: 1.35;
+}
+
+.appointment-booking-header p {
+  margin: 5px 0 0;
+
+  color: #687991;
+  font-size: 12px;
+}
+
+.appointment-booking-badge {
+  flex: 0 0 auto;
+
+  padding: 6px 9px;
+
+  border: 1px solid #cbdcf0;
+  border-radius: 999px;
+
+  background: #ffffff;
+  color: #2867aa;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.appointment-booking-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.35fr) minmax(150px, 1fr) minmax(145px, 0.9fr) minmax(170px, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+
+  padding: 18px 20px;
+
+  background: #ffffff;
+}
+
+.appointment-booking-field {
+  display: flex;
+  flex-direction: column;
+
+  gap: 7px;
+
+  color: #536b89;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.appointment-booking-field input,
+.appointment-booking-field select {
+  width: 100%;
+  height: 42px;
+
+  padding: 0 11px;
+
+  border: 1px solid #cfddeb;
+  border-radius: 8px;
+
+  background: #ffffff;
+  color: #223952;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.appointment-booking-field input:focus,
+.appointment-booking-field select:focus {
+  border-color: #367fca;
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(54, 127, 202, 0.12);
+}
+
+.appointment-booking-submit {
+  min-width: 112px;
+  height: 42px;
+
+  border: 1px solid #1b73d5 !important;
+  border-radius: 8px !important;
+
+  background: #1b73d5 !important;
+  color: #ffffff !important;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.appointment-booking-submit:hover:not(:disabled) {
+  border-color: #125cae !important;
+
+  background: #125cae !important;
+}
+
+.appointment-booking-card .appointment-empty,
+.appointment-booking-card .appointment-action-error {
+  margin: 0 20px 18px;
+}
+
+.schedule-management-card {
+  flex: 1 1 0;
+  min-height: 0;
+
+  overflow: hidden;
+}
+
+.schedule-management-card > .schedule-management-header {
+  min-height: 88px;
+
+  padding: 18px 20px;
+
+  border-bottom-color: #dce8f6;
+
+  background: linear-gradient(100deg, #f4f8fe 0%, #ffffff 72%);
+}
+
+.schedule-management-title {
+  display: flex;
+
+  align-items: center;
+  gap: 7px;
+}
+
+.schedule-management-title i {
+  color: #9aacc1;
+  font-size: 13px;
+  font-style: normal;
+}
+
+.schedule-management-header h3 {
+  margin: 0;
+
+  color: #17365d;
+  font-size: 18px;
+  line-height: 1.35;
+}
+
+.schedule-management-header p {
+  margin: 5px 0 0;
+
+  color: #687991;
+  font-size: 12px;
+}
+
+.schedule-management-header > div:last-child select {
+  height: 42px;
+  min-width: 160px;
+
+  border-color: #cfddeb;
+  border-radius: 8px;
+
+  color: #223952;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.schedule-management-header > div:last-child button {
+  min-height: 42px;
+
+  border-color: #c9daec;
+  border-radius: 8px;
+
+  background: #ffffff;
+  color: #2867aa;
+  font-weight: 800;
+}
+
+.schedule-management-card .schedule-management-editor {
+  grid-template-columns: 100px 125px 125px 100px 170px minmax(110px, auto);
+  gap: 12px;
+
+  padding: 18px 20px;
+
+  border-bottom-color: #e1eaf4;
+
+  background: #ffffff;
+}
+
+.schedule-management-card .schedule-management-editor label {
+  gap: 7px;
+
+  color: #536b89;
+  font-size: 11px;
+}
+
+.schedule-management-card .schedule-management-editor input,
+.schedule-management-card .schedule-management-editor select {
+  height: 42px;
+
+  padding: 0 11px;
+
+  border-color: #cfddeb;
+  border-radius: 8px;
+
+  color: #223952;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.schedule-management-card .schedule-management-editor input:focus,
+.schedule-management-card .schedule-management-editor select:focus {
+  border-color: #367fca;
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(54, 127, 202, 0.12);
+}
+
+.schedule-management-card .schedule-management-editor .schedule-rule-add-button {
+  min-height: 42px;
+
+  border-color: #aecaeb;
+  border-radius: 8px;
+
+  background: #f7fbff;
+  color: #2867aa;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.schedule-management-card .schedule-management-editor .schedule-rule-add-button:hover {
+  border-color: #367fca;
+
+  background: #edf6ff;
+}
+
+.schedule-management-card .schedule-rule-list {
+  gap: 8px;
+
+  padding: 18px 20px;
+
+  background: #f9fbfe;
+}
+
+.schedule-management-card .schedule-rule-list > div {
+  min-height: 48px;
+
+  border-color: #dbe6f2;
+  border-radius: 9px;
+
+  background: #ffffff;
+  color: #4f637c;
+}
+
+.schedule-management-card .schedule-rule-list > div > strong {
+  color: #214f80;
+}
+
+.schedule-management-card .schedule-rule-list label {
+  display: inline-flex;
+
+  align-items: center;
+  gap: 5px;
+
+  color: #3474b8;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.schedule-management-footer {
+  padding: 0 20px 20px !important;
+
+  border-top: 1px solid #e1eaf4;
+
+  background: #f9fbfe;
+}
+
+.schedule-management-footer .schedule-save-button {
+  min-width: 122px;
+  min-height: 42px;
+
+  border-radius: 8px !important;
+
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.schedule-rule-editor {
+  display: grid;
+
+  grid-template-columns:
+    90px
+    110px
+    110px
+    90px
+    150px
+    auto;
+
+  align-items: end;
+
+  gap: 8px;
+
+  padding: 14px;
+
+  border-bottom: 1px solid #e7edf4;
+
+  background: #f9fbfe;
+}
+
+.schedule-rule-editor label {
+  display: flex;
+  flex-direction: column;
+
+  gap: 5px;
+
+  color: #6d7a8e;
+
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.schedule-rule-editor input,
+.schedule-rule-editor select {
+  height: 36px;
+
+  padding: 0 8px;
+
+  border: 1px solid #d8e1ed;
+  border-radius: 7px;
+
+  background: #ffffff;
+  color: #2b3b54;
+
+  font: inherit;
+  font-size: 11px;
+}
+
+.schedule-rule-list {
+  display: grid;
+
+  gap: 7px;
+
+  padding: 14px;
+}
+
+.schedule-rule-list > div {
+  display: grid;
+
+  grid-template-columns:
+    60px
+    120px
+    70px
+    1fr
+    auto;
+
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 11px 12px;
+
+  border: 1px solid #e3eaf2;
+  border-radius: 8px;
+
+  color: #536176;
+
+  font-size: 12px;
+}
+
+.appointment-schedule-card footer {
+  display: flex;
+
+  justify-content: flex-end;
+
+  padding: 0 14px 14px;
+}
+
+
+/* =========================================================
+   Disabled
+========================================================= */
+
+.appointment-actions button:disabled,
+.appointment-request-list button:disabled,
+.appointment-schedule-card button:disabled {
+  cursor: not-allowed;
+
+  opacity: 0.4;
+}
+
+
+/* =========================================================
+   Reject Modal
+========================================================= */
+
+.appointment-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+
+  display: grid;
+  place-items: center;
+
+  padding: 24px;
+
+  background: rgba(15, 29, 49, 0.46);
+
+  backdrop-filter: blur(2px);
+}
+
+.appointment-reject-modal {
+  width: min(520px, calc(100vw - 40px));
+  max-height: min(720px, calc(100vh - 48px));
+
+  overflow: auto;
+
+  border: 1px solid #dbe4ef;
+  border-radius: 16px;
+
+  background: #ffffff;
+
+  box-shadow:
+    0 24px 70px rgba(26, 47, 77, 0.22),
+    0 4px 16px rgba(26, 47, 77, 0.08);
+}
+
+.appointment-reject-modal > header {
+  display: flex;
+
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 16px;
+
+  padding: 20px 22px 16px;
+
+  border-bottom: 1px solid #e8edf4;
+}
+
+.appointment-reject-modal > header span {
+  display: block;
+
+  margin-bottom: 4px;
+
+  color: #3575c5;
+
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.appointment-reject-modal > header h3 {
+  margin: 0;
+
+  color: #1f3049;
+
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.appointment-modal-close {
+  display: grid;
+
+  width: 34px;
+  height: 34px;
+
+  flex: 0 0 auto;
+  place-items: center;
+
+  border: 1px solid #dbe3ed;
+  border-radius: 9px;
+
+  background: #ffffff;
+  color: #69778a;
+
+  font-size: 22px;
+  line-height: 1;
+
+  cursor: pointer;
+}
+
+.appointment-reject-modal-body {
+  padding: 18px 22px 20px;
+}
+
+.appointment-reject-patient {
+  display: grid;
+
+  grid-template-columns:
+    44px
+    minmax(0, 1fr)
+    auto;
+
+  align-items: center;
+
+  gap: 12px;
+
+  padding: 12px;
+
+  border: 1px solid #e4eaf2;
+  border-radius: 12px;
+
+  background: #f8fafd;
+}
+
+.appointment-reject-avatar {
+  display: grid;
+
+  width: 44px;
+  height: 44px;
+
+  place-items: center;
+
+  border-radius: 50%;
+
+  background: #e8f3ff;
+  color: #176dcc;
+
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.appointment-reject-patient > div:nth-child(2) {
+  display: flex;
+  flex-direction: column;
+
+  min-width: 0;
+
+  gap: 3px;
+}
+
+.appointment-reject-context {
+  display: grid;
+
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+
+  gap: 8px;
+
+  margin-top: 12px;
+}
+
+.appointment-reject-context > div {
+  display: flex;
+  flex-direction: column;
+
+  min-width: 0;
+
+  gap: 5px;
+
+  padding: 10px 11px;
+
+  border: 1px solid #e7edf4;
+  border-radius: 10px;
+
+  background: #ffffff;
+}
+
+.appointment-reject-reason {
+  display: flex;
+  flex-direction: column;
+
+  gap: 7px;
+
+  margin-top: 18px;
+}
+
+.appointment-reject-reason textarea {
+  width: 100%;
+  min-height: 118px;
+
+  resize: vertical;
+
+  padding: 12px 13px;
+
+  border: 1px solid #ced9e6;
+  border-radius: 10px;
+
+  outline: none;
+
+  background: #ffffff;
+  color: #263750;
+
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.appointment-reject-reason textarea:focus {
+  border-color: #78a8df;
+
+  box-shadow: 0 0 0 3px rgba(53, 117, 197, 0.1);
+}
+
+.appointment-reject-modal > footer {
+  display: flex;
+
+  justify-content: flex-end;
+
+  gap: 8px;
+
+  padding: 14px 22px 18px;
+
+  border-top: 1px solid #e8edf4;
+
+  background: #fbfcfe;
+}
+
+.appointment-reject-modal > footer button {
+  min-width: 96px;
+  height: 38px;
+
+  padding: 0 15px;
+
+  border-radius: 9px;
+
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+
+  cursor: pointer;
+}
+
+.appointment-reject-modal > footer .is-secondary {
+  border: 1px solid #ced9e6;
+
+  background: #ffffff;
+  color: #536176;
+}
+
+.appointment-reject-modal > footer .is-primary {
+  border: 1px solid #1b73d5;
+
+  background: #1b73d5;
+  color: #ffffff;
+
+  box-shadow: 0 2px 6px rgba(27, 115, 213, 0.16);
+}
+
+.appointment-reject-modal > footer .is-primary:hover:not(:disabled) {
+  border-color: #1268c5;
+
+  background: #1268c5;
+}
+
+.appointment-reject-modal > footer .is-secondary:hover:not(:disabled) {
+  border-color: #aac7e9;
+
+  background: #f6f9fd;
+  color: #315574;
+}
+
+
+.appointment-reject-modal > footer .is-danger {
+  border: 1px solid #d84d59;
+
+  background: #ffffff;
+  color: #c83e4b;
+}
+
+.appointment-reject-modal > footer button:disabled,
+.appointment-modal-close:disabled {
+  cursor: not-allowed;
+
+  opacity: 0.45;
+}
+
+
+/* =========================================================
+   Responsive
+========================================================= */
+
+@media (max-width: 1350px) {
+  .appointment-workspace {
+    grid-template-columns:
+      minmax(0, 1.85fr)
+      minmax(360px, 0.85fr);
+  }
+
+  .appointment-table-wrap th,
+  .appointment-table-wrap td {
+    padding-right: 8px;
+    padding-left: 8px;
+  }
+}
+
+@media (max-width: 1100px) {
+  .appointment-page {
+    overflow: auto;
+  }
+
+  .appointment-today {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .appointment-today > header {
+    min-width: 0;
+  }
+
+  .appointment-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .appointment-workspace {
+    display: flex;
+
+    overflow: visible;
+
+    flex-direction: column;
+
+    border-radius: 0 0 12px 12px;
+  }
+
+  .appointment-detail-card {
+    min-height: 500px;
+
+    border-top: 1px solid #dce5ef;
+    border-left: 0;
+  }
+
+  .appointment-filters {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .appointment-booking-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .schedule-management-card .schedule-management-editor {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .appointment-booking-submit {
+    width: 100%;
+  }
+}
+
+@media (max-width: 720px) {
+  .appointment-heading__title-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .appointment-detail-section dl {
+    grid-template-columns: 1fr;
+  }
+
+  .appointment-detail-section .is-request-reason,
+  .appointment-detail-section .is-reason {
+    grid-column: auto;
+  }
+
+  .appointment-status-filters {
+    overflow-x: auto;
+  }
+
+  .appointment-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .appointment-booking-card > .appointment-booking-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .appointment-booking-title {
+    flex-wrap: wrap;
+  }
+
+  .appointment-booking-form {
+    grid-template-columns: 1fr;
+  }
+
+  .schedule-management-card > .schedule-management-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .schedule-management-title {
+    flex-wrap: wrap;
+  }
+
+  .schedule-management-card .schedule-management-editor {
+    grid-template-columns: 1fr;
+  }
+
+  .appointment-list-meta {
+    min-height: 58px;
+
+    align-items: flex-start;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .appointment-reject-context {
+    grid-template-columns: 1fr;
+  }
+
+  .appointment-reject-modal > footer {
+    flex-direction: column-reverse;
+  }
+
+  .appointment-reject-modal > footer button {
+    width: 100%;
+  }
+}

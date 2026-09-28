@@ -1,0 +1,25 @@
+# Development-only synthetic inference. Use together with compose.yaml.
+services:
+  celery-inference-worker:
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-TODO_REPLACE_WITH_LOCAL_ONLY_VALUE}
+      AI_INFERENCE_DEVELOPMENT_ENABLED: "true"
+      INFERENCE_API_URL: http://inference-mock:8100
+    depends_on:
+      inference-mock:
+        condition: service_healthy
+  backend:
+    environment:
+      AI_INFERENCE_DEVELOPMENT_ENABLED: "true"
+      INFERENCE_API_URL: http://inference-mock:8100
+  inference-mock:
+    build: ./mocks/inference-server
+    ports: ["127.0.0.1:8110:8100"]
+    environment:
+      INFERENCE_MOCK_ENABLED: "true"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8100/ready')"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped

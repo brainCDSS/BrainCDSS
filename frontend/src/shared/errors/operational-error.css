@@ -1,0 +1,203 @@
+.operational-error-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 24px;
+
+  background:
+    rgba(15, 23, 42, 0.24);
+
+  backdrop-filter:
+    blur(1px);
+}
+
+
+.operational-error-dialog {
+  width:
+    min(
+      390px,
+      calc(100vw - 40px)
+    );
+
+  padding:
+    28px 28px 24px;
+
+  border:
+    1px solid #e2e8f0;
+
+  border-radius:
+    16px;
+
+  background:
+    #ffffff;
+
+  box-shadow:
+    0 22px 55px
+    rgba(15, 23, 42, 0.20);
+
+  text-align:
+    center;
+}
+
+
+.operational-error-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 44px;
+  height: 44px;
+
+  margin:
+    0 auto 14px;
+
+  border-radius:
+    50%;
+
+  background:
+    #fef2f2;
+
+  color:
+    #dc2626;
+
+  font-size:
+    25px;
+
+  font-weight:
+    800;
+}
+
+
+.operational-error-title {
+  margin: 0;
+
+  color:
+    #0f172a;
+
+  font-size:
+    18px;
+
+  font-weight:
+    700;
+
+  line-height:
+    1.4;
+}
+
+
+.operational-error-message {
+  margin:
+    10px 0 20px;
+
+  color:
+    #64748b;
+
+  font-size:
+    14px;
+
+  line-height:
+    1.7;
+}
+
+
+.operational-error-reference {
+  display:
+    flex;
+
+  flex-direction:
+    column;
+
+  gap:
+    5px;
+
+  margin-bottom:
+    22px;
+
+  padding:
+    12px 14px;
+
+  border:
+    1px solid #e2e8f0;
+
+  border-radius:
+    10px;
+
+  background:
+    #f8fafc;
+}
+
+
+.operational-error-reference span {
+  color:
+    #64748b;
+
+  font-size:
+    12px;
+}
+
+
+.operational-error-reference strong {
+  color:
+    #1e293b;
+
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    monospace;
+
+  font-size:
+    14px;
+
+  letter-spacing:
+    0.03em;
+
+  user-select:
+    all;
+}
+
+
+.operational-error-close {
+  min-width:
+    88px;
+
+  height:
+    38px;
+
+  padding:
+    0 20px;
+
+  border:
+    0;
+
+  border-radius:
+    8px;
+
+  background:
+    #2563eb;
+
+  color:
+    #ffffff;
+
+  font-size:
+    14px;
+
+  font-weight:
+    600;
+
+  cursor:
+    pointer;
+}
+
+
+.operational-error-close:hover {
+  background:
+    #1d4ed8;
+}

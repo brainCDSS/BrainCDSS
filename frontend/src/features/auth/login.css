@@ -1,0 +1,407 @@
+/* =========================================================
+   BrainOn 의료진 로그인 디자인 토큰
+   내부 BrainCDSS와 동일한 색상만 사용하며 인증 동작에는 관여하지 않는다.
+   ========================================================= */
+:root {
+  --login-primary: #4f8fe8;
+  --login-page-bg: #f3f7fc;
+  --login-card: #ffffff;
+  --login-border: #e4ebf3;
+  --login-text: #263247;
+  --login-muted: #8a97a8;
+}
+
+/* =========================================================
+   Login Page Background
+   이미지 대신 낮은 투명도의 Primary Blue와 큰 CSS 곡선을 사용한다.
+   ========================================================= */
+.login-page {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-width: 1180px;
+  min-height: 100vh;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 40px 48px;
+  background:
+    radial-gradient(circle at 82% 15%, rgba(79, 143, 232, 0.145), transparent 36%),
+    radial-gradient(circle at 14% 88%, rgba(79, 143, 232, 0.08), transparent 39%),
+    var(--login-page-bg);
+  color: var(--login-text);
+  box-sizing: border-box;
+}
+
+.login-page::before,
+.login-page::after {
+  position: absolute;
+  z-index: 0;
+  border: 1px solid rgba(255, 255, 255, 0.88);
+  border-radius: 50%;
+  content: "";
+  pointer-events: none;
+}
+
+.login-page::before {
+  top: -600px;
+  left: -150px;
+  width: 1620px;
+  height: 820px;
+  background: rgba(79, 143, 232, 0.05);
+  transform: rotate(12deg);
+}
+
+.login-page::after {
+  right: -500px;
+  bottom: -590px;
+  width: 1820px;
+  height: 830px;
+  background: rgba(79, 143, 232, 0.06);
+  transform: rotate(-9deg);
+}
+
+.login-page *, .login-page *::before, .login-page *::after { box-sizing: border-box; }
+
+/* =========================================================
+   Desktop Layout
+   1920px에서 소개 영역과 500px 로그인 카드가 충분한 폭을 갖는다.
+   ========================================================= */
+.login-layout {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) 500px;
+  width: min(1380px, calc(100vw - 120px));
+  align-items: center;
+  gap: 100px;
+}
+
+/* =========================================================
+   Left Introduction
+   브랜드, 임상 지원 메시지와 세 가지 기능을 구성한다.
+   ========================================================= */
+.login-introduction {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  padding-left: 6px;
+}
+
+.login-introduction-brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 58px;
+}
+
+.login-introduction-logo {
+  width: 72px;
+  height: 72px;
+  flex: 0 0 72px;
+  padding: 8px;
+  border-radius: 16px;
+  border: 1px solid #cbdff8;
+  background: #dfeeff;
+  object-fit: contain;
+}
+
+.login-introduction-brand > div:last-child { display: flex; min-width: 0; flex-direction: column; }
+.login-introduction-brand strong { font-size: 32px; font-weight: 800; line-height: 1; letter-spacing: -0.04em; }
+.login-introduction-brand span { margin-top: 7px; color: var(--login-muted); font-size: 13px; line-height: 1; }
+
+.login-introduction-eyebrow {
+  margin: 0 0 18px;
+  color: var(--login-primary);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+}
+
+.login-introduction-copy h1 {
+  margin: 0;
+  color: var(--login-text);
+  font-size: clamp(44px, 3vw, 50px);
+  font-weight: 800;
+  line-height: 1.22;
+  letter-spacing: -0.05em;
+  word-break: keep-all;
+}
+
+.login-introduction-copy h1 em { color: var(--login-primary); font-style: normal; }
+
+.login-introduction-description {
+  margin: 30px 0 0;
+  color: #69788c;
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 1.72;
+  letter-spacing: -0.02em;
+  word-break: keep-all;
+}
+
+/* =========================================================
+   Feature Summary
+   세 기능은 데스크톱에서 한 줄 3열이며 SVG는 이 영역에서만 26px로 제한한다.
+   ========================================================= */
+.login-feature-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: 100%;
+  max-width: 630px;
+  margin-top: 44px;
+}
+
+.login-feature-item {
+  display: flex;
+  min-width: 0;
+  min-height: 92px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 0 22px;
+  border-right: 1px solid var(--login-border);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.login-feature-item:first-child { padding-left: 0; }
+.login-feature-item:last-child { padding-right: 0; border-right: 0; }
+
+.login-feature-icon {
+  display: flex;
+  width: 50px;
+  height: 50px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 13px;
+  background: rgba(79, 143, 232, 0.09);
+  color: var(--login-primary);
+}
+
+.login-feature-icon > svg { display: block; width: 26px; height: 26px; flex: 0 0 26px; }
+
+/* =========================================================
+   Glass Login Card
+   흰색 Card에 blur와 soft shadow만 더해 절제된 입체감을 표현한다.
+   ========================================================= */
+.login-card {
+  position: relative;
+  width: 100%;
+  transform: translate(28px, 56px);
+  padding: 50px 46px 40px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  border-radius: 24px;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.82),
+      rgba(255, 255, 255, 0.64)
+    );
+  backdrop-filter: blur(18px) saturate(112%);
+  -webkit-backdrop-filter: blur(18px) saturate(112%);
+  box-shadow:
+    0 34px 72px rgba(38, 50, 71, 0.13),
+    0 14px 32px rgba(79, 143, 232, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.98),
+    inset 0 -1px 0 rgba(79, 143, 232, 0.05);
+}
+
+.login-card::before {
+  position: absolute;
+  top: 0;
+  right: 26px;
+  left: 26px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #fff, transparent);
+  content: "";
+  pointer-events: none;
+}
+
+.login-brand { display: flex; flex-direction: column; align-items: center; margin-bottom: 32px; text-align: center; }
+.login-card-logo {
+  width: 68px;
+  height: 68px;
+  margin-bottom: 12px;
+  padding: 8px;
+  border-radius: 16px;
+  border: 1px solid #cbdff8;
+  background: #dfeeff;
+  object-fit: contain;
+}
+
+.login-brand-name { color: var(--login-text); font-size: 27px; font-weight: 800; line-height: 1; letter-spacing: -0.04em; }
+.login-brand h2 { margin: 12px 0 0; font-size: 20px; font-weight: 800; }
+.login-brand p { margin: 12px 0 0; color: var(--login-muted); font-size: 13px; line-height: 1.5; }
+
+/* =========================================================
+   Login Form / Input
+   실제 JSX의 login-input-shell을 직접 지정하여 사람·자물쇠 SVG만 19px로 제한한다.
+   ========================================================= */
+.login-form { width: 100%; }
+.login-field { width: 100%; margin-bottom: 19px; }
+.login-field > label { display: block; margin-bottom: 8px; font-size: 13px; font-weight: 700; }
+
+.login-input-shell {
+  display: flex;
+  width: 100%;
+  height: 56px;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  border: 1px solid var(--login-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.78);
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+}
+
+.login-input-shell:focus-within {
+  border-color: var(--login-primary);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 0 0 3px rgba(79, 143, 232, 0.1);
+}
+
+.login-input-icon {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  align-items: center;
+  justify-content: center;
+  color: #8198b8;
+}
+
+.login-input-icon > svg {
+  display: block;
+  width: 19px;
+  height: 19px;
+  max-width: 19px;
+  max-height: 19px;
+  flex: 0 0 19px;
+}
+
+.login-input-shell > input {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--login-text);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.login-input-shell > input::placeholder { color: #a5b1c0; }
+
+.login-password-toggle {
+  flex: 0 0 auto;
+  padding: 6px 0 6px 8px;
+  border: 0;
+  background: transparent;
+  color: #7187a5;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.login-password-toggle:hover { color: var(--login-primary); }
+
+/* =========================================================
+   Remember / Password Help
+   아직 기능이 없는 보조 항목은 JSX의 disabled 상태를 그대로 표현한다.
+   ========================================================= */
+.login-form-options {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 20px;
+  margin: -1px 0 21px;
+}
+
+/* JSX와 저장 로직은 건드리지 않고 현재 시안에서 아이디 저장 항목만 숨긴다. */
+.login-remember-option { display: none; }
+.login-remember-option input[type="checkbox"] { width: 17px; height: 17px; margin: 0; accent-color: var(--login-primary); }
+.login-support-link { padding: 0; border: 0; background: transparent; color: var(--login-primary); font-family: inherit; font-size: 12px; font-weight: 650; }
+.login-form-options :disabled { cursor: not-allowed; opacity: 0.72; }
+
+/* =========================================================
+   Login CTA / Error
+   Primary Blue 단색 버튼을 카드의 명확한 행동 지점으로 사용한다.
+   ========================================================= */
+.login-submit-button {
+  display: flex;
+  width: 100%;
+  height: 56px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 11px;
+  background: var(--login-primary);
+  color: #fff;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 10px 22px rgba(79, 143, 232, 0.2);
+  transition: transform 0.16s ease, filter 0.16s ease, box-shadow 0.16s ease;
+}
+
+.login-submit-button:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(0.97); box-shadow: 0 12px 24px rgba(79, 143, 232, 0.25); }
+.login-submit-button:disabled { cursor: not-allowed; opacity: 0.58; transform: none; box-shadow: none; }
+
+.login-error { margin: 0 0 14px; padding: 10px 12px; border: 1px solid rgba(220, 76, 90, 0.18); border-radius: 8px; background: rgba(220, 76, 90, 0.055); color: #c2414f; font-size: 12px; line-height: 1.5; }
+
+/* =========================================================
+   Account Help / SSO
+   안내는 카드 하단에 배치하고 최종 시안에서 제외된 SSO UI는 숨긴다.
+   ========================================================= */
+.login-help { margin: 26px 0 0; padding-top: 19px; border-top: 1px solid rgba(228, 235, 243, 0.92); color: var(--login-muted); font-size: 11px; line-height: 1.5; text-align: center; }
+.login-sso, .sso-login, .login-divider, .sso-divider { display: none; }
+
+/* =========================================================
+   Responsive Layout
+   데스크톱 구성을 유지하다가 좁은 화면에서 카드 중심으로 전환한다.
+   ========================================================= */
+@media (max-width: 1600px) {
+  .login-layout { grid-template-columns: minmax(0, 1fr) 470px; width: min(1260px, calc(100vw - 88px)); gap: 78px; }
+  .login-introduction-copy h1 { font-size: clamp(40px, 3vw, 46px); }
+  .login-card { padding: 42px 40px 34px; }
+}
+
+@media (max-width: 1366px) {
+  .login-page { padding: 28px 34px; }
+  .login-layout { grid-template-columns: minmax(0, 1fr) 420px; width: min(1120px, calc(100vw - 70px)); gap: 60px; }
+  .login-introduction-brand { margin-bottom: 38px; }
+  .login-introduction-copy h1 { font-size: 38px; }
+  .login-introduction-description { margin-top: 22px; font-size: 15px; }
+  .login-feature-list { margin-top: 34px; }
+  .login-feature-item { padding: 0 15px; font-size: 13px; }
+  .login-card { transform: translate(14px, 52px); padding: 36px 34px 30px; }
+}
+
+@media (max-width: 1100px) {
+  .login-page { min-width: 0; overflow-y: auto; padding: 36px 24px; }
+  .login-layout { display: flex; width: 100%; max-width: 520px; flex-direction: column; gap: 34px; }
+  .login-introduction { align-items: center; padding: 0; text-align: center; }
+  .login-introduction-brand { margin-bottom: 26px; }
+  .login-introduction-copy h1 { font-size: 34px; }
+  .login-feature-list { display: none; }
+  .login-card { width: 100%; transform: none; }
+}
+
+@media (max-width: 600px) {
+  .login-page { padding: 24px 16px; }
+  .login-introduction-logo { width: 50px; height: 50px; flex-basis: 50px; }
+  .login-introduction-brand strong { font-size: 25px; }
+  .login-introduction-copy h1 { font-size: 29px; }
+  .login-introduction-description { font-size: 13px; }
+  .login-card { padding: 32px 24px 28px; border-radius: 20px; }
+}

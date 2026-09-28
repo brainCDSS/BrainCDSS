@@ -1,0 +1,1392 @@
+/* =========================================================
+   Consultation List
+   ========================================================= */
+
+
+/* =========================================================
+   1. PAGE
+   ========================================================= */
+
+.consultation-list {
+  width: 100%;
+  min-width: 0;
+  max-width: 1440px;
+
+  margin: 0 auto;
+
+  padding:
+    32px
+    30px
+    48px;
+
+  box-sizing: border-box;
+}
+
+
+/* =========================================================
+   2. PAGE HEADER
+   ========================================================= */
+
+.consultation-list__header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, auto);
+  grid-template-areas:
+    "eyebrow eyebrow"
+    "title description";
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+
+/* CONSULTATION */
+
+.consultation-list__eyebrow {
+  grid-area: eyebrow;
+  display: block;
+
+  margin-bottom: 7px;
+
+  color: var(--primary);
+
+  font-size: 12px;
+  font-weight: 800;
+
+  letter-spacing: 0.13em;
+}
+
+
+/* 협진 목록 + 건수 */
+
+.consultation-list__title-row {
+  grid-area: title;
+  display: flex;
+  align-items: center;
+
+  gap: 12px;
+}
+
+
+.consultation-list__header h1 {
+  margin: 0;
+
+  color: var(--text-primary);
+
+  font-size: 31px;
+  font-weight: 800;
+
+  line-height: 1.2;
+
+  letter-spacing: -0.04em;
+}
+
+
+/* 5건 */
+
+.consultation-list__title-count {
+  display: inline-flex;
+
+  align-items: center;
+  justify-content: center;
+
+  min-width: 46px;
+  height: 28px;
+
+  padding: 0 11px;
+
+  box-sizing: border-box;
+
+  border: 1px solid
+    rgba(79, 130, 189, 0.18);
+
+  border-radius: 999px;
+
+  background:
+    rgba(79, 130, 189, 0.12);
+
+  color: var(--primary);
+
+  font-size: 13px;
+  font-weight: 800;
+}
+
+
+/* 설명 */
+
+.consultation-list__header p {
+  grid-area: description;
+  margin: 0;
+  padding-left: 24px;
+  text-align: right;
+
+  color: var(--text-secondary);
+
+  font-size: 0;
+  font-weight: 500;
+
+  line-height: 1.5;
+}
+
+.consultation-list__header p::after {
+  content: "협진 요청·배정 현황과 우선순위, 진행 상태를 확인합니다.";
+  font-size: 13px;
+}
+
+
+/* =========================================================
+   3. FILTER CARD
+   ========================================================= */
+
+.consultation-list__filter {
+  display: grid;
+
+  grid-template-columns:
+    minmax(220px, 1.35fr)
+    minmax(180px, 1fr)
+    minmax(140px, 0.75fr)
+    minmax(150px, 0.8fr)
+    auto;
+
+  align-items: end;
+
+  gap: 16px;
+
+  margin-bottom: 18px;
+
+  padding:
+    18px
+    20px;
+
+  box-sizing: border-box;
+
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+
+  background: var(--bg-surface);
+}
+
+
+/* =========================================================
+   4. FILTER FIELD
+   ========================================================= */
+
+.consultation-filter-field {
+  display: flex;
+  flex-direction: column;
+
+  gap: 8px;
+
+  min-width: 0;
+}
+
+
+/* 필터 제목 */
+
+.consultation-filter-field > span {
+  color: var(--text-primary);
+
+  font-size: 12px;
+  font-weight: 800;
+}
+
+
+/* input / select */
+
+.consultation-filter-field input,
+.consultation-filter-field select {
+  width: 100%;
+  height: 42px;
+
+  padding:
+    0
+    12px;
+
+  box-sizing: border-box;
+
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+
+  outline: none;
+
+  background: var(--bg-surface);
+
+  color: var(--text-primary);
+
+  font-family: inherit;
+  font-size: 13px;
+
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background-color 0.15s ease;
+}
+
+
+.consultation-filter-field input::placeholder {
+  color: var(--text-secondary);
+}
+
+
+/* Focus */
+
+.consultation-filter-field input:focus,
+.consultation-filter-field select:focus {
+  border-color: var(--primary);
+
+  box-shadow:
+    0 0 0 3px
+    rgba(79, 130, 189, 0.11);
+}
+
+
+/* =========================================================
+   5. FILTER BUTTONS
+   ========================================================= */
+
+.consultation-filter-actions {
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+}
+
+
+.consultation-filter-actions button {
+  height: 42px;
+
+  padding:
+    0
+    17px;
+
+  border-radius: 7px;
+
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+
+  white-space: nowrap;
+
+  cursor: pointer;
+
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.1s ease;
+}
+
+
+/* 초기화 */
+
+.consultation-filter-reset {
+  border: 1px solid var(--border-color);
+
+  background: var(--bg-surface);
+
+  color: var(--text-secondary);
+}
+
+
+.consultation-filter-reset:hover {
+  background: var(--bg-hover);
+
+  color: var(--text-primary);
+}
+
+
+/* 검색 */
+
+.consultation-filter-search {
+  border: 1px solid var(--primary);
+
+  background: var(--primary);
+
+  color: #ffffff;
+}
+
+
+.consultation-filter-search:hover {
+  filter: brightness(0.96);
+}
+
+
+.consultation-filter-actions button:active {
+  transform: translateY(1px);
+}
+
+
+/* =========================================================
+   6. LIST CARD
+   ========================================================= */
+
+.consultation-list__card {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+
+  box-sizing: border-box;
+
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+
+  background: var(--bg-surface);
+}
+
+
+/* =========================================================
+   7. COLUMN HEADER
+   ---------------------------------------------------------
+   번호 / 환자 / 협진 의료진 / 우선순위 / 상태 / 요청일시
+   ========================================================= */
+
+.consultation-list__column-header {
+  display: grid;
+
+  grid-template-columns:
+    54px
+    minmax(230px, 1.55fr)
+    minmax(270px, 1.35fr)
+    minmax(105px, 0.65fr)
+    minmax(105px, 0.65fr)
+    minmax(180px, 1fr)
+    140px;
+
+  align-items: center;
+
+  gap: 22px;
+
+  min-height: 50px;
+
+  padding:
+    0
+    24px;
+
+  box-sizing: border-box;
+
+  border-bottom: 1px solid var(--border-color);
+
+  background: #f7f9fc;
+}
+
+
+.consultation-list__column-header span {
+  color: #64748b;
+
+  font-size: 11px;
+  font-weight: 800;
+
+  letter-spacing: 0.02em;
+}
+
+
+/* 가운데 컬럼 */
+
+.consultation-list__column-header span:nth-child(1),
+.consultation-list__column-header span:nth-child(4),
+.consultation-list__column-header span:nth-child(5),
+.consultation-list__column-header span:nth-child(7) {
+  text-align: center;
+}
+
+
+/* =========================================================
+   8. LIST ITEMS
+   ========================================================= */
+
+.consultation-list__items {
+  display: flex;
+  flex-direction: column;
+  min-width: max-content;
+}
+
+
+/* =========================================================
+   9. ROW
+   ========================================================= */
+
+.consultation-list-item {
+  display: grid;
+
+  grid-template-columns:
+    54px
+    minmax(230px, 1.55fr)
+    minmax(270px, 1.35fr)
+    minmax(105px, 0.65fr)
+    minmax(105px, 0.65fr)
+    minmax(180px, 1fr)
+    140px;
+    
+
+  align-items: center;
+
+  gap: 22px;
+
+  min-height: 88px;
+
+  padding:
+    14px
+    24px;
+
+  box-sizing: border-box;
+
+  border-bottom: 1px solid var(--border-color);
+
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+
+.consultation-list-item:last-child {
+  border-bottom: 0;
+}
+
+
+/* =========================================================
+   10. PRIORITY ROW COLOR
+   ---------------------------------------------------------
+   STAT    → 긴급
+   URGENT  → 응급
+   ROUTINE → 일반
+   ========================================================= */
+
+
+/* 긴급 */
+
+.consultation-list-item--stat {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(220, 74, 74, 0.13) 0%,
+      rgba(220, 74, 74, 0.055) 100%
+    ),
+    var(--bg-surface);
+
+  border-left: 4px solid #dc5151;
+}
+
+
+/* 응급 */
+
+.consultation-list-item--urgent {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(231, 164, 54, 0.15) 0%,
+      rgba(231, 164, 54, 0.055) 100%
+    ),
+    var(--bg-surface);
+
+  border-left: 4px solid #e5a13a;
+}
+
+
+/* 일반 */
+
+.consultation-list-item--routine {
+  background: var(--bg-surface);
+
+  border-left: 4px solid #b8c7d8;
+}
+
+
+/* Hover */
+
+.consultation-list-item--stat:hover {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(220, 74, 74, 0.18) 0%,
+      rgba(220, 74, 74, 0.075) 100%
+    ),
+    var(--bg-surface);
+}
+
+
+.consultation-list-item--urgent:hover {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(231, 164, 54, 0.20) 0%,
+      rgba(231, 164, 54, 0.075) 100%
+    ),
+    var(--bg-surface);
+}
+
+
+.consultation-list-item--routine:hover {
+  background: var(--bg-hover);
+}
+
+
+/* =========================================================
+   11. NUMBER
+   ========================================================= */
+
+.consultation-list-item__number {
+  color: var(--text-primary);
+
+  font-size: 13px;
+  font-weight: 700;
+
+  text-align: center;
+}
+
+
+/* =========================================================
+   12. PATIENT
+   ========================================================= */
+
+.consultation-list-item__patient {
+  display: flex;
+  flex-direction: column;
+
+  gap: 7px;
+
+  min-width: 0;
+}
+
+
+/* 환자 이름 + 등록번호 */
+
+.consultation-list-item__patient-main {
+  display: flex;
+
+  align-items: center;
+
+  gap: 9px;
+
+  min-width: 0;
+}
+
+
+.consultation-list-item__patient-main strong {
+  overflow: hidden;
+
+  color: var(--text-primary);
+
+  font-size: 15px;
+  font-weight: 800;
+
+  line-height: 1.25;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+/* P-0001 */
+
+.consultation-list-item__patient-no {
+  display: inline-flex;
+
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  padding:
+    4px
+    8px;
+
+  border-radius: 5px;
+
+  background:
+    rgba(79, 130, 189, 0.11);
+
+  color: var(--primary);
+
+  font-size: 10px;
+  font-weight: 800;
+
+  line-height: 1;
+}
+
+
+/* 신경외과 · CON-001 · ENC-001 */
+
+.consultation-list-item__patient-sub {
+  display: flex;
+
+  align-items: center;
+  flex-wrap: wrap;
+
+  gap: 7px;
+
+  color: var(--text-secondary);
+
+  font-size: 11px;
+  font-weight: 500;
+
+  line-height: 1.3;
+}
+
+
+.consultation-list-item__patient-sub span + span::before {
+  content: "·";
+
+  margin-right: 7px;
+
+  color: var(--text-secondary);
+}
+
+
+/* =========================================================
+   13. CLINICIAN
+   ========================================================= */
+
+.consultation-list-item__clinician {
+  display: flex;
+  flex-direction: column;
+
+  gap: 5px;
+
+  min-width: 0;
+}
+
+.consultation-list-item__clinician > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.consultation-list-item__clinician small {
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.consultation-list-item__direction {
+  color: var(--primary);
+  font-weight: 800;
+}
+
+
+.consultation-list-item__clinician strong {
+  overflow: hidden;
+
+  color: var(--text-primary);
+
+  font-size: 14px;
+  font-weight: 800;
+
+  line-height: 1.25;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+.consultation-list-item__clinician span {
+  color: var(--text-secondary);
+
+  font-size: 11px;
+  font-weight: 600;
+
+  line-height: 1.2;
+}
+
+
+/* 미배정 */
+
+.consultation-list-item__unassigned {
+  color: var(--text-secondary);
+
+  font-size: 12px;
+  font-weight: 700;
+}
+
+
+/* =========================================================
+   14. PRIORITY
+   ========================================================= */
+
+.consultation-list-item__priority {
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+}
+
+
+.consultation-priority {
+  display: inline-flex;
+
+  align-items: center;
+  justify-content: center;
+
+  min-width: 58px;
+  height: 30px;
+
+  padding:
+    0
+    12px;
+
+  box-sizing: border-box;
+
+  border-radius: 999px;
+
+  font-size: 12px;
+  font-weight: 800;
+
+  line-height: 1;
+}
+
+
+/* 긴급 */
+
+.consultation-priority--stat {
+  border: 1px solid #df7777;
+
+  background: #e94e4e;
+
+  color: #ffffff;
+
+  box-shadow:
+    0 3px 8px
+    rgba(217, 81, 81, 0.16);
+}
+
+
+/* 응급 */
+
+.consultation-priority--urgent {
+  border: 1px solid #e3aa47;
+
+  background: #fff0cf;
+
+  color: #a15800;
+}
+
+
+/* 일반 */
+
+.consultation-priority--routine {
+  border: 1px solid #d2dde7;
+
+  background: #edf2f6;
+
+  color: #526174;
+}
+
+
+/* =========================================================
+   15. STATUS
+   ========================================================= */
+
+.consultation-list-item__status {
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+}
+
+
+.consultation-status {
+  display: inline-flex;
+
+  align-items: center;
+  justify-content: center;
+
+  min-height: 29px;
+
+  padding:
+    0
+    10px;
+
+  box-sizing: border-box;
+
+  border-radius: 6px;
+
+  background: #eaf3fc;
+
+  color: #326ca8;
+
+  font-size: 11px;
+  font-weight: 800;
+
+  line-height: 1;
+}
+
+
+/* =========================================================
+   16. DATE
+   ========================================================= */
+
+.consultation-list-item__date {
+  min-width: 0;
+}
+
+
+.consultation-list-item__date strong {
+  color: var(--text-primary);
+
+  font-size: 12px;
+  font-weight: 700;
+
+  line-height: 1.4;
+
+  white-space: nowrap;
+}
+
+
+/* =========================================================
+   17. LOADING / EMPTY / ERROR
+   ========================================================= */
+
+.consultation-list__message {
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  min-height: 180px;
+
+  padding:
+    30px
+    20px;
+
+  color: var(--text-secondary);
+
+  font-size: 13px;
+
+  text-align: center;
+}
+
+
+.consultation-list__message--error {
+  color: #c74a4a;
+}
+
+
+/* =========================================================
+   18. DARK MODE
+   ========================================================= */
+
+[data-theme="dark"]
+.consultation-list__title-count {
+  border-color:
+    rgba(107, 157, 213, 0.22);
+
+  background:
+    rgba(107, 157, 213, 0.13);
+}
+
+
+/* Filter */
+
+[data-theme="dark"]
+.consultation-list__filter {
+  background: var(--bg-surface);
+}
+
+
+[data-theme="dark"]
+.consultation-filter-field input,
+[data-theme="dark"]
+.consultation-filter-field select {
+  background: #162131;
+
+  color: var(--text-primary);
+}
+
+
+/* Table Header */
+
+[data-theme="dark"]
+.consultation-list__column-header {
+  background: #162130;
+}
+
+
+[data-theme="dark"]
+.consultation-list__column-header span {
+  color: #9cafc5;
+}
+
+
+/* 긴급 */
+
+[data-theme="dark"]
+.consultation-list-item--stat {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(211, 83, 91, 0.20) 0%,
+      rgba(211, 83, 91, 0.07) 100%
+    ),
+    var(--bg-surface);
+
+  border-left-color: #d35b63;
+}
+
+
+/* 응급 */
+
+[data-theme="dark"]
+.consultation-list-item--urgent {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(224, 161, 67, 0.19) 0%,
+      rgba(224, 161, 67, 0.065) 100%
+    ),
+    var(--bg-surface);
+
+  border-left-color: #dda148;
+}
+
+
+/* 일반 */
+
+[data-theme="dark"]
+.consultation-list-item--routine {
+  background: var(--bg-surface);
+
+  border-left-color: #60758d;
+}
+
+
+/* Dark Priority */
+
+[data-theme="dark"]
+.consultation-priority--stat {
+  border-color: #cf626a;
+
+  background: #b84851;
+
+  color: #ffffff;
+}
+
+
+[data-theme="dark"]
+.consultation-priority--urgent {
+  border-color: #86612f;
+
+  background: #49361f;
+
+  color: #f2c174;
+}
+
+
+[data-theme="dark"]
+.consultation-priority--routine {
+  border-color: #405166;
+
+  background: #283647;
+
+  color: #c0ccda;
+}
+
+
+/* Dark Status */
+
+[data-theme="dark"]
+.consultation-status {
+  background: #223c58;
+
+  color: #91c0ee;
+}
+
+
+/* Dark Patient Number */
+
+[data-theme="dark"]
+.consultation-list-item__patient-no {
+  background:
+    rgba(107, 157, 213, 0.14);
+
+  color: #8ebbed;
+}
+
+
+/* =========================================================
+   19. RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 1200px) {
+
+  .consultation-list__filter {
+    grid-template-columns:
+      repeat(2, minmax(180px, 1fr));
+  }
+
+
+  .consultation-filter-actions {
+    grid-column: 1 / -1;
+
+    justify-content: flex-end;
+  }
+
+
+  .consultation-list__card {
+    overflow-x: auto;
+  }
+
+
+  .consultation-list__column-header,
+  .consultation-list-item {
+    min-width: 1000px;
+  }
+
+}
+
+
+@media (max-width: 700px) {
+
+  .consultation-list {
+    padding:
+      24px
+      18px
+      40px;
+  }
+
+
+  .consultation-list__header h1 {
+    font-size: 27px;
+  }
+
+  .consultation-list__header {
+    display: block;
+  }
+
+  .consultation-list__header p {
+    margin-top: 9px;
+    padding-left: 0;
+    text-align: left;
+  }
+
+
+  .consultation-list__filter {
+    grid-template-columns: 1fr;
+  }
+
+
+  .consultation-filter-actions {
+    grid-column: auto;
+
+    justify-content: stretch;
+  }
+
+
+  .consultation-filter-actions button {
+    flex: 1;
+  }
+
+}
+
+/* =========================================================
+   검토 Action
+   ========================================================= */
+
+.consultation-list-item__action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
+/* =========================================================
+   검토하기 버튼
+   ---------------------------------------------------------
+   기본 상태는 흰색
+   살짝 떠 있는 입체감
+   Hover 시만 Blue 강조
+   ========================================================= */
+
+.consultation-review-button {
+  display: inline-flex;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 6px;
+
+  min-width: 100px;
+  height: 36px;
+
+  padding:
+    0
+    14px;
+
+  border: 1px solid #cfd9e5;
+  border-radius: 7px;
+
+  background: #ffffff;
+
+  color: #3f6f9f;
+
+  font-family: inherit;
+
+  font-size: 12px;
+  font-weight: 800;
+
+  white-space: nowrap;
+
+  cursor: pointer;
+
+  box-shadow:
+    0 2px 5px rgba(15, 23, 42, 0.10),
+    0 1px 2px rgba(15, 23, 42, 0.06);
+
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+
+/* Hover */
+
+.consultation-review-button:hover {
+  border-color: var(--primary);
+
+  background: #f7fbff;
+
+  color: var(--primary);
+
+  box-shadow:
+    0 4px 10px rgba(15, 23, 42, 0.13),
+    0 2px 4px rgba(15, 23, 42, 0.08);
+
+  transform: translateY(-1px);
+}
+
+
+/* 실제 클릭했을 때만 살짝 눌리는 느낌 */
+
+.consultation-review-button:active {
+  transform: translateY(1px);
+
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.10);
+}
+
+
+/* > 아이콘 */
+
+.consultation-review-button span {
+  font-size: 16px;
+
+  line-height: 1;
+}
+
+
+/* =========================================================
+   Dark Mode
+   ========================================================= */
+
+[data-theme="dark"]
+.consultation-review-button {
+  border-color: #43556a;
+
+  background: #1e2a38;
+
+  color: #a8c7e8;
+
+  box-shadow:
+    0 3px 7px rgba(0, 0, 0, 0.24),
+    0 1px 2px rgba(0, 0, 0, 0.20);
+}
+
+
+[data-theme="dark"]
+.consultation-review-button:hover {
+  border-color: #6b9dd5;
+
+  background: #26384b;
+
+  color: #b9d8f5;
+
+  box-shadow:
+    0 5px 12px rgba(0, 0, 0, 0.30);
+}
+
+/* =========================================================
+   Consultation List Responsive Card
+   ---------------------------------------------------------
+   좁은 화면에서도 가로 스크롤 없이
+   검토하기 버튼까지 항상 표시
+   ========================================================= */
+
+@media (max-width: 1200px) {
+
+  .consultation-list__card {
+    overflow-x: visible;
+  }
+
+  .consultation-list__column-header {
+    display: none;
+  }
+
+  .consultation-list-item {
+    min-width: 0;
+
+    grid-template-columns:
+      minmax(0, 1.6fr)
+      minmax(150px, 1fr)
+      auto
+      auto;
+
+    grid-template-areas:
+      "patient clinician priority action"
+      "patient clinician status action"
+      "date date date action";
+
+    gap: 10px 16px;
+
+    padding: 16px 18px;
+
+    min-height: 0;
+  }
+
+  .consultation-list-item__number {
+    display: none;
+  }
+
+  .consultation-list-item__patient {
+    grid-area: patient;
+  }
+
+  .consultation-list-item__clinician {
+    grid-area: clinician;
+  }
+
+  .consultation-list-item__priority {
+    grid-area: priority;
+    justify-content: flex-start;
+  }
+
+  .consultation-list-item__status {
+    grid-area: status;
+    justify-content: flex-start;
+  }
+
+  .consultation-list-item__date {
+    grid-area: date;
+  }
+
+  .consultation-list-item__action {
+    grid-area: action;
+    align-self: stretch;
+    min-width: 110px;
+  }
+
+  .consultation-review-button {
+    width: 100%;
+    min-width: 100px;
+  }
+}
+
+@media (max-width: 760px) {
+
+  .consultation-list-item {
+    grid-template-columns:
+      minmax(0, 1fr)
+      auto;
+
+    grid-template-areas:
+      "patient priority"
+      "clinician status"
+      "date date"
+      "action action";
+
+    gap: 12px;
+  }
+
+  .consultation-list-item__action {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .consultation-review-button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .consultation-list-item__date strong {
+    white-space: normal;
+  }
+
+  .consultation-list-item__patient-main {
+    flex-wrap: wrap;
+  }
+}
+
+/* =========================================================
+   Consultation List Header Action
+   ========================================================= */
+
+.consultation-list__header-actions {
+  grid-area: description;
+
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+
+  gap: 12px;
+
+  min-width: 0;
+}
+
+.consultation-list__header-actions p {
+  grid-area: auto;
+
+  margin: 0;
+  padding-left: 0;
+
+  text-align: right;
+}
+
+.consultation-list__request-button {
+  flex-shrink: 0;
+
+  height: 38px;
+
+  padding: 0 15px;
+
+  border: 1px solid var(--primary);
+  border-radius: 8px;
+
+  background: var(--primary);
+
+  color: #ffffff;
+
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 800;
+
+  white-space: nowrap;
+
+  cursor: pointer;
+
+  box-shadow:
+    0 2px 6px rgba(79, 130, 189, 0.18);
+}
+
+.consultation-list__request-button:hover {
+  filter: brightness(0.96);
+}
+
+@media (max-width: 700px) {
+
+  .consultation-list__header-actions {
+    align-items: flex-start;
+    flex-direction: column;
+
+    margin-top: 10px;
+  }
+
+  .consultation-list__header-actions p {
+    text-align: left;
+  }
+
+  .consultation-list__request-button {
+    width: auto;
+  }
+}

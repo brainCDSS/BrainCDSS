@@ -1,0 +1,16 @@
+{
+  "name": "brainon-rust-viewer",
+  "type": "module",
+  "version": "0.1.0",
+  "license": "MIT",
+  "files": [
+    "brainon_rust_viewer_bg.wasm",
+    "brainon_rust_viewer.js",
+    "brainon_rust_viewer.d.ts"
+  ],
+  "main": "brainon_rust_viewer.js",
+  "types": "brainon_rust_viewer.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

@@ -3,11 +3,26 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      VITE_FIREBASE_API_KEY: ci-test-api-key
+      VITE_FIREBASE_AUTH_DOMAIN: ci.invalid
+      VITE_FIREBASE_PROJECT_ID: brainon-ci
+      VITE_FIREBASE_STORAGE_BUCKET: brainon-ci.invalid
+      VITE_FIREBASE_MESSAGING_SENDER_ID: "1234567890"
+      VITE_FIREBASE_APP_ID: "1:1234567890:web:ci"
+      VITE_FIREBASE_VAPID_KEY: ci-test-vapid-key
     defaults: {run: {working-directory: frontend}}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: {node-version: 24, cache: npm, cache-dependency-path: frontend/package-lock.json}
+      - uses: dtolnay/rust-toolchain@stable
+        with: {targets: wasm32-unknown-unknown}
+      - run: cargo test --manifest-path ../rust-viewer/Cargo.toml
+      - run: |
+          mkdir -p /tmp/wasm-pack
+          curl -L https://github.com/wasm-bindgen/wasm-pack/releases/download/v0.15.0/wasm-pack-v0.15.0-x86_64-unknown-linux-musl.tar.gz | tar -xz --strip-components=1 -C /tmp/wasm-pack
+          /tmp/wasm-pack/wasm-pack build ../rust-viewer --target web --release --out-dir ../frontend/src/features/rust-viewer/wasm/generated --out-name brainon_rust_viewer
       - run: npm install
       - run: npm run lint
       - run: npm test

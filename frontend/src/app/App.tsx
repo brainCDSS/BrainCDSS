@@ -1,2 +1,115 @@
-/** Minimal shell; clinical screens remain explicit placeholders. */
-export function App() { return <main><header><h1>BrainOn CDSS</h1><p>의료진 웹 개발 골격</p></header><section aria-labelledby="health"><h2 id="health">Health</h2><p data-testid="status">Frontend shell is ready.</p></section></main>; }
+import {
+  useState,
+} from "react";
+
+import AppShell from
+  "../shared/layout/AppShell";
+
+import Dashboard from
+  "../features/dashboard/Dashboard";
+
+import NurseDashboard from
+  "../features/dashboard/NurseDashboard";
+
+import LoginPage from
+  "../features/auth/LoginPage";
+
+import {
+  clearAuthSession,
+  loadAuthSession,
+} from "../features/auth/session";
+
+import type {
+  LoginResponse,
+} from "../features/auth/types";
+import {logout} from "../features/auth/api";
+import {disconnectWebPush} from "../features/notifications/webPush";
+
+
+export function App() {
+  const [
+    authSession,
+    setAuthSession,
+  ] =
+    useState<LoginResponse | null>(
+      () =>
+        loadAuthSession(),
+    );
+
+
+  async function handleLogout() {
+    try {
+      await disconnectWebPush();
+      if (authSession?.refresh) await logout(authSession.refresh);
+    } catch {
+      // Local logout must remain available when the network is unavailable.
+    }
+    clearAuthSession();
+
+    setAuthSession(
+      null,
+    );
+  }
+
+
+  if (!authSession) {
+    return (
+      <LoginPage
+        onLoginSuccess={
+          setAuthSession
+        }
+      />
+    );
+  }
+
+
+  const isNurse =
+    authSession.user.role.code ===
+    "NURSE";
+
+
+  return (
+    <AppShell
+      currentUser={
+        authSession.user
+      }
+      onLogout={
+        handleLogout
+      }
+    >
+      {(
+        onOpenPatient,
+        onOpenMenu,
+      ) =>
+        isNurse ? (
+          <NurseDashboard
+            currentUser={
+              authSession.user
+            }
+            onOpenPatient={
+              onOpenPatient
+            }
+            onOpenMenu={
+              onOpenMenu
+            }
+          />
+        ) : (
+          <Dashboard
+            currentUser={
+              authSession.user
+            }
+            onOpenPatient={
+              onOpenPatient
+            }
+            onOpenMenu={
+              onOpenMenu
+            }
+          />
+        )
+      }
+    </AppShell>
+  );
+}
+
+
+export default App;

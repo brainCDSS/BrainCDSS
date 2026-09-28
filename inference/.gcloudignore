@@ -1,0 +1,12 @@
+.gcloudignore
+.git
+__pycache__/
+.pytest_cache/
+.env*
+*.dcm
+*.nii
+*.nii.gz
+*.pt
+*.pth
+*.onnx
+tests/

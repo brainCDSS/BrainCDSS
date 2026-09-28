@@ -1,0 +1,12 @@
+import { apiRequest } from "../../api/client";
+import type { RadiologyReport, RadiologyWorklistResponse } from "./types";
+export function getRadiologyWorklist(state?:string){return apiRequest<RadiologyWorklistResponse>(`/api/v1/radiology/worklist${state?`?report_state=${encodeURIComponent(state)}`:""}`)}
+export function getRadiologyReport(id:string){return apiRequest<RadiologyReport>(`/api/v1/radiology-reports/${encodeURIComponent(id)}`)}
+const json = (method:string, body:unknown):RequestInit => ({method,headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+export function createRadiologyReport(payload:{study_id:string;referenced_ai_analysis_id?:string|null;findings:string;impression:string;recommendation:string;structured_findings:Record<string,unknown>}){return apiRequest<RadiologyReport>("/api/v1/radiology-reports",json("POST",payload))}
+export function updateRadiologyReport(id:string,payload:{version:number;findings:string;impression:string;recommendation:string;structured_findings:Record<string,unknown>;critical_finding:boolean;critical_level:string}){return apiRequest<RadiologyReport>(`/api/v1/radiology-reports/${encodeURIComponent(id)}`,json("PATCH",payload))}
+export function submitPreliminaryReport(id:string,version:number){return apiRequest<RadiologyReport>(`/api/v1/radiology-reports/${encodeURIComponent(id)}/submit-preliminary`,json("POST",{version,confirmation:true}))}
+export function finalizeRadiologyReport(id:string,version:number,aiReview?:{decision:"ACCEPT"|"MODIFY"|"REJECT"|null;comment:string}){return apiRequest<RadiologyReport>(`/api/v1/radiology-reports/${encodeURIComponent(id)}/finalize`,json("POST",{version,confirmation:true,...(aiReview?{ai_review:aiReview}:{})}))}
+export function amendRadiologyReport(id:string,payload:{change_reason:string;findings:string;impression:string;recommendation:string;structured_findings:Record<string,unknown>;critical_finding:boolean;critical_level:string}){return apiRequest<RadiologyReport>(`/api/v1/radiology-reports/${encodeURIComponent(id)}/amend`,json("POST",{...payload,confirmation:true}))}
+export function cancelRadiologyReport(id:string,version:number,reason:string){return apiRequest<RadiologyReport>(`/api/v1/radiology-reports/${encodeURIComponent(id)}/cancel`,json("POST",{version,reason,confirmation:true}))}
+export function getRadiologyReportRevisions(id:string){return apiRequest<{report_id:string;revisions:Array<Record<string,unknown>>}>(`/api/v1/radiology-reports/${encodeURIComponent(id)}/revisions`)}

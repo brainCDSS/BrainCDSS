@@ -1,0 +1,181 @@
+import {useCallback,useEffect,useMemo,useState} from "react";
+import {getNotificationPreferences,getNotifications,markNotificationRead,updateNotificationPreferences} from "./api";
+import type {NotificationItem,NotificationPreferences} from "./types";
+import {connectWebPush} from "./webPush";
+import {
+  emitNotificationStateChanged,
+  NOTIFICATION_STATE_CHANGED_EVENT,
+} from "./events";
+import "./notifications.css";
+
+const date=(value:string)=>new Date(value).toLocaleString("ko-KR");
+const notificationTypeLabels: Record<string, string> = {
+ EMERGENCY:"응급", CONSULTATION:"협진", IMAGING:"검사·영상", AI_ANALYSIS:"AI 분석",
+ APPOINTMENT:"예약", SYSTEM:"시스템",
+};
+const notificationPreferencePresentation: Record<string, {icon:string;description:string}> = {
+ CONSULTATION:{icon:"↔",description:"새 협진 요청 및 상태 변경 알림"},
+ IMAGING:{icon:"◌",description:"검사 결과 및 판독 완료 알림"},
+ AI_ANALYSIS:{icon:"✦",description:"AI 분석 결과 생성 및 상태 변경 알림"},
+ SYSTEM:{icon:"⚙",description:"서비스 공지 및 시스템 알림"},
+};
+const notificationTypeLabel=(category:string)=>notificationTypeLabels[category]??category;
+const stringData=(item:NotificationItem,...keys:string[])=>{
+ for(const key of keys){const value=item.data?.[key];if(typeof value==="string"&&value.trim())return value;}
+ return null;
+};
+interface NotificationsPageProps {
+ onOpenRelatedWork?: (
+  item: NotificationItem,
+ ) => Promise<boolean> | boolean;
+}
+
+export default function NotificationsPage({
+ onOpenRelatedWork,
+}: NotificationsPageProps){
+ const [items,setItems]=useState<NotificationItem[]>([]),[storedSelected,setSelected]=useState<NotificationItem|null>(null),[statusFilter,setStatusFilter]=useState<"all"|"unread"|"read">("all"),[category,setCategory]=useState(""),[categories,setCategories]=useState<string[]>([]),[total,setTotal]=useState(0),[unread,setUnread]=useState(0),[loading,setLoading]=useState(true),[error,setError]=useState<string|null>(null),[drawer,setDrawer]=useState(false),[prefs,setPrefs]=useState<NotificationPreferences|null>(null),[prefsError,setPrefsError]=useState<string|null>(null),[prefsLoading,setPrefsLoading]=useState(false),[saving,setSaving]=useState(false),[selectedIds,setSelectedIds]=useState<Set<string>>(()=>new Set()),[batchLoading,setBatchLoading]=useState(false);
+ const [relatedLoading,setRelatedLoading]=useState(false);
+ const load=useCallback(async()=>{setLoading(true);setError(null);try{const r=await getNotifications({category:category||undefined});const results=Array.isArray(r.results)?r.results:[];const calculatedUnread=results.filter(item=>!item.is_read).length;const responseTotal=Number(r.count);const responseUnread=Number(r.unread_count);const nextTotal=Number.isFinite(responseTotal)&&responseTotal>=0?responseTotal:results.length;const nextUnread=Number.isFinite(responseUnread)&&responseUnread>=0?Math.min(responseUnread,nextTotal):calculatedUnread;setItems(results);setTotal(nextTotal);setUnread(nextUnread);setCategories(v=>Array.from(new Set([...v,...results.map(i=>i.category)])));const focusNotificationId=
+ sessionStorage.getItem(
+  "brainon-notification-focus-id"
+ );
+
+ const focusNotification=
+  focusNotificationId
+   ?results.find(
+     item=>
+      item.id===focusNotificationId
+    )??null
+   :null;
+
+ if(focusNotification){
+  setSelected(focusNotification);
+  sessionStorage.removeItem(
+   "brainon-notification-focus-id"
+  );
+ }else{
+  setSelected(
+   v=>
+    v
+     ?results.find(
+       item=>item.id===v.id
+      )??null
+     :null
+  );
+ }setSelectedIds(new Set());}catch{setError("알림을 불러오지 못했습니다.")}finally{setLoading(false)}},[category]);
+ useEffect(()=>{void load()},[load]);
+ useEffect(()=>{
+  const refresh=()=>void load();
+
+  window.addEventListener(
+    NOTIFICATION_STATE_CHANGED_EVENT,
+    refresh,
+  );
+
+  return()=>window.removeEventListener(
+    NOTIFICATION_STATE_CHANGED_EVENT,
+    refresh,
+  );
+ },[load]);
+ useEffect(()=>{setSelectedIds(new Set());},[statusFilter,category]);
+ const displayedItems=useMemo(()=>items.filter(item=>statusFilter==="all"?true:statusFilter==="unread"?!item.is_read:item.is_read),[items,statusFilter]);
+ const activeSelected=storedSelected?displayedItems.find(item=>item.id===storedSelected.id)??null:null;
+ const selected=activeSelected;
+ const allSelected=displayedItems.length>0&&displayedItems.every(item=>selectedIds.has(item.id));
+ async function choose(item:NotificationItem){setSelected(item);if(item.is_read)return;try{const r=await markNotificationRead(item.id),next={...item,...r,is_read:true};setSelected(next);setItems(v=>v.map(i=>i.id===item.id?next:i));setUnread(v=>Math.max(0,v-1));emitNotificationStateChanged()}catch{setError("알림 확인 상태를 변경하지 못했습니다.")}}
+ function toggleItem(id:string){setSelectedIds(current=>{const next=new Set(current);if(next.has(id))next.delete(id);else next.add(id);return next;});}
+ function toggleAll(){setSelectedIds(current=>{const next=new Set(current);if(allSelected)displayedItems.forEach(item=>next.delete(item.id));else displayedItems.forEach(item=>next.add(item.id));return next;});}
+ async function markSelectedRead(){const targets=items.filter(item=>selectedIds.has(item.id)&&!item.is_read);if(!targets.length){setSelectedIds(new Set());return;}setBatchLoading(true);setError(null);try{await Promise.all(targets.map(item=>markNotificationRead(item.id)));await load();emitNotificationStateChanged();}catch{setError("선택한 알림을 확인 처리하지 못했습니다.")}finally{setBatchLoading(false);}}
+ async function openSettings(){setDrawer(true);setPrefsLoading(true);setPrefsError(null);try{setPrefs(await getNotificationPreferences())}catch{setPrefsError("알림 설정을 불러오지 못했습니다.")}finally{setPrefsLoading(false)}}
+
+ async function connectPush(){
+  try{
+   const result=await connectWebPush();
+
+   window.alert(
+    `웹 푸시 연결 완료\nDevice: ${result.deviceId}\nToken length: ${result.tokenLength}`
+   );
+  }catch(error){
+   console.error(
+    "WEB_FCM_CONNECT_FAILED",
+    error,
+   );
+
+   window.alert(
+    `웹 푸시 연결 실패: ${
+     error instanceof Error
+      ? error.message
+      : String(error)
+    }`
+   );
+  }
+ }
+
+ async function save(){if(!prefs)return;setSaving(true);setPrefsError(null);try{setPrefs(await updateNotificationPreferences({dnd_enabled:prefs.dnd.enabled,dnd_start:prefs.dnd.start,dnd_end:prefs.dnd.end,categories:Object.fromEntries(prefs.categories.map(v=>[v.category,v.enabled]))}));setDrawer(false)}catch{setPrefsError("알림 설정을 저장하지 못했습니다.")}finally{setSaving(false)}}
+ const selectedRoute=activeSelected?stringData(activeSelected,"related_url","url","path"):null;
+
+ async function openRelatedWork(){
+  if(!selected){
+   return;
+  }
+
+  setRelatedLoading(true);
+  setError(null);
+
+  try{
+   if(onOpenRelatedWork){
+    const opened=
+     await onOpenRelatedWork(selected);
+
+    if(!opened){
+     setError(
+      "연결 가능한 관련 업무를 찾지 못했습니다."
+     );
+    }
+
+    return;
+   }
+
+   if(selectedRoute){
+    window.location.assign(
+     selectedRoute
+    );
+
+    return;
+   }
+
+   setError(
+    "연결 가능한 관련 업무를 찾지 못했습니다."
+   );
+  }catch(error){
+   console.error(
+    "NOTIFICATION_RELATED_WORK_FAILED",
+    error,
+   );
+
+   setError(
+    "관련 업무로 이동하지 못했습니다."
+   );
+  }finally{
+   setRelatedLoading(false);
+  }
+ }
+
+ return <section className="clinical-page notifications-page"><header className="clinical-page__heading"><h2>알림 센터</h2><p>임상 업무와 관련된 알림을 확인합니다.</p></header>
+ <div className="notification-toolbar"><div className="notification-filters"><button type="button" className={statusFilter==="all"?"is-active":""} onClick={()=>setStatusFilter("all")}>전체 ({total})</button><button type="button" className={statusFilter==="unread"?"is-active":""} onClick={()=>setStatusFilter("unread")}>미확인 ({unread})</button><button type="button" className={statusFilter==="read"?"is-active":""} onClick={()=>setStatusFilter("read")}>확인 ({Math.max(0,total-unread)})</button><label className="notification-category-filter">유형 <select value={category} onChange={e=>setCategory(e.target.value)}><option value="">유형 전체</option>{categories.map(value=><option value={value} key={value}>{notificationTypeLabel(value)}</option>)}</select></label></div><div className="notification-actions"><button type="button" disabled={loading} onClick={()=>void load()}>새로고침</button><button type="button" onClick={()=>void connectPush()}>웹 푸시 연결</button><button type="button" onClick={()=>void openSettings()}>알림 설정</button></div></div>
+ {error&&<div className="clinical-state clinical-state--error" role="alert">{error}</div>}<div className="notification-workspace"><article className="clinical-card"><div className="clinical-card__title"><h3>알림 목록</h3><span>총 {total}건</span></div>{loading?<div className="clinical-state">불러오는 중...</div>:!displayedItems.length?<div className="clinical-state">표시할 알림이 없습니다.</div>:<><div className="notification-bulk-actions"><label><input type="checkbox" checked={allSelected} onChange={toggleAll}/> 전체 선택 <span>(현재 목록 {displayedItems.length}건)</span></label><button type="button" disabled={!selectedIds.size||batchLoading} onClick={()=>void markSelectedRead()}>{batchLoading?"처리 중...":`${selectedIds.size}개 확인 처리`}</button></div><div className="notification-list">{displayedItems.map(i=><div key={i.id} className={`notification-item ${i.is_read?"":"is-unread"} ${selected?.id===i.id?"is-selected":""}`}><input type="checkbox" checked={selectedIds.has(i.id)} aria-label={`${i.title} 선택`} onChange={()=>toggleItem(i.id)} onClick={event=>event.stopPropagation()}/><button type="button" className="notification-item__content" onClick={()=>void choose(i)}><i aria-label={i.is_read?"확인":"미확인"}/><span><em><b className={`notification-type-badge notification-type-badge--${i.severity.toLowerCase()}`}>{notificationTypeLabel(i.category)}</b><b className={`notification-status-badge ${i.is_read?"is-read":""}`}>{i.is_read?"확인":"미확인"}</b></em><strong>{i.title}</strong><small>{i.body}</small></span><time>{date(i.created_at)}</time><mark>›</mark></button></div>)}</div></>}</article>
+ <aside className="clinical-card"><div className="clinical-card__title"><h3>알림 상세</h3>{selected&&<span className={`notification-status-badge ${selected.is_read?"is-read":""}`}>{selected.is_read?"확인":"미확인"}</span>}</div>{selected?<div className="notification-detail"><div className="notification-detail__heading"><b className={`notification-type-badge notification-type-badge--${selected.severity.toLowerCase()}`}>{notificationTypeLabel(selected.category)}</b></div><h4>{selected.title}</h4><dl className="clinical-detail-list"><div><dt>요청자 / 발생 주체</dt><dd>{stringData(selected,"requester_name","actor_name","requester","actor")??"-"}</dd></div><div><dt>환자</dt><dd>{stringData(selected,"patient_name","patient")??"-"}</dd></div><div><dt>심각도</dt><dd><span className={`notification-severity notification-severity--${selected.severity.toLowerCase()}`}>{selected.severity}</span></dd></div><div><dt>발생 시간</dt><dd>{date(selected.created_at)}</dd></div><div><dt>관련 Encounter</dt><dd>{stringData(selected,"encounter_id","encounter")??"-"}</dd></div>{selected.read_at&&<div><dt>확인 시간</dt><dd>{date(selected.read_at)}</dd></div>}</dl><section><h5>메시지</h5><p>{selected.body}</p></section><section><h5>관련 업무</h5><button
+ type="button"
+ className="clinical-action notification-related-action"
+ disabled={
+  relatedLoading ||
+  (!onOpenRelatedWork && !selectedRoute)
+ }
+ onClick={()=>void openRelatedWork()}
+>
+ {relatedLoading
+  ?"이동 중..."
+  :"관련 업무로 이동"}
+</button>{!onOpenRelatedWork&&!selectedRoute&&<small>연결 가능한 관련 업무 정보가 없습니다.</small>}</section></div>:<div className="notification-empty-detail"><span aria-hidden="true">🔔</span><p>알림을 선택해 상세 내용을 확인하세요.</p></div>}</aside></div>
+ {drawer&&<div className="notification-drawer-layer" onMouseDown={()=>setDrawer(false)}><aside className="notification-drawer" role="dialog" aria-modal="true" onMouseDown={e=>e.stopPropagation()}><header><h3>알림 설정</h3><button type="button" aria-label="알림 설정 닫기" onClick={()=>setDrawer(false)}>×</button></header>{prefsError&&<div className="clinical-state clinical-state--error">{prefsError}</div>}{prefsLoading?<div className="clinical-state">설정을 불러오는 중...</div>:prefs?<main><section className="notification-preference-section"><h4>방해 금지 시간 설정</h4><label className="setting-row setting-row--dnd"><span><strong>방해 금지</strong><small>설정 시간에는 알림 수신을 제한합니다.</small></span><input className="notification-toggle" type="checkbox" checked={prefs.dnd.enabled} onChange={e=>setPrefs({...prefs,dnd:{...prefs.dnd,enabled:e.target.checked}})}/></label><div className="setting-time"><label>시작<input type="time" disabled={!prefs.dnd.enabled} value={prefs.dnd.start??""} onChange={e=>setPrefs({...prefs,dnd:{...prefs.dnd,start:e.target.value||null}})}/></label><label>종료<input type="time" disabled={!prefs.dnd.enabled} value={prefs.dnd.end??""} onChange={e=>setPrefs({...prefs,dnd:{...prefs.dnd,end:e.target.value||null}})}/></label></div></section><section className="notification-preference-section"><h4>알림 유형</h4>{prefs.categories.length?prefs.categories.map(c=>{const presentation=notificationPreferencePresentation[c.category];return <label className="notification-preference-row" key={c.category}><span className="notification-preference-row__icon" aria-hidden="true">{presentation?.icon??"•"}</span><span><strong>{notificationTypeLabel(c.category)}</strong><small>{presentation?.description??"이 유형의 알림 수신 여부를 설정합니다."}{c.required?" · 필수 알림":""}</small></span><input className="notification-toggle" type="checkbox" checked={c.enabled} disabled={c.required} onChange={e=>setPrefs({...prefs,categories:prefs.categories.map(v=>v.category===c.category?{...v,enabled:e.target.checked}:v)})}/></label>}):<p className="notification-preference-empty">저장된 알림 유형 설정이 없습니다.</p>}</section></main>:null}<footer><button type="button" onClick={()=>setDrawer(false)}>취소</button><button className="clinical-action" type="button" disabled={!prefs||saving} onClick={()=>void save()}>{saving?"저장 중...":"설정 저장"}</button></footer></aside></div>}</section>
+}

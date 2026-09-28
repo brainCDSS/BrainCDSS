@@ -60,3 +60,12 @@ checkpoints/
 artifacts/
 datasets/
 outputs/
+inference/runtime-wheels/*.whl
+
+.venv-final-audit/
+secrets/
+.local-backup/
+.tmp_flutter_clinician/
+.tmp_flutter_patient/
+.tools/
+rust-viewer/target/

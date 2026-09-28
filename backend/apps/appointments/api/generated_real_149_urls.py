@@ -1,0 +1,71 @@
+from django.urls import path
+from apps.appointments.api import generated_real_149 as views
+
+urlpatterns = [
+    path(
+        'api/v1/appointments',
+        views.ContractView000.as_view(),
+        name='api_app_001_api_app_002',
+    ),
+    path(
+        'api/v1/appointments/<uuid:appointment_id>',
+        views.ContractView001.as_view(),
+        name='api_app_003',
+    ),
+    path(
+        'api/v1/appointments/<uuid:appointment_id>/accept',
+        views.ContractView002.as_view(),
+        name='api_app_007',
+    ),
+    path(
+        'api/v1/appointments/<uuid:appointment_id>/cancel',
+        views.ContractView003.as_view(),
+        name='api_app_005',
+    ),
+    path(
+        'api/v1/appointments/<uuid:appointment_id>/complete',
+        views.ContractView004.as_view(),
+        name='api_app_010',
+    ),
+    path(
+        'api/v1/appointments/<uuid:appointment_id>/reject',
+        views.ContractView005.as_view(),
+        name='api_app_008',
+    ),
+    path(
+        'api/v1/appointments/<uuid:appointment_id>/reschedule',
+        views.ContractView006.as_view(),
+        name='api_app_004',
+    ),
+    path(
+        'api/v1/clinicians/<uuid:clinician_id>/schedule',
+        views.ContractView007.as_view(),
+        name='api_sch_001_api_sch_002',
+    ),
+    path(
+        'api/v1/clinicians/<uuid:clinician_id>/slots',
+        views.ContractView008.as_view(),
+        name='api_slot_001',
+    ),
+    path(
+        'api/v1/nurse/appointments/requests',
+        views.ContractView009.as_view(),
+        name='api_app_006',
+    ),
+    path(
+        'api/v1/slots/<uuid:slot_id>/block',
+        views.ContractView010.as_view(),
+        name='api_slot_002',
+    ),
+    path(
+        'api/v1/slots/<uuid:slot_id>/unblock',
+        views.ContractView011.as_view(),
+        name='api_slot_003',
+    ),
+    path(
+        'api/v1/staff/appointments',
+        views.ContractView012.as_view(),
+        name='api_app_009',
+    ),
+]
+

@@ -1,0 +1,1824 @@
+@import url("../../styles/clinical-workspace.css");
+
+/* =========================================================
+   Medication Safety / DUR
+   ========================================================= */
+
+.medication-safety {
+  --med-blue: #4f8fe8;
+  --med-border: #e4ebf3;
+  --med-text: #263247;
+  --med-muted: #8a97a8;
+
+  display: flex;
+  box-sizing: border-box;
+  width: 100%;
+  height: calc(100vh - 148px);
+  min-height: 0;
+  flex-direction: column;
+
+  overflow: hidden;
+
+  color: var(--med-text);
+
+  padding: 0;
+}
+
+/* clinical-page 기본 좌우 여백 제거 */
+.medication-safety.clinical-page {
+  width: 100%;
+  padding: 0 8px 12px 0;
+}
+
+.medication-safety .clinical-card {
+  border-color: var(--med-border);
+  box-shadow: 0 2px 8px rgba(38, 50, 71, 0.035);
+}
+
+
+/* =========================================================
+   전체 Shell
+   환자목록 / 본문
+   ========================================================= */
+
+.medication-shell {
+  display: grid;
+
+  grid-template-columns:
+    225px
+    minmax(0, 1fr);
+
+  gap: 8px;
+
+  min-width: 0;
+  min-height: 0;
+
+  flex: 1 1 auto;
+
+  overflow: hidden;
+}
+
+
+/* =========================================================
+   환자 목록
+   ========================================================= */
+
+.medication-shell .patient-context-rail {
+  position: relative;
+  top: auto;
+
+  width: 100%;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+
+  margin: 0;
+
+  border: 1px solid #e3e8f2;
+  border-radius: 14px;
+
+  background: #fbfcff;
+
+  box-shadow: 0 5px 16px rgba(46, 74, 110, 0.04);
+
+  overflow: hidden;
+}
+
+.medication-panel {
+  display: flex;
+
+  min-width: 0;
+  min-height: 0;
+
+  flex-direction: column;
+
+  overflow: hidden;
+}
+
+.medication-selection-empty {
+  display: grid;
+
+  min-height: 180px;
+
+  place-content: center;
+  gap: 8px;
+
+  color: var(--med-muted);
+
+  text-align: center;
+}
+
+.medication-selection-empty strong {
+  color: var(--med-text);
+  font-size: 15px;
+}
+
+.medication-selection-empty span {
+  font-size: 12px;
+}
+
+
+/* =========================================================
+   환자 Header
+   ========================================================= */
+
+.medication-context {
+  display: grid;
+
+  grid-template-columns:
+    52px
+    repeat(5, minmax(105px, 1fr))
+    auto;
+
+  gap: 0;
+  align-items: center;
+
+  margin-bottom: 8px;
+
+  padding: 11px 14px;
+}
+
+.medication-context
+  > div:not(.medication-context__avatar):not(.medication-context__empty) {
+  display: grid;
+
+  gap: 3px;
+
+  min-width: 0;
+
+  padding: 3px 18px;
+
+  border-right: 1px solid var(--med-border);
+}
+
+.medication-context small {
+  color: var(--med-muted);
+  font-size: 11px;
+}
+
+.medication-context strong {
+  overflow: hidden;
+
+  font-size: 15px;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.medication-context__avatar {
+  position: relative;
+
+  display: grid;
+
+  width: 40px;
+  height: 40px;
+
+  overflow: hidden;
+
+  border-radius: 50%;
+
+  background: #e7f1ff;
+  color: var(--med-blue);
+
+  place-items: center;
+}
+
+.medication-context__avatar span {
+  position: relative;
+
+  top: -5px;
+
+  font-size: 14px;
+}
+
+.medication-context__avatar::after {
+  position: absolute;
+
+  bottom: 4px;
+
+  width: 24px;
+  height: 13px;
+
+  border-radius: 14px 14px 7px 7px;
+
+  background: currentColor;
+
+  content: "";
+}
+
+.medication-context__empty {
+  grid-column: 1 / -1;
+
+  color: var(--med-muted);
+}
+
+.medication-context__complete {
+  justify-self: end;
+
+  border: 1px solid #9bdfc5;
+  border-radius: 999px;
+
+  padding: 6px 12px;
+
+  background: #e7f8f1;
+  color: #14805b;
+
+  font-size: 12px;
+  font-weight: 800;
+
+  white-space: nowrap;
+}
+
+.medication-context__complete--pending {
+  border-color: #d4dde9;
+
+  background: #f4f7fb;
+  color: #66768d;
+}
+
+.medication-context--empty {
+  display: grid;
+
+  min-height: 72px;
+
+  place-items: center;
+}
+
+
+/* =========================================================
+   Encounter 안내
+   ========================================================= */
+
+.medication-encounter-notice {
+  margin: 0 10px 6px;
+
+  border: 1px solid #f1d28d;
+  border-radius: 6px;
+
+  padding: 7px 9px;
+
+  background: #fffaf0;
+  color: #9a6b00;
+
+  font-size: 11px;
+}
+
+
+/* =========================================================
+   Patient Header
+   ========================================================= */
+
+.medication-context--patient-header {
+  display: block;
+
+  flex: 0 0 auto;
+
+  margin-bottom: 8px;
+
+  padding: 0;
+}
+
+.medication-context--patient-header
+  .patient-context-header--compact {
+  display: grid;
+
+  min-height: 86px;
+
+  grid-template-columns:
+    minmax(330px, 1.5fr)
+    minmax(120px, 0.55fr)
+    minmax(250px, 1fr)
+    auto;
+
+  align-items: center;
+
+  gap: 17px;
+
+  margin: 0;
+
+  padding: 12px 18px;
+
+  border: 1px solid #e3e8f2;
+  border-radius: 14px;
+
+  background: #ffffff;
+
+  box-shadow: 0 5px 16px rgba(46, 74, 110, 0.04);
+}
+
+.medication-context--patient-header
+  .patient-context-header__identity {
+  gap: 14px;
+}
+
+.medication-context--patient-header .patient-avatar {
+  width: 58px;
+  height: 58px;
+
+  flex-basis: 58px;
+
+  border-radius: 50%;
+
+  background: #eaf3ff;
+  color: #2176df;
+
+  font-size: 23px;
+}
+
+.medication-context--patient-header .patient-context-title {
+  gap: 11px;
+
+  margin-bottom: 9px;
+}
+
+.medication-context--patient-header
+  .patient-context-title h1 {
+  font-size: 28px;
+}
+
+.medication-context--patient-header
+  .patient-context-title > strong {
+  font-size: 14px;
+}
+
+.medication-context--patient-header .patient-status {
+  padding: 5px 11px;
+
+  font-size: 12px;
+}
+
+.medication-context--patient-header
+  .patient-context-demographics,
+.medication-context--patient-header
+  .patient-context-demographics b {
+  font-size: 12px;
+}
+
+.medication-context--patient-header
+  .patient-context-demographics span {
+  padding: 0 9px;
+}
+
+.medication-context--patient-header
+  .patient-context-allergy {
+  min-height: 58px;
+
+  gap: 6px;
+
+  padding: 9px 14px;
+
+  border: 1px solid #f0d4d8;
+  border-radius: 9px;
+
+  background: #fff4f5;
+}
+
+.medication-context--patient-header
+  .patient-context-allergy strong {
+  font-size: 13px;
+}
+
+.medication-context--patient-header
+  .patient-context-allergy span {
+  font-size: 12px;
+}
+
+.medication-context--patient-header
+  .patient-context-care {
+  gap: 9px 16px;
+}
+
+.medication-context--patient-header
+  .patient-context-care dt {
+  font-size: 12px;
+}
+
+.medication-context--patient-header
+  .patient-context-care dd {
+  font-size: 13px;
+}
+
+.medication-context--patient-header
+  .patient-context-detail {
+  height: 40px;
+
+  padding: 0 14px;
+
+  font-size: 12px;
+}
+
+
+/* =========================================================
+   Feedback
+   ========================================================= */
+
+.medication-feedback {
+  margin-bottom: 8px;
+
+  border: 1px solid #a6dac9;
+  border-radius: 7px;
+
+  padding: 8px 12px;
+
+  background: #ebfaf4;
+  color: #086b4d;
+}
+
+.medication-feedback--error {
+  border-color: #f3b5b5;
+
+  background: #fff0f0;
+  color: #b42318;
+}
+
+
+/* =========================================================
+   Workspace
+   환자 임상정보 / 처방 작성 / DUR
+
+   핵심 비율
+   18 / 56 / 26
+   ========================================================= */
+
+.medication-workspace {
+  display: grid;
+
+  min-width: 0;
+  min-height: 0;
+
+  flex: 1 1 auto;
+
+  grid-template-columns:
+    minmax(230px, 25fr)
+    minmax(0, 45fr)
+    minmax(320px, 30fr);
+
+  gap: 8px;
+
+  align-items: stretch;
+
+  overflow: hidden;
+}
+
+.medication-column {
+  display: grid;
+
+  min-width: 0;
+  min-height: 0;
+
+  grid-template-rows:
+    auto
+    minmax(0, 1fr);
+
+  gap: 8px;
+}
+
+.medication-clinical-column {
+  min-width: 0;
+  min-height: 0;
+}
+
+
+/* =========================================================
+   환자 임상정보
+   ========================================================= */
+
+.medication-clinical-card {
+  height: 100%;
+
+  overflow-y: auto;
+
+  padding: 0;
+}
+
+.medication-clinical-section {
+  padding: 11px 13px;
+
+  border-bottom: 1px solid var(--med-border);
+}
+
+.medication-clinical-section--last {
+  border-bottom: 0;
+}
+
+.medication-clinical-section__heading {
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+
+  margin-bottom: 8px;
+
+  color: #263247;
+}
+
+.medication-clinical-section__heading strong {
+  font-size: 14px;
+}
+
+.medication-clinical-section__heading button {
+  border: 0;
+
+  background: transparent;
+
+  color: #176ed5;
+
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.medication-clinical-section__heading button:disabled {
+  opacity: 1;
+
+  cursor: default;
+}
+
+.medication-detail-list {
+  display: grid;
+
+  gap: 6px;
+
+  margin: 0;
+}
+
+.medication-detail-list > div {
+  display: grid;
+
+  grid-template-columns:
+    82px
+    minmax(0, 1fr);
+
+  gap: 8px;
+
+  padding-bottom: 5px;
+
+  border-bottom: 1px solid #f0f3f7;
+}
+
+.medication-detail-list > div:last-child {
+  padding-bottom: 0;
+
+  border-bottom: 0;
+}
+
+.medication-detail-list dt {
+  color: var(--med-muted);
+
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.medication-detail-list dd {
+  overflow: hidden;
+
+  margin: 0;
+
+  color: var(--med-text);
+
+  font-size: 12px;
+  font-weight: 650;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.medication-compact-empty {
+  border-radius: 6px;
+
+  padding: 12px 8px;
+
+  background: #f8fafc;
+  color: var(--med-muted);
+
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.45;
+
+  text-align: center;
+}
+
+.medication-current-list {
+  display:grid;
+  gap:6px;
+  margin:0;
+  padding:0;
+  list-style:none;
+}
+
+.medication-current-list li {
+  display:grid;
+  gap:2px;
+  padding:7px 8px;
+  border-radius:6px;
+  background:#f8fafc;
+}
+
+.medication-current-list strong { font-size:12px; font-weight:650; }
+.medication-current-list span { color:var(--med-muted); font-size:11px; font-weight:400; }
+
+
+/* =========================================================
+   공통 카드
+   ========================================================= */
+
+.medication-search-card,
+.medication-prescription-card,
+.medication-dur {
+  min-width: 0;
+
+  padding: 0;
+
+  overflow: hidden;
+}
+
+.medication-section-title {
+  min-height: 44px;
+
+  padding: 0 12px;
+
+  border-bottom: 1px solid var(--med-border);
+}
+
+.medication-search-header {
+  display: grid;
+  grid-template-columns: auto minmax(320px, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  min-height: 58px;
+}
+
+.medication-search-header > small {
+  white-space: nowrap;
+  color: #52657f;
+}
+
+.medication-section-title h3 {
+  display: flex;
+
+  gap: 8px;
+
+  align-items: center;
+
+  font-size: 17px;
+}
+
+.medication-section-title h3 > span {
+  display: grid;
+
+  width: 28px;
+  height: 28px;
+
+  border-radius: 6px;
+
+  background: #1672ef;
+  color: #ffffff;
+
+  place-items: center;
+}
+
+.medication-section-title button,
+.medication-search button,
+.medication-add,
+.medication-clear {
+  border: 1px solid var(--med-blue);
+  border-radius: 6px;
+
+  background: #ffffff;
+  color: #176ed5;
+
+  font-weight: 750;
+
+  cursor: pointer;
+}
+
+.medication-section-title button {
+  padding: 7px 11px;
+}
+
+.medication-section-title button:disabled,
+.medication-search button:disabled,
+.medication-add:disabled,
+.medication-clear:disabled {
+  opacity: 0.45;
+
+  cursor: not-allowed;
+}
+
+
+/* =========================================================
+   약물 검색
+   ========================================================= */
+
+.medication-search {
+  display: grid;
+
+  grid-template-columns:
+    minmax(0, 1fr)
+    76px
+    96px;
+
+  gap: 8px;
+  justify-content: start;
+
+  margin: 8px 10px;
+
+  padding: 0;
+
+  border: 0;
+
+  background: transparent;
+}
+
+.medication-search--header {
+  width: min(100%, 620px);
+  margin: 0 0 0 auto;
+  grid-template-columns: minmax(180px, 1fr) 104px;
+}
+
+.medication-search input,
+.medication-search select,
+.medication-form-grid input,
+.dur-override textarea {
+  box-sizing: border-box;
+
+  width: 100%;
+  height: 34px;
+
+  min-width: 0;
+
+  border: 1px solid #ced9e8;
+  border-radius: 6px;
+
+  padding: 7px 9px;
+
+  background: #ffffff;
+  color: var(--med-text);
+
+  outline: none;
+}
+
+.medication-search select {
+  appearance: auto;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.medication-search input,
+.medication-search input::placeholder {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.medication-search button {
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.medication-search input:focus,
+.medication-form-grid input:focus,
+.dur-override textarea:focus {
+  border-color: var(--med-blue);
+
+  box-shadow:
+    0 0 0 2px rgba(79, 143, 232, 0.13);
+}
+
+.medication-search .is-primary {
+  background: #1672ef;
+  color: #ffffff;
+}
+
+.medication-advanced-search{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 10px 10px;padding:10px 12px;border:1px solid #d8e3f0;border-radius:8px;background:#f8fbff}.medication-advanced-search>div:first-child{display:grid;gap:2px}.medication-advanced-search strong{color:#263b5c;font-size:12px}.medication-advanced-search span{color:#718198;font-size:10px}.medication-disease-filters{display:flex;flex-wrap:wrap;gap:6px}.medication-disease-filters button{padding:6px 10px;border:1px solid #cddaea;border-radius:999px;background:#fff;color:#52657f;font-size:11px;cursor:pointer}.medication-disease-filters button.is-active{border-color:#1672ef;background:#eaf3ff;color:#1263cc;font-weight:800}
+
+
+/* =========================================================
+   약물 검색 결과
+   가로 스크롤 제거
+   추가 버튼 항상 노출
+   ========================================================= */
+
+.medication-search-results {
+  width: auto;
+  height: 240px;
+  max-height: 240px;
+
+  margin: 0 10px 10px;
+
+  border: 1px solid var(--med-border);
+  border-radius: 7px;
+
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.medication-search-results .clinical-table {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100%;
+
+  table-layout: fixed;
+
+  border-collapse: collapse;
+}
+
+.medication-search-results .clinical-table thead {
+  position: sticky;
+
+  top: 0;
+
+  z-index: 2;
+
+  background: #f7f9fc;
+}
+
+.medication-search-results .clinical-table th,
+.medication-search-results .clinical-table td {
+  box-sizing: border-box;
+
+  height: 34px;
+
+  padding: 5px 7px;
+
+  overflow: hidden;
+
+  font-size: 11px;
+  font-weight: 500;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  vertical-align: middle;
+}
+
+/* 약물명 */
+
+.medication-search-results
+  .clinical-table th:nth-child(1),
+.medication-search-results
+  .clinical-table td:nth-child(1) {
+  width: 36%;
+}
+
+/* 제형 */
+
+.medication-search-results
+  .clinical-table th:nth-child(2),
+.medication-search-results
+  .clinical-table td:nth-child(2) {
+  width: 12%;
+}
+
+/* 함량 */
+
+.medication-search-results
+  .clinical-table th:nth-child(3),
+.medication-search-results
+  .clinical-table td:nth-child(3) {
+  width: 14%;
+}
+
+/* 제조사 */
+
+.medication-search-results
+  .clinical-table th:nth-child(4),
+.medication-search-results
+  .clinical-table td:nth-child(4) {
+  width: 22%;
+}
+
+/* 선택 */
+
+.medication-search-results
+  .clinical-table th:nth-child(5),
+.medication-search-results
+  .clinical-table td:nth-child(5) {
+  width: 16%;
+
+  text-align: center;
+}
+
+.medication-search-results td:first-child {
+  display: table-cell;
+}
+
+.medication-search-results td:first-child strong {
+  display: block;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 650;
+}
+
+.medication-search-results td small {
+  display: block;
+
+  overflow: hidden;
+
+  color: var(--med-muted);
+
+  font-size: 10px;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.medication-add {
+  display: inline-flex;
+
+  width: 100%;
+  min-width: 0;
+  max-width: 78px;
+  min-height: 27px;
+
+  align-items: center;
+  justify-content: center;
+
+  padding: 4px 6px;
+
+  white-space: nowrap;
+}
+
+
+/* =========================================================
+   현재 처방 목록
+   ========================================================= */
+
+.medication-prescription-card {
+  display: flex;
+
+  min-height: 0;
+
+  flex-direction: column;
+}
+
+.medication-prescription-card > .clinical-state {
+  min-height: 0;
+
+  flex: 1;
+
+  margin: 10px;
+}
+
+.medication-search-card > .clinical-state {
+  margin: 10px;
+}
+
+.medication-clear {
+  padding: 6px 10px;
+
+  border-color: #ccd8e6;
+
+  color: #52657e;
+}
+
+.medication-items {
+  display: grid;
+
+  min-height: 0;
+
+  flex: 1 1 auto;
+
+  gap: 6px;
+
+  padding: 6px 8px;
+
+  overflow-y: auto;
+}
+
+.medication-item {
+  border: 1px solid #d9e2ef;
+  border-radius: 8px;
+
+  background: #fbfdff;
+}
+
+.medication-item__heading {
+  display: flex;
+
+  gap: 7px;
+
+  align-items: center;
+
+  min-height: 32px;
+
+  padding: 3px 7px;
+
+  border-bottom: 1px solid #e7edf5;
+}
+
+.medication-item__heading > strong {
+  min-width: 0;
+
+  overflow: hidden;
+
+  font-size: 14px;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 650;
+}
+
+.medication-item__heading
+  > span:not(.medication-item__number) {
+  color: var(--med-muted);
+
+  font-size: 11px;
+}
+
+.medication-item__number {
+  display: grid;
+
+  width: 26px;
+  height: 26px;
+
+  flex: 0 0 26px;
+
+  border-radius: 50%;
+
+  background: #dfedff;
+  color: #176ed5;
+
+  font-weight: 800;
+
+  place-items: center;
+}
+
+.medication-item__heading button {
+  margin-left: auto;
+
+  flex: 0 0 auto;
+
+  border: 1px solid #ffbcbc;
+  border-radius: 5px;
+
+  padding: 5px 9px;
+
+  background: #ffffff;
+  color: #e33333;
+}
+
+.medication-item__heading button:disabled {
+  opacity: 0.45;
+}
+
+
+/* =========================================================
+   처방 입력
+   4열 × 2줄
+   ========================================================= */
+
+.medication-form-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(4, minmax(0, 1fr));
+
+  gap: 6px;
+
+  padding: 6px 8px;
+}
+
+.medication-form-grid--primary {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  padding-bottom: 5px;
+}
+
+.medication-item__details {
+  border-top: 1px solid #edf1f6;
+}
+
+.medication-item__details summary {
+  width: fit-content;
+  margin: 0 8px;
+  padding: 6px 0;
+  color: #3474c5;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  user-select: none;
+}
+
+.medication-item__details summary::marker {
+  color: #6e91bd;
+}
+
+.medication-form-grid--details {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding-top: 2px;
+}
+
+.medication-form-grid--details .medication-form-grid__wide {
+  grid-column: 1 / -1;
+}
+
+.medication-form-grid label {
+  display: grid;
+
+  gap: 3px;
+
+  min-width: 0;
+
+  color: #66768d;
+
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.medication-form-grid__wide {
+  grid-column: span 1;
+}
+
+.medication-form-grid input,
+.medication-form-grid select {
+  box-sizing: border-box;
+
+  width: 100%;
+  height: 31px;
+
+  min-width: 0;
+
+  padding: 5px 7px;
+
+  font-size: 12px;
+}
+
+.medication-form-grid input[readonly] {
+  background: #f4f7fb;
+  color: #53657c;
+}
+
+.medication-timing-editor {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 9px;
+  align-items: center;
+  padding: 5px 8px 6px;
+  border-top: 1px solid #edf1f6;
+}
+
+.medication-timing-editor > span { color: #53657c; font-size: 10px; font-weight: 750; }
+.medication-timing-editor > small { grid-column: 2; color: #718198; font-size: 9px; line-height: 1.2; }
+.medication-time-slots { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.medication-time-slots > button { display: inline-flex; gap: 4px; align-items: center; min-height: 26px; border: 1px solid #cddaea; border-radius: 6px; padding: 3px 7px; background: #fff; color: #52657f; font-size: 11px; line-height: 1; cursor: pointer; }
+.medication-time-slots > button small { color: #8997aa; font-size: 8px; }
+.medication-time-slots > button.is-selected { border-color: #1672ef; background: #eaf3ff; color: #1263cc; font-weight: 800; }
+.medication-time-slots > label { display: inline-flex; gap: 4px; align-items: center; color: #66768d; font-size: 9px; }
+.medication-time-slots input[type="time"] { width: 88px; height: 26px; border: 1px solid #ced9e8; border-radius: 6px; padding: 2px 5px; background: #fff; color: var(--med-text); font-size: 10px; }
+
+.clinical-action-bar.medication-draft-actions {
+  justify-content: flex-end;
+
+  padding: 2px 10px 9px;
+}
+
+.medication-draft-actions .clinical-action {
+  min-width: 210px;
+}
+
+
+/* =========================================================
+   DUR
+   ========================================================= */
+
+.medication-dur {
+  position: static;
+
+  display: flex;
+
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+
+  flex-direction: column;
+}
+
+.dur-summary {
+  display: grid;
+
+  grid-template-columns:
+    repeat(3, 1fr);
+
+  gap: 7px;
+
+  padding: 8px 10px;
+}
+
+.dur-summary > div {
+  display: flex;
+
+  min-width: 0;
+  min-height: 40px;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 7px;
+
+  border: 1px solid;
+  border-radius: 7px;
+}
+
+.dur-summary span {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.dur-summary strong {
+  font-size: 15px;
+}
+
+.dur-summary--block {
+  border-color: #ffc4c9 !important;
+
+  background: #fff3f4;
+  color: #df2638;
+}
+
+.dur-summary--major {
+  border-color: #ffd0b5 !important;
+
+  background: #fff6f0;
+  color: #ed5b16;
+}
+
+.dur-summary--warning {
+  border-color: #f6d986 !important;
+
+  background: #fffaf0;
+  color: #cf9000;
+}
+
+
+/* =========================================================
+   DUR 기준
+   ========================================================= */
+
+.dur-criteria {
+  display: grid;
+
+  grid-template-columns:
+    1fr
+    1fr;
+
+  margin: 0 10px 8px;
+
+  border: 1px solid var(--med-border);
+  border-radius: 7px;
+
+  overflow: hidden;
+}
+
+.dur-criteria__item {
+  display: flex;
+
+  min-width: 0;
+  min-height: 36px;
+
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 10px;
+
+  padding: 8px 10px;
+
+  border-bottom: 1px solid var(--med-border);
+
+  color: #52657e;
+
+  font-size: 11px;
+}
+
+.dur-criteria__item:nth-last-child(-n + 2) {
+  border-bottom: 0;
+}
+
+.dur-criteria__item:nth-child(odd) {
+  border-right: 1px solid var(--med-border);
+}
+
+.dur-criteria__item span {
+  min-width: 0;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.dur-criteria__item strong {
+  flex: 0 0 auto;
+
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #e1f5ea;
+  color: #16815d;
+
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.dur-criteria__item--block strong {
+  color: #d92b3d;
+}
+
+.dur-criteria__item--major strong {
+  color: #dd5b1f;
+}
+
+.dur-criteria__item--warning strong {
+  color: #bf8500;
+}
+
+.dur-criteria__item--info strong {
+  color: #52657e;
+}
+
+
+/* =========================================================
+   DUR Alerts
+   ========================================================= */
+
+.dur-alerts {
+  display: grid;
+
+  min-height: 0;
+
+  flex: 1 1 auto;
+
+  gap: 7px;
+
+  padding: 0 10px 8px;
+
+  overflow-y: auto;
+}
+
+.dur-alert {
+  border: 1px solid #d9e2ef;
+  border-radius: 7px;
+
+  padding: 8px 9px;
+
+  background: #f8fafc;
+}
+
+.dur-alert--block {
+  border-color: #f39ba4;
+
+  background: #fff5f6;
+}
+
+.dur-alert--major {
+  border-color: #f4bb94;
+
+  background: #fff8f3;
+}
+
+.dur-alert--warning {
+  border-color: #ecc85d;
+
+  background: #fffaf0;
+}
+
+.dur-alert--info {
+  border-color: #9dbce0;
+
+  background: #f3f7fc;
+}
+
+.dur-alert__heading {
+  display: grid;
+
+  grid-template-columns:
+    auto
+    1fr
+    auto;
+
+  gap: 8px;
+
+  align-items: center;
+}
+
+.dur-alert__heading > strong {
+  border-radius: 5px;
+
+  padding: 3px 9px;
+
+  background: #e12636;
+  color: #ffffff;
+
+  font-size: 12px;
+}
+
+.dur-alert--major
+  .dur-alert__heading > strong {
+  background: #f05a24;
+}
+
+.dur-alert--warning
+  .dur-alert__heading > strong {
+  background: #e9ac00;
+}
+
+.dur-alert--info
+  .dur-alert__heading > strong {
+  background: #5b8cc9;
+}
+
+.dur-alert__heading > b {
+  font-size: 14px;
+}
+
+.dur-alert__heading > span {
+  border-radius: 999px;
+
+  padding: 3px 8px;
+
+  background: rgba(255, 255, 255, 0.75);
+
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.dur-alert__row {
+  display: grid;
+
+  grid-template-columns:
+    72px
+    minmax(0, 1fr);
+
+  gap: 8px;
+
+  margin: 7px 0 0;
+
+  color: #40536e;
+
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.dur-alert__row b {
+  color: #263b59;
+}
+
+.dur-comparison {
+  display: grid;
+
+  grid-template-columns:
+    1fr
+    1fr;
+
+  margin-top: 7px;
+
+  border-radius: 6px;
+
+  padding: 7px;
+
+  background: #edf5ff;
+}
+
+.dur-comparison > div {
+  display: grid;
+
+  gap: 2px;
+
+  text-align: center;
+}
+
+.dur-comparison > div + div {
+  border-left: 1px solid #cbd9e9;
+}
+
+.dur-comparison span {
+  color: #66768d;
+
+  font-size: 10px;
+}
+
+.dur-comparison strong {
+  color: #e12532;
+
+  font-size: 16px;
+}
+
+.dur-comparison small {
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.dur-override {
+  display: grid;
+
+  grid-template-columns:
+    96px
+    minmax(0, 1fr);
+
+  gap: 8px;
+
+  align-items: center;
+
+  margin-top: 7px;
+
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.dur-override textarea {
+  height: 42px;
+  min-height: 42px;
+
+  resize: none;
+}
+
+.dur-alert__blocked {
+  display: block;
+
+  margin-top: 7px;
+
+  color: #b42318;
+
+  font-size: 11px;
+}
+
+.medication-safe {
+  margin: 0 10px;
+
+  border: 1px solid #a6dac9;
+  border-radius: 7px;
+
+  padding: 14px;
+
+  background: #ebfaf4;
+  color: #087451;
+
+  font-weight: 800;
+
+  text-align: center;
+}
+
+.medication-dur > .clinical-state {
+  margin: 0 10px;
+}
+
+
+/* =========================================================
+   DUR 하단 버튼
+   ========================================================= */
+
+.medication-dur__actions {
+  display: grid;
+
+  grid-template-columns:
+    1fr
+    1.08fr;
+
+  gap: 8px;
+
+  margin-top: auto;
+
+  padding: 9px 10px;
+
+  border-top: 1px solid var(--med-border);
+}
+
+.medication-dur__actions .clinical-action {
+  height: 40px;
+
+  min-width: 0;
+
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.medication-finalize {
+  background: #1672ef !important;
+  color: #ffffff !important;
+}
+
+
+/* =========================================================
+   1400 이하
+   PC 화면에서도 처방 작성 영역 우선 확보
+   ========================================================= */
+
+@media (max-width: 1400px) {
+  .medication-shell {
+    grid-template-columns:
+      215px
+      minmax(0, 1fr);
+  }
+
+  .medication-workspace {
+    grid-template-columns:
+      minmax(230px, 25fr)
+      minmax(0, 45fr)
+      minmax(320px, 30fr);
+  }
+
+  .medication-context--patient-header
+    .patient-context-header--compact {
+    grid-template-columns:
+      minmax(300px, 1.35fr)
+      110px
+      minmax(210px, 1fr)
+      auto;
+
+    gap: 10px;
+  }
+
+  .medication-context--patient-header
+    .patient-context-demographics span {
+    padding: 0 5px;
+  }
+
+  .medication-form-grid {
+    grid-template-columns:
+      repeat(4, minmax(0, 1fr));
+  }
+
+  .medication-search-results .clinical-table th,
+  .medication-search-results .clinical-table td {
+    padding-left: 5px;
+    padding-right: 5px;
+  }
+}
+
+
+/* =========================================================
+   1100 이하
+   ========================================================= */
+
+@media (max-width: 1100px) {
+  .medication-safety {
+    height: auto;
+    min-height: 0;
+
+    overflow: visible;
+
+    padding: 12px;
+  }
+
+  .medication-safety.clinical-page {
+    padding: 12px;
+  }
+
+  .medication-shell {
+    grid-template-columns:
+      210px
+      minmax(0, 1fr);
+
+    overflow: visible;
+  }
+
+  .medication-shell .patient-context-rail {
+    height: calc(100vh - 148px);
+  }
+
+  .medication-panel {
+    overflow: visible;
+  }
+
+  .medication-workspace {
+    grid-template-columns:
+      minmax(200px, 30fr)
+      minmax(0, 70fr);
+
+    overflow: visible;
+  }
+
+  .medication-dur {
+    position: static;
+
+    height: auto;
+    min-height: 0;
+    max-height: none;
+
+    grid-column: 1 / -1;
+  }
+
+  .medication-context--patient-header
+    .patient-context-header--compact {
+    grid-template-columns:
+      minmax(280px, 1.35fr)
+      minmax(210px, 1fr)
+      auto;
+  }
+
+  .medication-context--patient-header
+    .patient-context-allergy {
+    display: none;
+  }
+
+  .medication-form-grid {
+    grid-template-columns:
+      repeat(3, minmax(0, 1fr));
+  }
+}
+
+
+/* =========================================================
+   720 이하
+   ========================================================= */
+
+@media (max-width: 720px) {
+  .medication-shell,
+  .medication-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .medication-shell
+    .patient-context-rail {
+    height: auto;
+    min-height: 360px;
+  }
+
+  .medication-dur {
+    grid-column: auto;
+  }
+
+  .medication-context {
+    grid-template-columns:
+      40px
+      1fr
+      auto;
+  }
+
+  .medication-context
+    > div:not(.medication-context__avatar):not(.medication-context__empty) {
+    display: none;
+  }
+
+  .medication-context > div:nth-of-type(2) {
+    display: grid;
+  }
+
+  .medication-search {
+    grid-template-columns:
+      1fr
+      64px;
+  }
+
+  .medication-search-header {
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .medication-search--header {
+    grid-column: 1 / -1;
+    grid-template-columns: minmax(0, 1fr) 100px;
+    width: 100%;
+    margin: 0;
+  }
+
+  .medication-search button:last-child {
+    display: none;
+  }
+
+  .medication-form-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+
+  .medication-form-grid__wide {
+    grid-column: span 2;
+  }
+
+  .medication-search-results
+    .clinical-table th:nth-child(4),
+  .medication-search-results
+    .clinical-table td:nth-child(4) {
+    display: none;
+  }
+
+  .medication-search-results
+    .clinical-table th:nth-child(1),
+  .medication-search-results
+    .clinical-table td:nth-child(1) {
+    width: 48%;
+  }
+
+  .medication-search-results
+    .clinical-table th:nth-child(2),
+  .medication-search-results
+    .clinical-table td:nth-child(2) {
+    width: 14%;
+  }
+
+  .medication-search-results
+    .clinical-table th:nth-child(3),
+  .medication-search-results
+    .clinical-table td:nth-child(3) {
+    width: 18%;
+  }
+
+  .medication-search-results
+    .clinical-table th:nth-child(5),
+  .medication-search-results
+    .clinical-table td:nth-child(5) {
+    width: 20%;
+  }
+}

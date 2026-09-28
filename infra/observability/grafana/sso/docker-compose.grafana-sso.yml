@@ -1,0 +1,70 @@
+services:
+
+  grafana:
+    environment:
+      GF_SERVER_ROOT_URL: >-
+        https://brainon-frontend-v2-3gykqo24da-as.a.run.app/grafana/
+
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+
+      GF_SECURITY_ALLOW_EMBEDDING: "true"
+
+      GF_AUTH_PROXY_ENABLED: "true"
+      GF_AUTH_PROXY_HEADER_NAME: "X-WEBAUTH-USER"
+      GF_AUTH_PROXY_HEADER_PROPERTY: "username"
+      GF_AUTH_PROXY_AUTO_SIGN_UP: "true"
+      GF_AUTH_PROXY_SYNC_TTL: "0"
+
+      GF_AUTH_PROXY_HEADERS: >-
+        Role:X-WEBAUTH-ROLE
+
+      GF_AUTH_PROXY_ENABLE_LOGIN_TOKEN: "true"
+
+      # 오직 전용 Gateway container만
+      # Auth Proxy header를 사용할 수 있다.
+      GF_AUTH_PROXY_WHITELIST: "172.31.250.2"
+
+      GF_AUTH_DISABLE_SIGNOUT_MENU: "true"
+
+    networks:
+      brainon-observability:
+      brainon-grafana-auth:
+        ipv4_address: 172.31.250.3
+
+
+  grafana-gateway:
+    image: nginx:1.27-alpine
+
+    container_name:
+      brainon-grafana-gateway
+
+    restart:
+      unless-stopped
+
+    ports:
+      - "10.148.0.5:3001:8080"
+
+    volumes:
+      - >-
+        ./grafana/sso/gateway-nginx.conf:/etc/nginx/nginx.conf:ro
+
+    networks:
+      brainon-grafana-auth:
+        ipv4_address: 172.31.250.2
+
+    depends_on:
+      - grafana
+
+
+networks:
+
+  brainon-observability:
+    external: true
+    name: brainon-observability
+
+  brainon-grafana-auth:
+    name: brainon-grafana-auth
+
+    ipam:
+      config:
+        - subnet: 172.31.250.0/29

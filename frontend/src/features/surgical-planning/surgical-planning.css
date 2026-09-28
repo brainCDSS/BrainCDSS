@@ -1,0 +1,273 @@
+@import url("../../styles/clinical-workspace.css");
+.surgical-planning-page{height:100%;min-height:0;overflow:hidden}.surgical-planning-page__heading{align-items:center;display:flex;justify-content:space-between}.planning-mock-label,.planning-viewer__mode-badge,.planning-status-chip{background:var(--color-primary-soft);border:1px solid var(--color-border);border-radius:999px;color:var(--color-primary);font-size:11px;font-weight:700;padding:5px 9px}.surgical-planning-layout{display:grid;flex:1;gap:12px;grid-template-columns:230px minmax(440px,1fr) minmax(310px,350px);min-height:0}.planning-context,.planning-viewer,.planning-side-panel{min-height:0;overflow:hidden}.planning-context{padding:16px}.planning-context__title{align-items:flex-start;gap:8px;margin-bottom:15px}.planning-context__title h3,.planning-viewer__heading h3{margin:3px 0 0}.planning-eyebrow{color:var(--color-primary);font-size:10px;font-weight:800;letter-spacing:.08em}.planning-context h4,.planning-control-section h4{font-size:13px;margin:0 0 9px}.planning-context__section{display:grid;gap:10px;margin:0}.planning-context__row dt{color:var(--color-text-muted);font-size:11px;margin-bottom:3px}.planning-context__row dd{color:var(--color-text);font-size:13px;font-weight:600;line-height:1.4;margin:0;overflow-wrap:anywhere}.planning-context__divider{border-top:1px solid var(--color-border);margin:15px 0}
+.planning-viewer{background:var(--color-navy);border-color:var(--color-navy);display:flex;flex-direction:column;padding:0}.planning-viewer__heading{align-items:center;color:var(--color-white);display:flex;justify-content:space-between;padding:13px 16px}.planning-viewer__heading h3{color:var(--color-white);font-size:15px}.planning-view-tabs,.planning-panel-tabs{display:flex}.planning-view-tabs{background:var(--color-surface);border-bottom:1px solid var(--color-border);padding:0 10px}.planning-view-tabs button,.planning-panel-tabs button{background:transparent;border:0;border-bottom:3px solid transparent;color:var(--color-text-muted);cursor:pointer;font:inherit;font-size:13px;font-weight:700;min-height:42px;padding:0 13px}.planning-view-tabs button.is-active,.planning-panel-tabs button.is-active{border-bottom-color:var(--color-primary);color:var(--color-primary)}.planning-viewport{background:var(--color-navy);flex:1;min-height:340px;overflow:hidden;position:relative;touch-action:none}.planning-viewport:before{background-image:linear-gradient(var(--color-border) 1px,transparent 1px),linear-gradient(90deg,var(--color-border) 1px,transparent 1px);background-size:44px 44px;content:"";inset:0;opacity:.08;position:absolute}.planning-viewport__empty{align-items:center;color:var(--color-white);display:flex;flex-direction:column;gap:8px;inset:0;justify-content:center;position:absolute}.planning-viewport__empty span,.planning-viewport__hint{color:var(--color-text-muted);font-size:12px}.planning-viewport__hint{bottom:12px;left:0;margin:0;position:absolute;right:0;text-align:center}.planning-vessel-placeholder{height:72%;left:50%;position:absolute;top:12%;transform:translateX(-50%);width:58%}.planning-vessel-placeholder span{background:var(--color-primary);border-radius:999px;box-shadow:0 0 18px var(--color-primary);display:block;opacity:.65;position:absolute}.planning-vessel-placeholder__stem{height:72%;left:49%;top:24%;width:8px}.planning-vessel-placeholder__branch{height:7px;left:50%;transform-origin:left center;width:45%}.planning-vessel-placeholder__branch--one{top:27%;transform:rotate(-35deg)}.planning-vessel-placeholder__branch--two{top:48%;transform:rotate(24deg)}.planning-vessel-placeholder__branch--three{left:8%;top:35%;transform:rotate(31deg)}
+.placed-clip{background:transparent;border:0;cursor:grab;height:42px;padding:0;position:absolute;width:42px;z-index:2}.placed-clip:active{cursor:grabbing}.placed-clip span,.virtual-clip-icon{border:4px solid var(--color-warning);border-bottom:0;border-radius:50% 50% 0 0;display:inline-block;height:24px;position:relative;width:15px}.placed-clip span:after,.virtual-clip-icon:after{background:var(--color-warning);content:"";height:17px;left:50%;position:absolute;top:17px;transform:translateX(-50%);width:4px}.placed-clip.is-selected{border:2px solid var(--color-primary);border-radius:50%}.planning-viewer__footer{color:var(--color-text-muted);display:flex;font-size:11px;justify-content:space-between;padding:9px 14px}
+.planning-side-panel{display:flex;flex-direction:column;padding:0}.planning-panel-tabs{border-bottom:1px solid var(--color-border);flex:0 0 auto;padding:0 8px}.planning-panel-tabs button{flex:1;padding:0 7px}.planning-controls,.collaboration-panel{flex:1;min-height:0;overflow-y:auto;padding:12px}.planning-control-section{border-bottom:1px solid var(--color-border);margin-bottom:12px;padding:0 0 12px}.planning-control-section h4 small{color:var(--color-text-muted);font-size:10px}.planning-ai-summary{display:grid;gap:7px;margin:0}.planning-ai-summary div{display:grid;gap:6px;grid-template-columns:58px 1fr}.planning-ai-summary dt{color:var(--color-text-muted);font-size:11px}.planning-ai-summary dd{font-size:12px;font-weight:600;margin:0}.virtual-clip-library{display:grid;gap:7px;grid-template-columns:repeat(2,minmax(0,1fr))}.virtual-clip-library button{align-items:center;background:var(--color-surface-muted);border:1px solid var(--color-border);border-radius:8px;color:var(--color-text);cursor:grab;display:flex;flex-direction:column;gap:3px;min-height:86px;padding:9px 5px}.virtual-clip-library strong{font-size:12px}.virtual-clip-library small{color:var(--color-text-muted);font-size:10px}.virtual-clip-icon{transform:scale(.65)}.virtual-clip-icon--curved{transform:rotate(25deg) scale(.65)}.clip-property-grid{display:grid;gap:6px;grid-template-columns:repeat(3,1fr);margin-bottom:7px}.clip-number-field span{color:var(--color-text-muted);display:block;font-size:10px;margin-bottom:3px}.clip-number-field input{border:1px solid var(--color-border);border-radius:6px;box-sizing:border-box;color:var(--color-text);font:inherit;font-size:12px;padding:7px 5px;width:100%}.planning-delete-button{background:transparent;border:0;color:var(--color-danger);cursor:pointer;font-size:12px;padding:4px 0}.planning-compact-state{color:var(--color-text-muted);font-size:12px;line-height:1.5;margin:0;padding:10px 0;text-align:center}.planning-controls textarea,.collaboration-composer textarea{min-height:66px;resize:vertical}.planning-actions{margin-top:0}.planning-actions .clinical-action{flex:1}
+.collaboration-panel{display:flex;flex-direction:column}.collaboration-panel__notice,.collaboration-attachment{background:var(--color-primary-soft);border-radius:8px;display:grid;gap:4px;padding:10px}.collaboration-panel__notice strong,.collaboration-attachment strong{color:var(--color-primary);font-size:12px}.collaboration-panel__notice span,.collaboration-attachment span{color:var(--color-text-muted);font-size:11px;line-height:1.4}.collaboration-messages{display:flex;flex:1;flex-direction:column;gap:8px;min-height:120px;overflow-y:auto;padding:10px 0}.collaboration-message{border:1px solid var(--color-border);border-radius:8px;padding:9px}.collaboration-message header{display:flex;gap:6px}.collaboration-message header strong{font-size:12px}.collaboration-message header span,.collaboration-message time{color:var(--color-text-muted);font-size:10px}.collaboration-message p{font-size:12px;line-height:1.5;margin:7px 0;white-space:pre-wrap}.collaboration-message time{display:block;margin-top:5px;text-align:right}.collaboration-composer{border-top:1px solid var(--color-border);display:grid;gap:8px;padding-top:10px}.collaboration-composer label>span{display:block;font-size:12px;font-weight:700;margin-bottom:5px}.collaboration-composer textarea{border:1px solid var(--color-border);border-radius:8px;box-sizing:border-box;color:var(--color-text);font:inherit;font-size:12px;padding:8px;width:100%}.collaboration-share-toggle{align-items:center;color:var(--color-text-muted);display:flex;font-size:11px;gap:6px}
+@media(max-width:1260px){.surgical-planning-layout{grid-template-columns:210px minmax(400px,1fr) 300px}}@media(max-width:1040px){.surgical-planning-page{overflow:auto}.surgical-planning-layout{grid-template-columns:210px minmax(420px,1fr)}.planning-side-panel{grid-column:1/-1;min-height:480px}}
+
+/* 기존 AI Viewer 팔레트와 전역 theme token을 그대로 재사용합니다. */
+.planning-viewer,.planning-viewport{background:#0c1421;border-color:#233047}
+.planning-viewer__heading,.planning-viewer__heading h3,.planning-viewport__empty{color:#eef4ff}
+.planning-context__row dd,.virtual-clip-library button,.clip-number-field input,.collaboration-composer textarea{color:var(--color-text-primary)}
+.virtual-clip-library button{background:var(--color-surface-soft)}
+
+/* AppShell이 할당한 content 높이 안에서만 Workspace를 구성한다. */
+.surgical-planning-page{
+  display:flex;
+  flex-direction:column;
+  max-height:100%;
+}
+.surgical-planning-page__heading{
+  flex:0 0 auto;
+}
+.surgical-planning-layout{
+  flex:1 1 auto;
+  grid-template-rows:minmax(0,1fr);
+  height:auto;
+  overflow:hidden;
+}
+.planning-context,.planning-viewer,.planning-side-panel{
+  height:100%;
+  max-height:100%;
+}
+.planning-context{
+  overflow-y:auto;
+}
+.planning-viewer__heading,.planning-view-tabs,.planning-viewer__footer,.planning-panel-tabs{
+  flex:0 0 auto;
+}
+.planning-viewport{
+  flex:1 1 auto;
+  min-height:0;
+}
+.planning-controls{
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  padding:0;
+}
+.planning-controls__scroll{
+  flex:1 1 auto;
+  min-height:0;
+  overflow-y:auto;
+  padding:12px;
+}
+.planning-actions{
+  flex:0 0 auto;
+  padding:0 12px 12px;
+}
+.collaboration-panel{
+  overflow:hidden;
+}
+.collaboration-messages{
+  flex:1 1 auto;
+  min-height:0;
+}
+.collaboration-composer{
+  flex:0 0 auto;
+}
+@media(max-width:1040px){
+  .surgical-planning-page{overflow:hidden}
+  .surgical-planning-layout{
+    grid-template-columns:210px minmax(400px,1fr) 300px;
+    overflow-x:auto;
+    overflow-y:hidden;
+  }
+  .planning-side-panel{
+    grid-column:auto;
+    min-height:0;
+  }
+}
+
+/* 플래닝 workspace를 viewport 안에서 완결하는 compact layout */
+.surgical-planning-page{gap:8px;padding-bottom:8px}
+.surgical-planning-page__heading{margin-bottom:0}
+.surgical-planning-layout{grid-template-columns:230px minmax(0,1fr) 380px;gap:10px}
+.planning-context{padding:14px}
+.planning-context__divider{margin:11px 0}
+.planning-status-chip{display:inline-flex;flex-shrink:0;align-items:center;gap:4px;white-space:nowrap}
+.planning-context__section{gap:7px}
+.planning-viewer__heading{padding:10px 14px}
+.planning-view-tabs button,.planning-panel-tabs button{min-height:38px}
+.planning-viewer__footer{padding:6px 12px}
+.planning-controls__body{flex:1 1 auto;min-height:0;overflow:hidden;padding:8px 12px}
+.planning-control-section{margin-bottom:7px;padding-bottom:7px}
+.planning-control-section h4{margin-bottom:6px}
+.planning-ai-summary{gap:4px}
+.planning-ai-summary div{grid-template-columns:58px 1fr;gap:4px}
+.planning-control-label{display:block;margin:0 0 5px;color:var(--color-text-muted);font-size:11px;font-weight:700}
+.virtual-clip-library{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+.virtual-clip-library button{min-height:67px;padding:5px 2px}
+.virtual-clip-library strong{font-size:11px}
+.virtual-clip-library small{font-size:9px;text-align:center}
+.clip-properties{margin-top:6px;padding:6px;border-radius:7px;background:var(--color-surface-soft)}
+.clip-property-grid{gap:4px;margin-bottom:4px}
+.clip-number-field input{padding:4px}
+.planning-section-heading{display:flex;align-items:center;justify-content:space-between}
+.planning-delete-confirm{margin-bottom:5px;padding:7px;border:1px solid var(--color-border);border-radius:7px;background:var(--color-surface-soft)}
+.planning-delete-confirm p{margin:0 0 6px;font-size:11px}
+.planning-delete-confirm>div{display:flex;justify-content:flex-end;gap:8px}
+.planning-delete-confirm>div button{border:0;background:transparent;color:var(--color-text-muted);font-size:10px;cursor:pointer}
+.placed-clip-list{display:grid;gap:3px;max-height:67px;overflow:auto}
+.placed-clip-list>div{display:flex;align-items:center;gap:5px;padding:3px 6px;border:1px solid var(--color-border);border-radius:6px}
+.placed-clip-list>div.is-selected{border-color:var(--color-primary);background:var(--color-primary-soft)}
+.placed-clip-list>div>button:first-child{flex:1;border:0;background:transparent;color:var(--color-text);font-size:10px;text-align:left;cursor:pointer}
+.placed-clip-list .planning-delete-button{padding:2px;font-size:10px}
+.planning-memo{position:relative;border-bottom:0;margin-bottom:0}
+.planning-memo textarea{min-height:42px;max-height:42px;resize:none}
+.planning-memo>small{position:absolute;right:4px;bottom:9px;color:var(--color-text-muted);font-size:9px}
+.planning-actions{padding:6px 12px 10px}
+@media(max-width:1260px){.surgical-planning-layout{grid-template-columns:210px minmax(0,1fr) 350px}}
+
+.planning-context__title{
+  display:block;
+  margin-bottom:15px;
+}
+.planning-context__label-row{
+  display:flex;
+  width:100%;
+  min-width:0;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+}
+.planning-context__label-row .planning-eyebrow{
+  min-width:0;
+  flex:1;
+  font-size:9px;
+  letter-spacing:.05em;
+  white-space:nowrap;
+}
+.planning-context__label-row .planning-status-chip{
+  flex:0 0 auto;
+  white-space:nowrap;
+}
+.planning-context__patient-name{
+  margin:7px 0 0;
+  color:var(--color-text);
+  font-size:16px;
+  font-weight:700;
+  line-height:1.3;
+}
+
+
+/* =========================================================
+   Surgical Planning - 환자 / 영상 선택바
+   기존 clinical-toolbar 규칙과 분리하여 레이아웃 충돌을 방지한다.
+   ========================================================= */
+.planning-case-toolbar{
+  flex:0 0 auto;
+  width:100%;
+  box-sizing:border-box;
+  margin:0 0 10px;
+  padding:9px 14px 10px;
+  background:var(--color-surface);
+  border:1px solid var(--color-border);
+  border-radius:10px;
+}
+
+.planning-case-toolbar__grid{
+  display:grid;
+  grid-template-columns:330px 360px 300px;
+  gap:10px;
+  align-items:end;
+  justify-content:start;
+  width:max-content;
+  max-width:100%;
+  min-width:0;
+}
+
+.planning-case-toolbar__field{
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+  min-width:0;
+}
+
+.planning-case-toolbar__field>label{
+  margin:0;
+  color:var(--color-text-muted);
+  font-size:11px;
+  font-weight:700;
+  line-height:1.2;
+}
+
+.planning-case-toolbar__field input,
+.planning-case-toolbar__field select{
+  width:100%;
+  min-width:0;
+  height:34px;
+  box-sizing:border-box;
+  padding:0 10px;
+  background:var(--color-surface);
+  border:1px solid var(--color-border);
+  border-radius:7px;
+  color:var(--color-text);
+  font:inherit;
+  font-size:12px;
+}
+
+.planning-case-toolbar__field input:focus,
+.planning-case-toolbar__field select:focus{
+  outline:none;
+  border-color:var(--color-primary);
+  box-shadow:0 0 0 2px var(--color-primary-soft);
+}
+
+.planning-case-toolbar__field select:disabled{
+  cursor:not-allowed;
+  background:var(--color-surface-muted);
+  color:var(--color-text-muted);
+  opacity:1;
+}
+
+.planning-case-toolbar__search{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 56px;
+  gap:6px;
+  min-width:0;
+}
+
+.planning-case-toolbar__search .planning-search-button{
+  width:56px;
+  min-width:56px;
+  height:34px;
+  min-height:34px;
+  padding:0;
+  border-radius:7px;
+  font-size:11px;
+  font-weight:700;
+}
+
+.planning-case-toolbar__error{
+  margin-top:6px;
+  font-size:11px;
+  line-height:1.3;
+}
+
+/* 환자 미선택 Empty 카드에는 내부 스크롤을 만들지 않는다. */
+.planning-context:has(.patient-context-empty){
+  overflow:hidden;
+}
+.patient-context-empty{
+  height:100%;
+  min-height:0;
+  overflow:hidden;
+}
+
+@media(max-width:1260px){
+  .planning-case-toolbar__grid{
+    grid-template-columns:300px 330px 270px;
+    gap:8px;
+  }
+}
+
+@media(max-width:1040px){
+  .planning-case-toolbar{
+    overflow-x:auto;
+  }
+  .planning-case-toolbar__grid{
+    min-width:908px;
+  }
+}

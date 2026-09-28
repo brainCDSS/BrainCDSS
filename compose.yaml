@@ -1,129 +1,380 @@
-# BrainOn local runtime. Secrets below are placeholders and must be overridden via .env.
+# BrainOn 공통 Compose 구성.
+# 환경별 차이는 compose.local.yaml 또는 compose.prod.yaml에서 덮어쓴다.
+# 실제 비밀값은 Git에 커밋하지 않고 .env / .env.prod 또는 배포 환경에서 주입한다.
+
+x-backend-env: &backend-env
+  DJANGO_SETTINGS_MODULE: "${DJANGO_SETTINGS_MODULE:-config.settings.base}"
+  DJANGO_SECRET_KEY: "${DJANGO_SECRET_KEY:-TODO_REPLACE_WITH_LOCAL_ONLY_VALUE}"
+  DJANGO_DEBUG: "${DJANGO_DEBUG:-true}"
+  DJANGO_ALLOWED_HOSTS: "${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend}"
+  CORS_ALLOWED_ORIGINS: "${CORS_ALLOWED_ORIGINS:-http://localhost:5173}"
+  BACKEND_URL: "${BACKEND_URL:-http://localhost:8080}"
+  FRONTEND_URL: "${FRONTEND_URL:-http://localhost:5173}"
+  APPOINTMENT_HOLD_TTL_MINUTES: "${APPOINTMENT_HOLD_TTL_MINUTES:-10}"
+
+  POSTGRES_DB: "${POSTGRES_DB:-brainon}"
+  POSTGRES_USER: "${POSTGRES_USER:-brainon}"
+  POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-TODO_LOCAL_DATABASE_PASSWORD}"
+  POSTGRES_HOST: "${POSTGRES_HOST:-postgres}"
+  POSTGRES_PORT: "${POSTGRES_PORT:-5432}"
+
+  CELERY_BROKER_URL: "${CELERY_BROKER_URL:-}"
+  CELERY_RESULT_BACKEND: "${CELERY_RESULT_BACKEND:-}"
+  CELERY_QUEUE_PREFIX: "${CELERY_QUEUE_PREFIX:-brainon}"
+  CELERY_QUEUE_DEFAULT: "${CELERY_QUEUE_DEFAULT:-brainon.default}"
+  CELERY_QUEUE_INFERENCE: "${CELERY_QUEUE_INFERENCE:-brainon.inference}"
+  CELERY_QUEUE_NOTIFICATIONS: "${CELERY_QUEUE_NOTIFICATIONS:-brainon.notifications}"
+  CELERY_QUEUE_INTEGRATIONS: "${CELERY_QUEUE_INTEGRATIONS:-brainon.integrations}"
+
+  SERVICE_JWT_SIGNING_KEY: "${SERVICE_JWT_SIGNING_KEY:-TODO_REPLACE_WITH_SERVICE_JWT_SECRET}"
+  SERVICE_JWT_ALGORITHM: "${SERVICE_JWT_ALGORITHM:-HS256}"
+  SERVICE_JWT_ISSUER: "${SERVICE_JWT_ISSUER:-brainon-internal}"
+  SERVICE_JWT_AUDIENCE: "${SERVICE_JWT_AUDIENCE:-brainon-django-internal}"
+
+  INFERENCE_API_URL: "${INFERENCE_API_URL:-https://brainon-inference-v2-3gykqo24da-as.a.run.app}"
+  INFERENCE_AUTH_AUDIENCE: "${INFERENCE_AUTH_AUDIENCE:-https://brainon-inference-v2-3gykqo24da-as.a.run.app}"
+  INFERENCE_USE_ID_TOKEN: "${INFERENCE_USE_ID_TOKEN:-true}"
+  INFERENCE_TIMEOUT_SECONDS: "${INFERENCE_TIMEOUT_SECONDS:-900}"
+  GCS_NIFTI_ALLOWED_BUCKETS: "${GCS_NIFTI_ALLOWED_BUCKETS:-brainon-cdss-datasets,brainon-cdss-inference-results}"
+
+  ASSISTANT_SERVICE_URL: "${ASSISTANT_SERVICE_URL:-http://assistant-service:8200}"
+  MCP_SERVER_URL: "${MCP_SERVER_URL:-http://mcp-server:8300}"
+  MCP_BACKEND_TOKEN: "${MCP_BACKEND_TOKEN:-TODO_INTERNAL_READ_ONLY_TOKEN}"
+
+  ORTHANC_URL: "${ORTHANC_URL:-http://orthanc:8042}"
+  ORTHANC_USERNAME: "${ORTHANC_USERNAME:-brainon}"
+  ORTHANC_PASSWORD: "${ORTHANC_PASSWORD:-TODO_LOCAL_ORTHANC_PASSWORD}"
+  ORTHANC_TIMEOUT_SECONDS: "${ORTHANC_TIMEOUT_SECONDS:-60}"
+  OHIF_URL: "${OHIF_URL:-http://localhost:3000}"
+
+  FCM_PROJECT_ID: "${FCM_PROJECT_ID:-}"
+  FCM_CREDENTIALS_PATH: "${FCM_CREDENTIALS_PATH:-}"
+
+  DUR_API_BASE_URL: "${DUR_API_BASE_URL:-}"
+  DUR_API_KEY: "${DUR_API_KEY:-}"
+  DRUG_APPROVAL_API_BASE_URL: "${DRUG_APPROVAL_API_BASE_URL:-}"
+  DRUG_APPROVAL_API_KEY: "${DRUG_APPROVAL_API_KEY:-}"
+
+  GOOGLE_CLOUD_PROJECT: "${GOOGLE_CLOUD_PROJECT:-project-77d13b0f-3be4-4791-a87}"
+  GOOGLE_CLOUD_LOCATION: "${GOOGLE_CLOUD_LOCATION:-global}"
+
+  OTEL_SERVICE_NAME: "${OTEL_SERVICE_NAME:-brainon-backend}"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "${OTEL_EXPORTER_OTLP_ENDPOINT:-http://alloy:4317}"
+  LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+
+
 services:
-  # Primary relational store for Django business state and optional task status.
+  # 선택적 로컬 PostgreSQL. 외부 PostgreSQL/Cloud SQL 사용 시 localdb profile을 켜지 않는다.
   postgres:
+    profiles: ["localdb"]
     image: postgres:17-alpine
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-brainon}
-      POSTGRES_USER: ${POSTGRES_USER:-brainon}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-TODO_LOCAL_DATABASE_PASSWORD}
-    ports: ["5432:5432"]
-    volumes: [postgres-data:/var/lib/postgresql/data]
-    healthcheck: {test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"], interval: 10s, timeout: 5s, retries: 5}
+      POSTGRES_DB: "${POSTGRES_DB:-brainon}"
+      POSTGRES_USER: "${POSTGRES_USER:-brainon}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-TODO_LOCAL_DATABASE_PASSWORD}"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
-  # Sole Celery broker and future event bridge source.
+
   rabbitmq:
     image: rabbitmq:4-management-alpine
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-brainon}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-TODO_LOCAL_RABBITMQ_PASSWORD}
-    ports: ["5672:5672", "15672:15672"]
-    volumes: [rabbitmq-data:/var/lib/rabbitmq]
-    healthcheck: {test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"], interval: 10s, timeout: 5s, retries: 5}
+      RABBITMQ_DEFAULT_USER: "${RABBITMQ_DEFAULT_USER:-brainon}"
+      RABBITMQ_DEFAULT_PASS: "${RABBITMQ_DEFAULT_PASS:-TODO_LOCAL_RABBITMQ_PASSWORD}"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
-  # Django REST/ASGI modular monolith.
+
   backend:
-    build: ./backend
+    build:
+      context: ./backend
     environment:
-      DJANGO_SETTINGS_MODULE: config.settings.base
-      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-TODO_REPLACE_WITH_LOCAL_ONLY_VALUE}
-      POSTGRES_DB: ${POSTGRES_DB:-brainon}
-      POSTGRES_USER: ${POSTGRES_USER:-brainon}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-TODO_LOCAL_DATABASE_PASSWORD}
-      POSTGRES_HOST: postgres
-      CELERY_BROKER_URL: amqp://${RABBITMQ_DEFAULT_USER:-brainon}:${RABBITMQ_DEFAULT_PASS:-TODO_LOCAL_RABBITMQ_PASSWORD}@rabbitmq:5672//
-    ports: ["8080:8080"]
-    depends_on: {postgres: {condition: service_healthy}, rabbitmq: {condition: service_healthy}}
-    healthcheck: {test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8080/api/v1/health/')"], interval: 15s, timeout: 5s, retries: 5}
+      <<: *backend-env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8080/api/v1/health/')"
+      interval: 15s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
-  # Background notification and business jobs; results are disabled by default.
+
   celery-worker:
-    build: ./backend
-    command: celery -A config worker -l INFO
-    environment: {DJANGO_SETTINGS_MODULE: config.settings.base, POSTGRES_HOST: postgres, POSTGRES_DB: "${POSTGRES_DB:-brainon}", POSTGRES_USER: "${POSTGRES_USER:-brainon}", POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-TODO_LOCAL_DATABASE_PASSWORD}", CELERY_BROKER_URL: "amqp://${RABBITMQ_DEFAULT_USER:-brainon}:${RABBITMQ_DEFAULT_PASS:-TODO_LOCAL_RABBITMQ_PASSWORD}@rabbitmq:5672//"}
-    depends_on: {backend: {condition: service_healthy}}
+    build:
+      context: ./backend
+    command:
+      - celery
+      - -A
+      - config
+      - worker
+      - -E
+      - -l
+      - INFO
+      - -Q
+      - "${CELERY_QUEUE_DEFAULT:-brainon.default},${CELERY_QUEUE_NOTIFICATIONS:-brainon.notifications},${CELERY_QUEUE_INTEGRATIONS:-brainon.integrations}"
+      - -n
+      - general@%h
+    environment:
+      <<: *backend-env
+    depends_on:
+      backend:
+        condition: service_healthy
     restart: unless-stopped
-  # Scheduled jobs via Celery Beat.
+
+  celery-inference-worker:
+    build:
+      context: ./backend
+    command:
+      - celery
+      - -A
+      - config
+      - worker
+      - -E
+      - -l
+      - INFO
+      - -Q
+      - "${CELERY_QUEUE_INFERENCE:-brainon.inference}"
+      - -n
+      - inference@%h
+      - --prefetch-multiplier=1
+    environment:
+      <<: *backend-env
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+
+  celery-monitor:
+    profiles: ["observability"]
+    build:
+      context: ./backend
+    command:
+      - sh
+      - -c
+      - >-
+        unset PROMETHEUS_MULTIPROC_DIR;
+        exec python -m apps.common.celery_metrics_exporter
+    environment:
+      <<: *backend-env
+    expose:
+      - "9808"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
   celery-beat:
-    build: ./backend
-    command: celery -A config beat -l INFO
-    environment: {DJANGO_SETTINGS_MODULE: config.settings.base, POSTGRES_HOST: postgres, POSTGRES_DB: "${POSTGRES_DB:-brainon}", POSTGRES_USER: "${POSTGRES_USER:-brainon}", POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-TODO_LOCAL_DATABASE_PASSWORD}", CELERY_BROKER_URL: "amqp://${RABBITMQ_DEFAULT_USER:-brainon}:${RABBITMQ_DEFAULT_PASS:-TODO_LOCAL_RABBITMQ_PASSWORD}@rabbitmq:5672//"}
-    depends_on: {rabbitmq: {condition: service_healthy}}
+    build:
+      context: ./backend
+    command:
+      - celery
+      - -A
+      - config
+      - beat
+      - -l
+      - INFO
+    environment:
+      <<: *backend-env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
     restart: unless-stopped
-  # Clinician Vite development server.
+
   frontend:
-    build: ./frontend
-    profiles: [web]
-    environment: {VITE_BACKEND_URL: "${BACKEND_URL:-http://localhost:8080}"}
-    ports: ["5173:5173"]
+    profiles: ["web"]
+    build:
+      context: ./frontend
+    environment:
+      VITE_BACKEND_URL: "${VITE_BACKEND_URL:-http://localhost:8080}"
+      VITE_FIREBASE_API_KEY: "${VITE_FIREBASE_API_KEY:-}"
+      VITE_FIREBASE_AUTH_DOMAIN: "${VITE_FIREBASE_AUTH_DOMAIN:-}"
+      VITE_FIREBASE_PROJECT_ID: "${VITE_FIREBASE_PROJECT_ID:-}"
+      VITE_FIREBASE_STORAGE_BUCKET: "${VITE_FIREBASE_STORAGE_BUCKET:-}"
+      VITE_FIREBASE_MESSAGING_SENDER_ID: "${VITE_FIREBASE_MESSAGING_SENDER_ID:-}"
+      VITE_FIREBASE_APP_ID: "${VITE_FIREBASE_APP_ID:-}"
+      VITE_FIREBASE_VAPID_KEY: "${VITE_FIREBASE_VAPID_KEY:-}"
     restart: unless-stopped
-  # Model-independent FastAPI control plane.
+
+  # 로컬 GPU inference가 필요할 때만 --profile ai 로 실행한다.
+  # 기본 개발/배포 흐름은 Cloud Run inference를 사용한다.
   inference-api:
-    build: ./inference
-    profiles: [ai]
-    environment: {MODEL_BUNDLE_URI: "${MODEL_BUNDLE_URI:-}"}
-    ports: ["8100:8100"]
-    healthcheck: {test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8100/health')"], interval: 15s, timeout: 5s, retries: 5}
+    profiles: ["ai"]
+    build:
+      context: ./inference
+      args:
+        BRAINON_MODEL_REPO: "${BRAINON_MODEL_REPO:-https://github.com/brainCDSS/model.git}"
+        BRAINON_MODEL_REF: "${BRAINON_MODEL_REF:-dev}"
+    environment:
+      GCS_MODEL_BUCKET: "${GCS_MODEL_BUCKET:-brainon-cdss-models}"
+      GCS_RESULT_BUCKET: "${GCS_RESULT_BUCKET:-TODO_RESULT_BUCKET}"
+      GCS_ALLOWED_BUCKETS: "${GCS_ALLOWED_BUCKETS:-brainon-cdss-models,TODO_RESULT_BUCKET}"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8100/health')"
+      interval: 15s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
-  # MOSEC integration placeholder; same safe image reports the boundary only.
-  inference-worker:
-    build: ./inference
-    profiles: [ai]
-    command: ["python", "-c", "print('MODEL_NOT_CONFIGURED: MOSEC worker adapter TODO'); import time; time.sleep(86400)"]
-    ports: ["8000:8000"]
-    restart: unless-stopped
-  # Genkit/Gemini adapter with deterministic mock fallback.
+
   assistant-service:
-    build: ./assistant-service
-    profiles: [assistant]
-    environment: {PORT: "8200", GEMINI_API_KEY: "${GEMINI_API_KEY:-}"}
-    ports: ["8200:8200"]
+    profiles: ["assistant"]
+    build:
+      context: ./assistant-service
+    environment:
+      PORT: "8200"
+      GOOGLE_CLOUD_PROJECT: "${GOOGLE_CLOUD_PROJECT:-project-77d13b0f-3be4-4791-a87}"
+      GOOGLE_CLOUD_LOCATION: "${GOOGLE_CLOUD_LOCATION:-global}"
+      GEMINI_MODEL: "${GEMINI_MODEL:-gemini-2.5-flash}"
+      MCP_SERVER_URL: "http://mcp-server:8300/mcp"
+      GOOGLE_APPLICATION_CREDENTIALS: "/gcloud/adc.json" #추가
+
+    ports: #추가
+      - "127.0.0.1:8200:8200"
+
+    volumes: #추가
+      - type: bind
+        source: "${APPDATA}/gcloud/application_default_credentials.json"
+        target: /gcloud/adc.json
+        read_only: true
+
+    depends_on:
+      - mcp-server
     restart: unless-stopped
-  # Clinical MCP protocol adapter placeholder; backend-only data access.
+
+
   mcp-server:
-    build: ./mcp-server
-    profiles: [assistant]
-    environment: {BACKEND_URL: "http://backend:8080", MCP_BACKEND_TOKEN: "${MCP_BACKEND_TOKEN:-}"}
-    ports: ["8300:8300"]
-    restart: "no"
-  # DICOM archive for synthetic/local data only.
+    profiles: ["assistant"]
+    build:
+      context: ./mcp-server
+    environment:
+      BACKEND_URL: "http://backend:8080"
+      MCP_BACKEND_TOKEN: "${MCP_BACKEND_TOKEN:-TODO_INTERNAL_READ_ONLY_TOKEN}"
+      MCP_HOST: "0.0.0.0"
+      PORT: "8300"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
   orthanc:
-    image: orthancteam/orthanc:24.11.2
-    profiles: [imaging]
-    ports: ["8042:8042", "4242:4242"]
-    volumes: [orthanc-data:/var/lib/orthanc/db]
+    profiles: ["imaging"]
+    image: orthancteam/orthanc:26.9.0
+    environment:
+      ORTHANC__NAME: BrainOn-CDSS
+      ORTHANC__AUTHENTICATION_ENABLED: "true"
+      ORTHANC__REMOTE_ACCESS_ALLOWED: "true"
+      ORTHANC__REGISTERED_USERS: >-
+        {"${ORTHANC_USERNAME:-brainon}":"${ORTHANC_PASSWORD:-TODO_LOCAL_ORTHANC_PASSWORD}"}
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+    volumes:
+      - orthanc-data:/var/lib/orthanc/db
     restart: unless-stopped
-  # DICOMweb viewer; configuration is a future integration template.
+
   ohif:
+    profiles: ["imaging"]
     image: ohif/app:v3.9.2
-    profiles: [imaging]
-    ports: ["3000:80"]
-    depends_on: [orthanc]
+    depends_on:
+      - orthanc
     restart: unless-stopped
-  # Metrics scraper.
+
+
+  infra-monitor:
+    profiles: ["observability"]
+    build:
+      context: ./backend
+    command:
+      - sh
+      - -c
+      - >-
+        unset PROMETHEUS_MULTIPROC_DIR;
+        exec python -m apps.common.infra_metrics_exporter
+    environment:
+      <<: *backend-env
+      RABBITMQ_DEFAULT_USER: "${RABBITMQ_DEFAULT_USER:-brainon}"
+      RABBITMQ_DEFAULT_PASS: "${RABBITMQ_DEFAULT_PASS:-TODO_LOCAL_RABBITMQ_PASSWORD}"
+    expose:
+      - "9810"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+
+  service-probe:
+    profiles: ["observability"]
+    build:
+      context: ./backend
+    command:
+      - sh
+      - -c
+      - >-
+        unset PROMETHEUS_MULTIPROC_DIR;
+        exec python /opt/brainon-observability/service_probe.py
+    environment:
+      <<: *backend-env
+      BACKEND_URL: "http://backend:8080"
+      FRONTEND_URL: "http://frontend:8080"
+      GRAFANA_URL: "http://grafana:3000"
+      LOKI_URL: "http://loki:3100"
+      PROMETHEUS_URL: "http://prometheus:9090"
+      SERVICE_PROBE_PORT: "9810"
+    volumes:
+      - ./infra/observability/service-probe/service_probe.py:/opt/brainon-observability/service_probe.py:ro
+    expose:
+      - "9810"
+    restart: unless-stopped
+
   prometheus:
+    profiles: ["observability"]
     image: prom/prometheus:v3.1.0
-    profiles: [observability]
-    volumes: ["./infra/observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro"]
-    ports: ["9090:9090"]
-  # Dashboard UI; datasource provisioning is TODO.
+    volumes:
+      - ./infra/observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    restart: unless-stopped
+
   grafana:
+    profiles: ["observability"]
     image: grafana/grafana:11.4.0
-    profiles: [observability]
-    ports: ["3001:3000"]
-  # Log store.
+    restart: unless-stopped
+
   loki:
+    profiles: ["observability"]
     image: grafana/loki:3.3.2
-    profiles: [observability]
-    command: -config.file=/etc/loki/local-config.yaml
-    ports: ["3100:3100"]
-  # OTel/log collector bridge.
+    command:
+      - -config.file=/etc/loki/local-config.yaml
+    restart: unless-stopped
+
   alloy:
+    profiles: ["observability"]
     image: grafana/alloy:v1.5.1
-    profiles: [observability]
-    volumes: ["./infra/observability/alloy/config.alloy:/etc/alloy/config.alloy:ro"]
-    command: run /etc/alloy/config.alloy
-    ports: ["4317:4317"]
+    volumes:
+      - ./infra/observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command:
+      - run
+      - /etc/alloy/config.alloy
+    restart: unless-stopped
+
 volumes:
   postgres-data:
   rabbitmq-data:

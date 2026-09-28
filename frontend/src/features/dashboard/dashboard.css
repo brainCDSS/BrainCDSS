@@ -1,0 +1,140 @@
+.clinical-dashboard{--dash-border:#dfe7f1;--dash-muted:#71809a;display:grid;width:max(100%,1180px);min-height:calc(100vh - 116px);grid-template-columns:252px minmax(860px,1fr);background:#f3f7fc;color:#0d1c43}.dash-main{min-width:0;padding:13px 16px 18px}.dash-patient-panel{display:flex;height:calc(100vh - 116px);min-height:650px;flex-direction:column;overflow:hidden;border-right:1px solid var(--dash-border);background:#fff}.dash-patient-panel>header{display:flex;min-height:52px;align-items:center;justify-content:space-between;padding:12px 12px 7px}.dash-patient-panel h2{margin:0;font-size:15px}.dash-patient-panel h2 span{color:#566984;font-size:13px}.dash-patient-search{display:flex;height:36px;align-items:center;gap:7px;margin:0 10px 8px;padding:0 9px;border:1px solid #dbe4ef;border-radius:8px;background:#fbfcfe;color:#66809e}.dash-patient-search input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:#1c2d4c;font:inherit;font-size:9px}.dash-patient-filters{display:flex;gap:3px;padding:0 10px 9px;overflow-x:auto}.dash-patient-filters button{flex:0 0 auto;padding:5px 7px;border:0;border-radius:7px;background:#f3f6fa;color:#6e7e95;font:inherit;font-size:8px;font-weight:700}.dash-patient-filters button.is-active{background:#e8f1ff;color:#1470e0}.dash-patient-filters button:disabled{cursor:not-allowed;opacity:.65}.dash-patient-scroll{min-height:0;flex:1;overflow-y:auto;padding:0 7px 10px}.dash-patient{position:relative;display:flex;width:100%;flex-direction:column;gap:5px;margin-bottom:5px;padding:11px 10px 10px 37px;border:1px solid #e4eaf2;border-radius:10px;background:#fff;color:#132448;font:inherit;text-align:left;cursor:pointer}.dash-patient:hover{border-color:#b9cff0;background:#f9fbff}.dash-patient.is-selected{border-color:#aebafc;background:linear-gradient(110deg,#f0f3ff,#fbfcff);box-shadow:0 5px 14px rgba(61,87,160,.08)}.dash-patient.is-selected:before{position:absolute;inset:0 auto 0 -1px;width:3px;border-radius:10px 0 0 10px;background:#695cf2;content:""}.dash-patient__top{display:flex;align-items:center;gap:7px}.dash-patient__top strong{min-width:0;flex:1;font-size:11px}.dash-patient__top em{padding:3px 6px;border-radius:99px;background:#dff7ec;color:#168358;font-size:7px;font-style:normal;font-weight:900}.dash-patient__avatar{position:absolute;top:12px;left:9px;display:grid;width:22px;height:22px;place-items:center;border-radius:50%;background:#eaf2ff;color:#2675e7}.dash-patient small{color:#697b98;font-size:8px}.dash-patient small i{display:inline-block;height:9px;margin:0 5px;border-left:1px solid #cdd7e4}.dash-patient__tags{display:flex;gap:5px;margin-top:2px}.dash-patient__tags i{padding:3px 6px;border-radius:5px;background:#edf3fb;color:#497099;font-size:7px;font-style:normal}.dash-patient__tags i+ i{background:#fff1dc;color:#c36e12}.dash-patient__tags i.is-done{background:#e3f6ed;color:#19805d}.dash-empty{display:grid;min-height:130px;place-items:center;padding:20px;color:var(--dash-muted);font-size:9px;text-align:center}
+.dash-heading{display:flex;min-height:58px;align-items:center;justify-content:space-between;gap:15px;margin-bottom:10px}.dash-heading>div:first-child>span{color:#286fd0;font-size:9px;font-weight:900}.dash-heading h1{margin:4px 0 2px;font-size:20px;letter-spacing:-.03em}.dash-heading h1 i{font-size:16px;font-style:normal}.dash-heading p{margin:0;color:#7584a0;font-size:9px}.dash-date{display:flex;align-items:center;gap:7px}.dash-date strong{margin-right:7px;color:#425a84;font-size:10px}.dash-date button{height:31px;min-width:31px;padding:0 10px;border:1px solid #d8e2ef;border-radius:7px;background:#fff;color:#344a70;font:inherit;font-size:10px;font-weight:800;cursor:pointer}.dash-warning{margin:0 0 8px;padding:7px 10px;border:1px solid #f2dcaa;border-radius:8px;background:#fffaf0;color:#956d20;font-size:8px}
+.dash-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px;margin-bottom:10px}.dash-kpi{display:flex;min-width:0;min-height:94px;align-items:center;gap:11px;padding:12px;border:1px solid var(--dash-border);border-radius:11px;background:#fff;box-shadow:0 5px 15px rgba(31,62,112,.045)}.dash-kpi__icon{display:grid;width:43px;height:43px;flex:0 0 43px;place-items:center;border-radius:11px;background:#eaf3ff;color:#1670e7;font-size:17px;font-weight:900}.dash-kpi__icon.is-purple{background:#f0eaff;color:#774ae7}.dash-kpi__icon.is-green{background:#e3f8ef;color:#12a876}.dash-kpi__icon.is-violet{background:#eee8ff;color:#7444df}.dash-kpi__icon.is-orange{background:#fff0e6;color:#f15c21}.dash-kpi>div{min-width:0}.dash-kpi>div>span{display:block;color:#4f6180;font-size:9px;font-weight:700}.dash-kpi strong{display:block;margin:3px 0;color:#0b1738;font-size:19px;letter-spacing:-.04em}.dash-kpi small{display:block;overflow:hidden;color:#6780a2;font-size:7px;text-overflow:ellipsis;white-space:nowrap}
+.dash-charts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px}.dash-chart-card{min-width:0;overflow:hidden;border:1px solid var(--dash-border);border-radius:11px;background:#fff;box-shadow:0 5px 15px rgba(31,62,112,.045)}.dash-chart-card>header{display:flex;min-height:43px;align-items:center;justify-content:space-between;padding:0 12px;border-bottom:1px solid #e8edf4}.dash-chart-card h3{margin:0;font-size:11px}.dash-chart-card h3>span{margin-right:6px;color:#1474ed}.dash-chart-card header button{border:0;background:transparent;color:#1474ed;font:inherit;font-size:8px;font-weight:800}.dash-risk__empty{display:flex;min-height:178px;flex-direction:column;align-items:center;justify-content:center;padding:22px;text-align:center}.dash-risk__empty strong{font-size:10px}.dash-risk__empty p{max-width:250px;margin:6px 0 0;color:#7a879c;font-size:8px;line-height:1.55}.dash-disease{display:grid;min-height:170px;grid-template-columns:42% 58%;align-items:center;padding:7px 10px}.dash-donut{display:grid;width:112px;height:112px;place-items:center;margin:auto;border-radius:50%;background:var(--donut-fill)}.dash-donut:before{position:absolute}.dash-donut>div{display:grid;width:62px;height:62px;place-items:center;align-content:center;border-radius:50%;background:#fff}.dash-donut small{color:#63718a;font-size:8px}.dash-donut strong{font-size:14px}.dash-legend{display:flex;flex-direction:column;gap:10px}.dash-legend>div{display:grid;grid-template-columns:7px minmax(0,1fr) auto;align-items:center;gap:6px;font-size:8px}.dash-legend i{width:7px;height:7px;border-radius:50%}.dash-legend span{color:#50617f}.dash-legend strong{font-size:8px}.dash-source-note{margin:-5px 12px 8px;color:#8995a8;font-size:7px;text-align:right}.dash-ai-bars{display:flex;min-height:157px;flex-direction:column;justify-content:center;gap:15px;padding:10px 14px}.dash-ai-bars>div{display:grid;grid-template-columns:88px minmax(60px,1fr) 18px;align-items:center;gap:8px;font-size:8px}.dash-ai-bars>div>span{color:#475978}.dash-ai-bars>div>div{height:13px;overflow:hidden;border-radius:4px;background:#ebf0f6}.dash-ai-bars i{display:block;height:100%;border-radius:4px}.dash-ai-bars strong{text-align:right}.dash-ai-summary{margin:0 10px 10px;padding:10px;border-radius:7px;background:#f3f7fc;color:#557197;font-size:8px;text-align:center}.dash-ai-summary strong{color:#1871e3}
+.dash-bottom{display:grid;grid-template-columns:minmax(540px,1.45fr) minmax(350px,1fr);gap:10px}.dash-workflow{min-height:235px}.dash-table-wrap{padding:0 10px 9px}.dash-workflow table{width:100%;border-collapse:collapse;font-size:8px}.dash-workflow th{height:27px;background:#eef3f8;color:#60718b;text-align:center}.dash-workflow th:first-child{text-align:left}.dash-workflow td{height:29px;border-bottom:1px solid #e7ecf3;text-align:center}.dash-workflow td:first-child{text-align:left;font-weight:800}.dash-workflow td:first-child i{display:inline-block;width:6px;height:6px;margin:0 7px;border-radius:2px;background:#2377e8}.dash-quick{min-height:235px}.dash-quick__person{display:flex;align-items:center;gap:10px;padding:11px 12px 7px}.dash-quick__person>span{display:grid;width:38px;height:38px;place-items:center;border-radius:50%;background:#eaf3ff;color:#1c70e5;font-size:17px}.dash-quick h4{margin:0;font-size:14px}.dash-quick h4 em{display:inline-block;margin-left:8px;padding:4px 7px;border-radius:99px;background:#dff7ec;color:#168358;font-size:7px;font-style:normal;vertical-align:middle}.dash-quick__person p{margin:4px 0 0;color:#637795;font-size:8px}.dash-quick__status{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:0 11px}.dash-quick__status>div{display:flex;align-items:center;gap:8px;padding:8px;border:1px solid #e2e9f2;border-radius:8px;background:#fafcff}.dash-quick__status>div>span{display:grid;width:24px;height:24px;place-items:center;border-radius:7px;background:#e9f2ff;color:#1471e5;font-size:9px;font-weight:900}.dash-quick__status>div+div>span{background:#f0eaff;color:#7446df}.dash-quick__status p,.dash-quick__status strong{display:block;margin:0;font-size:7px}.dash-quick__status p{color:#647693}.dash-quick__status strong{margin-top:3px;color:#263c60}.dash-quick dl{display:grid;grid-template-columns:repeat(3,1fr);margin:9px 11px}.dash-quick dl>div{padding:0 8px;border-right:1px solid #e2e8f0}.dash-quick dl>div:first-child{padding-left:0}.dash-quick dl>div:last-child{border:0}.dash-quick dt{color:#526784;font-size:7px;font-weight:800}.dash-quick dd{margin:3px 0 0;color:#647996;font-size:8px}.dash-quick__actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:0 11px 10px}.dash-quick__actions button{height:34px;border:1px solid #1473e9;border-radius:7px;background:#1473e9;color:#fff;font:inherit;font-size:9px;font-weight:800;cursor:pointer}.dash-quick__actions button+button{background:#fff;color:#1473e9}.dash-quick__actions button:disabled{cursor:not-allowed;opacity:.6}
+@media(max-width:1300px){.clinical-dashboard{grid-template-columns:235px minmax(860px,1fr)}}
+.clinical-dashboard{width:max(calc(100% + 56px),1180px);margin:-16px -28px}
+.dash-disease__empty{padding:18px 10px;text-align:center}.dash-disease__empty strong{display:block;color:#43536f;font-size:9px}.dash-disease__empty p{margin:5px 0 0;color:#8490a3;font-size:7px;line-height:1.5}
+
+/* Readability pass: preserve the dashboard structure while improving hierarchy. */
+.dash-main{padding:16px 20px 20px}.dash-heading{min-height:72px;margin-bottom:12px}.dash-heading>div:first-child>span{font-size:11px}.dash-heading h1{margin:5px 0 4px;font-size:26px;font-weight:800}.dash-heading p{font-size:12px}.dash-date strong{font-size:12px}.dash-date button{height:36px;min-width:36px;font-size:12px}
+.dash-patient-panel{height:calc(100vh - 116px)}.dash-patient-panel>header{min-height:58px;padding:14px 14px 8px}.dash-patient-panel h2{font-size:17px}.dash-patient-panel h2 span{font-size:14px}.dash-patient-search{height:40px;margin:0 11px 9px}.dash-patient-search input{font-size:12px}.dash-patient-filters{padding:0 11px 10px}.dash-patient-filters button{padding:6px 8px;font-size:10px}.dash-patient-scroll{flex:0 0 auto;overflow:visible;padding:0 8px}.dash-patient{gap:5px;margin-bottom:5px;padding:10px 10px 9px 40px}.dash-patient__top strong{font-size:15px}.dash-patient__top em{font-size:9px}.dash-patient__avatar{top:11px;left:10px;width:24px;height:24px}.dash-patient small{font-size:11px}.dash-patient__tags i{font-size:9px}.dash-patient-pagination{display:flex;min-height:48px;align-items:center;justify-content:center;gap:12px;margin-top:auto;border-top:1px solid #e7edf4;background:#fbfcfe}.dash-patient-pagination button{display:grid;width:30px;height:30px;place-items:center;border:1px solid #d8e2ef;border-radius:8px;background:#fff;color:#315b91;font:inherit;font-size:18px;cursor:pointer}.dash-patient-pagination button:disabled{cursor:not-allowed;opacity:.35}.dash-patient-pagination span{color:#7a879b;font-size:11px}.dash-patient-pagination strong{color:#1d4f8c;font-size:13px}
+.dash-kpis{gap:11px;margin-bottom:12px}.dash-kpi{min-height:112px;padding:15px;border-color:#d9e2ee;box-shadow:0 7px 18px rgba(31,62,112,.065)}.dash-kpi__icon{width:48px;height:48px;flex-basis:48px;font-size:19px}.dash-kpi>div>span{font-size:13px}.dash-kpi strong{margin:4px 0;font-size:30px}.dash-kpi small{font-size:11px}
+.dash-charts,.dash-bottom{gap:12px}.dash-charts{margin-bottom:12px}.dash-chart-card{border-color:#d9e2ee;box-shadow:0 7px 18px rgba(31,62,112,.065)}.dash-chart-card>header{min-height:50px;padding:0 15px}.dash-chart-card h3{font-size:16px;font-weight:700}.dash-chart-card header button{font-size:11px}.dash-risk__empty{min-height:190px}.dash-risk__empty strong,.dash-disease__empty strong{font-size:13px}.dash-risk__empty p,.dash-disease__empty p{font-size:11px}.dash-donut small{font-size:11px}.dash-donut strong{font-size:18px}.dash-source-note{font-size:10px}.dash-ai-bars>div{grid-template-columns:112px minmax(60px,1fr) 25px;font-size:12px}.dash-ai-summary{font-size:11px}.dash-workflow table{font-size:12px}.dash-workflow th{height:34px}.dash-workflow td{height:36px}.dash-workflow th:first-child,.dash-workflow td:first-child{width:38%}.dash-quick h4{font-size:16px}.dash-quick h4 em{font-size:10px}.dash-quick__person p,.dash-quick__status p,.dash-quick__status strong,.dash-quick dt,.dash-quick dd{font-size:11px}.dash-quick__actions button{font-size:12px}
+
+/* Dashboard viewport fit: the shell owns 100vh and this view fills its remaining row. */
+.app-content:has(> .clinical-dashboard){padding:0;overflow-x:auto;overflow-y:hidden}
+.clinical-dashboard{width:max(100%,1180px);height:100%;min-height:0;margin:0;overflow:hidden}
+.dash-patient-panel{height:100%;min-height:0}
+.dash-patient-scroll{display:grid;min-height:0;flex:1 1 auto;grid-template-rows:repeat(6,minmax(0,1fr));gap:4px;overflow:hidden;padding:0 8px 5px}
+.dash-patient{height:100%;min-height:0;margin:0;justify-content:center;overflow:hidden}
+.dash-patient-scroll>.dash-empty{min-height:0;grid-row:1/-1}
+.dash-patient-pagination{min-height:44px;flex:0 0 44px;margin-top:0}
+
+.dash-main{position:relative;display:grid;height:100%;min-height:0;grid-template-rows:minmax(72px,11fr) minmax(106px,18fr) minmax(220px,33fr) minmax(205px,38fr);gap:10px;padding:10px 18px 12px;overflow:hidden}
+.dash-heading{height:100%;min-height:0;margin:0;grid-row:1}
+.dash-warning{position:absolute;z-index:2;top:72px;right:18px;margin:0;padding:5px 9px;box-shadow:0 3px 10px rgba(80,61,18,.08)}
+.dash-kpis{min-height:0;margin:0;grid-row:2}
+.dash-charts{min-height:0;margin:0;grid-row:3}
+.dash-bottom{min-height:0;margin:0;grid-row:4}
+.dash-kpi,.dash-chart-card,.dash-workflow,.dash-quick{height:100%;min-height:0}
+.dash-chart-card{display:flex;flex-direction:column}
+.dash-chart-card>header{flex:0 0 46px;min-height:46px}
+.dash-risk__empty,.dash-disease{min-height:0;flex:1 1 auto}
+.dash-ai-bars{min-height:0;flex:1 1 auto;gap:10px;padding:7px 14px}
+.dash-ai-summary{flex:0 0 auto;margin:0 10px 8px;padding:7px}
+.dash-table-wrap{height:calc(100% - 46px);padding:0 10px 6px}
+.dash-workflow table{height:100%}
+.dash-workflow th{height:28px}
+.dash-workflow td{height:30px}
+.dash-quick__person{padding:7px 12px 5px}
+.dash-quick__status>div{padding:6px 8px}
+.dash-quick dl{margin:6px 11px}
+.dash-quick__actions{padding:0 11px 7px}
+.dash-quick__actions button{height:31px}
+
+@media(max-height:820px){
+  .dash-main{grid-template-rows:65px 96px minmax(190px,33fr) minmax(185px,38fr);gap:7px;padding:7px 12px 8px}
+  .dash-heading h1{font-size:23px}.dash-heading p{font-size:11px}.dash-warning{top:63px;right:12px}
+  .dash-kpi{padding:10px}.dash-kpi__icon{width:42px;height:42px;flex-basis:42px}.dash-kpi strong{font-size:26px}
+  .dash-chart-card>header{min-height:40px;flex-basis:40px}.dash-chart-card h3{font-size:14px}
+  .dash-donut{width:96px;height:96px}.dash-donut>div{width:54px;height:54px}
+  .dash-patient-panel>header{min-height:50px;padding-top:8px}.dash-patient-search{height:34px}.dash-patient-filters{padding-bottom:6px}
+  .dash-patient{gap:3px;padding-top:6px;padding-bottom:6px}.dash-patient-pagination{min-height:38px;flex-basis:38px}
+}
+
+.dash-patient__top em.is-in-progress,
+.dash-quick h4 em.is-in-progress { background: #dff4e9; color: #08734b; }
+.dash-patient__top em.is-registered,
+.dash-quick h4 em.is-registered { background: #fff0cf; color: #9a5800; }
+.dash-patient__top em.is-default,
+.dash-quick h4 em.is-default { background: #e9edf3; color: #526176; }
+@media(max-height:700px){
+  .dash-patient-scroll{display:block;overflow-y:auto}
+  .dash-patient{height:auto;min-height:74px;margin-bottom:4px}
+  .dash-bottom{overflow-y:auto}
+}
+
+
+/* 환자 목록 제목 옆 전체 버튼 */
+.dash-patient-panel>header{min-height:58px;box-sizing:border-box;padding:14px 14px 8px}.dash-patient-panel h2{font-size:17px}.dash-patient-panel h2 span{font-size:14px}.dash-patient-search{height:40px;margin:0 11px 9px;padding:0 10px}.dash-patient-search input,.dash-patient-search input::placeholder{font-size:12px}.dash-patient-scroll{grid-template-rows:repeat(6,minmax(0,1fr));gap:4px;padding:0 8px 5px}.dash-patient{height:100%;min-height:0;justify-content:center;gap:5px;margin:0;padding:10px 10px 9px 40px;border-color:#e4eaf2;border-radius:10px}.dash-patient__top strong{font-size:15px;line-height:1.25;font-weight:850}.dash-patient small{color:#697b98;font-size:11px;line-height:1.3}.dash-patient__top em{padding:3px 6px;font-size:9px}.dash-patient__avatar{top:11px;left:10px;width:24px;height:24px;font-size:12px}.dash-patient.is-selected{border-color:#aebafc;background:linear-gradient(110deg,#f0f3ff,#fbfcff);box-shadow:0 5px 14px rgba(61,87,160,.08)}.dash-patient.is-selected:before{width:3px;background:#695cf2}.dash-patient-pagination{min-height:44px;flex:0 0 44px;gap:12px;margin-top:0;background:#fbfcfe}.dash-patient-pagination button{width:30px;height:30px}.dash-patient-pagination span{font-size:11px}.dash-patient-pagination strong{font-size:13px}
+
+.dash-patient-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dash-patient-all-button {
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  border: 0;
+  border-radius: 7px;
+  background: #e8f1ff;
+  color: #1470e0;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: default;
+}
+
+
+/* =========================================================
+   Dashboard chart readability -----> 의사 대시보드 글씨 크기
+   ========================================================= */
+
+.dash-chart-card h3 {
+  font-size: 20px;
+}
+
+.dash-ai-bars > div {
+  font-size: 15px;
+}
+
+.dash-ai-bars > div > span {
+  font-size: 15px;
+}
+
+.dash-ai-bars strong {
+  font-size: 15px;
+}
+
+.dash-donut small {
+  font-size: 12px;
+}
+
+.dash-donut strong {
+  font-size: 20px;
+}
+
+.dash-legend > div {
+  font-size: 12px;
+}
+
+.dash-legend span {
+  font-size: 12px;
+}
+
+.dash-legend strong {
+  font-size: 12px;
+}
+
+.dash-source-note {
+  font-size: 12px;
+}
+
+.dash-ai-summary {
+  font-size: 11px;
+}

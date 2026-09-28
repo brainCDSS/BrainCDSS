@@ -1,0 +1,1058 @@
+@import url("../../styles/clinical-workspace.css");
+
+
+/* =========================================================
+   Page
+========================================================= */
+
+.cdss-page {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px 24px 22px;
+  overflow: hidden;
+  background: #f4f7fb;
+  box-sizing: border-box;
+  color: #19293f;
+}
+
+
+/* =========================================================
+   Page Header
+========================================================= */
+
+.cdss-page-header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.cdss-title-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 14px;
+}
+
+.cdss-title-row h2 {
+  margin: 0;
+  color: #14243b;
+  font-size: 28px;
+  font-weight: 850;
+  line-height: 1.15;
+}
+
+.cdss-title-row > span {
+  width: 1px;
+  height: 24px;
+  flex: 0 0 auto;
+  background: #d5dee9;
+}
+
+.cdss-title-row p {
+  margin: 0;
+  color: #62738a;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.cdss-refresh-button {
+  height: 38px;
+  flex: 0 0 auto;
+  padding: 0 16px;
+  border: 1px solid #c9d8e9;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #176fd5;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.cdss-refresh-button:hover:not(:disabled) {
+  border-color: #79a7db;
+  background: #f4f9ff;
+}
+
+.cdss-refresh-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+
+/* =========================================================
+   Summary
+========================================================= */
+
+.cdss-summary-row {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns:
+    repeat(
+      6,
+      minmax(0, 1fr)
+    );
+  gap: 10px;
+}
+
+.cdss-summary-card {
+  position: relative;
+  min-width: 0;
+  height: 78px;
+  padding: 14px 16px;
+  overflow: hidden;
+  border: 1px solid #dfe6ef;
+  border-radius: 10px;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+.cdss-summary-card::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 4px;
+  content: "";
+}
+
+.cdss-summary-card span {
+  display: block;
+  overflow: hidden;
+  color: #4d5f76;
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cdss-summary-card strong {
+  display: block;
+  margin-top: 9px;
+  color: #172a44;
+  font-size: 23px;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.cdss-summary-card--primary {
+  background: #f5f9ff;
+}
+
+.cdss-summary-card--primary::before {
+  background: #4287d4;
+}
+
+.cdss-summary-card--ischemia {
+  background: #fff8f8;
+}
+
+.cdss-summary-card--ischemia::before {
+  background: #dc6571;
+}
+
+.cdss-summary-card--hemorrhage {
+  background: #fff8fa;
+}
+
+.cdss-summary-card--hemorrhage::before {
+  background: #d9788d;
+}
+
+.cdss-summary-card--aneurysm {
+  background: #fffaf2;
+}
+
+.cdss-summary-card--aneurysm::before {
+  background: #db973b;
+}
+
+.cdss-summary-card--normal {
+  background: #f5fbf8;
+}
+
+.cdss-summary-card--normal::before {
+  background: #45a078;
+}
+
+.cdss-summary-card--review {
+  background: #fffaf1;
+}
+
+.cdss-summary-card--review::before {
+  background: #daa02d;
+}
+
+
+/* =========================================================
+   Workspace
+========================================================= */
+
+.cdss-workspace {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  grid-template-columns:
+    350px minmax(0, 1fr);
+  gap: 14px;
+}
+
+
+/* =========================================================
+   Main Panel
+========================================================= */
+
+.cdss-patient-panel,
+.cdss-detail-panel {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid #dce5ef;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow:
+    0 3px 12px
+    rgba(33, 55, 84, 0.04);
+}
+
+
+/* =========================================================
+   Patient Panel
+========================================================= */
+
+.cdss-patient-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.cdss-patient-panel__header {
+  display: flex;
+  min-height: 58px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+}
+
+.cdss-patient-panel__header h3 {
+  margin: 0;
+  color: #1b2e48;
+  font-size: 17px;
+  font-weight: 850;
+}
+
+.cdss-patient-panel__header > span {
+  display: inline-flex;
+  min-width: 42px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #edf5ff;
+  color: #176fd5;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+
+/* =========================================================
+   Patient Search
+========================================================= */
+
+.cdss-patient-search {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns:
+    minmax(0, 1fr) 52px;
+  gap: 7px;
+  padding: 0 14px 13px;
+}
+
+.cdss-patient-search input {
+  width: 100%;
+  min-width: 0;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid #d4dfeb;
+  border-radius: 8px;
+  outline: none;
+  background: #ffffff;
+  color: #263850;
+  font: inherit;
+  font-size: 12px;
+  box-sizing: border-box;
+}
+
+.cdss-patient-search input::placeholder {
+  color: #9aa6b5;
+}
+
+.cdss-patient-search input:focus {
+  border-color: #6f9fd6;
+  box-shadow:
+    0 0 0 3px
+    rgba(53, 119, 196, 0.08);
+}
+
+.cdss-patient-search button {
+  height: 38px;
+  border: 1px solid #327bc9;
+  border-radius: 8px;
+  background: #327bc9;
+  color: #ffffff;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+
+/* =========================================================
+   Patient List Header
+========================================================= */
+
+.cdss-patient-list-head {
+  display: grid;
+  min-height: 36px;
+  flex: 0 0 36px;
+  grid-template-columns:
+    minmax(0, 1fr) 105px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  border-top: 1px solid #e4ebf3;
+  border-bottom: 1px solid #e4ebf3;
+  background: #f6f8fb;
+  color: #6c7b8e;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+
+/* =========================================================
+   Patient List
+========================================================= */
+
+.cdss-patient-list {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.cdss-patient-row {
+  position: relative;
+  display: grid;
+  width: 100%;
+  min-height: 54px;
+  flex: 1 1 0;
+  grid-template-columns:
+    minmax(0, 1fr) 105px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  border: 0;
+  border-bottom: 1px solid #edf1f5;
+  background: #ffffff;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.cdss-patient-row:hover {
+  background: #f7faff;
+}
+
+.cdss-patient-row.is-selected {
+  background: #eaf3ff;
+}
+
+.cdss-patient-row.is-selected::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 4px;
+  background: #2479d4;
+  content: "";
+}
+
+.cdss-patient-name {
+  min-width: 0;
+  overflow: hidden;
+  color: #25364e;
+  font-size: 13px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cdss-patient-number {
+  min-width: 0;
+  overflow: hidden;
+  color: #718197;
+  font-size: 11px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cdss-patient-row.is-selected
+.cdss-patient-name {
+  color: #145eae;
+}
+
+.cdss-patient-row.is-selected
+.cdss-patient-number {
+  color: #3972af;
+}
+
+
+/* =========================================================
+   Patient List State
+========================================================= */
+
+.cdss-patient-list-state {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  place-items: center;
+  padding: 22px;
+  color: #7c899a;
+  font-size: 12px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.cdss-patient-list-state.is-error {
+  color: #b64e58;
+}
+
+
+/* =========================================================
+   Pagination
+========================================================= */
+
+.cdss-patient-pagination {
+  display: flex;
+  min-height: 52px;
+  flex: 0 0 52px;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  border-top: 1px solid #e2e9f1;
+  background: #ffffff;
+}
+
+.cdss-patient-pagination button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #d2dce8;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #3175bd;
+  font: inherit;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.cdss-patient-pagination button:hover:not(:disabled) {
+  border-color: #7ea8d7;
+  background: #f4f8fd;
+}
+
+.cdss-patient-pagination button:disabled {
+  cursor: default;
+  opacity: 0.3;
+}
+
+.cdss-patient-pagination > span {
+  display: flex;
+  min-width: 55px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: #69798e;
+  font-size: 11px;
+}
+
+.cdss-patient-pagination strong {
+  color: #176fd5;
+  font-size: 12px;
+}
+
+
+/* =========================================================
+   Detail
+========================================================= */
+
+.cdss-detail-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+
+/* =========================================================
+   Patient Context
+========================================================= */
+
+.cdss-patient-context {
+  display: flex;
+  min-height: 68px;
+  flex: 0 0 68px;
+  align-items: center;
+  padding: 0 18px;
+  border-bottom: 1px solid #e4eaf1;
+}
+
+.cdss-patient-context__main {
+  min-width: 0;
+}
+
+.cdss-patient-context__name {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.cdss-patient-context__name h3 {
+  margin: 0;
+  color: #172b45;
+  font-size: 19px;
+  font-weight: 850;
+}
+
+.cdss-patient-context__name span {
+  color: #48719d;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.cdss-patient-context__meta {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.cdss-patient-context__meta > span {
+  padding: 0 11px;
+  border-right: 1px solid #dce4ed;
+  color: #65758a;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.cdss-patient-context__meta > span:first-child {
+  padding-left: 0;
+}
+
+.cdss-patient-context__meta > span:last-child {
+  border-right: 0;
+}
+
+.cdss-context-empty {
+  color: #7c899a;
+  font-size: 12px;
+}
+
+
+/* =========================================================
+   Tabs
+========================================================= */
+
+.cdss-detail-tabs {
+  display: flex;
+  min-height: 43px;
+  flex: 0 0 43px;
+  align-items: stretch;
+  padding: 0 10px;
+  overflow-x: auto;
+  border-bottom: 1px solid #e2e9f1;
+  background: #ffffff;
+}
+
+.cdss-detail-tabs button {
+  position: relative;
+  flex: 0 0 auto;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  color: #53667e;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.cdss-detail-tabs button::after {
+  position: absolute;
+  right: 14px;
+  bottom: 0;
+  left: 14px;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: transparent;
+  content: "";
+}
+
+.cdss-detail-tabs button:hover {
+  color: #176fd5;
+}
+
+.cdss-detail-tabs button.is-active {
+  color: #176fd5;
+  font-weight: 850;
+}
+
+.cdss-detail-tabs button.is-active::after {
+  background: #176fd5;
+}
+
+
+/* =========================================================
+   Detail Content
+========================================================= */
+
+.cdss-detail-content {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+
+  grid-template-rows:
+    minmax(0, 0.9fr)
+    minmax(0, 1fr)
+    42px;
+
+  gap: 10px;
+  padding: 10px;
+
+  overflow: hidden;
+
+  background: #f7f9fc;
+}
+
+
+/* =========================================================
+   Result Top
+========================================================= */
+
+.cdss-result-top-grid {
+  display: grid;
+  min-height: 0;
+  grid-template-columns:
+    minmax(0, 0.95fr)
+    minmax(0, 1.15fr);
+  gap: 10px;
+}
+
+/* =========================================================
+   Cards
+========================================================= */
+
+.cdss-panel {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+
+  flex-direction: column;
+
+  overflow: hidden;
+
+  border: 1px solid #dce5ef;
+  border-radius: 10px;
+
+  background: #ffffff;
+}
+
+.cdss-panel__header {
+  display: flex;
+  min-height: 46px;
+  flex: 0 0 46px;
+  align-items: center;
+  padding: 0 15px;
+  border-bottom: 1px solid #e8edf3;
+}
+
+.cdss-panel__header h3 {
+  margin: 0;
+  color: #22364e;
+  font-size: 14px;
+  font-weight: 850;
+}
+
+/* =========================================================
+   Imaging
+========================================================= */
+
+.cdss-image-preview-grid {
+  display: grid;
+  min-height: 0;
+  height: calc(100% - 46px);
+
+  grid-template-columns:
+    repeat(3, minmax(0, 1fr));
+
+  gap: 8px;
+  padding: 9px;
+
+  box-sizing: border-box;
+}
+
+.cdss-image-placeholder {
+  display: flex;
+  min-height: 0;
+  height: 100%;
+
+  align-items: center;
+  justify-content: center;
+
+  border: 1px solid #313d4c;
+  border-radius: 8px;
+
+  background: #19232f;
+  color: #ffffff;
+}
+
+
+.cdss-image-placeholder strong {
+  font-size: 12px;
+  font-weight: 800;
+}
+
+
+/* =========================================================
+   Bottom Cards
+========================================================= */
+
+.cdss-result-bottom-grid {
+  display: grid;
+  min-height: 0;
+  height: 100%;
+
+  grid-template-columns:
+    repeat(3, minmax(0, 1fr));
+
+  gap: 10px;
+  margin-top: 0;
+}
+
+.cdss-info-card {
+  display: flex;
+  min-height: 0;
+  height: 100%;
+  flex-direction: column;
+}
+
+.cdss-info-card > header {
+  display: flex;
+  min-height: 48px;
+  flex: 0 0 48px;
+  align-items: center;
+  gap: 9px;
+  padding: 0 12px;
+  border-bottom: 1px solid #e8edf3;
+}
+
+.cdss-info-card > header h3 {
+  margin: 0;
+  color: #22364e;
+  font-size: 14px;
+  font-weight: 850;
+}
+
+.cdss-info-icon {
+  display: grid;
+  min-width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 9px;
+  background: #edf5ff;
+  color: #176fd5;
+  font-size: 9px;
+  font-weight: 850;
+}
+
+.cdss-info-card--decision
+.cdss-info-icon {
+  background: #fff0d3;
+  color: #ad6a08;
+}
+
+.cdss-info-empty {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+
+  place-items: center;
+
+  padding: 12px;
+
+  color: #7c8999;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.cdss-info-card > footer {
+  flex: 0 0 auto;
+  padding: 0 12px 12px;
+}
+
+.cdss-info-card > footer button {
+  width: 100%;
+  height: 34px;
+  border: 1px solid #cddae8;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #3975b6;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.cdss-info-card > footer button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+
+/* =========================================================
+   CDSS Decision
+========================================================= */
+
+.cdss-decision-placeholder {
+  min-height: 0px;
+  flex: 1;
+  margin: 13px;
+  padding: 16px;
+  border: 1px solid #efdbde;
+  border-radius: 8px;
+  background: #fff8f8;
+}
+
+.cdss-decision-placeholder strong {
+  display: block;
+  color: #b94a55;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.cdss-decision-placeholder p {
+  margin: 9px 0 0;
+  color: #786d74;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+
+/* =========================================================
+   Quick Actions
+========================================================= */
+
+.cdss-quick-actions {
+  display: flex;
+
+  min-height: 0;
+  height: 42px;
+
+  align-items: center;
+  justify-content: flex-end;
+
+  gap: 8px;
+
+  margin-top: 0;
+  padding: 5px 10px;
+
+  border: 1px solid #dce5ef;
+  border-radius: 8px;
+
+  background: #ffffff;
+
+  box-sizing: border-box;
+}
+
+.cdss-quick-actions > strong {
+  margin-right: auto;
+  color: #344860;
+  font-size: 11px;
+}
+
+.cdss-quick-actions button {
+  min-width: 95px;
+  height: 29px;
+
+  border: 1px solid #ccd9e7;
+  border-radius: 7px;
+
+  background: #ffffff;
+  color: #3b6fa8;
+
+  font: inherit;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.cdss-quick-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+
+/* =========================================================
+   Empty
+========================================================= */
+
+.cdss-empty {
+  display: grid;
+  min-height: 0;
+  height: 100%;
+  flex: 1;
+
+  place-items: center;
+
+  padding: 14px;
+
+  color: #7d8999;
+  font-size: 12px;
+  line-height: 1.6;
+
+  text-align: center;
+}
+
+.cdss-empty--analysis {
+  min-height: 0;
+  height: 100%;
+}
+
+.cdss-empty--large {
+  min-height: 330px;
+}
+
+
+/* =========================================================
+   Single Panel
+========================================================= */
+
+.cdss-single-panel {
+  min-height: 430px;
+}
+
+.cdss-single-panel > header {
+  display: flex;
+  min-height: 58px;
+  align-items: center;
+  padding: 0 18px;
+  border-bottom: 1px solid #e6ecf3;
+}
+
+.cdss-single-panel > header h3 {
+  margin: 0;
+  color: #21364f;
+  font-size: 16px;
+}
+
+
+/* =========================================================
+   Clinical
+========================================================= */
+
+.cdss-clinical-list {
+  display: grid;
+  grid-template-columns:
+    repeat(
+      2,
+      minmax(0, 1fr)
+    );
+  margin: 0;
+  padding: 18px;
+}
+
+.cdss-clinical-list > div {
+  display: grid;
+  grid-template-columns:
+    110px minmax(0, 1fr);
+  gap: 12px;
+  padding: 14px 10px;
+  border-bottom: 1px solid #edf1f5;
+  font-size: 12px;
+}
+
+.cdss-clinical-list dt {
+  color: #758397;
+}
+
+.cdss-clinical-list dd {
+  margin: 0;
+  color: #2f435c;
+  font-weight: 750;
+}
+
+
+/* =========================================================
+   Responsive
+========================================================= */
+
+@media (max-width: 1380px) {
+  .cdss-page {
+    padding:
+      18px 18px 20px;
+  }
+
+  .cdss-workspace {
+    grid-template-columns:
+      325px minmax(0, 1fr);
+  }
+
+  .cdss-summary-card {
+    padding:
+      12px 13px;
+  }
+
+  .cdss-summary-card span {
+    font-size: 11px;
+  }
+}
+
+
+@media (max-width: 1150px) {
+  .cdss-page {
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+  }
+
+  .cdss-summary-row {
+    grid-template-columns:
+      repeat(
+        3,
+        minmax(0, 1fr)
+      );
+  }
+
+  .cdss-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .cdss-patient-panel {
+    min-height: 560px;
+  }
+
+  .cdss-result-top-grid,
+  .cdss-result-bottom-grid {
+    grid-template-columns: 1fr;
+  }
+}

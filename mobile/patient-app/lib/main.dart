@@ -1,16 +1,37 @@
-// Entry point for the independently released patient application.
-import 'package:flutter/material.dart';
-import 'package:brainon_mobile_core/brainon_mobile_core.dart';
-void main() => runApp(const PatientApp());
-class PatientApp extends StatelessWidget {
-  const PatientApp({super.key});
-  @override
-  Widget build(BuildContext context) => MaterialApp(
-    title: 'BrainOn Patient',
-    home: Scaffold(
-      appBar: AppBar(title: const Text('BrainOn Patient')),
-      body: const Center(child: Text('Patient app shell is ready.')),
-    ),
-    navigatorObservers: [NoopNavigationObserver()],
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/widgets.dart';
+
+import 'app/patient_app.dart';
+import 'firebase_options.dart';
+
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(
+  RemoteMessage message,
+) async {
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+}
+
+Future<void> initializeFirebaseMessaging() async {
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  FirebaseMessaging.onBackgroundMessage(
+    firebaseMessagingBackgroundHandler,
+  );
+
+}
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await initializeFirebaseMessaging();
+
+  runApp(
+    const PatientApp(),
   );
 }

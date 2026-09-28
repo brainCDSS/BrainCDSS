@@ -317,12 +317,24 @@ class MLRoutingActivateView(APIView):
         if not data.validated_data["confirmation"]:
             raise ValidationError({"confirmation": "true is required."})
         with transaction.atomic():
-            routing = AIRoutingConfigVersion.objects.select_for_update().select_related(
-                "target_model_version__model"
-            ).filter(pk=routing_id).first()
+            # nullable FK까지 함께 잠그지 않고 라우팅 행만 잠근다.
+            routing = (
+                AIRoutingConfigVersion.objects
+                .select_for_update()
+                .filter(pk=routing_id)
+                .first()
+            )
+
             if routing is None:
                 raise NotFound({"code": "ROUTING_NOT_FOUND"})
-            target = routing.target_model_version
+
+            # 대상 모델은 별도 쿼리로 조회한다.
+            target = (
+                ModelVersion.objects
+                .select_related("model")
+                .filter(pk=routing.target_model_version_id)
+                .first()
+            )
             if target is None or target.validation_status != "APPROVED":
                 raise ValidationError({"code": "TARGET_MODEL_NOT_APPROVED"})
             if not AIModelConfigVersion.objects.filter(model_version=target, is_active=True).exists():

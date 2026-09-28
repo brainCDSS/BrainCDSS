@@ -12,8 +12,12 @@ from apps.prescriptions.api.patient_prescription_views import PatientPrescriptio
 from apps.prescriptions.models import Prescription, PrescriptionItem
 from apps.prescriptions.services.prescription_finalize import (
     _create_finalized_prescription_notification,
+    finalize_prescription,
 )
 from apps.notifications.models import Notification
+from apps.medications.models import MedicationSchedule
+from apps.common.models import OutboxEvent
+from apps.medication_safety.models import DrugIngredient, MedicationIngredient
 
 
 class PatientPrescriptionsViewTests(TestCase):
@@ -131,3 +135,102 @@ class FinalizedPrescriptionNotificationTests(TestCase):
 
         self.assertIsNone(notification)
         self.assertFalse(Notification.objects.filter(category="PRESCRIPTION").exists())
+
+
+class PrescriptionFinalizeWorkflowTests(TestCase):
+    def setUp(self):
+        patient_role = Role.objects.get(code="PATIENT")
+        clinician_role = Role.objects.get(code="NEUROLOGIST")
+        self.patient_user = User.objects.create_user(
+            login_id="rx-finalize-patient",
+            password="test-password",
+            name="Patient",
+            role=patient_role,
+        )
+        self.clinician = User.objects.create_user(
+            login_id="rx-finalize-clinician",
+            password="test-password",
+            name="Clinician",
+            role=clinician_role,
+        )
+        now = timezone.now()
+        self.patient = Patient.objects.create(
+            user=self.patient_user,
+            patient_no="RX-FINALIZE-PATIENT",
+            name="Patient",
+            estimated_age=39,
+            created_by=self.clinician,
+        )
+        encounter = Encounter.objects.create(
+            patient=self.patient,
+            encounter_no="RX-FINALIZE-ENCOUNTER",
+            encounter_type="OUTPATIENT",
+            status="IN_PROGRESS",
+            arrived_at=now,
+            created_at=now,
+            updated_at=now,
+        )
+        self.prescription = Prescription.objects.create(
+            encounter=encounter,
+            prescribed_by=self.clinician,
+            status="DRAFT",
+            finalized_at=None,
+            created_at=now,
+            updated_at=now,
+        )
+        medication = Medication.objects.create(
+            medication_code="RX-FINALIZE-MEDICATION",
+            medication_name="Test medication",
+            is_active=True,
+            created_at=now,
+            updated_at=now,
+        )
+        ingredient = DrugIngredient.objects.create(
+            dur_ingredient_code="RX-FINALIZE-INGREDIENT",
+            name_ko="테스트 성분",
+            name_en="Test ingredient",
+            is_active=True,
+            created_at=now,
+            updated_at=now,
+        )
+        MedicationIngredient.objects.create(
+            medication=medication,
+            ingredient=ingredient,
+            is_active=True,
+            created_at=now,
+        )
+        PrescriptionItem.objects.create(
+            prescription=self.prescription,
+            medication=medication,
+            medication_code=medication.medication_code,
+            medication_name=medication.medication_name,
+            dose="100.00",
+            dose_unit="mg",
+            frequency_per_day=1,
+            timing="08:00",
+            start_date=now.date(),
+            duration_days=1,
+            instructions="Take with water.",
+            created_at=now,
+            updated_at=now,
+        )
+
+    def test_finalizes_a_safe_prescription_and_creates_follow_up_records(self):
+        result = finalize_prescription(
+            prescription_id=self.prescription.id,
+            actor_user=self.clinician,
+        )
+
+        self.prescription.refresh_from_db()
+        self.assertEqual(result["status"], "FINAL")
+        self.assertEqual(result["schedules_created"], 1)
+        self.assertEqual(self.prescription.status, "FINAL")
+        self.assertEqual(MedicationSchedule.objects.count(), 1)
+        self.assertTrue(Notification.objects.filter(
+            recipient_user=self.patient_user,
+            category="PRESCRIPTION",
+        ).exists())
+        self.assertTrue(OutboxEvent.objects.filter(
+            event_type="prescription.finalized.v1",
+            aggregate=str(self.prescription.id),
+        ).exists())

@@ -331,7 +331,12 @@ def finalize_prescription(
         try:
             prescription = (
                 Prescription.objects
-                .select_for_update()
+                # `encounter__patient__user` is nullable and therefore
+                # becomes an OUTER JOIN. PostgreSQL rejects FOR UPDATE when
+                # it tries to lock that nullable join target. The
+                # prescription row is the workflow aggregate and the only
+                # row that must be locked for finalization.
+                .select_for_update(of=("self",))
                 .select_related(
                     "encounter",
                     "encounter__patient",

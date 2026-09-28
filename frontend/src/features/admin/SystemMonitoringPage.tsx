@@ -1847,12 +1847,8 @@ export default function SystemMonitoringPage() {
                       placeholder="
                         ERR-0000000000000000
                       "
-                      pattern="
-                        ERR-[0-9A-Fa-f]{16}
-                      "
-                      title="
-                        ERR- 뒤에 16자리 Error 추적번호를 입력하세요.
-                      "
+                      pattern="ERR-[0-9A-Fa-f]{16}"
+                      title="ERR- 뒤에 16자리 Error 추적번호를 입력하세요."
                     />
 
                     <button

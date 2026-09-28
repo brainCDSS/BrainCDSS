@@ -732,7 +732,7 @@
 .medication-search--header {
   width: min(100%, 620px);
   margin: 0 0 0 auto;
-  grid-template-columns: minmax(180px, 1fr) 58px 104px;
+  grid-template-columns: minmax(180px, 1fr) 104px;
 }
 
 .medication-search input,
@@ -1081,6 +1081,7 @@
 }
 
 .medication-form-grid--primary {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   padding-bottom: 5px;
 }
 
@@ -1129,7 +1130,8 @@
   grid-column: span 1;
 }
 
-.medication-form-grid input {
+.medication-form-grid input,
+.medication-form-grid select {
   box-sizing: border-box;
 
   width: 100%;
@@ -1141,6 +1143,29 @@
 
   font-size: 12px;
 }
+
+.medication-form-grid input[readonly] {
+  background: #f4f7fb;
+  color: #53657c;
+}
+
+.medication-timing-editor {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 9px;
+  align-items: center;
+  padding: 5px 8px 6px;
+  border-top: 1px solid #edf1f6;
+}
+
+.medication-timing-editor > span { color: #53657c; font-size: 10px; font-weight: 750; }
+.medication-timing-editor > small { grid-column: 2; color: #718198; font-size: 9px; line-height: 1.2; }
+.medication-time-slots { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.medication-time-slots > button { display: inline-flex; gap: 4px; align-items: center; min-height: 26px; border: 1px solid #cddaea; border-radius: 6px; padding: 3px 7px; background: #fff; color: #52657f; font-size: 11px; line-height: 1; cursor: pointer; }
+.medication-time-slots > button small { color: #8997aa; font-size: 8px; }
+.medication-time-slots > button.is-selected { border-color: #1672ef; background: #eaf3ff; color: #1263cc; font-weight: 800; }
+.medication-time-slots > label { display: inline-flex; gap: 4px; align-items: center; color: #66768d; font-size: 9px; }
+.medication-time-slots input[type="time"] { width: 88px; height: 26px; border: 1px solid #ced9e8; border-radius: 6px; padding: 2px 5px; background: #fff; color: var(--med-text); font-size: 10px; }
 
 .clinical-action-bar.medication-draft-actions {
   justify-content: flex-end;
@@ -1744,7 +1769,7 @@
 
   .medication-search--header {
     grid-column: 1 / -1;
-    grid-template-columns: minmax(0, 1fr) 64px 100px;
+    grid-template-columns: minmax(0, 1fr) 100px;
     width: 100%;
     margin: 0;
   }

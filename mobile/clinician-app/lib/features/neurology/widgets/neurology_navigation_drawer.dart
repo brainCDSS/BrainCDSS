@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../auth/clinician_session.dart';
+import '../../policies/clinician_policy_center_page.dart';
 import '../../radiology/widgets/radiology_ui.dart';
 
 class NeurologyNavigation {
@@ -61,7 +62,6 @@ class NeurologyNavigationDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final displayName = user.name.isEmpty ? '이름 정보 없음' : user.name;
-
     final account = user.loginId.isNotEmpty ? user.loginId : user.email;
 
     return Drawer(
@@ -71,30 +71,17 @@ class NeurologyNavigationDrawer extends StatelessWidget {
           children: [
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(
-                  14,
-                  18,
-                  14,
-                  12,
-                ),
+                padding: const EdgeInsets.fromLTRB(14, 18, 14, 12),
                 children: [
-                  // ==========================================================
-                  // 계정 정보 카드
-                  // ==========================================================
-
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(18),
-                      border: Border.all(
-                        color: radiologyBorder,
-                      ),
+                      border: Border.all(color: radiologyBorder),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(
-                            alpha: 0.04,
-                          ),
+                          color: Colors.black.withValues(alpha: 0.04),
                           blurRadius: 12,
                           offset: const Offset(0, 4),
                         ),
@@ -162,80 +149,42 @@ class NeurologyNavigationDrawer extends StatelessWidget {
                       ],
                     ),
                   ),
-
                   const SizedBox(height: 22),
-
-                  // ==========================================================
-                  // 메뉴
-                  // ==========================================================
-
                   _DrawerItem(
                     icon: Icons.home_outlined,
                     label: '홈',
-                    onTap: () => NeurologyNavigation.selectTab(
-                      context,
-                      2,
-                    ),
+                    onTap: () => NeurologyNavigation.selectTab(context, 2),
                   ),
-
                   _DrawerItem(
                     icon: Icons.emergency_outlined,
                     label: '응급',
-                    onTap: () => NeurologyNavigation.selectTab(
-                      context,
-                      0,
-                    ),
+                    onTap: () => NeurologyNavigation.selectTab(context, 0),
                   ),
-
                   _DrawerItem(
                     icon: Icons.people_outline_rounded,
                     label: '환자',
-                    onTap: () => NeurologyNavigation.selectTab(
-                      context,
-                      1,
-                    ),
+                    onTap: () => NeurologyNavigation.selectTab(context, 1),
                   ),
-
                   _DrawerItem(
                     icon: Icons.forum_outlined,
                     label: '협진',
-                    onTap: () => NeurologyNavigation.selectTab(
-                      context,
-                      3,
-                    ),
+                    onTap: () => NeurologyNavigation.selectTab(context, 3),
                   ),
-
                   _DrawerItem(
                     icon: Icons.smart_toy_outlined,
                     label: 'AI 도우미',
-                    onTap: () => NeurologyNavigation.openAssistant(
-                      context,
-                    ),
+                    onTap: () => NeurologyNavigation.openAssistant(context),
                   ),
-
                   _DrawerItem(
                     icon: Icons.person_outline_rounded,
                     label: '마이페이지',
-                    onTap: () => NeurologyNavigation.selectTab(
-                      context,
-                      4,
-                    ),
+                    onTap: () => NeurologyNavigation.selectTab(context, 4),
                   ),
                 ],
               ),
             ),
-
-            // ==========================================================
-            // 로그아웃
-            // ==========================================================
-
             Padding(
-              padding: const EdgeInsets.fromLTRB(
-                14,
-                8,
-                14,
-                10,
-              ),
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
               child: InkWell(
                 borderRadius: BorderRadius.circular(16),
                 onTap: () => NeurologyNavigation.logout(context),
@@ -247,9 +196,7 @@ class NeurologyNavigationDrawer extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFF3F3),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: const Color(0xFFFFDADA),
-                    ),
+                    border: Border.all(color: const Color(0xFFFFDADA)),
                   ),
                   child: const Row(
                     children: [
@@ -277,18 +224,22 @@ class NeurologyNavigationDrawer extends StatelessWidget {
                 ),
               ),
             ),
-
-            // ==========================================================
-            // Footer
-            // ==========================================================
-
-            const Padding(
-              padding: EdgeInsets.fromLTRB(
-                18,
-                8,
-                18,
-                18,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 6),
+              child: _PolicyUtilityLink(
+                onTap: () => ClinicianPolicyCenterPage.openFromDrawer(context),
               ),
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 18),
+              child: Divider(
+                height: 1,
+                thickness: 1,
+                color: Color(0xFFDDE6F0),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(18, 10, 18, 18),
               child: Row(
                 children: [
                   Text(
@@ -328,6 +279,45 @@ class NeurologyDrawerButton extends StatelessWidget {
           onPressed: () => Scaffold.of(scaffoldContext).openDrawer(),
         ),
       );
+}
+
+class _PolicyUtilityLink extends StatelessWidget {
+  const _PolicyUtilityLink({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 2, vertical: 9),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '약관 및 정책',
+                  style: TextStyle(
+                    color: radiologyMuted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: radiologyMuted,
+                size: 17,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _DrawerItem extends StatelessWidget {

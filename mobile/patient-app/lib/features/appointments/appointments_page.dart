@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/hospital_time.dart';
 import '../home/home_api.dart';
 import 'appointments_api.dart';
 
@@ -97,7 +98,7 @@ class AppointmentsPageState extends State<AppointmentsPage> {
         ? upcoming
         : upcoming
             .where((item) =>
-                _isSameDay(item.scheduledAt?.toLocal(), _selectedDate!))
+                _isSameDay(hospitalTime(item.scheduledAt), _selectedDate!))
             .toList();
 
     return RefreshIndicator(
@@ -189,12 +190,12 @@ class AppointmentsPageState extends State<AppointmentsPage> {
       ..sort((a, b) => a.scheduledAt!.compareTo(b.scheduledAt!));
 
     if (upcoming
-        .any((item) => _isSameDay(item.scheduledAt?.toLocal(), today))) {
+        .any((item) => _isSameDay(hospitalTime(item.scheduledAt), today))) {
       return today;
     }
     return upcoming.isEmpty
         ? today
-        : _dateOnly(upcoming.first.scheduledAt!.toLocal());
+        : _dateOnly(hospitalTime(upcoming.first.scheduledAt)!);
   }
 
   Future<void> _openDetail(HomeAppointment appointment) async {
@@ -524,7 +525,7 @@ class _AppointmentCalendar extends StatelessWidget {
               final disabled = firstSelectableDate != null &&
                   date.isBefore(_dateOnly(firstSelectableDate!));
               final hasAppointment = appointments.any(
-                (item) => _isSameDay(item.scheduledAt?.toLocal(), date),
+                (item) => _isSameDay(hospitalTime(item.scheduledAt), date),
               );
 
               return InkWell(
@@ -632,7 +633,7 @@ class _AppointmentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final date = appointment.scheduledAt?.toLocal();
+    final date = hospitalTime(appointment.scheduledAt);
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: InkWell(
@@ -793,8 +794,9 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
       return value is Map ? value['name']?.toString() ?? '' : '';
     }
 
-    final date = DateTime.tryParse(_detail!['scheduled_at']?.toString() ?? '')
-        ?.toLocal();
+    final date = hospitalTime(
+      DateTime.tryParse(_detail!['scheduled_at']?.toString() ?? ''),
+    );
     final rescheduleHistory = AppointmentRescheduleHistory.fromJsonList(
       _detail!['reschedule_history'],
     );
@@ -2884,9 +2886,13 @@ String _formatSelectedDate(DateTime value) {
 
 String _formatSlotTime(DateTime? value) {
   if (value == null) return '-';
-  final local = value.toLocal();
-  final hour = local.hour.toString().padLeft(2, '0');
-  final minute = local.minute.toString().padLeft(2, '0');
+  // Appointment slots are scheduled in the hospital time zone (Asia/Seoul).
+  // An Android emulator can run in UTC, so DateTime.toLocal() would otherwise
+  // display a 09:00 KST slot as 00:00.  Format the API instant explicitly in
+  // the hospital time zone instead of relying on the device time zone.
+  final hospitalTime = value.toUtc().add(const Duration(hours: 9));
+  final hour = hospitalTime.hour.toString().padLeft(2, '0');
+  final minute = hospitalTime.minute.toString().padLeft(2, '0');
   return '$hour:$minute';
 }
 
@@ -2900,7 +2906,7 @@ String _formatAppointmentDate(DateTime value) {
 }
 
 String _formatLocalAppointmentDate(DateTime? value) =>
-    value == null ? '-' : _formatAppointmentDate(value.toLocal());
+    value == null ? '-' : _formatAppointmentDate(hospitalTime(value)!);
 
 String _statusLabel(String status) =>
     {

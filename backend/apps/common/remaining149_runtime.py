@@ -135,14 +135,17 @@ def _safe_value(value):
     ):
         return str(value)
 
-    if isinstance(
-        value,
-        (
-            datetime,
-            date,
-            time,
-        ),
-    ):
+    # Django stores aware timestamps in UTC, but the hospital's canonical
+    # presentation timezone is KST (Asia/Seoul).  Convert only aware
+    # datetimes here so every API, audit, outbox and notification payload uses
+    # the same +09:00 representation.  Dates/times without timezone metadata
+    # are schedule-local values and must remain unchanged.
+    if isinstance(value, datetime):
+        if timezone.is_aware(value):
+            value = timezone.localtime(value, timezone=timezone.get_fixed_timezone(9 * 60))
+        return value.isoformat()
+
+    if isinstance(value, (date, time)):
         return value.isoformat()
 
     if isinstance(
@@ -1253,6 +1256,44 @@ def _generic_action(request, spec, kwargs):
 
 # --- Contract-specific handlers for high-risk endpoints ---------------------
 
+def _schedule_get(request, spec, kwargs):
+    """Return schedule rules for the clinician addressed by the URL only."""
+    del request
+    model = _model(spec)
+    clinician_id = kwargs.get("clinician_id")
+    if model is None or clinician_id is None:
+        raise ContractError({"clinician_id": "required"})
+
+    clinician_model = apps.get_model("organizations", "Clinician")
+    try:
+        clinician = clinician_model.objects.select_related("user").get(pk=clinician_id)
+    except (clinician_model.DoesNotExist, ValueError, TypeError) as exc:
+        raise NotFound({"code": "CLINICIAN_NOT_FOUND"}) from exc
+
+    rules = model.objects.filter(clinician_id=clinician.id).order_by(
+        "weekday", "effective_from", "start_time", "id"
+    )
+    return Response({
+        "clinician": _appointment_clinician_payload(clinician),
+        "rules": [
+            {
+                "id": str(rule.id),
+                "clinician_id": str(rule.clinician_id),
+                "weekday": rule.weekday,
+                "start_time": rule.start_time.isoformat(),
+                "end_time": rule.end_time.isoformat(),
+                "slot_minutes": rule.slot_minutes,
+                "effective_from": rule.effective_from.isoformat(),
+                "effective_to": (
+                    rule.effective_to.isoformat() if rule.effective_to else None
+                ),
+                "is_active": rule.is_active,
+            }
+            for rule in rules
+        ],
+    }, status=200)
+
+
 def _schedule_put(request, spec, kwargs):
     model = _model(spec)
     clinician_id = kwargs.get("clinician_id")
@@ -1273,6 +1314,14 @@ def _schedule_put(request, spec, kwargs):
         )
     except (clinician_model.DoesNotExist, ValueError, TypeError) as exc:
         raise NotFound({"code": "CLINICIAN_NOT_FOUND"}) from exc
+
+    role_code = getattr(getattr(request.user, "role", None), "code", None)
+    clinician_roles = {"NEUROLOGIST", "NEUROSURGEON", "RADIOLOGY"}
+    if role_code in clinician_roles and clinician_obj.user_id != request.user.id:
+        raise PermissionDenied({
+            "code": "SCHEDULE_MANAGE_OWN_ONLY",
+            "detail": "Clinicians can manage only their own schedules.",
+        })
 
     normalized = []
     for index, row in enumerate(rows):
@@ -1606,6 +1655,20 @@ def _staff_appointment_create(request, spec, kwargs):
     payload = _appointment_payload(appointment)
     _audit(request, spec, appointment, None, payload)
     _outbox(spec, appointment, payload)
+    patient_user = appointment.patient.user
+    if patient_user is not None:
+        local_start = timezone.localtime(appointment.slot.start_at)
+        _create_appointment_notification(
+            appointment=appointment,
+            recipient_user=patient_user,
+            request=request,
+            title="진료 예약이 확정되었습니다",
+            body=(
+                f"{local_start:%Y년 %m월 %d일 %H:%M} "
+                f"{appointment.clinician.user.name} 담당의 예약이 등록되었습니다."
+            ),
+            event_type="APPOINTMENT_CONFIRMED",
+        )
     return Response(payload, status=201)
 
 
@@ -1713,6 +1776,12 @@ def _create_appointment_notification(
         "actor_user_id": str(request.user.id),
         "appointment_status": str(appointment.status),
         "request_type": str(appointment.request_type),
+        "hospital_id": str(appointment.hospital_id),
+        "department_id": str(appointment.department_id),
+        "clinician_id": str(appointment.clinician_id),
+        "slot_id": str(appointment.slot_id),
+        "start_at": _safe_value(appointment.slot.start_at),
+        "end_at": _safe_value(appointment.slot.end_at),
     }
 
     if event_type:
@@ -5606,6 +5675,7 @@ CUSTOM_HANDLERS = {
     "API-RX-002": _batchb_rx_detail,
     "API-RX-003": _batchb_rx_patch,
     "API-RX-004": _batchb_rx_finalize,
+    "API-SCH-001": _schedule_get,
     "API-SCH-002": _schedule_put,
     "API-SLOT-001": _appointment_available_slots,
     "API-APP-001": _appointment_create,

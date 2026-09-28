@@ -26,6 +26,13 @@ The operation locks the selected slot and atomically changes it from
 `AVAILABLE` to `BOOKED` while creating a `CONFIRMED` appointment. Concurrent
 requests for the same slot return `409 SLOT_NOT_AVAILABLE`.
 
+When the patient is linked to an active user account, the same transaction
+creates an `APPOINTMENT` notification with `event_type=APPOINTMENT_CONFIRMED`.
+The existing notification signal enqueues FCM delivery after the database
+commit. The operation also records `appointment.confirmed.v1` in the outbox.
+The Clinical MCP remains read-only and sees the new appointment through its
+existing Django internal appointment API; it does not write to PostgreSQL.
+
 Possible errors: `400 VALIDATION_ERROR`, `404 PATIENT_NOT_FOUND`,
 `404 SLOT_NOT_FOUND`, `409 SLOT_NOT_AVAILABLE`, and
 `409 PATIENT_APPOINTMENT_CONFLICT`.

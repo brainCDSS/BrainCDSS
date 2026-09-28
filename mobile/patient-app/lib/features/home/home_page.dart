@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/hospital_time.dart';
 import '../auth/auth_session.dart';
 import '../medications/patient_prescriptions_api.dart';
 import '../notifications/notifications_api.dart';
@@ -165,7 +166,7 @@ class HomePageState extends State<HomePage> {
 
     final appointments = _appointments.where(
       (appointment) {
-        final scheduledAt = appointment.scheduledAt?.toLocal();
+        final scheduledAt = hospitalTime(appointment.scheduledAt);
 
         if (scheduledAt == null) {
           return false;
@@ -217,7 +218,7 @@ class HomePageState extends State<HomePage> {
     final upcoming = _appointments
         .where(
           (item) =>
-              item.scheduledAt?.toLocal().isAfter(DateTime.now()) ?? false,
+              item.scheduledAt?.isAfter(DateTime.now().toUtc()) ?? false,
         )
         .toList()
       ..sort((a, b) => a.scheduledAt!.compareTo(b.scheduledAt!));
@@ -745,7 +746,7 @@ class _AppointmentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheduledAt = appointment.scheduledAt?.toLocal();
+    final scheduledAt = hospitalTime(appointment.scheduledAt);
 
     final info = <String>[
       if (appointment.hospitalName.isNotEmpty) appointment.hospitalName,

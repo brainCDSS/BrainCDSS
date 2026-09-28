@@ -40,6 +40,10 @@ export type SidebarMenuKey =
   | "consultations"
   | "prescriptions"
   | "notifications"
+
+  // [추가] 개인정보 처리방침
+  | "policies"
+
   // [추가] 관리자 화면 연결
   | "admin-users"
   | "admin-settings"
@@ -841,7 +845,35 @@ function handleMenuSelect(
 
       <div className="sidebar-footer">
 
-        <span>
+        <button
+          type="button"
+          className={
+            currentActiveMenu === "policies"
+              ? "sidebar-policy-link active"
+              : "sidebar-policy-link"
+          }
+          onClick={() => {
+            handleMenuSelect("policies");
+          }}
+          aria-current={
+            currentActiveMenu === "policies"
+              ? "page"
+              : undefined
+          }
+        >
+          <span className="sidebar-policy-label">
+            약관 및 정책
+          </span>
+
+          <span
+            className="sidebar-policy-arrow"
+            aria-hidden="true"
+          >
+            ›
+          </span>
+        </button>
+
+        <span className="sidebar-footer-title">
           Brain CDSS
         </span>
 

@@ -2,9 +2,10 @@
 
 from datetime import date, datetime, time, timedelta, timezone
 from types import SimpleNamespace
+from unittest.mock import patch
 from uuid import uuid4
 
-from django.test import SimpleTestCase, TestCase
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils import timezone as django_timezone
 from rest_framework.test import APIRequestFactory, force_authenticate
 
@@ -13,10 +14,15 @@ from apps.appointments.api.generated_real_149 import (
     ContractView000,
     ContractView001,
     ContractView002,
+    ContractView007,
     ContractView008,
     ContractView012,
 )
-from apps.appointments.api.views import AppointmentCorrectView
+from apps.appointments.api.views import (
+    AppointmentCorrectView,
+    StaffAppointmentCreateView,
+)
+from apps.assistant.api.internal_mcp import AppointmentsInternalView
 from apps.appointments.models import (
     Appointment,
     AppointmentRescheduleHistory,
@@ -25,6 +31,8 @@ from apps.appointments.models import (
     ClinicianSchedule,
 )
 from apps.common.remaining149_runtime import _appointment_payload
+from apps.common.models import OutboxEvent
+from apps.notifications.models import Notification
 from apps.organizations.models import Clinician, Department, Hospital
 from apps.patients.models import Patient
 
@@ -498,6 +506,224 @@ class AppointmentAvailableSlotGenerationTests(TestCase):
             [item["id"] for item in response.data["slots"]],
         )
         self.assertEqual(AppointmentSlot.objects.count(), 4)
+
+    def test_schedule_endpoint_returns_only_the_requested_clinician_rules(self):
+        nurse_role = Role.objects.get(code="NURSE")
+        permission, _ = Permission.objects.get_or_create(
+            code="schedule.read",
+            defaults={"name": "Schedule read", "domain": "schedule"},
+        )
+        RolePermission.objects.get_or_create(role=nurse_role, permission=permission)
+        nurse = User.objects.create_user(
+            login_id="schedule-read-nurse",
+            password="test-password",
+            name="Nurse",
+            role=nurse_role,
+        )
+        other_user = User.objects.create_user(
+            login_id="other-schedule-clinician",
+            password="test-password",
+            name="Other clinician",
+            role=Role.objects.get(code="NEUROLOGIST"),
+        )
+        other_clinician = Clinician.objects.create(
+            user=other_user,
+            department=self.clinician.department,
+        )
+        ClinicianSchedule.objects.create(
+            clinician=other_clinician,
+            weekday=self.target_date.weekday(),
+            start_time=time(8),
+            end_time=time(12),
+            slot_minutes=30,
+            effective_from=self.target_date,
+            is_active=True,
+        )
+        request = APIRequestFactory().get(
+            "/api/v1/clinicians/{}/schedule".format(self.clinician.id),
+        )
+        force_authenticate(request, user=nurse)
+
+        response = ContractView007.as_view()(
+            request,
+            clinician_id=self.clinician.id,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data["rules"]), 1)
+        self.assertEqual(
+            response.data["rules"][0]["clinician_id"],
+            str(self.clinician.id),
+        )
+        self.assertEqual(response.data["rules"][0]["start_time"], "09:00:00")
+
+    def test_clinician_can_save_only_own_schedule(self):
+        clinician_role = Role.objects.get(code="NEUROLOGIST")
+        permission, _ = Permission.objects.get_or_create(
+            code="schedule.manage",
+            defaults={"name": "Schedule manage", "domain": "schedule"},
+        )
+        RolePermission.objects.get_or_create(
+            role=clinician_role,
+            permission=permission,
+        )
+        request = APIRequestFactory().put(
+            "/api/v1/clinicians/{}/schedule".format(self.clinician.id),
+            {
+                "schedules": [
+                    {
+                        "weekday": self.target_date.weekday(),
+                        "start_time": "09:00",
+                        "end_time": "18:00",
+                        "slot_minutes": 15,
+                        "effective_from": self.target_date.isoformat(),
+                        "effective_to": None,
+                        "is_active": True,
+                    }
+                ]
+            },
+            format="json",
+        )
+        force_authenticate(request, user=self.clinician.user)
+
+        response = ContractView007.as_view()(
+            request,
+            clinician_id=self.clinician.id,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["rules"][0]["end_time"], "18:00:00")
+        self.assertEqual(response.data["rules"][0]["slot_minutes"], 15)
+
+
+class StaffAppointmentCreateTests(TestCase):
+    def setUp(self):
+        nurse_role = Role.objects.get(code="NURSE")
+        patient_role = Role.objects.get(code="PATIENT")
+        clinician_role = Role.objects.get(code="NEUROLOGIST")
+        permission, _ = Permission.objects.get_or_create(
+            code="appointment.read.staff",
+            defaults={"name": "Staff appointment access", "domain": "appointments"},
+        )
+        RolePermission.objects.get_or_create(
+            role=nurse_role,
+            permission=permission,
+        )
+        self.nurse = User.objects.create_user(
+            login_id="staff-booking-nurse",
+            password="test-password",
+            name="Booking Nurse",
+            role=nurse_role,
+        )
+        self.patient_user = User.objects.create_user(
+            login_id="staff-booking-patient",
+            password="test-password",
+            name="Booking Patient",
+            role=patient_role,
+        )
+        clinician_user = User.objects.create_user(
+            login_id="staff-booking-clinician",
+            password="test-password",
+            name="Booking Clinician",
+            role=clinician_role,
+        )
+        hospital = Hospital.objects.create(
+            name="Staff Booking Hospital",
+            address="Staff Booking Address",
+        )
+        department = Department.objects.create(
+            hospital=hospital,
+            code="STAFF-BOOKING",
+            name="Staff Booking Department",
+        )
+        clinician = Clinician.objects.create(
+            user=clinician_user,
+            department=department,
+        )
+        self.patient = Patient.objects.create(
+            user=self.patient_user,
+            patient_no="STAFF-BOOKING-PATIENT",
+            name="Booking Patient",
+            created_by=self.nurse,
+        )
+        start_at = django_timezone.now() + timedelta(days=1)
+        self.slot = AppointmentSlot.objects.create(
+            clinician=clinician,
+            start_at=start_at,
+            end_at=start_at + timedelta(minutes=30),
+            status="AVAILABLE",
+        )
+
+    def _create(self):
+        request = APIRequestFactory().post(
+            "/api/v1/staff/appointment-bookings",
+            {"patient_id": str(self.patient.id), "slot_id": str(self.slot.id)},
+            format="json",
+        )
+        force_authenticate(request, user=self.nurse)
+        return StaffAppointmentCreateView.as_view()(request)
+
+    @patch("apps.notifications.signals.send_notification_fcm.delay")
+    def test_creates_confirmed_relations_notification_outbox_and_fcm(self, fcm_delay):
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self._create()
+
+        self.assertEqual(response.status_code, 201)
+        appointment = Appointment.objects.select_related(
+            "patient", "clinician", "department", "hospital", "slot", "handled_by",
+        ).get(pk=response.data["appointment_id"])
+        self.slot.refresh_from_db()
+        self.assertEqual(appointment.patient, self.patient)
+        self.assertEqual(appointment.clinician, self.slot.clinician)
+        self.assertEqual(appointment.department, self.slot.clinician.department)
+        self.assertEqual(appointment.hospital, self.slot.clinician.department.hospital)
+        self.assertEqual(appointment.handled_by, self.nurse)
+        self.assertEqual(appointment.status, "CONFIRMED")
+        self.assertEqual(self.slot.status, "BOOKED")
+
+        notification = Notification.objects.get(
+            recipient_user=self.patient_user,
+            category="APPOINTMENT",
+        )
+        self.assertEqual(notification.data_json["event_type"], "APPOINTMENT_CONFIRMED")
+        self.assertEqual(notification.data_json["resource_id"], str(appointment.id))
+        self.assertEqual(notification.data_json["clinician_id"], str(appointment.clinician_id))
+        fcm_delay.assert_called_once_with(str(notification.id))
+
+        event = OutboxEvent.objects.get(
+            event_type="appointment.confirmed.v1",
+            aggregate=str(appointment.id),
+        )
+        self.assertEqual(event.payload["patient"]["id"], str(self.patient.id))
+        self.assertEqual(event.status, "PENDING")
+
+    @override_settings(MCP_BACKEND_TOKEN="appointment-mcp-test-token")
+    def test_created_appointment_is_visible_to_patient_and_read_only_mcp(self):
+        response = self._create()
+        appointment_id = response.data["appointment_id"]
+
+        patient_request = APIRequestFactory().get("/api/v1/appointments")
+        force_authenticate(patient_request, user=self.patient_user)
+        patient_response = ContractView000.as_view()(patient_request)
+        self.assertEqual(patient_response.status_code, 200)
+        self.assertEqual(patient_response.data["results"][0]["appointment_id"], appointment_id)
+
+        mcp_request = APIRequestFactory().get(
+            "/internal/v1/mcp/get_appointments/",
+            {"patient_id": str(self.patient.id)},
+            HTTP_AUTHORIZATION="Bearer appointment-mcp-test-token",
+        )
+        mcp_response = AppointmentsInternalView.as_view()(mcp_request)
+        self.assertEqual(mcp_response.status_code, 200)
+        self.assertEqual(mcp_response.data["data"]["items"][0]["id"], appointment_id)
+        self.assertEqual(mcp_response.data["data"]["items"][0]["status"], "CONFIRMED")
+
+    def test_rejects_second_booking_for_the_same_slot(self):
+        self.assertEqual(self._create().status_code, 201)
+        response = self._create()
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("SLOT_NOT_AVAILABLE", str(response.data))
+        self.assertEqual(Appointment.objects.count(), 1)
 
 
 class StaffAppointmentResponseTests(TestCase):

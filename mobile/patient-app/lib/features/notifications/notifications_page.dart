@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/hospital_time.dart';
 import '../profile/profile_page.dart';
 import 'notifications_api.dart';
 
@@ -467,7 +468,7 @@ bool _isMedicationReminder(PatientNotification item) {
 
 String _formatReceivedAt(DateTime? value) {
   if (value == null) return '수신 시각 정보 없음';
-  final local = value.toLocal();
+  final local = hospitalTime(value)!;
   String twoDigits(int number) => number.toString().padLeft(2, '0');
   return '${local.year}.${twoDigits(local.month)}.${twoDigits(local.day)} '
       '${twoDigits(local.hour)}:${twoDigits(local.minute)}';

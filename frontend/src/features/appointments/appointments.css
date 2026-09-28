@@ -1358,6 +1358,42 @@
   font-weight: 800;
 }
 
+.schedule-management-overview {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+
+  min-height: 0;
+  overflow: hidden;
+
+  border: 1px solid #dce5ef;
+  border-top: 0;
+  border-radius: 0 0 12px 12px;
+
+  background: #ffffff;
+}
+
+.schedule-management-overview .weekly-schedule-clinician {
+  min-height: 58px;
+
+  margin-top: 0;
+  padding: 12px 20px;
+
+  border-bottom: 1px solid #e1eaf4;
+
+  background: #fbfcfe;
+}
+
+.schedule-management-overview .weekly-schedule-card {
+  flex: 1 1 0;
+  min-height: 0;
+
+  margin-top: 0;
+
+  border: 0;
+  border-radius: 0;
+}
+
 .weekly-schedule-card {
   flex: 1;
   min-height: 0;
@@ -1593,6 +1629,314 @@
   display: flex;
 
   gap: 7px;
+}
+
+.appointment-booking-card {
+  margin-top: 0;
+
+  border-top: 0;
+  border-radius: 0 0 12px 12px;
+
+  overflow: hidden;
+}
+
+.appointment-booking-card > .appointment-booking-header {
+  min-height: 88px;
+
+  padding: 18px 20px;
+
+  border-bottom-color: #dce8f6;
+
+  background: linear-gradient(100deg, #f4f8fe 0%, #ffffff 72%);
+}
+
+.appointment-booking-title {
+  display: flex;
+
+  align-items: center;
+  gap: 7px;
+}
+
+.appointment-booking-title i {
+  color: #9aacc1;
+  font-size: 13px;
+  font-style: normal;
+}
+
+.appointment-booking-header h3 {
+  margin: 0;
+
+  color: #17365d;
+  font-size: 18px;
+  line-height: 1.35;
+}
+
+.appointment-booking-header p {
+  margin: 5px 0 0;
+
+  color: #687991;
+  font-size: 12px;
+}
+
+.appointment-booking-badge {
+  flex: 0 0 auto;
+
+  padding: 6px 9px;
+
+  border: 1px solid #cbdcf0;
+  border-radius: 999px;
+
+  background: #ffffff;
+  color: #2867aa;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.appointment-booking-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.35fr) minmax(150px, 1fr) minmax(145px, 0.9fr) minmax(170px, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+
+  padding: 18px 20px;
+
+  background: #ffffff;
+}
+
+.appointment-booking-field {
+  display: flex;
+  flex-direction: column;
+
+  gap: 7px;
+
+  color: #536b89;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.appointment-booking-field input,
+.appointment-booking-field select {
+  width: 100%;
+  height: 42px;
+
+  padding: 0 11px;
+
+  border: 1px solid #cfddeb;
+  border-radius: 8px;
+
+  background: #ffffff;
+  color: #223952;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.appointment-booking-field input:focus,
+.appointment-booking-field select:focus {
+  border-color: #367fca;
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(54, 127, 202, 0.12);
+}
+
+.appointment-booking-submit {
+  min-width: 112px;
+  height: 42px;
+
+  border: 1px solid #1b73d5 !important;
+  border-radius: 8px !important;
+
+  background: #1b73d5 !important;
+  color: #ffffff !important;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.appointment-booking-submit:hover:not(:disabled) {
+  border-color: #125cae !important;
+
+  background: #125cae !important;
+}
+
+.appointment-booking-card .appointment-empty,
+.appointment-booking-card .appointment-action-error {
+  margin: 0 20px 18px;
+}
+
+.schedule-management-card {
+  flex: 1 1 0;
+  min-height: 0;
+
+  overflow: hidden;
+}
+
+.schedule-management-card > .schedule-management-header {
+  min-height: 88px;
+
+  padding: 18px 20px;
+
+  border-bottom-color: #dce8f6;
+
+  background: linear-gradient(100deg, #f4f8fe 0%, #ffffff 72%);
+}
+
+.schedule-management-title {
+  display: flex;
+
+  align-items: center;
+  gap: 7px;
+}
+
+.schedule-management-title i {
+  color: #9aacc1;
+  font-size: 13px;
+  font-style: normal;
+}
+
+.schedule-management-header h3 {
+  margin: 0;
+
+  color: #17365d;
+  font-size: 18px;
+  line-height: 1.35;
+}
+
+.schedule-management-header p {
+  margin: 5px 0 0;
+
+  color: #687991;
+  font-size: 12px;
+}
+
+.schedule-management-header > div:last-child select {
+  height: 42px;
+  min-width: 160px;
+
+  border-color: #cfddeb;
+  border-radius: 8px;
+
+  color: #223952;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.schedule-management-header > div:last-child button {
+  min-height: 42px;
+
+  border-color: #c9daec;
+  border-radius: 8px;
+
+  background: #ffffff;
+  color: #2867aa;
+  font-weight: 800;
+}
+
+.schedule-management-card .schedule-management-editor {
+  grid-template-columns: 100px 125px 125px 100px 170px minmax(110px, auto);
+  gap: 12px;
+
+  padding: 18px 20px;
+
+  border-bottom-color: #e1eaf4;
+
+  background: #ffffff;
+}
+
+.schedule-management-card .schedule-management-editor label {
+  gap: 7px;
+
+  color: #536b89;
+  font-size: 11px;
+}
+
+.schedule-management-card .schedule-management-editor input,
+.schedule-management-card .schedule-management-editor select {
+  height: 42px;
+
+  padding: 0 11px;
+
+  border-color: #cfddeb;
+  border-radius: 8px;
+
+  color: #223952;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.schedule-management-card .schedule-management-editor input:focus,
+.schedule-management-card .schedule-management-editor select:focus {
+  border-color: #367fca;
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(54, 127, 202, 0.12);
+}
+
+.schedule-management-card .schedule-management-editor .schedule-rule-add-button {
+  min-height: 42px;
+
+  border-color: #aecaeb;
+  border-radius: 8px;
+
+  background: #f7fbff;
+  color: #2867aa;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.schedule-management-card .schedule-management-editor .schedule-rule-add-button:hover {
+  border-color: #367fca;
+
+  background: #edf6ff;
+}
+
+.schedule-management-card .schedule-rule-list {
+  gap: 8px;
+
+  padding: 18px 20px;
+
+  background: #f9fbfe;
+}
+
+.schedule-management-card .schedule-rule-list > div {
+  min-height: 48px;
+
+  border-color: #dbe6f2;
+  border-radius: 9px;
+
+  background: #ffffff;
+  color: #4f637c;
+}
+
+.schedule-management-card .schedule-rule-list > div > strong {
+  color: #214f80;
+}
+
+.schedule-management-card .schedule-rule-list label {
+  display: inline-flex;
+
+  align-items: center;
+  gap: 5px;
+
+  color: #3474b8;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.schedule-management-footer {
+  padding: 0 20px 20px !important;
+
+  border-top: 1px solid #e1eaf4;
+
+  background: #f9fbfe;
+}
+
+.schedule-management-footer .schedule-save-button {
+  min-width: 122px;
+  min-height: 42px;
+
+  border-radius: 8px !important;
+
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .schedule-rule-editor {
@@ -2030,6 +2374,18 @@
   .appointment-filters {
     grid-template-columns: 1fr 1fr;
   }
+
+  .appointment-booking-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .schedule-management-card .schedule-management-editor {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .appointment-booking-submit {
+    width: 100%;
+  }
 }
 
 @media (max-width: 720px) {
@@ -2053,6 +2409,34 @@
   }
 
   .appointment-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .appointment-booking-card > .appointment-booking-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .appointment-booking-title {
+    flex-wrap: wrap;
+  }
+
+  .appointment-booking-form {
+    grid-template-columns: 1fr;
+  }
+
+  .schedule-management-card > .schedule-management-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .schedule-management-title {
+    flex-wrap: wrap;
+  }
+
+  .schedule-management-card .schedule-management-editor {
     grid-template-columns: 1fr;
   }
 

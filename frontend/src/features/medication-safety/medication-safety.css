@@ -639,6 +639,19 @@
   border-bottom: 1px solid var(--med-border);
 }
 
+.medication-search-header {
+  display: grid;
+  grid-template-columns: auto minmax(320px, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  min-height: 58px;
+}
+
+.medication-search-header > small {
+  white-space: nowrap;
+  color: #52657f;
+}
+
 .medication-section-title h3 {
   display: flex;
 
@@ -716,7 +729,14 @@
   background: transparent;
 }
 
+.medication-search--header {
+  width: min(100%, 620px);
+  margin: 0 0 0 auto;
+  grid-template-columns: minmax(180px, 1fr) 58px 104px;
+}
+
 .medication-search input,
+.medication-search select,
 .medication-form-grid input,
 .dur-override textarea {
   box-sizing: border-box;
@@ -735,6 +755,12 @@
   color: var(--med-text);
 
   outline: none;
+}
+
+.medication-search select {
+  appearance: auto;
+  font-size: 12px;
+  cursor: pointer;
 }
 
 .medication-search input,
@@ -773,8 +799,8 @@
 
 .medication-search-results {
   width: auto;
-  height: 108px;
-  max-height: 108px;
+  height: 240px;
+  max-height: 240px;
 
   margin: 0 10px 10px;
 
@@ -1707,6 +1733,20 @@
     grid-template-columns:
       1fr
       64px;
+  }
+
+  .medication-search-header {
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .medication-search--header {
+    grid-column: 1 / -1;
+    grid-template-columns: minmax(0, 1fr) 64px 100px;
+    width: 100%;
+    margin: 0;
   }
 
   .medication-search button:last-child {

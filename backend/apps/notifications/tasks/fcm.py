@@ -15,17 +15,32 @@ logger = logging.getLogger(__name__)
 
 
 def _safe_push_text(notification):
-    if notification.severity == "CRITICAL":
-        return "Urgent BrainOn alert", "Open BrainOn to review the alert."
-    labels = {
-        "CONSULTATION": "Consultation update",
-        "AI_ANALYSIS": "AI analysis update",
-        "PRESCRIPTION": "Prescription update",
-        "MEDICATION_SAFETY": "Medication safety update",
-        "APPOINTMENT": "Appointment update",
-        "IMAGING": "Imaging update",
+    event_type = str((notification.data_json or {}).get("event_type") or "")
+    consultation_messages = {
+        "CONSULTATION_REQUESTED": (
+            "새로운 협진 요청",
+            "확인이 필요한 협진 요청이 도착했습니다.",
+        ),
+        "CONSULTATION_RESPONDED": (
+            "협진 회신 도착",
+            "요청한 협진에 대한 회신이 도착했습니다.",
+        ),
     }
-    return labels.get(notification.category, "BrainOn notification"), "Open BrainOn to view details."
+    if event_type in consultation_messages:
+        return consultation_messages[event_type]
+    if notification.severity == "CRITICAL":
+        return "긴급 BrainOn 알림", "확인이 필요한 긴급 알림이 도착했습니다."
+    labels = {
+        "CONSULTATION": "협진 알림",
+        "AI_ANALYSIS": "AI 분석 알림",
+        "PRESCRIPTION": "처방 알림",
+        "MEDICATION_SAFETY": "약물 안전 알림",
+        "APPOINTMENT": "예약 알림",
+        "IMAGING": "영상 검사 알림",
+        "EMERGENCY": "응급 알림",
+        "SYSTEM": "시스템 알림",
+    }
+    return labels.get(notification.category, "BrainOn 알림"), "확인이 필요한 알림이 도착했습니다."
 
 
 def _push_is_suppressed(notification):

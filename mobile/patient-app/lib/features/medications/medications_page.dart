@@ -33,10 +33,10 @@ class MedicationsPage extends StatefulWidget {
       Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
 
   @override
-  State<MedicationsPage> createState() => _MedicationsPageState();
+  State<MedicationsPage> createState() => MedicationsPageState();
 }
 
-class _MedicationsPageState extends State<MedicationsPage> {
+class MedicationsPageState extends State<MedicationsPage> {
   late final PatientPrescriptionsApi _api =
       PatientPrescriptionsApi(widget.apiClient);
   late final MedicationSchedulesApi _schedulesApi =
@@ -85,6 +85,8 @@ class _MedicationsPageState extends State<MedicationsPage> {
       }
     }
   }
+
+  Future<void> reload() => _load();
 
   @override
   Widget build(BuildContext context) => RefreshIndicator(
@@ -659,7 +661,7 @@ class _ActiveMedicationCard extends StatelessWidget {
               const Icon(Icons.medication_outlined, color: _primary, size: 22),
               const SizedBox(width: 8),
               const Expanded(
-                  child: Text('복용 중인 약',
+                  child: Text('처방받은 약',
                       style: TextStyle(
                           color: _text,
                           fontSize: 18,
@@ -683,7 +685,7 @@ class _ActiveMedicationCard extends StatelessWidget {
           if (items.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 10),
-              child: Text('복용 중인 약이 없습니다.',
+              child: Text('처방받은 약이 없습니다.',
                   style: TextStyle(color: _muted, fontSize: 13)),
             )
           else ...[
@@ -748,14 +750,21 @@ class _ActiveMedicationRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                        item.medicationName.isEmpty ? '-' : item.medicationName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            color: _text,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800)),
+                    Row(children: [
+                      Expanded(
+                          child: Text(
+                              item.medicationName.isEmpty
+                                  ? '-'
+                                  : item.medicationName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  color: _text,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800))),
+                      const SizedBox(width: 6),
+                      _PrescriptionPeriodBadge(item: item),
+                    ]),
                     const SizedBox(height: 3),
                     Text(
                         '하루 ${item.frequencyPerDay}회${_timingSuffix(item.timing)}',
@@ -774,6 +783,65 @@ class _ActiveMedicationRow extends StatelessWidget {
   }
 }
 
+enum _PrescriptionPeriodStatus { active, upcoming, ended }
+
+_PrescriptionPeriodStatus? _prescriptionPeriodStatus(
+    PrescriptionItemSummary item) {
+  final startDate = item.startDate;
+  if (startDate == null || item.durationDays <= 0) {
+    return null;
+  }
+  final today = _dateOnly(DateTime.now());
+  final start = _dateOnly(startDate);
+  final endExclusive = start.add(Duration(days: item.durationDays));
+  if (today.isBefore(start)) {
+    return _PrescriptionPeriodStatus.upcoming;
+  }
+  if (!today.isBefore(endExclusive)) {
+    return _PrescriptionPeriodStatus.ended;
+  }
+  return _PrescriptionPeriodStatus.active;
+}
+
+class _PrescriptionPeriodBadge extends StatelessWidget {
+  const _PrescriptionPeriodBadge({required this.item});
+
+  final PrescriptionItemSummary item;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = _prescriptionPeriodStatus(item);
+    if (status == null) {
+      return const SizedBox.shrink();
+    }
+    final label = switch (status) {
+      _PrescriptionPeriodStatus.active => '복용 중',
+      _PrescriptionPeriodStatus.upcoming => '복용 예정',
+      _PrescriptionPeriodStatus.ended => '복용 종료',
+    };
+    final color = switch (status) {
+      _PrescriptionPeriodStatus.active => const Color(0xFF2E8B64),
+      _PrescriptionPeriodStatus.upcoming => _primary,
+      _PrescriptionPeriodStatus.ended => _muted,
+    };
+    final background = switch (status) {
+      _PrescriptionPeriodStatus.active => const Color(0xFFE6F5EE),
+      _PrescriptionPeriodStatus.upcoming => _soft,
+      _PrescriptionPeriodStatus.ended => const Color(0xFFF0F2F6),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(label,
+          style: TextStyle(
+              color: color, fontSize: 10, fontWeight: FontWeight.w700)),
+    );
+  }
+}
+
 class _ActiveMedicationListPage extends StatelessWidget {
   const _ActiveMedicationListPage({required this.items});
 
@@ -782,7 +850,7 @@ class _ActiveMedicationListPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('복용 중인 약')),
+      appBar: AppBar(title: const Text('처방받은 약')),
       body: ListView.separated(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
         itemCount: items.length,

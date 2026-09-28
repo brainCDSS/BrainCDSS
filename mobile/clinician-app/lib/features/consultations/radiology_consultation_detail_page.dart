@@ -443,6 +443,97 @@ class _RadiologyConsultationDetailPageState
     await _submitAction(action, body: {field: reason});
   }
 
+  Future<void> _showRejectReasonDialog() async {
+    const otherReason = '기타';
+    const reasons = [
+      '담당 진료 범위 외',
+      '추가 검사 필요',
+      '환자 상태 및 정보 부족',
+      '진료 일정상 수용 어려움',
+      otherReason,
+    ];
+    final otherController = TextEditingController();
+    String? selectedReason;
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final isOther = selectedReason == otherReason;
+          final isValid = selectedReason != null &&
+              (!isOther || otherController.text.trim().isNotEmpty);
+          return AlertDialog(
+            title: const Text('협진을 거절할까요?'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  DropdownButtonFormField<String>(
+                    value: selectedReason,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      hintText: '거절 사유를 선택해 주세요.',
+                    ),
+                    items: reasons
+                        .map(
+                          (reason) => DropdownMenuItem(
+                            value: reason,
+                            child: Text(
+                              reason,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        )
+                        .toList(growable: false),
+                    onChanged: (value) {
+                      setDialogState(() => selectedReason = value);
+                    },
+                  ),
+                  if (isOther) ...[
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: otherController,
+                      autofocus: true,
+                      maxLength: 2000,
+                      minLines: 2,
+                      maxLines: 4,
+                      onChanged: (_) => setDialogState(() {}),
+                      decoration: const InputDecoration(
+                        hintText: '거절 사유를 입력해 주세요.',
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('취소'),
+              ),
+              FilledButton(
+                onPressed: isValid
+                    ? () => Navigator.pop(
+                          dialogContext,
+                          isOther
+                              ? otherController.text.trim()
+                              : selectedReason,
+                        )
+                    : null,
+                child: const Text('확인'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    otherController.dispose();
+    if (reason == null || reason.isEmpty || !mounted) {
+      return;
+    }
+    await _submitAction('reject', body: {'reason': reason});
+  }
+
   Future<void> _showRespondDialogSafely() async {
     if (!mounted || _isSubmitting) {
       return;
@@ -497,12 +588,7 @@ class _RadiologyConsultationDetailPageState
                 title: '협진을 수락할까요?',
                 content: '협진 검토를 시작할 수 있습니다.',
               ),
-              onReject: () => _showReasonDialog(
-                action: 'reject',
-                title: '협진을 거절할까요?',
-                field: 'reason',
-                hintText: '거절 사유를 입력해 주세요.',
-              ),
+              onReject: _showRejectReasonDialog,
               onStart: () => _confirmAction(
                 action: 'start',
                 title: '협진 검토를 시작할까요?',
@@ -685,6 +771,16 @@ class _ConsultationReasonCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (display.plainText != null) ...[
+          Text(
+            display.plainText!,
+            style: const TextStyle(color: radiologyNavy, height: 1.45),
+          ),
+          if (display.hasStructuredValues) const SizedBox(height: 10),
+        ],
+        if (!display.hasValues)
+          const Text('등록된 협진 사유가 없습니다.',
+              style: TextStyle(color: radiologyMuted)),
         if (display.analysisType != null)
           _ReasonValue(
               label: '분석 유형', value: _analysisTypeLabel(display.analysisType!)),
@@ -730,6 +826,7 @@ class _ReasonValue extends StatelessWidget {
 
 class _ConsultationReasonDisplay {
   const _ConsultationReasonDisplay({
+    required this.plainText,
     required this.analysisType,
     required this.aiJudgment,
     required this.lesionInfo,
@@ -741,27 +838,31 @@ class _ConsultationReasonDisplay {
         .map((line) => line.trim())
         .where((line) => line.isNotEmpty)
         .toList(growable: false);
-    final analysisType = _reasonValue(lines, const [
+    const analysisTypeLabels = [
       '분석 유형',
       'analysis type',
       'analysis_type',
-    ]);
-    final aiJudgment = _reasonValue(lines, const [
+    ];
+    const judgmentLabels = [
       'AI 판정',
       'ai judgment',
       'is_positive',
-    ]);
-    final lesionCount = _reasonValue(lines, const [
+    ];
+    const lesionCountLabels = [
       '병변 개수',
       'lesion count',
       'lesion_count',
-    ]);
-    final totalVolume = _reasonValue(lines, const [
+    ];
+    const totalVolumeLabels = [
       '병변 총 부피',
       '총 병변 부피',
       'total volume',
       'total_volume_ml',
-    ]);
+    ];
+    final analysisType = _reasonValue(lines, analysisTypeLabels);
+    final aiJudgment = _reasonValue(lines, judgmentLabels);
+    final lesionCount = _reasonValue(lines, lesionCountLabels);
+    final totalVolume = _reasonValue(lines, totalVolumeLabels);
     final lesionParts = <String>[
       if (lesionCount != null)
         lesionCount.endsWith('개') ? lesionCount : '$lesionCount개',
@@ -771,16 +872,42 @@ class _ConsultationReasonDisplay {
             : '총 $totalVolume mL',
     ];
     return _ConsultationReasonDisplay(
+      plainText: lines
+              .where((line) =>
+                  !_isReasonValueLine(line, analysisTypeLabels) &&
+                  !_isReasonValueLine(line, judgmentLabels) &&
+                  !_isReasonValueLine(line, lesionCountLabels) &&
+                  !_isReasonValueLine(line, totalVolumeLabels))
+              .join('\n')
+              .trim()
+              .isEmpty
+          ? null
+          : lines
+              .where((line) =>
+                  !_isReasonValueLine(line, analysisTypeLabels) &&
+                  !_isReasonValueLine(line, judgmentLabels) &&
+                  !_isReasonValueLine(line, lesionCountLabels) &&
+                  !_isReasonValueLine(line, totalVolumeLabels))
+              .join('\n')
+              .trim(),
       analysisType: analysisType,
       aiJudgment: aiJudgment,
       lesionInfo: lesionParts.isEmpty ? null : lesionParts.join(' · '),
     );
   }
 
+  final String? plainText;
   final String? analysisType;
   final String? aiJudgment;
   final String? lesionInfo;
+
+  bool get hasStructuredValues =>
+      analysisType != null || aiJudgment != null || lesionInfo != null;
+  bool get hasValues => plainText != null || hasStructuredValues;
 }
+
+bool _isReasonValueLine(String line, List<String> labels) =>
+    _reasonValue([line], labels) != null;
 
 String? _reasonValue(List<String> lines, List<String> labels) {
   for (final line in lines) {

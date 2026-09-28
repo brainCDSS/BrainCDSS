@@ -26,6 +26,7 @@ class ClinicalHistoryItem {
       required this.departmentName,
       required this.clinicianName,
       required this.diagnosisName,
+      required this.clinicalOpinion,
       required this.examNames,
       required this.hasPrescription});
   final String encounterId;
@@ -33,6 +34,7 @@ class ClinicalHistoryItem {
   final String? departmentName;
   final String? clinicianName;
   final String? diagnosisName;
+  final String? clinicalOpinion;
   final List<String> examNames;
   final bool hasPrescription;
   factory ClinicalHistoryItem.fromJson(Map<dynamic, dynamic> json) =>
@@ -42,6 +44,7 @@ class ClinicalHistoryItem {
         departmentName: _text(json['department_name']),
         clinicianName: _text(json['clinician_name']),
         diagnosisName: _text(json['diagnosis_name']),
+        clinicalOpinion: _text(json['clinical_opinion']),
         examNames: (json['exam_names'] as List? ?? const [])
             .map((value) => value.toString())
             .where((value) => value.isNotEmpty)
@@ -56,6 +59,7 @@ class ClinicalHistoryDetail {
       required this.departmentName,
       required this.clinicianName,
       required this.diagnosisName,
+      required this.encounterType,
       required this.exams,
       required this.clinicalOpinion,
       required this.hasPrescription});
@@ -63,6 +67,7 @@ class ClinicalHistoryDetail {
   final String? departmentName;
   final String? clinicianName;
   final String? diagnosisName;
+  final String? encounterType;
   final List<ClinicalHistoryExam> exams;
   final String? clinicalOpinion;
   final bool hasPrescription;
@@ -72,6 +77,7 @@ class ClinicalHistoryDetail {
         departmentName: _text(json['department_name']),
         clinicianName: _text(json['clinician_name']),
         diagnosisName: _text(json['diagnosis_name']),
+        encounterType: _text(json['encounter_type']),
         exams: (json['exams'] as List? ?? const [])
             .whereType<Map>()
             .map(ClinicalHistoryExam.fromJson)

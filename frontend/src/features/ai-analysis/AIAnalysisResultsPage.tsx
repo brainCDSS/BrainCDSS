@@ -1,12 +1,13 @@
 import { formatPatientAge } from "../../lib/patientAge";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { getApiRequestStatus } from "../../api/client";
-import { createAIResultReview, getAIAnalyses, getAIAnalysis, getAIAnalysisResult } from "./api";
+import { createAIResultReview, getAIAnalyses, getAIAnalysis, getAIAnalysisResult, getAIResultReviews } from "./api";
 import { getImagingStudy } from "../imaging/api";
 import type { ImagingStudyDetail } from "../imaging/types";
-import type { AIAnalysisItem, AIAnalysisResult, NiftiProbe } from "./types";
+import type { AIAnalysisItem, AIAnalysisResult, AIResultReview, NiftiProbe } from "./types";
 import type { ConsultationDraft } from "../consultations/types";
-import type { RadiologyReportDraft } from "../radiology/types";
+import { getRadiologyReport } from "../radiology/api";
+import type { RadiologyReport, RadiologyReportDraft } from "../radiology/types";
 import "./ai-analysis.css";
 
 const NiftiViewer = lazy(() => import("./NiftiViewer"));
@@ -42,6 +43,9 @@ export default function AIAnalysisResultsPage({ initialAnalysisId, onShareConsul
   const [reviewDecision, setReviewDecision] = useState<"ACCEPT" | "MODIFY" | "REJECT">("ACCEPT");
   const [actionBusy, setActionBusy] = useState(false);
   const [reviewMessage, setReviewMessage] = useState<string | null>(null);
+  const [reviews, setReviews] = useState<AIResultReview[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsError, setReviewsError] = useState<string | null>(null);
   const [selectedLesion, setSelectedLesion] = useState<number | null>(null);
   const [focusRequest, setFocusRequest] = useState(0);
   const [studyIndex, setStudyIndex] = useState<Record<string, ImagingStudyDetail>>({});
@@ -49,6 +53,8 @@ export default function AIAnalysisResultsPage({ initialAnalysisId, onShareConsul
   const [listCollapsed, setListCollapsed] = useState(false);
   const [probe, setProbe] = useState<NiftiProbe | null>(null);
   const [viewerKind, setViewerKind] = useState<"existing" | "rust">("existing");
+  const [radiologyReport, setRadiologyReport] = useState<RadiologyReport | null>(null);
+  const [radiologyReportLoading, setRadiologyReportLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -114,10 +120,20 @@ export default function AIAnalysisResultsPage({ initialAnalysisId, onShareConsul
 
   useEffect(() => {
     let active = true;
-    setResult(null); setStudy(null); setPatientUnlinked(false); setReviewMessage(null); setSelectedLesion(null); setProbe(null);
+    setResult(null); setStudy(null); setPatientUnlinked(false); setReviewMessage(null); setReviews([]); setReviewsError(null); setReviewsLoading(false); setSelectedLesion(null); setProbe(null);
     if (!selected) return () => { active = false; };
     void getImagingStudy(selected.study_id).then((data) => { if (active) { setStudy(data); setPatientUnlinked(!data.patient); } }).catch((requestError) => { if (active) { setPatientUnlinked(true); if (getApiRequestStatus(requestError) === 403 || getApiRequestStatus(requestError) === 404) setError(accessErrorMessage); } });
-    if (selected.status === "COMPLETED") void getAIAnalysisResult(selected.analysis_id).then((data) => { if (active) setResult(data); }).catch((requestError) => { if (active) setError(getApiRequestStatus(requestError) === 403 || getApiRequestStatus(requestError) === 404 ? accessErrorMessage : "완료된 분석 결과를 불러오지 못했습니다."); });
+    if (selected.status === "COMPLETED") void getAIAnalysisResult(selected.analysis_id).then((data) => {
+      if (!active) return;
+      setResult(data); setReviewsLoading(true);
+      void getAIResultReviews(data.result_id).then((response) => {
+        if (active) setReviews(response.reviews);
+      }).catch(() => {
+        if (active) setReviewsError("의료진 검토 이력을 불러오지 못했습니다.");
+      }).finally(() => {
+        if (active) setReviewsLoading(false);
+      });
+    }).catch((requestError) => { if (active) setError(getApiRequestStatus(requestError) === 403 || getApiRequestStatus(requestError) === 404 ? accessErrorMessage : "완료된 분석 결과를 불러오지 못했습니다."); });
     return () => { active = false; };
   }, [selected?.analysis_id, selected?.status]);
 
@@ -137,7 +153,10 @@ export default function AIAnalysisResultsPage({ initialAnalysisId, onShareConsul
   async function saveReview() {
     if (!result || !opinion.trim()) return;
     setActionBusy(true); setReviewMessage(null);
-    try { await createAIResultReview(result.result_id, { decision: reviewDecision, comment: opinion.trim() }); setOpinion(""); setResult(await getAIAnalysisResult(result.analysis_id)); setReviewMessage("검토가 저장되었습니다."); }
+    try {
+      const savedReview = await createAIResultReview(result.result_id, { decision: reviewDecision, comment: opinion.trim() });
+      setOpinion(""); setReviews((current) => [savedReview, ...current]); setResult(await getAIAnalysisResult(result.analysis_id)); setReviewMessage("검토가 저장되었습니다.");
+    }
     catch { setReviewMessage("검토 저장에 실패했습니다."); }
     finally { setActionBusy(false); }
   }
@@ -170,12 +189,13 @@ export default function AIAnalysisResultsPage({ initialAnalysisId, onShareConsul
     });
   }
 
-  function createRadiologyReport() {
+  function createRadiologyReport(reportId?: string) {
     if (!selected || !study || !result || !onCreateRadiologyReport) {
       setReviewMessage("판독 작성을 위해 완료된 AI 분석 결과와 검사 정보를 확인해 주세요.");
       return;
     }
     onCreateRadiologyReport({
+      reportId,
       studyId: selected.study_id,
       analysisId: selected.analysis_id,
       accessionNumber: study.accession_number ?? "",
@@ -185,6 +205,34 @@ export default function AIAnalysisResultsPage({ initialAnalysisId, onShareConsul
       totalVolumeMl: result.total_volume_ml ?? null,
     });
   }
+
+  async function handleRadiologyReportAction() {
+    const currentReport = study?.current_report;
+    if (!currentReport) {
+      createRadiologyReport();
+      return;
+    }
+    if (["DRAFT", "PRELIMINARY"].includes(currentReport.status) && onCreateRadiologyReport) {
+      createRadiologyReport(currentReport.report_id);
+      return;
+    }
+    if (!["PRELIMINARY", "FINAL", "AMENDED"].includes(currentReport.status)) {
+      setReviewMessage("작성 중인 판독문은 최종 판독 Worklist에서 계속 작성할 수 있습니다.");
+      return;
+    }
+    setRadiologyReportLoading(true);
+    setReviewMessage(null);
+    try {
+      setRadiologyReport(await getRadiologyReport(currentReport.report_id));
+    } catch {
+      setReviewMessage("판독문을 불러오지 못했습니다. 환자 접근 권한을 확인해 주세요.");
+    } finally {
+      setRadiologyReportLoading(false);
+    }
+  }
+
+  const currentReportStatus = study?.current_report?.status ?? null;
+  const hasCurrentReport = Boolean(study?.current_report?.report_id);
 
   const patient = study?.patient;
   const normalizedQuery = patientQuery.trim().toLocaleLowerCase("ko-KR");
@@ -237,9 +285,50 @@ export default function AIAnalysisResultsPage({ initialAnalysisId, onShareConsul
             {lesions.length ? <div className="lesion-list">{lesions.map((lesion,index) => <button type="button" key={String(lesion.id ?? index)} className={selectedLesion === index ? "is-selected" : ""} disabled={lesion.representative_slice == null} onClick={() => { setSelectedLesion(index); setFocusRequest((current) => current + 1); }}><strong>병변 {index + 1}{index === largestLesionIndex ? " · 최대" : ""}</strong>{lesion.description && <em>{lesion.description}</em>}{lesion.location && <span>위치 {lesion.location}</span>}<span>부피 {volume(lesion.volume_ml)}</span><span>총 병변의 {lesion.relative_volume_pct == null ? "미산출" : `${Number(lesion.relative_volume_pct).toFixed(1)}%`}</span><span>대표 슬라이스 {lesion.representative_slice ?? "미산출"}</span><span>예측 점수 {lesion.prediction_score == null ? "미산출" : lesion.prediction_score}</span>{lesion.max_diameter_mm != null && <span>최대 직경 {Number(lesion.max_diameter_mm).toFixed(1)} mm</span>}</button>)}</div> : <div className="lesion-explanation"><strong>{findingText}</strong><p>{result?.total_volume_ml == null ? "병변의 개수, 위치, 대표 슬라이스 정보가 아직 산출되지 않았습니다." : `AI 분할 결과의 총 병변 부피는 ${volume(result.total_volume_ml)}입니다. 병변별 위치와 대표 슬라이스는 새 분석부터 표시합니다.`}</p><small>빨간 마스크는 AI가 분할한 의심 영역이며, 최종 판단은 의료진 검토가 필요합니다.</small></div>}
           </section>
         </div>
-        <section className="review-panel review-panel-embedded"><div className="review-state"><span>검토 상태</span><strong>{result?.latest_review?.decision ?? "미검토"}</strong></div><label>의료진 소견<textarea value={opinion} onChange={(e) => setOpinion(e.target.value)} placeholder="AI 결과에 대한 소견을 입력하세요." /></label><label>검토 결정<select value={reviewDecision} onChange={(e) => setReviewDecision(e.target.value as typeof reviewDecision)}><option value="ACCEPT">수용</option><option value="MODIFY">수정 필요</option><option value="REJECT">거절</option></select></label>{reviewMessage && <p>{reviewMessage}</p>}<div className="review-actions"><button type="button" disabled={actionBusy || !result || !opinion.trim()} onClick={() => void saveReview()}>소견 저장</button><button type="button" disabled={!selected || !study || !result || !onCreateRadiologyReport} title={!onCreateRadiologyReport ? "신경과 의료진만 판독 작성을 시작할 수 있습니다." : undefined} onClick={createRadiologyReport}>판독 작성</button><button type="button" disabled={!selected || !study?.patient || !onShareConsultation} title={!onShareConsultation ? "신경과 의료진만 협진을 요청할 수 있습니다." : undefined} onClick={shareConsultation}>협진 공유</button></div></section>
+        <section className="review-panel review-panel-embedded">
+          <div className="review-state"><span>검토 상태</span><strong>{result?.latest_review?.decision ?? "미검토"}</strong></div>
+          <label>의료진 소견<textarea value={opinion} onChange={(e) => setOpinion(e.target.value)} placeholder="AI 결과에 대한 소견을 입력하세요." /></label>
+          <label>검토 결정<select value={reviewDecision} onChange={(e) => setReviewDecision(e.target.value as typeof reviewDecision)}><option value="ACCEPT">수용</option><option value="MODIFY">수정 필요</option><option value="REJECT">거절</option></select></label>
+          {reviewMessage && <p>{reviewMessage}</p>}
+          <div className="review-actions"><button type="button" disabled={actionBusy || !result || !opinion.trim()} onClick={() => void saveReview()}>소견 저장</button><button type="button" disabled={!selected || !study || !result || radiologyReportLoading || (!hasCurrentReport && !onCreateRadiologyReport) || (currentReportStatus === "DRAFT" && !onCreateRadiologyReport)} title={!hasCurrentReport && !onCreateRadiologyReport ? "영상의학과 의료진만 판독 작성을 시작할 수 있습니다." : currentReportStatus === "DRAFT" && !onCreateRadiologyReport ? "작성 중인 판독문은 영상의학과 의료진만 수정할 수 있습니다." : undefined} onClick={() => void handleRadiologyReportAction()}>{radiologyReportLoading ? "불러오는 중..." : currentReportStatus === "FINAL" ? "최종 판독 확인" : currentReportStatus === "AMENDED" ? "정정 판독 확인" : currentReportStatus === "PRELIMINARY" ? onCreateRadiologyReport ? "예비 판독 수정 · 확정" : "예비 판독 확인" : currentReportStatus === "DRAFT" ? "판독 작성 중" : "판독 작성"}</button><button type="button" disabled={!selected || !study?.patient || !onShareConsultation} title={!onShareConsultation ? "신경과 의료진만 협진을 요청할 수 있습니다." : undefined} onClick={shareConsultation}>협진 공유</button></div>
+        </section>
+        <section className="review-history" aria-live="polite">
+          <header><strong>의료진 검토 이력</strong><span>{reviews.length}건</span></header>
+          {reviewsLoading ? <p className="review-history__state">검토 이력을 불러오는 중입니다.</p>
+            : reviewsError ? <p className="review-history__state is-error">{reviewsError}</p>
+              : reviews.length ? <ol>{reviews.map((review) => <li key={review.review_id}>
+                <div><strong>{{ ACCEPT: "수용", MODIFY: "수정 필요", REJECT: "거절" }[review.decision]}</strong><time>{formatDate(review.reviewed_at)}</time></div>
+                <div className="review-history__reviewer"><span>{review.reviewer?.name ?? "작성자 정보 없음"}</span>{review.reviewer?.role_name && <em>{review.reviewer.role_name}</em>}</div>
+                <p>{review.comment}</p>
+              </li>)}</ol>
+                : <p className="review-history__state">저장된 의료진 검토가 없습니다.</p>}
+        </section>
       </aside>
       </div>
     </div>
+    {radiologyReport && (
+      <div className="ai-radiology-report-backdrop" role="presentation" onMouseDown={() => setRadiologyReport(null)}>
+        <section className="ai-radiology-report-modal" role="dialog" aria-modal="true" aria-labelledby="ai-radiology-report-title" onMouseDown={(event) => event.stopPropagation()}>
+          <header>
+            <div>
+              <span>{radiologyReport.status === "PRELIMINARY" ? "예비 판독" : radiologyReport.status === "AMENDED" ? "정정 판독" : "최종 판독"}</span>
+              <h2 id="ai-radiology-report-title">영상의학과 판독문</h2>
+            </div>
+            <button type="button" aria-label="닫기" onClick={() => setRadiologyReport(null)}>×</button>
+          </header>
+          <dl className="ai-radiology-report-meta">
+            <div><dt>상태</dt><dd>{radiologyReport.status}</dd></div>
+            <div><dt>확정 시각</dt><dd>{formatDate(radiologyReport.finalized_at)}</dd></div>
+            <div><dt>Critical finding</dt><dd>{radiologyReport.critical_finding ? radiologyReport.critical_level : "없음"}</dd></div>
+          </dl>
+          <div className="ai-radiology-report-content">
+            <section><h3>소견</h3><p>{radiologyReport.findings || "기록 없음"}</p></section>
+            <section><h3>결론</h3><p>{radiologyReport.impression || "기록 없음"}</p></section>
+            <section><h3>권고사항</h3><p>{radiologyReport.recommendation || "기록 없음"}</p></section>
+          </div>
+          <footer><button type="button" onClick={() => setRadiologyReport(null)}>닫기</button></footer>
+        </section>
+      </div>
+    )}
   </section>;
 }

@@ -38,7 +38,6 @@ import type {
 import {
   connectWebPush,
 } from "../../features/notifications/webPush";
-import SurgicalPlanningPage from "../../features/surgical-planning/SurgicalPlanningPage";
 import AppointmentsPage from "../../features/appointments/AppointmentsPage";
 import ClinicalNotesPage from "../../features/clinical-notes/ClinicalNotesPage";
 
@@ -119,7 +118,7 @@ const RETIRED_ADMIN_MENU_KEYS = new Set([
 const SIDEBAR_MENU_KEYS: SidebarMenuKey[] = [
   "dashboard", "patients", "worklist", "triage", "clinical-notes",
   "appointments", "imaging", "ai-results", "radiology-reports", "cdss",
-  "consultations", "surgical-planning", "prescriptions", "notifications",
+  "consultations", "prescriptions", "notifications",
   "admin-users", "admin-ml", "admin-settings",
 ];
 
@@ -810,7 +809,6 @@ export default function AppShell({
       menu !== "ai-results" &&
       menu !== "radiology-reports" &&
       menu !== "cdss" &&
-      menu !== "surgical-planning" &&
       menu !== "prescriptions" &&
       menu !== "notifications" &&
       // [추가] 관리자 화면 연결
@@ -1997,10 +1995,6 @@ export default function AppShell({
 
     if (activeMenu === "cdss") {
       return <CDSSResultsPage />;
-    }
-
-    if (activeMenu === "surgical-planning") {
-      return <SurgicalPlanningPage />;
     }
 
     if (activeMenu === "prescriptions") {

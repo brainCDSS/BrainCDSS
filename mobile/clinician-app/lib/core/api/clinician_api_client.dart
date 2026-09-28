@@ -78,6 +78,11 @@ class ClinicianApiClient {
     return _decode(response);
   }
 
+  Future<void> delete(String path) async {
+    final response = await _request('DELETE', Uri.parse('$baseUrl$path'));
+    _decode(response);
+  }
+
   Map<String, String> _headers({bool authenticated = true}) => {
         'Accept': 'application/json',
         'Content-Type': 'application/json; charset=utf-8',

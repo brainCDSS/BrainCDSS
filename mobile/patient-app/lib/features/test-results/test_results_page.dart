@@ -4,6 +4,7 @@ import '../../core/api/api_client.dart';
 import 'clinical_history_api.dart';
 
 const _primary = Color(0xFF7567C8);
+const _hodocBlue = Color(0xFF356FAF);
 const _soft = Color(0xFFEEEAFE);
 const _border = Color(0xFFCFD7E8);
 const _text = Color(0xFF263A5A);
@@ -136,7 +137,7 @@ class _TestResultsPageState extends State<TestResultsPage> {
         : _items
             .where((item) => [
                   item.departmentName,
-                  item.diagnosisName,
+                  item.clinicianName,
                   ...item.examNames
                 ].whereType<String>().join(' ').toLowerCase().contains(query))
             .toList();
@@ -151,7 +152,7 @@ class _TestResultsPageState extends State<TestResultsPage> {
               TextField(
                   onChanged: (value) => setState(() => _query = value),
                   decoration: InputDecoration(
-                      hintText: '진료과, 진단명, 검사명 검색',
+                      hintText: '진료과, 담당 의료진, 검사명 검색',
                       prefixIcon: const Icon(Icons.search_rounded),
                       filled: true,
                       fillColor: Colors.white,
@@ -207,16 +208,13 @@ class _TestResultsPageState extends State<TestResultsPage> {
           _Group(title: '진료 정보', compact: true, children: [
             _row('진료일시', _date(detail.visitedAt)),
             _row('진료과', detail.departmentName ?? '진료과 정보 없음'),
-            _row('담당 의료진', detail.clinicianName ?? '담당 의료진 정보 없음')
+            _row('담당 의료진', detail.clinicianName ?? '담당 의료진 정보 없음'),
+            _row('진료 유형', _encounterType(detail.encounterType))
           ]),
           const SizedBox(height: 10),
-          _Group(title: '진단 및 검사', children: [
-            _row('진단명', detail.diagnosisName ?? '진단명 정보 없음'),
-            const SizedBox(height: 4),
-            const Text('검사', style: TextStyle(color: _muted, fontSize: 13)),
-            const SizedBox(height: 7),
+          _Group(title: '검사 내역', children: [
             if (exams.isEmpty)
-              const Text('검사 없음', style: TextStyle(color: _muted))
+              const Text('검사 정보가 없습니다', style: TextStyle(color: _muted))
             else
               ...exams.map((exam) => _ExamRow(exam: exam))
           ]),
@@ -254,11 +252,11 @@ class _Banner extends StatelessWidget {
         const Expanded(
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('검사·결과',
+          Text('나의 진료내역',
               style: TextStyle(
                   color: _primary, fontSize: 13, fontWeight: FontWeight.w800)),
           SizedBox(height: 9),
-          Text('진료와 검사 기록을\n한눈에 확인하세요.',
+          Text('진료 방문 기록과 관련\n검사·처방 정보를 확인하세요.',
               style: TextStyle(
                   color: _text,
                   fontSize: 19,
@@ -279,6 +277,16 @@ class _ListCard extends StatelessWidget {
   const _ListCard({required this.item, required this.onTap});
   final ClinicalHistoryItem item;
   final VoidCallback onTap;
+  String get _examSummary {
+    if (item.examNames.isEmpty) {
+      return '검사 없음';
+    }
+    if (item.examNames.length == 1) {
+      return item.examNames.first;
+    }
+    return '${item.examNames.first} 외 ${item.examNames.length - 1}건';
+  }
+
   @override
   Widget build(BuildContext context) => Material(
       color: Colors.transparent,
@@ -297,37 +305,48 @@ class _ListCard extends StatelessWidget {
                     child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                      Text(_date(item.visitedAt),
-                          style: const TextStyle(color: _muted, fontSize: 12)),
-                      const SizedBox(height: 5),
                       Text(item.departmentName ?? '진료과 정보 없음',
                           style: const TextStyle(
-                              color: _primary,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 6),
-                      Text(item.diagnosisName ?? '진단명 정보 없음',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              color: _text,
+                              color: _hodocBlue,
                               fontSize: 16,
-                              fontWeight: FontWeight.w800)),
-                      const SizedBox(height: 4),
-                      Text(
-                          item.examNames.isEmpty
-                              ? '검사 없음'
-                              : item.examNames.join(' · '),
+                              fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 3),
+                      Text(item.clinicianName ?? '담당 의료진 정보 없음',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(color: _muted, fontSize: 13)),
-                      const SizedBox(height: 10),
-                      _PrescriptionBadge(hasPrescription: item.hasPrescription)
+                      const SizedBox(height: 12),
+                      _ListMeta(label: '진료일시', value: _date(item.visitedAt)),
+                      const SizedBox(height: 5),
+                      Row(children: [
+                        Expanded(
+                            child: _ListMeta(
+                                label: '검사', value: _examSummary)),
+                        const SizedBox(width: 10),
+                        _PrescriptionBadge(
+                            hasPrescription: item.hasPrescription),
+                      ])
                     ])),
                 const Padding(
-                    padding: EdgeInsets.only(top: 28),
-                    child: Icon(Icons.chevron_right_rounded, color: _primary))
+                    padding: EdgeInsets.only(top: 18),
+                    child: Icon(Icons.chevron_right_rounded, color: _hodocBlue))
               ]))));
+}
+
+class _ListMeta extends StatelessWidget {
+  const _ListMeta({required this.label, required this.value});
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Row(children: [
+        Text('$label ', style: const TextStyle(color: _muted, fontSize: 12)),
+        Expanded(
+            child: Text(value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: _text, fontSize: 13))),
+      ]);
 }
 
 class _Group extends StatelessWidget {
@@ -461,6 +480,18 @@ class _StateCard extends StatelessWidget {
               label: const Text('다시 시도'))
         ]
       ]));
+}
+
+String _encounterType(String? value) {
+  switch (value) {
+    case 'ER':
+    case 'EMERGENCY':
+      return '응급 진료';
+    case 'OUTPATIENT':
+      return '외래 진료';
+    default:
+      return value ?? '정보 없음';
+  }
 }
 
 String _date(DateTime? value) {

@@ -89,8 +89,14 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    const brandBlue = Color(0xFF356FAF);
+    const inputBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.all(Radius.circular(12)),
+      borderSide: BorderSide(color: Color(0xFFC9DDF2)),
+    );
 
     return Scaffold(
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -105,28 +111,34 @@ class _LoginPageState extends State<LoginPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Icon(
-                    Icons.health_and_safety_outlined,
-                    size: 64,
-                    color: theme.colorScheme.primary,
+                  Center(
+                    child: SizedBox(
+                      width: 152,
+                      height: 152,
+                      child: Image.asset(
+                        'assets/images/hojjang_main.png',
+                        fit: BoxFit.contain,
+                      ),
+                    ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   Text(
-                    'BrainOn',
+                    'HODOC',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.headlineMedium?.copyWith(
+                      color: brandBlue,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '환자용 건강관리 서비스',
+                    '내 건강을 더 가깝게, HODOC',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: const Color(0xFF75849A),
                     ),
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 36),
                   TextField(
                     controller: _loginIdController,
                     enabled: !_isLoading,
@@ -136,6 +148,12 @@ class _LoginPageState extends State<LoginPage> {
                       hintText: '아이디를 입력하세요',
                       prefixIcon: Icon(
                         Icons.person_outline_rounded,
+                      ),
+                      border: inputBorder,
+                      enabledBorder: inputBorder,
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(12)),
+                        borderSide: BorderSide(color: brandBlue, width: 1.5),
                       ),
                     ),
                   ),
@@ -154,6 +172,12 @@ class _LoginPageState extends State<LoginPage> {
                       hintText: '비밀번호를 입력하세요',
                       prefixIcon: const Icon(
                         Icons.lock_outline_rounded,
+                      ),
+                      border: inputBorder,
+                      enabledBorder: inputBorder,
+                      focusedBorder: const OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(12)),
+                        borderSide: BorderSide(color: brandBlue, width: 1.5),
                       ),
                       suffixIcon: IconButton(
                         onPressed: () {
@@ -182,6 +206,10 @@ class _LoginPageState extends State<LoginPage> {
                   const SizedBox(height: 24),
                   FilledButton(
                     onPressed: _isLoading ? null : _login,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: brandBlue,
+                      foregroundColor: Colors.white,
+                    ),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
                         vertical: 14,
@@ -216,6 +244,7 @@ class _LoginPageState extends State<LoginPage> {
                                   const SnackBar(
                                       content: Text('회원가입이 완료되었습니다.')));
                           },
+                    style: TextButton.styleFrom(foregroundColor: brandBlue),
                     child: const Text('계정이 없으신가요? 회원가입'),
                   ),
                 ],

@@ -47,7 +47,9 @@ export interface AIAnalysisDetail extends AIAnalysisItem {
 }
 export interface AIResultReview {
   review_id: string; result_id: string; decision: "ACCEPT" | "MODIFY" | "REJECT";
-  comment: string; corrected_findings?: Record<string, unknown>; reviewer_id?: string; reviewed_at: string;
+  comment: string; corrected_findings?: Record<string, unknown>; reviewer_id?: string;
+  reviewer?: { user_id: string; name: string; role_code: string; role_name: string };
+  reviewed_at: string;
 }
 export interface AIResultReviewList { result_id: string; reviews: AIResultReview[] }
 export interface NiftiViewerAsset { artifact_id?: string; type?: string; role?: string | null; url: string }

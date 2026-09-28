@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../core/api/clinician_api_client.dart';
 import '../radiology/widgets/radiology_ui.dart';
+import 'widgets/neurology_common_app_bar.dart';
+import 'widgets/neurology_navigation_drawer.dart';
 
 class NeurologyConsultationCreatePage extends StatefulWidget {
   const NeurologyConsultationCreatePage({
@@ -209,7 +211,11 @@ class _NeurologyConsultationCreatePageState
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('협진 요청')),
+        appBar: NeurologyCommonAppBar(
+          screenTitle: '협진 요청',
+          onBack: () => Navigator.of(context).pop(),
+          onNotifications: () => NeurologyNavigation.openNotifications(context),
+        ),
         body: _loading
             ? const Center(child: CircularProgressIndicator())
             : _error != null && _encounters.isEmpty

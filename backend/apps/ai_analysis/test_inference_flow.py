@@ -221,6 +221,22 @@ class DevelopmentInferenceFlowTests(TestCase):
         review_response = AIResultReviewCollectionView.as_view()(review_request, result_id=result.id)
         self.assertEqual(review_response.status_code, 201)
         self.assertEqual(review_response.data["decision"], "ACCEPT")
+        self.assertEqual(review_response.data["reviewer"]["user_id"], str(self.user.id))
+        self.assertEqual(review_response.data["reviewer"]["name"], "Synthetic User")
+        self.assertEqual(review_response.data["reviewer"]["role_code"], "RADIOLOGY")
+
+        history_request = APIRequestFactory().get(
+            f"/api/v1/ai-results/{result.id}/reviews"
+        )
+        force_authenticate(history_request, user=self.user)
+        history_response = AIResultReviewCollectionView.as_view()(
+            history_request, result_id=result.id
+        )
+        self.assertEqual(history_response.status_code, 200)
+        self.assertEqual(
+            history_response.data["reviews"][0]["reviewer"]["name"],
+            "Synthetic User",
+        )
 
     def test_failure_is_stored_and_readable(self):
         analysis = self.create_analysis("failure")

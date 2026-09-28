@@ -126,6 +126,10 @@ export interface MLModelVersionSummary {
   mlflow_model_version: string;
   mlflow_run_id: string;
   artifact_uri: string;
+  experiment_id: string;
+  model_bundle_uri: string;
+  manifest_uri: string;
+  checkpoint_uri: string;
   validation_status: "DRAFT" | "VALIDATED" | "APPROVED" | "RETIRED";
   is_active: boolean;
   performance_metrics: Record<string, unknown>;
@@ -161,4 +165,16 @@ export interface MLflowSyncResult {
     code: string;
     message: string;
   }>;
+}
+
+export interface MLValidationCheck {
+  code: string;
+  label: string;
+  passed: boolean;
+  message: string;
+}
+
+export interface MLValidationResult extends MLModelVersionSummary {
+  passed: boolean;
+  checks: MLValidationCheck[];
 }

@@ -120,5 +120,17 @@ describe(
         ).toEqual([]);
       },
     );
+    it(
+      "내 예약 질문은 환자 예약 조회 도구를 선택한다",
+      () => {
+        expect(
+          selectClinicalToolsForMessage(
+            "내가 예약한게 있나?",
+          ),
+        ).toEqual([
+          "get_appointments",
+        ]);
+      },
+    );
   },
 );

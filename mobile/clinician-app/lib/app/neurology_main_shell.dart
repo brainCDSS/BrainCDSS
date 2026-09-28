@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../core/api/clinician_api_client.dart';
+import '../core/notifications/clinician_fcm_service.dart';
+import '../features/analysis/radiology_analysis_detail_page.dart';
+import '../features/analysis/radiology_analysis_requests_page.dart';
 import '../features/auth/clinician_session.dart';
 import '../features/assistant/clinician_ai_assistant_page.dart';
 import '../features/assistant/draggable_assistant_button.dart';
@@ -10,6 +13,7 @@ import '../features/neurology/neurology_consultations_page.dart';
 import '../features/neurology/neurology_pages.dart';
 import '../features/neurology/neurology_patients_page.dart';
 import '../features/neurology/widgets/neurology_navigation_drawer.dart';
+import '../features/neurology/widgets/neurology_common_app_bar.dart';
 import '../features/notifications/radiology_notifications_page.dart';
 import '../features/profile/clinician_profile_pages.dart';
 
@@ -76,7 +80,17 @@ class _NeurologyMainShellState extends State<NeurologyMainShell> {
       onSelectTab: _selectTab,
       onOpenClinicalRecords: _openClinicalRecords,
       onOpenAssistant: _openAssistant,
+      onOpenNotifications: _openNotifications,
       onLogout: widget.onLogout,
+    );
+    ClinicianFcmService.instance.bindConsultationNavigation(
+      _openConsultationDetail,
+    );
+    ClinicianFcmService.instance.bindNotificationsNavigation(
+      _openNotifications,
+    );
+    ClinicianFcmService.instance.bindAnalysisNavigation(
+      _openAnalysisDetailById,
     );
   }
 
@@ -189,8 +203,38 @@ class _NeurologyMainShellState extends State<NeurologyMainShell> {
     });
   }
 
+  Future<void> _openAnalysisDetailById(String analysisId) async {
+    if (analysisId.isEmpty) return;
+    try {
+      final response = await widget.apiClient.get(
+        '/api/v1/ai-analyses/$analysisId',
+      );
+      final request = RadiologyAnalysisRequest.fromJson(response);
+      if (request.analysisId != analysisId || !mounted) {
+        return;
+      }
+      setState(() {
+        _assistantPage = null;
+        _detailBackPage = null;
+        _detailPage = RadiologyAnalysisDetailPage(
+          key: ValueKey('neurology-analysis-$analysisId'),
+          apiClient: widget.apiClient,
+          request: request,
+        );
+      });
+    } on ClinicianApiException {
+      if (mounted) _openNotifications();
+    } catch (_) {
+      if (mounted) _openNotifications();
+    }
+  }
+
   void _openAssistant() {
-    setState(() => _assistantPage = const ClinicianAiAssistantPage());
+    setState(
+      () => _assistantPage = ClinicianAiAssistantPage(
+        apiClient: widget.apiClient,
+      ),
+    );
   }
 
   void _closeAssistant() {
@@ -215,7 +259,11 @@ class _NeurologyMainShellState extends State<NeurologyMainShell> {
     setState(() {
       _detailBackPage = _assistantPage ?? _detailPage;
       _assistantPage = null;
-      _detailPage = const RadiologyNotificationsPage();
+      _detailPage = RadiologyNotificationsPage(
+        apiClient: widget.apiClient,
+        onOpenConsultation: _openConsultationDetail,
+        onOpenAnalysis: _openAnalysisDetailById,
+      );
     });
   }
 
@@ -244,39 +292,12 @@ class _NeurologyMainShellState extends State<NeurologyMainShell> {
         drawer: NeurologyNavigationDrawer(
           user: widget.user,
         ),
-        appBar: AppBar(
-          leading: _assistantPage == null && _detailPage == null
-              ? null
-              : IconButton(
-                  tooltip: '뒤로가기',
-                  icon: const Icon(Icons.arrow_back_rounded),
-                  onPressed:
-                      _assistantPage != null ? _closeAssistant : _closeDetail,
-                ),
-          titleSpacing: 20,
-          title: const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Brain On',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-              SizedBox(height: 1),
-              Text('신경과',
-                  style: TextStyle(
-                      color: Color(0xFF60718A),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600)),
-            ],
-          ),
-          actions: [
-            if (_assistantPage != null || _detailPage != null)
-              const NeurologyDrawerButton(),
-            IconButton(
-              tooltip: '알림',
-              onPressed: _openNotifications,
-              icon: const Icon(Icons.notifications_none_rounded),
-            ),
-            const SizedBox(width: 4),
-          ],
+        appBar: NeurologyCommonAppBar(
+          screenTitle: _headerTitle,
+          onBack: _assistantPage != null || _detailPage != null
+              ? (_assistantPage != null ? _closeAssistant : _closeDetail)
+              : null,
+          onNotifications: _openNotifications,
         ),
         body: Stack(
           children: [
@@ -327,4 +348,19 @@ class _NeurologyMainShellState extends State<NeurologyMainShell> {
           ],
         ),
       );
+
+  String get _headerTitle {
+    if (_assistantPage != null) return 'AI 어시스턴트';
+    return switch (_detailPage) {
+      NeurologyClinicalRecordsPage() => '진료기록',
+      NeurologyClinicalNoteDetailPage() => '진료기록 상세',
+      NeurologyEmergencyDetailPage() => '응급 평가 상세',
+      NeurologyConsultationDetailPage() => '협진 상세',
+      RadiologyConsultationMessagesPage() => '협진 메시지',
+      RadiologyNotificationsPage() => '알림센터',
+      ClinicianNotificationSettingsPage() => '알림 설정',
+      ClinicianProfileDetailsPage() => '내 정보',
+      _ => '신경과',
+    };
+  }
 }

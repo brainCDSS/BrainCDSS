@@ -4,11 +4,17 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../core/api/api_client.dart';
+import 'notifications_api.dart';
 
 class PatientPushService {
-  PatientPushService(this.client, this.navigatorKey) : _storage = const FlutterSecureStorage();
+  PatientPushService(
+    this.client,
+    this.navigatorKey, {
+    this.onOpenMedicationReminder,
+  }) : _storage = const FlutterSecureStorage();
   final ApiClient client;
   final GlobalKey<NavigatorState> navigatorKey;
+  final Future<void> Function()? onOpenMedicationReminder;
   final FlutterSecureStorage _storage;
   static const _deviceKey = 'brainon.patient.device.id';
   static const _tokenIdKey = 'brainon.patient.fcm.token-id';
@@ -31,6 +37,7 @@ class PatientPushService {
       _listenersInstalled = true;
       FirebaseMessaging.instance.onTokenRefresh.listen(_register);
       FirebaseMessaging.onMessage.listen((message) {
+        notificationRefreshNotifier.value++;
         // The navigator key remains owned by the live root MaterialApp.
         // ignore: use_build_context_synchronously
         final context = navigatorKey.currentContext;
@@ -68,6 +75,18 @@ class PatientPushService {
     if (notificationId != null && notificationId.isNotEmpty) {
       try { await client.patch('/api/v1/notifications/$notificationId/read'); } catch (_) {}
     }
+    if (_isMedicationReminder(data) && onOpenMedicationReminder != null) {
+      await onOpenMedicationReminder!();
+      return;
+    }
     navigatorKey.currentState?.pushNamed('/notifications', arguments: data);
+  }
+
+  bool _isMedicationReminder(Map<String, dynamic> data) {
+    if (data['category']?.toString().toUpperCase() != 'MEDICATION') {
+      return false;
+    }
+    final scheduleId = data['medication_schedule_id']?.toString().trim();
+    return scheduleId != null && scheduleId.isNotEmpty;
   }
 }

@@ -1,8 +1,12 @@
+import 'dart:async';
+import 'dart:ui';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 
 import 'app/clinician_app.dart';
+import 'core/notifications/clinician_fcm_service.dart';
 import 'firebase_options.dart';
 
 @pragma('vm:entry-point')
@@ -19,6 +23,7 @@ Future<void> firebaseMessagingBackgroundHandler(
 }
 
 Future<void> initializeFirebaseMessaging() async {
+  debugPrint('BRAINON_FCM_INIT_START');
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -38,43 +43,44 @@ Future<void> initializeFirebaseMessaging() async {
     'BRAINON_FCM_PERMISSION=${settings.authorizationStatus}',
   );
 
-  final token =
-      await FirebaseMessaging.instance.getToken();
-
-  debugPrint('BRAINON_FCM_TOKEN=$token');
-
-  FirebaseMessaging.instance.onTokenRefresh.listen(
-    (newToken) {
-      debugPrint(
-        'BRAINON_FCM_TOKEN_REFRESH=$newToken',
-      );
-    },
-  );
-
   FirebaseMessaging.onMessage.listen(
-    (message) {
-      debugPrint(
-        'BRAINON_FCM_FOREGROUND_MESSAGE='
-        '${message.messageId}',
-      );
-
-      debugPrint(
-        'BRAINON_FCM_TITLE='
-        '${message.notification?.title}',
-      );
-
-      debugPrint(
-        'BRAINON_FCM_BODY='
-        '${message.notification?.body}',
-      );
-    },
+    ClinicianFcmService.instance.handleMessage,
   );
+  FirebaseMessaging.onMessageOpenedApp.listen(
+    ClinicianFcmService.instance.handleMessageTap,
+  );
+  final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
+  if (initialMessage != null) {
+    ClinicianFcmService.instance.handleMessageTap(initialMessage);
+  }
+  debugPrint('BRAINON_FCM_INIT_COMPLETE');
 }
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  await initializeFirebaseMessaging();
-
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    debugPrint('BRAINON_FLUTTER_ERROR=${details.exceptionAsString()}');
+    debugPrintStack(stackTrace: details.stack);
+  };
+  PlatformDispatcher.instance.onError = (error, stackTrace) {
+    debugPrint('BRAINON_PLATFORM_ERROR=$error');
+    debugPrintStack(stackTrace: stackTrace);
+    return true;
+  };
+  debugPrint('BRAINON_APP_RUN');
   runApp(const ClinicianApp());
+  debugPrint('BRAINON_APP_RUN_COMPLETE');
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    debugPrint('BRAINON_FIRST_FRAME_COMPLETE');
+  });
+  unawaited(_initializeFirebaseMessagingSafely());
+}
+Future<void> _initializeFirebaseMessagingSafely() async {
+  try {
+    await initializeFirebaseMessaging();
+  } catch (error, stackTrace) {
+    debugPrint('BRAINON_FCM_INIT_FAILED=$error');
+    debugPrintStack(stackTrace: stackTrace);
+  }
 }

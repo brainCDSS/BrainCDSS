@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
 import '../../core/api/api_client.dart';
 
@@ -179,7 +180,27 @@ class _AssistantPageState extends State<AssistantPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('AI 건강도우미'),
+        leading: IconButton(
+          tooltip: '뒤로가기',
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
+        title: Row(
+          children: [
+            ClipOval(
+              child: SizedBox(
+                width: 32,
+                height: 32,
+                child: Image.asset(
+                  'assets/images/image1.png',
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Text('AI 건강도우미'),
+          ],
+        ),
       ),
       body: SafeArea(
         top: false,
@@ -387,60 +408,98 @@ class _MessageBubble
   @override
   Widget build(BuildContext context) {
     final isUser = message.isUser;
-
-    return Align(
-      alignment:
-          isUser
-              ? Alignment.centerRight
-              : Alignment.centerLeft,
-      child: Container(
-        constraints:
-            const BoxConstraints(
-          maxWidth: 320,
-        ),
-        margin:
-            const EdgeInsets.only(
-          bottom: 12,
-        ),
-        padding:
-            const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 11,
-        ),
-        decoration:
-            BoxDecoration(
-          color: isUser
-              ? const Color(
-                  0xFF5665B8,
-                )
-              : message.isError
-                  ? const Color(
-                      0xFFFFF1F3,
-                    )
-                  : const Color(
-                      0xFFF3F5FA,
-                    ),
-          borderRadius:
-              BorderRadius.circular(
-            16,
-          ),
-        ),
-        child: Text(
-          message.text,
-          style: TextStyle(
-            color: isUser
-                ? Colors.white
-                : message.isError
-                    ? const Color(
-                        0xFFCC3A4B,
-                      )
-                    : const Color(
-                        0xFF263A5A,
-                      ),
-            height: 1.45,
-          ),
-        ),
+    final bubble = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: isUser
+            ? const Color(0xFF356FAF)
+            : message.isError
+                ? const Color(0xFFFFF1F3)
+                : Colors.white,
+        border: isUser
+            ? null
+            : Border.all(
+                color: message.isError
+                    ? const Color(0xFFFFD5DA)
+                    : const Color(0xFFD7E4F4),
+              ),
+        borderRadius: BorderRadius.circular(16),
       ),
+      child: isUser
+          ? Text(
+              message.text,
+              style: const TextStyle(color: Colors.white, height: 1.5),
+            )
+          : MarkdownBody(
+              data: _safeAiMarkdown(message.text),
+              selectable: true,
+              softLineBreak: true,
+              styleSheet: _patientAiMarkdownStyle(message.isError),
+              imageBuilder: (uri, title, alt) => const SizedBox.shrink(),
+              onTapLink: (text, href, title) {},
+            ),
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxBubbleWidth = isUser
+            ? 320.0
+            : (constraints.maxWidth - 42).clamp(0.0, 320.0).toDouble();
+
+        if (isUser) {
+          return Align(
+            alignment: Alignment.centerRight,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxBubbleWidth),
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 14),
+                child: bubble,
+              ),
+            ),
+          );
+        }
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipOval(
+                child: SizedBox(
+                  width: 34,
+                  height: 34,
+                  child: Image.asset(
+                    'assets/images/image1.png',
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxBubbleWidth),
+                child: bubble,
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
+}
+
+String _safeAiMarkdown(String markdown) =>
+    markdown.replaceAll(RegExp(r'</?[a-zA-Z][^>]*>'), '');
+
+MarkdownStyleSheet _patientAiMarkdownStyle(bool isError) {
+  final color = isError ? const Color(0xFFCC3A4B) : const Color(0xFF263A5A);
+  return MarkdownStyleSheet(
+    p: TextStyle(color: color, fontSize: 14, height: 1.55),
+    strong: TextStyle(color: color, fontWeight: FontWeight.w800),
+    h1: TextStyle(color: color, fontSize: 18, fontWeight: FontWeight.w800),
+    h2: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.w800),
+    h3: TextStyle(color: color, fontSize: 15, fontWeight: FontWeight.w700),
+    listBullet: TextStyle(color: color, fontSize: 14),
+    blockSpacing: 10,
+    listIndent: 20,
+  );
 }

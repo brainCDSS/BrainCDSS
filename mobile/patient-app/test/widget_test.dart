@@ -22,7 +22,7 @@ void main() {
     await tester.pumpWidget(PatientApp(authStorage: _EmptyAuthStorage()));
     await tester.pump();
 
-    expect(find.text('환자용 건강관리 서비스'), findsOneWidget);
+    expect(find.text('내 건강을 더 가깝게, HODOC'), findsOneWidget);
     expect(find.text('아이디'), findsOneWidget);
     expect(find.text('비밀번호'), findsOneWidget);
     expect(find.text('로그인'), findsOneWidget);

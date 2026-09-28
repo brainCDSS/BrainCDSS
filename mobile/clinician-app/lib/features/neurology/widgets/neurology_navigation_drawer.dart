@@ -7,17 +7,20 @@ class NeurologyNavigation {
   static ValueChanged<int>? _onSelectTab;
   static VoidCallback? _onOpenClinicalRecords;
   static VoidCallback? _onOpenAssistant;
+  static VoidCallback? _onOpenNotifications;
   static VoidCallback? _onLogout;
 
   static void configure({
     required ValueChanged<int> onSelectTab,
     required VoidCallback onOpenClinicalRecords,
     required VoidCallback onOpenAssistant,
+    required VoidCallback onOpenNotifications,
     required VoidCallback onLogout,
   }) {
     _onSelectTab = onSelectTab;
     _onOpenClinicalRecords = onOpenClinicalRecords;
     _onOpenAssistant = onOpenAssistant;
+    _onOpenNotifications = onOpenNotifications;
     _onLogout = onLogout;
   }
 
@@ -34,6 +37,11 @@ class NeurologyNavigation {
   static void openClinicalRecords(BuildContext context) {
     Navigator.of(context).pop();
     _onOpenClinicalRecords?.call();
+  }
+
+  static void openNotifications(BuildContext context) {
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    _onOpenNotifications?.call();
   }
 
   static void logout(BuildContext context) {

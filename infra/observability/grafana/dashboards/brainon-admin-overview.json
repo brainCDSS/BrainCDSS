@@ -3407,7 +3407,7 @@
             "uid": "brainon-postgres"
           },
           "format": "time_series",
-          "rawSql": "\nSELECT\n    $__timeGroupAlias(\n        requested_at,\n        '5m'\n    ),\n\n    COUNT(*)::double precision\n        AS \"AI 요청\"\n\nFROM ai_aianalysis\n\nWHERE $__timeFilter(requested_at)\n\nGROUP BY 1\nORDER BY 1\n"
+          "rawSql": "\nSELECT\n    $__timeGroupAlias(requested_at,'5m'),\n\n    COUNT(*)::double precision\n        AS \"AI 요청\"\n\nFROM ai_aianalysis\n\nWHERE $__timeFilter(requested_at)\n\nGROUP BY 1\nORDER BY 1\n"
         },
         {
           "refId": "C",
@@ -3416,7 +3416,7 @@
             "uid": "brainon-postgres"
           },
           "format": "time_series",
-          "rawSql": "\nSELECT\n    $__timeGroupAlias(\n        created_at,\n        '5m'\n    ),\n\n    COUNT(*)::double precision\n        AS \"Async 이벤트\"\n\nFROM common_outboxevent\n\nWHERE $__timeFilter(created_at)\n\nGROUP BY 1\nORDER BY 1\n"
+          "rawSql": "\nSELECT\n    $__timeGroupAlias(created_at,'5m'),\n\n    COUNT(*)::double precision\n        AS \"Async 이벤트\"\n\nFROM common_outboxevent\n\nWHERE $__timeFilter(created_at)\n\nGROUP BY 1\nORDER BY 1\n"
         }
       ]
     },

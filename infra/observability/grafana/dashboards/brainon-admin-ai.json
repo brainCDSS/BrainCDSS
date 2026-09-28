@@ -2560,7 +2560,7 @@
             "uid": "brainon-postgres"
           },
           "format": "time_series",
-          "rawSql": "\nSELECT\n    $__timeGroupAlias(\n        requested_at,\n        '1h'\n    ),\n    COUNT(*)::double precision\n        AS \"실패\"\nFROM ai_aianalysis\nWHERE\n    $__timeFilter(requested_at)\n    AND status IN (\n        'FAILED',\n        'ERROR',\n        'TIMEOUT',\n        'CANCELLED'\n    )\nGROUP BY 1\nORDER BY 1\n"
+          "rawSql": "\nSELECT\n    $__timeGroupAlias(requested_at,'1h'),\n    COUNT(*)::double precision\n        AS \"실패\"\nFROM ai_aianalysis\nWHERE\n    $__timeFilter(requested_at)\n    AND status IN (\n        'FAILED',\n        'ERROR',\n        'TIMEOUT',\n        'CANCELLED'\n    )\nGROUP BY 1\nORDER BY 1\n"
         }
       ],
       "description": "실패 · 오류 · 시간초과 · 취소된 AI 분석의 발생 추이를 확인합니다.",

@@ -1239,7 +1239,7 @@
             "uid": "brainon-postgres"
           },
           "format": "time_series",
-          "rawSql": "\nSELECT\n    $__timeGroupAlias(\n        created_at,\n        '1h'\n    ),\n\n    COUNT(*) FILTER (\n        WHERE status IN (\n            'PUBLISHED',\n            'COMPLETED',\n            'SUCCESS'\n        )\n    )::double precision AS \"발행 완료\",\n\n    COUNT(*) FILTER (\n        WHERE status IN (\n            'PENDING',\n            'QUEUED',\n            'READY'\n        )\n    )::double precision AS \"대기\",\n\n    COUNT(*) FILTER (\n        WHERE status IN (\n            'FAILED',\n            'ERROR'\n        )\n    )::double precision AS \"실패\"\n\nFROM common_outboxevent\nWHERE $__timeFilter(created_at)\nGROUP BY 1\nORDER BY 1\n"
+          "rawSql": "\nSELECT\n    $__timeGroupAlias(created_at,'1h'),\n\n    COUNT(*) FILTER (\n        WHERE status IN (\n            'PUBLISHED',\n            'COMPLETED',\n            'SUCCESS'\n        )\n    )::double precision AS \"발행 완료\",\n\n    COUNT(*) FILTER (\n        WHERE status IN (\n            'PENDING',\n            'QUEUED',\n            'READY'\n        )\n    )::double precision AS \"대기\",\n\n    COUNT(*) FILTER (\n        WHERE status IN (\n            'FAILED',\n            'ERROR'\n        )\n    )::double precision AS \"실패\"\n\nFROM common_outboxevent\nWHERE $__timeFilter(created_at)\nGROUP BY 1\nORDER BY 1\n"
         }
       ],
       "description": "Outbox 이벤트의 발행 완료 · 대기 · 실패 상태를 시간 흐름으로 비교합니다.",

@@ -456,13 +456,11 @@ class _TodayScheduleCard extends StatelessWidget {
 class _TodayTimeGroup {
   const _TodayTimeGroup({
     required this.time,
-    required this.label,
     required this.icon,
     required this.items,
   });
 
   final DateTime? time;
-  final String label;
   final IconData icon;
   final List<MedicationScheduleSummary> items;
 
@@ -474,10 +472,10 @@ List<_TodayTimeGroup> _todayTimeGroups(
 ) {
   final groups = <String, List<MedicationScheduleSummary>>{};
   for (final schedule in schedules) {
-    final time = schedule.scheduledAt;
-    final key = time == null
-        ? 'unknown-${schedule.timeSlot ?? ''}'
-        : '${time.year}-${time.month}-${time.day}-${time.hour}-${time.minute}';
+    final displayTime = _scheduleDisplayTime(schedule);
+    final key = displayTime == '-'
+        ? 'unknown-${schedule.scheduleId}'
+        : 'time-slot-$displayTime';
     groups.putIfAbsent(key, () => []).add(schedule);
   }
   final result = groups.values.map((items) {
@@ -500,16 +498,13 @@ List<_TodayTimeGroup> _todayTimeGroups(
             : Icons.wb_sunny_rounded;
     return _TodayTimeGroup(
       time: first.scheduledAt,
-      label: label,
       icon: icon,
       items: items,
     );
   }).toList();
   result.sort((first, second) {
-    final firstTime = first.time;
-    final secondTime = second.time;
-    if (firstTime == null || secondTime == null) return 0;
-    return firstTime.compareTo(secondTime);
+    return _scheduleDisplayTime(first.items.first)
+        .compareTo(_scheduleDisplayTime(second.items.first));
   });
   return result;
 }
@@ -568,7 +563,7 @@ class _TodayTimeGroupCardState extends State<_TodayTimeGroupCard> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${group.label} ${_formatTime(group.time)}',
+                          _scheduleDisplayTime(group.items.first),
                           style: const TextStyle(
                             color: _text,
                             fontWeight: FontWeight.w800,
@@ -650,7 +645,8 @@ class _TodayScheduleRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final taken = schedule.status == 'TAKEN';
-    final time = schedule.scheduledAt;
+    final dose = schedule.dose?.trim() ?? '';
+    final displayTime = _scheduleDisplayTime(schedule);
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 11),
       decoration: const BoxDecoration(
@@ -658,30 +654,6 @@ class _TodayScheduleRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          SizedBox(
-            width: 58,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(_formatTime(time),
-                    style: const TextStyle(
-                        color: _text,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800)),
-                const SizedBox(height: 3),
-                Row(children: [
-                  Icon(_timeSlotIcon(schedule.timeSlot),
-                      color: _primary, size: 14),
-                  const SizedBox(width: 3),
-                  Expanded(
-                      child: Text(_timeSlotText(schedule.timeSlot),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: _muted, fontSize: 11))),
-                ]),
-              ],
-            ),
-          ),
           _MedicationStatusButton(
             taken: taken,
             enabled: !saving,
@@ -702,11 +674,22 @@ class _TodayScheduleRow extends StatelessWidget {
                         color: _text,
                         fontSize: 14,
                         fontWeight: FontWeight.w800)),
-                const SizedBox(height: 3),
-                Text(_scheduleDose(schedule),
+                if (dose.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    dose,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: _muted, fontSize: 12)),
+                    style: const TextStyle(color: _muted, fontSize: 12),
+                  ),
+                ],
+                const SizedBox(height: 2),
+                Text(
+                  '복용시간 $displayTime',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: _muted, fontSize: 12),
+                ),
               ],
             ),
           ),
@@ -906,39 +889,15 @@ String _formatTime(DateTime? value) {
   return '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
 }
 
-String _timeSlotText(String? value) {
-  final slot = (value ?? '').toUpperCase();
-  if (slot.contains('MORNING')) {
-    return '아침';
-  }
-  if (slot.contains('AFTERNOON') ||
-      slot.contains('LUNCH') ||
-      slot.contains('NOON')) {
-    return '점심';
-  }
-  if (slot.contains('EVENING') || slot.contains('NIGHT')) {
-    return '저녁';
-  }
-  return value?.trim().isNotEmpty == true ? value!.trim() : '복약';
-}
+bool _isClockTime(String value) =>
+    RegExp(r'^([01]\d|2[0-3]):[0-5]\d$').hasMatch(value);
 
-IconData _timeSlotIcon(String? value) {
-  final slot = (value ?? '').toUpperCase();
-  if (slot.contains('EVENING') || slot.contains('NIGHT')) {
-    return Icons.nightlight_round;
+String _scheduleDisplayTime(MedicationScheduleSummary schedule) {
+  final timeSlot = schedule.timeSlot?.trim() ?? '';
+  if (_isClockTime(timeSlot)) {
+    return timeSlot;
   }
-  if (slot.contains('AFTERNOON') ||
-      slot.contains('LUNCH') ||
-      slot.contains('NOON')) {
-    return Icons.wb_sunny_outlined;
-  }
-  return Icons.wb_sunny_outlined;
-}
-
-String _scheduleDose(MedicationScheduleSummary schedule) {
-  final dose = schedule.dose?.trim() ?? '';
-  final slot = _timeSlotText(schedule.timeSlot);
-  return dose.isEmpty ? slot : '$dose · $slot';
+  return _formatTime(schedule.scheduledAt);
 }
 
 class _ActiveMedicationCard extends StatelessWidget {
@@ -1042,6 +1001,9 @@ class _ActiveMedicationRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dose = _doseText(item);
+    final frequency = item.frequencyPerDay > 0 ? '하루 ${item.frequencyPerDay}회' : '';
+    final timing = item.timing?.trim() ?? '';
     return Material(
       type: MaterialType.transparency,
       child: InkWell(
@@ -1076,12 +1038,26 @@ class _ActiveMedicationRow extends StatelessWidget {
                       const SizedBox(width: 6),
                       _PrescriptionPeriodBadge(item: item),
                     ]),
-                    const SizedBox(height: 3),
-                    Text(
-                        '하루 ${item.frequencyPerDay}회${_timingSuffix(item.timing)}',
+                    if (dose.isNotEmpty || frequency.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        [dose, frequency]
+                            .where((value) => value.isNotEmpty)
+                            .join(' · '),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: _muted, fontSize: 12)),
+                        style: const TextStyle(color: _muted, fontSize: 12),
+                      ),
+                    ],
+                    if (timing.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        '복용시간 $timing',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: _muted, fontSize: 12),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -1802,7 +1778,7 @@ List<_ScheduleSection> _groupedSchedulesByMinute(
   return [
     for (final group in groups)
       _ScheduleSection(
-        title: '${group.label} ${_formatTime(group.time)}',
+        title: _scheduleDisplayTime(group.items.first),
         icon: group.icon,
         items: group.items,
       ),
@@ -1937,7 +1913,7 @@ class _ScheduleCard extends StatelessWidget {
         SizedBox(
           width: 48,
           child: Text(
-            _formatTime(schedule.scheduledAt),
+            _scheduleDisplayTime(schedule),
             style: const TextStyle(
               color: _muted,
               fontSize: 14,

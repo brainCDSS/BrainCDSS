@@ -1022,13 +1022,15 @@ class _EmptyCard extends StatelessWidget {
 }
 
 String _homeScheduleTime(MedicationScheduleSummary schedule) {
-  final timeSlot = schedule.timeSlot?.trim();
-  if (timeSlot != null && RegExp(r'^([01]\d|2[0-3]):[0-5]\d$').hasMatch(timeSlot)) {
+  final timeSlot = schedule.timeSlot?.trim() ?? '';
+  if (RegExp(r'^([01]\d|2[0-3]):[0-5]\d$').hasMatch(timeSlot)) {
     return timeSlot;
   }
   final scheduledAt = schedule.scheduledAt;
-  if (scheduledAt == null) {
-    return '-';
+  if (scheduledAt != null) {
+    return '${scheduledAt.hour.toString().padLeft(2, '0')}:${scheduledAt.minute.toString().padLeft(2, '0')}';
   }
-  return '${scheduledAt.hour.toString().padLeft(2, '0')}:${scheduledAt.minute.toString().padLeft(2, '0')}';
+  return schedule.timeSlot?.trim().isNotEmpty == true
+      ? schedule.timeSlot!.trim()
+      : '-';
 }

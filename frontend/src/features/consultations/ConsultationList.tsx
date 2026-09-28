@@ -28,13 +28,14 @@ import "./css/consultation_list.css";
    ========================================================= */
 
 const STATUS_LABEL: Record<
-  ConsultationStatus,
+  string,
   string
 > = {
   REQUESTED: "요청됨",
   ACCEPTED: "수락됨",
   IN_PROGRESS: "검토 중",
   RESPONDED: "회신 완료",
+  COMPLETED: "회신 완료",
   CLOSED: "종결",
   REJECTED: "거절",
   CANCELLED: "취소",
@@ -47,11 +48,12 @@ const STATUS_LABEL: Record<
    ========================================================= */
 
 const TYPE_LABEL: Record<
-  ConsultationType,
+  string,
   string
 > = {
   RADIOLOGY: "영상의학과",
   NEUROSURGERY: "신경외과",
+  NEUROLOGY: "신경과",
 };
 
 
@@ -200,7 +202,7 @@ function ConsultationItem({
         <div className="consultation-list-item__patient-sub">
 
           <span>
-            {TYPE_LABEL[item.type]}
+            {TYPE_LABEL[item.type] ?? item.type ?? "-"}
           </span>
 
 
@@ -250,7 +252,7 @@ function ConsultationItem({
 
         <span className="consultation-status">
           {
-            STATUS_LABEL[item.status]
+            (item.ui_status || STATUS_LABEL[item.status] || item.status || "-")
           }
         </span>
 

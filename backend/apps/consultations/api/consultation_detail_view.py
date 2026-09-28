@@ -14,6 +14,7 @@ UI_STATUS = {
     "ACCEPTED": "수락됨",
     "IN_PROGRESS": "검토 중",
     "RESPONDED": "회신 완료",
+    "COMPLETED": "회신 완료",
     "CLOSED": "종결",
     "REJECTED": "거절",
     "CANCELLED": "취소",
@@ -27,8 +28,8 @@ class ConsultationDetailView(ContractView001):
         try:
             consultation = Consultation.objects.select_related(
                 "encounter__patient",
-                "requested_by",
-                "assigned_to",
+                "requested_by__role",
+                "assigned_to__role",
             ).get(
                 pk=kwargs["consultation_id"],
             )

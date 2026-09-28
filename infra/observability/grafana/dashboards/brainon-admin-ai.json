@@ -1241,7 +1241,7 @@
               "AND",
               "resource.label.service_name",
               "=",
-              "brainon-inference"
+              "brainon-inference-v2"
             ],
             "groupBys": [],
             "metricKind": "GAUGE",
@@ -1275,7 +1275,7 @@
               "AND",
               "resource.label.service_name",
               "=",
-              "brainon-inference"
+              "brainon-inference-v2"
             ],
             "groupBys": [],
             "metricKind": "GAUGE",
@@ -1324,7 +1324,7 @@
               "AND",
               "resource.label.service_name",
               "=",
-              "brainon-inference"
+              "brainon-inference-v2"
             ],
             "groupBys": [],
             "metricKind": "GAUGE",
@@ -1358,7 +1358,7 @@
               "AND",
               "resource.label.service_name",
               "=",
-              "brainon-inference"
+              "brainon-inference-v2"
             ],
             "groupBys": [],
             "metricKind": "GAUGE",
@@ -1392,7 +1392,7 @@
               "AND",
               "resource.label.service_name",
               "=",
-              "brainon-inference"
+              "brainon-inference-v2"
             ],
             "groupBys": [],
             "metricKind": "GAUGE",
@@ -1426,7 +1426,7 @@
               "AND",
               "resource.label.service_name",
               "=",
-              "brainon-inference",
+              "brainon-inference-v2",
               "AND",
               "metric.label.state",
               "=",

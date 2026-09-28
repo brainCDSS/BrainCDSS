@@ -38,12 +38,14 @@ import type {
 } from "./types";
 
 import "./appointments.css";
+import { HOSPITAL_TIME_ZONE } from "../../lib/hospitalTime";
 
 
 type PageTab =
   | "appointments"
   | "schedule"
   | "requests"
+  | "newBooking"
   | "manage";
 
 
@@ -220,6 +222,7 @@ function formatTime(
       hour: "2-digit",
       minute: "2-digit",
       hour12: false,
+      timeZone: HOSPITAL_TIME_ZONE,
     },
   );
 }
@@ -240,6 +243,7 @@ function formatDateTime(
 
   return date.toLocaleString(
     "ko-KR",
+    { timeZone: HOSPITAL_TIME_ZONE },
   );
 }
 
@@ -459,11 +463,13 @@ function WeeklyScheduleCalendar({
   onWeekChange,
   schedule,
   appointments,
+  clinicianName,
 }: {
   weekStart: string;
   onWeekChange: (value: string) => void;
   schedule: ScheduleRule[];
   appointments: StaffAppointment[];
+  clinicianName?: string;
 }) {
   const dates = Array.from(
     { length: 7 },
@@ -492,7 +498,7 @@ function WeeklyScheduleCalendar({
     <section className="weekly-schedule-card">
       <header className="weekly-schedule-heading">
         <div>
-          <h3>내 진료 스케줄</h3>
+          <h3>{clinicianName ? `${clinicianName} 진료 스케줄` : "내 진료 스케줄"}</h3>
           <p>확정된 진료 스케줄과 예약 환자를 주간 단위로 확인합니다.</p>
         </div>
         <div className="weekly-schedule-navigation">
@@ -695,8 +701,8 @@ export default function AppointmentsPage({
   ] = useState<ScheduleRule>({
     weekday: 0,
     start_time: "09:00",
-    end_time: "17:00",
-    slot_minutes: 30,
+    end_time: "18:00",
+    slot_minutes: 15,
     effective_from:
       todayValue(),
     effective_to: null,
@@ -868,14 +874,14 @@ export default function AppointmentsPage({
   }, [bookingDate, clinicianId, isNurse]);
 
   useEffect(() => {
-    if (activeTab !== "manage" || !isNurse) return;
+    if (activeTab !== "newBooking" || !isNurse) return;
     void getPatients(undefined, 1, "all").then((response) => {
       setBookingPatients(response.results);
     }).catch(() => setBookingPatients([]));
   }, [activeTab, isNurse]);
 
   useEffect(() => {
-    if (activeTab === "manage" && isNurse) void loadAvailableSlots();
+    if (activeTab === "newBooking" && isNurse) void loadAvailableSlots();
   }, [activeTab, isNurse, loadAvailableSlots]);
 
   async function submitStaffBooking() {
@@ -1945,6 +1951,16 @@ export default function AppointmentsPage({
         className="appointment-tabs"
         aria-label="예약 일정 분류"
       >
+        {isNurse && (
+          <button
+            type="button"
+            className={activeTab === "newBooking" ? "is-active" : ""}
+            onClick={() => openTab("newBooking")}
+          >
+            신규 예약
+          </button>
+        )}
+
         <button
           type="button"
           className={
@@ -2879,7 +2895,7 @@ export default function AppointmentsPage({
        * =================================================== */}
 
       {activeTab === "manage" && (
-        <>
+        <div className="schedule-management-overview">
           <div className="weekly-schedule-clinician">
             <span>담당 의료진</span>
             {isDoctor ? (
@@ -2904,6 +2920,7 @@ export default function AppointmentsPage({
               onWeekChange={setWeekStart}
               schedule={schedule}
               appointments={weeklyAppointments}
+              clinicianName={clinicians.find((clinician) => clinician.id === clinicianId)?.name}
             />
           ) : (
             <section className="weekly-schedule-card">
@@ -2914,48 +2931,73 @@ export default function AppointmentsPage({
               </div>
             </section>
           )}
-        </>
+        </div>
       )}
 
-      {activeTab === "manage" && isNurse && (
+      {activeTab === "newBooking" && isNurse && (
         <section className="appointment-schedule-card appointment-booking-card">
-          <header>
+          <header className="appointment-booking-header">
             <div>
-              <span>신규 예약</span>
-              <h3>환자 진료 예약 등록</h3>
+              <div className="appointment-booking-title">
+                <span>신규 예약</span>
+                <i aria-hidden="true">-</i>
+                <h3>환자 진료 예약 등록</h3>
+              </div>
+              <p>환자와 담당 의료진을 선택한 뒤 예약 가능 시간을 확정합니다.</p>
             </div>
+            <span className="appointment-booking-badge">15분/30분 단위 예약</span>
           </header>
-          <div className="schedule-rule-editor">
-            <label>
+          <div className="appointment-booking-form">
+            <label className="appointment-booking-field">
               환자
-              <select value={bookingPatientId} onChange={(event) => setBookingPatientId(event.target.value)}>
+              <select
+                value={bookingPatientId}
+                onChange={(event) => setBookingPatientId(event.target.value)}
+              >
                 <option value="">환자를 선택해 주세요</option>
                 {bookingPatients.map((patient) => (
                   <option key={patient.id} value={patient.id}>{patient.name} ({patient.patient_no})</option>
                 ))}
               </select>
             </label>
-            <label>
-              담당의
-              <select value={clinicianId} onChange={(event) => setClinicianId(event.target.value)}>
+            <label className="appointment-booking-field">
+              담당 의료진
+              <select
+                value={clinicianId}
+                onChange={(event) => setClinicianId(event.target.value)}
+              >
                 <option value="">담당의를 선택해 주세요</option>
                 {clinicianOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
               </select>
             </label>
-            <label>
+            <label className="appointment-booking-field">
               예약일
-              <input type="date" min={todayValue()} value={bookingDate} onChange={(event) => setBookingDate(event.target.value)} />
+              <input
+                type="date"
+                min={todayValue()}
+                value={bookingDate}
+                onChange={(event) => setBookingDate(event.target.value)}
+              />
             </label>
-            <label>
-              예약 시간
-              <select value={bookingSlotId} onChange={(event) => setBookingSlotId(event.target.value)} disabled={bookingLoading || !clinicianId}>
+            <label className="appointment-booking-field">
+              예약 가능 시간
+              <select
+                value={bookingSlotId}
+                onChange={(event) => setBookingSlotId(event.target.value)}
+                disabled={bookingLoading || !clinicianId}
+              >
                 <option value="">시간을 선택해 주세요</option>
                 {availableSlots.map((slot) => (
                   <option key={slot.id} value={slot.id}>{formatTime(slot.start_at)} – {formatTime(slot.end_at)}</option>
                 ))}
               </select>
             </label>
-            <button type="button" disabled={bookingLoading || !bookingPatientId || !bookingSlotId} onClick={() => void submitStaffBooking()}>
+            <button
+              className="appointment-booking-submit"
+              type="button"
+              disabled={bookingLoading || !bookingPatientId || !bookingSlotId}
+              onClick={() => void submitStaffBooking()}
+            >
               {bookingLoading ? "처리 중..." : "예약 확정"}
             </button>
           </div>
@@ -2968,18 +3010,12 @@ export default function AppointmentsPage({
 
       {(isDoctor || isNurse) && activeTab ===
         "manage" && (
-        <section className="appointment-schedule-card">
+        <section className="appointment-schedule-card schedule-management-card">
 
-          <header>
+          <header className="schedule-management-header">
             <div>
-              <span>
-                스케줄 관리
-              </span>
-
-              <h3>
-                의료진 스케줄
-                관리
-              </h3>
+              <h3>의료진 스케줄 관리</h3>
+              <p>진료 가능 요일과 시간을 설정하면 예약 가능 시간이 자동으로 생성됩니다.</p>
             </div>
 
             {isDoctor ? (
@@ -3030,8 +3066,8 @@ export default function AppointmentsPage({
             </div>
           ) : (
             <>
-              {!isDoctor && (
-                <div className="schedule-rule-editor">
+              {mayManageSchedule && (
+                <div className="schedule-rule-editor schedule-management-editor">
 
                 <label>
                   요일
@@ -3194,6 +3230,7 @@ export default function AppointmentsPage({
 
 
                 <button
+                  className="schedule-rule-add-button"
                   type="button"
                   onClick={() =>
                     setSchedule(
@@ -3265,9 +3302,7 @@ export default function AppointmentsPage({
                             "계속"}
                         </span>
 
-                        {isDoctor ? (
-                          <span>확정</span>
-                        ) : (
+                        {mayManageSchedule ? (
                           <label>
                             <input
                               type="checkbox"
@@ -3288,6 +3323,8 @@ export default function AppointmentsPage({
 
                             활성
                           </label>
+                        ) : (
+                          <span>확정</span>
                         )}
                       </div>
                     ),
@@ -3298,9 +3335,10 @@ export default function AppointmentsPage({
           )}
 
 
-          {!isDoctor && (
-            <footer>
+          {mayManageSchedule && (
+            <footer className="schedule-management-footer">
               <button
+                className="schedule-save-button"
                 type="button"
                 disabled={
                   !clinicianId ||

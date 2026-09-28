@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../auth/clinician_session.dart';
+import '../../policies/clinician_policy_center_page.dart';
 import 'radiology_ui.dart';
 
 class RadiologyNavigation {
@@ -263,7 +264,24 @@ class RadiologyNavigationDrawer extends StatelessWidget {
                 },
               ),
 
-              const SizedBox(height: 22),
+              const SizedBox(height: 14),
+
+              _PolicyUtilityLink(
+                onTap: () {
+                  ClinicianPolicyCenterPage.openFromDrawer(context);
+                },
+              ),
+
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 14),
+                child: Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: Color(0xFFDDE6F0),
+                ),
+              ),
+
+              const SizedBox(height: 10),
 
               // ==============================================================
               // Footer
@@ -367,7 +385,7 @@ class _ProfileCard extends StatelessWidget {
                 width: 58,
                 height: 58,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFEAF2FF),//아이콘 동그라미
+                  color: Color(0xFFEAF2FF), //아이콘 동그라미
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -486,6 +504,46 @@ class _DrawerMenuItem extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PolicyUtilityLink extends StatelessWidget {
+  const _PolicyUtilityLink({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '약관 및 정책',
+                  style: TextStyle(
+                    color: Color(0xFF7183A0),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: Color(0xFF8A94A6),
+                size: 17,
+              ),
+            ],
           ),
         ),
       ),

@@ -10,6 +10,7 @@ import '../features/home/home_api.dart';
 import '../features/medications/medications_page.dart';
 import '../features/notifications/notifications_page.dart';
 import '../features/notifications/notifications_api.dart';
+import '../features/policies/patient_policy_center_page.dart';
 import '../features/profile/profile_page.dart';
 import '../features/test-results/test_results_page.dart';
 
@@ -570,6 +571,30 @@ class _PatientDrawer extends StatelessWidget {
                     color: _secondary, size: 18),
                 onTap: () => _confirmLogout(context),
               ),
+              InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => onOpenPage(PatientPolicyCenterPage.open),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 22, vertical: 9),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '약관 및 정책',
+                          style: TextStyle(
+                            color: _secondary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      Icon(Icons.chevron_right_rounded,
+                          color: _secondary, size: 18),
+                    ],
+                  ),
+                ),
+              ),
+              const Divider(height: 1),
               const SizedBox(height: 8),
             ],
           ),

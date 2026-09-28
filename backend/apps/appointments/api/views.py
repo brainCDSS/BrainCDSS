@@ -73,6 +73,27 @@ STAFF_APPOINTMENT_CREATE_SPEC = {
     "permission": "appointment.read.staff",
     "service_scope": None,
     "request_contract": "Body: patient_id, slot_id",
+    "validation": (
+        "NURSE + appointment.read.staff; patient/slot existence; "
+        "future AVAILABLE slot; no active patient appointment at same time"
+    ),
+    "related_db": (
+        "Appointment, AppointmentSlot, AppointmentStatusHistory, "
+        "Notification, AuditLog, OutboxEvent"
+    ),
+    "processing": (
+        "AVAILABLE->BOOKED; CONFIRMED appointment creation; patient "
+        "notification and FCM enqueue after commit"
+    ),
+    "response_contract": (
+        "appointment_id, status='CONFIRMED', patient, hospital, department, "
+        "clinician, slot, handled_by, confirmed_at"
+    ),
+    "error_contract": (
+        "400 VALIDATION_ERROR / 404 PATIENT_NOT_FOUND|SLOT_NOT_FOUND / "
+        "409 SLOT_NOT_AVAILABLE|PATIENT_APPOINTMENT_CONFLICT"
+    ),
+    "event": "appointment.confirmed.v1",
     "primary_model": "appointments.Appointment",
     "transactional": True,
     "audit_required": True,

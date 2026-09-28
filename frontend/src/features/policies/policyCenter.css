@@ -1,0 +1,157 @@
+.policy-page {
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 8px 0 44px;
+}
+
+.policy-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 20px;
+  padding: 24px 26px;
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  background: var(--bg-surface);
+}
+
+.policy-page-eyebrow {
+  margin-bottom: 6px;
+  color: var(--primary);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.policy-page-header h1 {
+  margin: 0 0 8px;
+  color: var(--text-primary);
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.policy-page-header p {
+  max-width: 680px;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.policy-page-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-align: right;
+}
+
+.policy-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.policy-section {
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-surface);
+}
+
+.policy-section summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  cursor: pointer;
+  list-style: none;
+  transition: background-color 0.15s ease;
+}
+
+.policy-section summary::-webkit-details-marker {
+  display: none;
+}
+
+.policy-section summary:hover {
+  background: var(--bg-hover);
+}
+
+.policy-section summary > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.policy-section summary strong {
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.policy-section summary div > span {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.policy-chevron {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  font-size: 22px;
+  transition: transform 0.18s ease;
+}
+
+.policy-section[open] .policy-chevron {
+  transform: rotate(90deg);
+}
+
+.policy-section-content {
+  padding: 4px 24px 26px;
+  border-top: 1px solid var(--border-color);
+}
+
+.policy-section-content h2 {
+  margin: 22px 0 20px;
+  color: var(--text-primary);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.policy-section-content h3 {
+  margin: 22px 0 8px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.policy-section-content p {
+  margin: 0 0 10px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.8;
+  word-break: keep-all;
+}
+
+@media (max-width: 760px) {
+  .policy-page-header {
+    flex-direction: column;
+  }
+
+  .policy-page-meta {
+    text-align: left;
+  }
+
+  .policy-section summary {
+    padding: 16px;
+  }
+
+  .policy-section-content {
+    padding: 4px 18px 22px;
+  }
+}

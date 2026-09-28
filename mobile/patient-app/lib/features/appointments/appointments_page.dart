@@ -97,8 +97,8 @@ class AppointmentsPageState extends State<AppointmentsPage> {
     final selectedUpcoming = _selectedDate == null
         ? upcoming
         : upcoming
-            .where((item) =>
-                _isSameDay(parseKoreaDateTime(item.scheduledAt), _selectedDate!))
+            .where((item) => _isSameDay(
+                parseKoreaDateTime(item.scheduledAt), _selectedDate!))
             .toList();
 
     return RefreshIndicator(
@@ -189,8 +189,8 @@ class AppointmentsPageState extends State<AppointmentsPage> {
     }).toList()
       ..sort((a, b) => a.scheduledAt!.compareTo(b.scheduledAt!));
 
-    if (upcoming
-        .any((item) => _isSameDay(parseKoreaDateTime(item.scheduledAt), today))) {
+    if (upcoming.any(
+        (item) => _isSameDay(parseKoreaDateTime(item.scheduledAt), today))) {
       return today;
     }
     return upcoming.isEmpty
@@ -525,7 +525,8 @@ class _AppointmentCalendar extends StatelessWidget {
               final disabled = firstSelectableDate != null &&
                   date.isBefore(_dateOnly(firstSelectableDate!));
               final hasAppointment = appointments.any(
-                (item) => _isSameDay(parseKoreaDateTime(item.scheduledAt), date),
+                (item) =>
+                    _isSameDay(parseKoreaDateTime(item.scheduledAt), date),
               );
 
               return InkWell(

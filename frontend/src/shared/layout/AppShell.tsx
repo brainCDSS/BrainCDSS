@@ -41,6 +41,9 @@ import {
 import AppointmentsPage from "../../features/appointments/AppointmentsPage";
 import ClinicalNotesPage from "../../features/clinical-notes/ClinicalNotesPage";
 
+//[추가] 이용약관
+import PolicyCenterPage from "../../features/policies/PolicyCenterPage";
+
 // [추가] 관리자 화면 연결
 import AdminUsersPage from "../../features/admin/AdminUsersPage";
 import SystemMonitoringPage from "../../features/admin/SystemMonitoringPage";
@@ -118,7 +121,7 @@ const RETIRED_ADMIN_MENU_KEYS = new Set([
 const SIDEBAR_MENU_KEYS: SidebarMenuKey[] = [
   "dashboard", "patients", "worklist", "triage", "clinical-notes",
   "appointments", "imaging", "ai-results", "radiology-reports", "cdss",
-  "consultations", "prescriptions", "notifications",
+  "consultations", "prescriptions", "notifications", "policies",
   "admin-users", "admin-ml", "admin-settings",
 ];
 
@@ -811,6 +814,10 @@ export default function AppShell({
       menu !== "cdss" &&
       menu !== "prescriptions" &&
       menu !== "notifications" &&
+
+      // [추가] 이용약관
+      menu !== "policies" &&
+
       // [추가] 관리자 화면 연결
       menu !== "admin-users" &&
       menu !== "admin-ml" &&
@@ -871,18 +878,16 @@ export default function AppShell({
 
     if (
       menu !== "dashboard" &&
-      menu !== "consultations"
+      menu !== "consultations" &&
+      menu !== "policies"
     ) {
-
       setOpenMenuTabs(
         (previousTabs) =>
           previousTabs.includes(menu)
             ? previousTabs
             : [...previousTabs, menu],
       );
-
     }
-
 
     setActiveMenu(
       menu,
@@ -1732,6 +1737,10 @@ export default function AppShell({
           </div>
         </section>
       );
+    }
+
+    if (activeMenu === "policies") {
+      return <PolicyCenterPage />;
     }
 
     // [추가] 관리자 화면 연결

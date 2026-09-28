@@ -1127,13 +1127,80 @@ textarea {
   color: rgba(255, 255, 255, 0.62);
 }
 
+.sidebar-policy-link {
+  display: flex;
 
-.sidebar-footer span {
-  font-size: 10px;
+  width: 100%;
+
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 8px;
+
+  margin: 0 0 12px;
+
+  padding: 6px 0;
+
+  border: 0;
+
+  background: transparent;
+
+  color: rgba(255, 255, 255, 0.72);
+
+  font-family: inherit;
+
+  font-size: 11px;
+  font-weight: 500;
+
+  text-align: left;
+
+  cursor: pointer;
+
+  transition:
+    color 0.15s ease,
+    opacity 0.15s ease;
+}
+
+
+.sidebar-policy-link:hover {
+  color: #ffffff;
+}
+
+
+.sidebar-policy-link.active {
+  color: #ffffff;
 
   font-weight: 700;
 }
 
+
+.sidebar-policy-label {
+  min-width: 0;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+.sidebar-policy-arrow {
+  flex-shrink: 0;
+
+  font-size: 15px;
+  font-weight: 400;
+}
+
+/* .sidebar-footer span {
+  font-size: 10px;
+
+  font-weight: 700;
+} */
+.sidebar-footer-title {
+  font-size: 10px;
+
+  font-weight: 700;
+}
 
 .sidebar-footer small {
   font-size: 9px;
@@ -2491,4 +2558,71 @@ body,
   to {
     transform: translate(-50%, -50%) rotate(360deg);
   }
+}
+
+
+/* === POLICY UTILITY FOOTER === */
+.sidebar-footer {
+  gap: 0;
+  padding: 0 10px 0;
+  border-top: 0;
+}
+
+.sidebar-policy-link {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 10px;
+  padding: 7px 2px;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.76);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: color 0.15s ease, opacity 0.15s ease;
+}
+
+.sidebar-policy-link:hover,
+.sidebar-policy-link.active {
+  color: #ffffff;
+}
+
+.sidebar-policy-link .sidebar-policy-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.sidebar-policy-link.active .sidebar-policy-label {
+  font-weight: 700;
+}
+
+.sidebar-policy-link .sidebar-policy-arrow {
+  flex-shrink: 0;
+  font-size: 15px;
+  font-weight: 400;
+}
+
+.sidebar-footer-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.sidebar-footer-brand .sidebar-footer-title {
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.sidebar-footer-brand small {
+  font-size: 9px;
 }

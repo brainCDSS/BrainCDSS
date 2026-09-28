@@ -15,6 +15,8 @@ export const MENU_LABELS: Record<SidebarMenuKey, string> = {
   consultations: "협진",
   prescriptions: "처방 / DUR",
   notifications: "알림 센터",
+
+  policies: "약관 및 정책", //추가
   // [추가] 관리자 메뉴
   "admin-users": "사용자 · 권한",
   "admin-ml": "ML 관리",
@@ -40,6 +42,7 @@ export const MENU_ALLOWED_ROLES: Record<
     "NEUROLOGIST",
     "NEUROSURGEON",
     "RADIOLOGY",
+
     // [추가] 관리자 메뉴
     "SYSTEM_ADMIN",
     // [추가 끝] 관리자 메뉴
@@ -144,6 +147,15 @@ export const MENU_ALLOWED_ROLES: Record<
     "NEUROSURGEON",
     "RADIOLOGY",
   ],
+
+  policies: [
+    "NURSE",
+    "NEUROLOGIST",
+    "NEUROSURGEON",
+    "RADIOLOGY",
+    "SYSTEM_ADMIN",
+  ],
+
   // [추가] 관리자 메뉴
   "admin-users": ["SYSTEM_ADMIN"],
   "admin-ml": ["SYSTEM_ADMIN"],

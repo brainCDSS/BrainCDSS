@@ -223,7 +223,8 @@ class HomePageState extends State<HomePage> {
     final upcoming = _appointments
         .where(
           (item) =>
-              parseKoreaDateTime(item.scheduledAt)?.isAfter(koreaNow()) ?? false,
+              parseKoreaDateTime(item.scheduledAt)?.isAfter(koreaNow()) ??
+              false,
         )
         .toList()
       ..sort((a, b) => a.scheduledAt!.compareTo(b.scheduledAt!));
@@ -360,7 +361,8 @@ class HomePageState extends State<HomePage> {
             borderRadius: BorderRadius.circular(18),
             border: Border.all(color: const Color(0xFFBFD2E7)),
           ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
               const Icon(Icons.medication_outlined,
                   color: _brandBlue, size: 25),
@@ -382,14 +384,16 @@ class HomePageState extends State<HomePage> {
             ]),
             const SizedBox(height: 14),
             if (schedule == null)
-              const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('오늘 복약할 약이 없습니다.',
-                    style: TextStyle(
-                        color: _textPrimary, fontWeight: FontWeight.w700)),
-                SizedBox(height: 4),
-                Text('등록된 복약 일정이 없어요.',
-                    style: TextStyle(color: _textSecondary, fontSize: 13)),
-              ])
+              const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('오늘 복약할 약이 없습니다.',
+                        style: TextStyle(
+                            color: _textPrimary, fontWeight: FontWeight.w700)),
+                    SizedBox(height: 4),
+                    Text('등록된 복약 일정이 없어요.',
+                        style: TextStyle(color: _textSecondary, fontSize: 13)),
+                  ])
             else
               Row(children: [
                 Container(
@@ -720,12 +724,10 @@ class _TodayMedicationStatusBadge extends StatelessWidget {
         : isPending
             ? '복용 예정'
             : status;
-    final background = isTaken
-        ? const Color(0xFFE6F6EF)
-        : const Color(0xFFEAF2FC);
-    final foreground = isTaken
-        ? const Color(0xFF29986D)
-        : const Color(0xFF356FAF);
+    final background =
+        isTaken ? const Color(0xFFE6F6EF) : const Color(0xFFEAF2FC);
+    final foreground =
+        isTaken ? const Color(0xFF29986D) : const Color(0xFF356FAF);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
@@ -779,8 +781,7 @@ class _HomeSummaryTile extends StatelessWidget {
                   height: 34,
                   decoration: BoxDecoration(
                       color: color, borderRadius: BorderRadius.circular(11)),
-                  child:
-                      Icon(icon, color: const Color(0xFF5665B8), size: 19)),
+                  child: Icon(icon, color: const Color(0xFF5665B8), size: 19)),
               const Spacer(),
               Text(label,
                   maxLines: 1,
@@ -1023,7 +1024,8 @@ class _EmptyCard extends StatelessWidget {
 
 String _homeScheduleTime(MedicationScheduleSummary schedule) {
   final timeSlot = schedule.timeSlot?.trim();
-  if (timeSlot != null && RegExp(r'^([01]\d|2[0-3]):[0-5]\d$').hasMatch(timeSlot)) {
+  if (timeSlot != null &&
+      RegExp(r'^([01]\d|2[0-3]):[0-5]\d$').hasMatch(timeSlot)) {
     return timeSlot;
   }
   final scheduledAt = schedule.scheduledAt;

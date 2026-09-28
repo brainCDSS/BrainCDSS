@@ -21,7 +21,8 @@ class NotificationsPage extends StatefulWidget {
   });
 
   final ApiClient apiClient;
-  final Future<void> Function([DateTime? scheduledAt])? onOpenMedicationReminder;
+  final Future<void> Function([DateTime? scheduledAt])?
+      onOpenMedicationReminder;
   final Future<void> Function()? onOpenAppointmentReminder;
 
   @override

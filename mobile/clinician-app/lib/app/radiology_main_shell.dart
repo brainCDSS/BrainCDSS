@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/api/clinician_api_client.dart';
+import '../core/notifications/clinician_fcm_service.dart';
 import '../features/analysis/radiology_analysis_detail_page.dart';
 import '../features/analysis/radiology_analysis_requests_page.dart';
 import '../features/assistant/clinician_ai_assistant_page.dart';
@@ -81,6 +82,15 @@ class _RadiologyMainShellState extends State<RadiologyMainShell> {
       onOpenAssistant: _openAssistant,
       onCloseDetail: _closeDetail,
       onLogout: widget.onLogout,
+    );
+    ClinicianFcmService.instance.bindConsultationNavigation(
+      _openConsultationDetail,
+    );
+    ClinicianFcmService.instance.bindNotificationsNavigation(
+      _openNotifications,
+    );
+    ClinicianFcmService.instance.bindAnalysisNavigation(
+      _openAnalysisDetailById,
     );
   }
 
@@ -210,6 +220,32 @@ class _RadiologyMainShellState extends State<RadiologyMainShell> {
     });
   }
 
+  Future<void> _openAnalysisDetailById(String analysisId) async {
+    if (analysisId.isEmpty) return;
+    try {
+      final response = await widget.apiClient.get(
+        '/api/v1/ai-analyses/$analysisId',
+      );
+      final request = RadiologyAnalysisRequest.fromJson(response);
+      if (request.analysisId != analysisId || !mounted) {
+        return;
+      }
+      _openAnalysisDetail(request);
+    } on ClinicianApiException {
+      if (mounted) _openAnalysisRequests();
+    } catch (_) {
+      if (mounted) _openAnalysisRequests();
+    }
+  }
+
+  void _openAnalysisRequests() {
+    setState(() {
+      _selectedIndex = 3;
+      _detailBackPage = null;
+      _detailPage = null;
+    });
+  }
+
   // ==========================================================================
   // 상세 닫기
   // ==========================================================================
@@ -245,7 +281,11 @@ class _RadiologyMainShellState extends State<RadiologyMainShell> {
   void _openNotifications() {
     setState(() {
       _detailBackPage = _detailPage;
-      _detailPage = const RadiologyNotificationsPage();
+      _detailPage = RadiologyNotificationsPage(
+        apiClient: widget.apiClient,
+        onOpenConsultation: _openConsultationDetail,
+        onOpenAnalysis: _openAnalysisDetailById,
+      );
     });
   }
 

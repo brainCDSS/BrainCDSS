@@ -7,8 +7,10 @@ from rest_framework.test import APIRequestFactory, force_authenticate
 
 from apps.accounts.models import Role, User
 from apps.accounts.api.views import PatientSignupView
+from apps.assessments.models import InitialAssessment
 from apps.clinical_records.models import ClinicalNote, Encounter
 from apps.imaging.models import ImagingOrder
+from apps.organizations.models import Clinician, Department, Hospital
 from apps.patients.api.clinical_history_views import (
     PatientClinicalHistoryDetailView,
     PatientClinicalHistoryListView,
@@ -134,6 +136,7 @@ class PatientClinicalHistoryViewTests(TestCase):
         self.assertEqual(response.data["count"], 1)
         self.assertEqual(response.data["results"][0]["exam_names"], ["Brain MRI"])
         self.assertTrue(response.data["results"][0]["has_prescription"])
+        self.assertEqual(response.data["results"][0]["clinical_opinion"], "final opinion")
         self.assertIsNone(response.data["results"][0]["diagnosis_name"])
 
     def test_detail_exposes_final_opinion_and_blocks_other_patient(self):
@@ -141,6 +144,7 @@ class PatientClinicalHistoryViewTests(TestCase):
         force_authenticate(request, user=self.user)
         response = PatientClinicalHistoryDetailView.as_view()(request, encounter_id=self.encounter.id)
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["encounter_type"], "OUTPATIENT")
         self.assertEqual(response.data["clinical_opinion"], "final opinion")
         self.assertEqual(response.data["exams"][0]["name"], "Brain MRI")
 
@@ -148,6 +152,133 @@ class PatientClinicalHistoryViewTests(TestCase):
         force_authenticate(request, user=self.user)
         response = PatientClinicalHistoryDetailView.as_view()(request, encounter_id=self.other_encounter.id)
         self.assertEqual(response.status_code, 404)
+
+    def test_list_returns_no_opinion_when_an_encounter_has_no_final_note(self):
+        now = timezone.now()
+        encounter = Encounter.objects.create(
+            patient=self.patient,
+            encounter_no="HISTORY-NO-FINAL-NOTE",
+            encounter_type="OUTPATIENT",
+            status="COMPLETED",
+            arrived_at=now,
+            created_at=now,
+            updated_at=now,
+        )
+
+        request = self.factory.get("/api/v1/me/clinical-history")
+        force_authenticate(request, user=self.user)
+        response = PatientClinicalHistoryListView.as_view()(request)
+
+        self.assertEqual(response.status_code, 200)
+        record = next(
+            item
+            for item in response.data["results"]
+            if item["encounter_id"] == str(encounter.id)
+        )
+        self.assertIsNone(record["clinical_opinion"])
+
+    def test_er_encounter_uses_its_unambiguous_assigned_neurologist(self):
+        neurologist_role = Role.objects.get(code="NEUROLOGIST")
+        neurologist = User.objects.create_user(
+            "history-emergency-neurologist",
+            "password",
+            name="Emergency neurologist",
+            role=neurologist_role,
+        )
+        hospital = Hospital.objects.create(
+            name="History hospital",
+            address="Test address",
+        )
+        department = Department.objects.create(
+            hospital=hospital,
+            code="HISTORY-NEUROLOGY",
+            name="Neurology",
+        )
+        Clinician.objects.create(
+            user=neurologist,
+            department=department,
+            is_active=True,
+        )
+        for encounter_type in ("ER", "EMERGENCY"):
+            with self.subTest(encounter_type=encounter_type):
+                encounter = Encounter.objects.create(
+                    patient=self.patient,
+                    encounter_no=f"HISTORY-{encounter_type}",
+                    encounter_type=encounter_type,
+                    status="COMPLETED",
+                    arrived_at=timezone.now(),
+                    created_at=timezone.now(),
+                    updated_at=timezone.now(),
+                )
+                InitialAssessment.objects.create(
+                    encounter=encounter,
+                    assessor=self.user,
+                    assigned_neurologist=neurologist,
+                    status="COMPLETED",
+                    created_at=timezone.now(),
+                    updated_at=timezone.now(),
+                )
+
+                request = self.factory.get(
+                    f"/api/v1/me/clinical-history/{encounter.id}"
+                )
+                force_authenticate(request, user=self.user)
+                response = PatientClinicalHistoryDetailView.as_view()(
+                    request,
+                    encounter_id=encounter.id,
+                )
+
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.data["department_name"], "Neurology")
+                self.assertEqual(
+                    response.data["clinician_name"], "Emergency neurologist"
+                )
+
+    def test_emergency_encounter_with_multiple_assignees_keeps_care_null(self):
+        neurologist_role = Role.objects.get(code="NEUROLOGIST")
+        first_neurologist = User.objects.create_user(
+            "history-first-neurologist",
+            "password",
+            name="First neurologist",
+            role=neurologist_role,
+        )
+        second_neurologist = User.objects.create_user(
+            "history-second-neurologist",
+            "password",
+            name="Second neurologist",
+            role=neurologist_role,
+        )
+        encounter = Encounter.objects.create(
+            patient=self.patient,
+            encounter_no="HISTORY-AMBIGUOUS-EMERGENCY",
+            encounter_type="EMERGENCY",
+            status="COMPLETED",
+            arrived_at=timezone.now(),
+            created_at=timezone.now(),
+            updated_at=timezone.now(),
+        )
+        for neurologist in (first_neurologist, second_neurologist):
+            InitialAssessment.objects.create(
+                encounter=encounter,
+                assessor=self.user,
+                assigned_neurologist=neurologist,
+                status="COMPLETED",
+                created_at=timezone.now(),
+                updated_at=timezone.now(),
+            )
+
+        request = self.factory.get(
+            f"/api/v1/me/clinical-history/{encounter.id}"
+        )
+        force_authenticate(request, user=self.user)
+        response = PatientClinicalHistoryDetailView.as_view()(
+            request,
+            encounter_id=encounter.id,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.data["department_name"])
+        self.assertIsNone(response.data["clinician_name"])
 
 
 class PatientSignupViewTests(TestCase):

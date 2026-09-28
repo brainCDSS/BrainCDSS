@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../core/api/clinician_api_client.dart';
 import '../auth/clinician_session.dart';
 import '../radiology/widgets/radiology_ui.dart';
-import '../radiology/widgets/radiology_navigation_drawer.dart';
 import '../consultations/radiology_consultation_detail_page.dart';
 
 class _PatientDetail {
@@ -384,15 +383,6 @@ class _RadiologyPatientDetailPageState
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        drawer: RadiologyNavigationDrawer(
-          user: widget.user,
-          selectedIndex: widget.selectedIndex,
-        ),
-        appBar: AppBar(
-          leading: const BackButton(),
-          title: const Text('환자 상세'),
-          actions: const [RadiologyDrawerButton()],
-        ),
         body: _isLoading
             ? const Center(
                 child: CircularProgressIndicator(),

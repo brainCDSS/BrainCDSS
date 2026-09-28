@@ -944,8 +944,14 @@ String _notificationCategoryLabel(
     case 'CONSULTATION':
       return '진료 알림';
 
+    case 'PRESCRIPTION':
+      return '처방 알림';
+
+    case 'MEDICATION_SAFETY':
+      return '약물 안전 알림';
+
     case 'IMAGING':
-      return '검사 · 결과 알림';
+      return '검사 결과 알림';
 
     case 'AI_ANALYSIS':
       return 'AI 분석 결과 알림';
@@ -955,6 +961,9 @@ String _notificationCategoryLabel(
 
     case 'SYSTEM':
       return '서비스 알림';
+
+    case 'CRITICAL':
+      return '긴급 알림';
 
     default:
       return category;
@@ -974,6 +983,12 @@ String _notificationCategoryDescription(
     case 'CONSULTATION':
       return '진료와 관련된 주요 안내를 받아요.';
 
+    case 'PRESCRIPTION':
+      return '새 처방과 처방 변경 사항을 알려드려요.';
+
+    case 'MEDICATION_SAFETY':
+      return '약물 복용 시 주의가 필요한 사항을 알려드려요.';
+
     case 'IMAGING':
       return '검사 일정과 검사 결과 등록 안내를 받아요.';
 
@@ -985,6 +1000,9 @@ String _notificationCategoryDescription(
 
     case 'SYSTEM':
       return '서비스 이용에 필요한 중요한 안내를 받아요.';
+
+    case 'CRITICAL':
+      return '안전과 관련된 긴급 알림은 항상 수신됩니다.';
 
     default:
       return '알림 수신 여부를 설정할 수 있어요.';
@@ -1004,6 +1022,12 @@ IconData _notificationCategoryIcon(
     case 'CONSULTATION':
       return Icons.medical_services_outlined;
 
+    case 'PRESCRIPTION':
+      return Icons.medication_outlined;
+
+    case 'MEDICATION_SAFETY':
+      return Icons.health_and_safety_outlined;
+
     case 'IMAGING':
       return Icons.monitor_heart_outlined;
 
@@ -1015,6 +1039,9 @@ IconData _notificationCategoryIcon(
 
     case 'SYSTEM':
       return Icons.info_outline_rounded;
+
+    case 'CRITICAL':
+      return Icons.warning_amber_rounded;
 
     default:
       return Icons.notifications_outlined;
@@ -1128,6 +1155,23 @@ class _NotificationSettingsContentState
     }
 
     final categories = _preferences!.categories;
+    final requiredCategories = categories.where((item) => item.isRequired).toList();
+    final healthCategories = categories
+        .where((item) =>
+            !item.isRequired &&
+            const {
+              'EMERGENCY',
+              'CONSULTATION',
+              'PRESCRIPTION',
+              'MEDICATION_SAFETY',
+              'IMAGING',
+              'AI_ANALYSIS',
+            }.contains(item.category.toUpperCase()))
+        .toList();
+    final serviceCategories = categories
+        .where((item) =>
+            !item.isRequired && !healthCategories.contains(item))
+        .toList();
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -1200,31 +1244,34 @@ class _NotificationSettingsContentState
               ],
             ),
           ),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(
-              color: _border,
-            ),
-            borderRadius: BorderRadius.circular(
-              20,
-            ),
+        if (healthCategories.isNotEmpty)
+          _NotificationSettingsGroup(
+            title: '건강 및 진료',
+            description: '건강 상태와 진료·검사·처방 관련 알림을 설정해요.',
+            items: healthCategories,
+            saving: _saving,
+            onChanged: _change,
           ),
-          child: Column(
-            children: [
-              for (int i = 0; i < categories.length; i++)
-                _NotificationSettingTile(
-                  item: categories[i],
-                  isLast: i == categories.length - 1,
-                  saving: _saving,
-                  onChanged: (value) => _change(
-                    categories[i],
-                    value,
-                  ),
-                ),
-            ],
+        if (serviceCategories.isNotEmpty) ...[
+          const SizedBox(height: 18),
+          _NotificationSettingsGroup(
+            title: '예약 및 서비스',
+            description: '예약 일정과 서비스 이용 관련 알림을 설정해요.',
+            items: serviceCategories,
+            saving: _saving,
+            onChanged: _change,
           ),
-        ),
+        ],
+        if (requiredCategories.isNotEmpty) ...[
+          const SizedBox(height: 18),
+          _NotificationSettingsGroup(
+            title: '필수 알림',
+            description: '긴급 알림은 안전을 위해 항상 켜져 있어요.',
+            items: requiredCategories,
+            saving: _saving,
+            onChanged: _change,
+          ),
+        ],
         const SizedBox(height: 14),
         const Padding(
           padding: EdgeInsets.symmetric(
@@ -1242,6 +1289,65 @@ class _NotificationSettingsContentState
       ],
     );
   }
+}
+
+class _NotificationSettingsGroup extends StatelessWidget {
+  const _NotificationSettingsGroup({
+    required this.title,
+    required this.description,
+    required this.items,
+    required this.saving,
+    required this.onChanged,
+  });
+
+  final String title;
+  final String description;
+  final List<NotificationCategoryPreference> items;
+  final bool saving;
+  final void Function(NotificationCategoryPreference, bool) onChanged;
+
+  @override
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: _text,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            description,
+            style: const TextStyle(
+              color: _muted,
+              fontSize: 12,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 9),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: _border),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              children: [
+                for (int index = 0; index < items.length; index++)
+                  _NotificationSettingTile(
+                    item: items[index],
+                    isLast: index == items.length - 1,
+                    saving: saving,
+                    onChanged: (value) => onChanged(items[index], value),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      );
 }
 
 class _NotificationSettingTile extends StatelessWidget {
@@ -1372,6 +1478,8 @@ class _NotificationSettingTile extends StatelessWidget {
           Switch(
             value: enabled,
             onChanged: required || saving ? null : onChanged,
+            activeColor: required ? _primary : null,
+            activeTrackColor: required ? const Color(0xFFBFD2EE) : null,
           ),
         ],
       ),

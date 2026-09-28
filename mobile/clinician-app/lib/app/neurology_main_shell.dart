@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../core/api/clinician_api_client.dart';
+import '../core/notifications/clinician_fcm_service.dart';
+import '../features/analysis/radiology_analysis_detail_page.dart';
+import '../features/analysis/radiology_analysis_requests_page.dart';
 import '../features/auth/clinician_session.dart';
 import '../features/assistant/clinician_ai_assistant_page.dart';
 import '../features/assistant/draggable_assistant_button.dart';
@@ -79,6 +82,15 @@ class _NeurologyMainShellState extends State<NeurologyMainShell> {
       onOpenAssistant: _openAssistant,
       onOpenNotifications: _openNotifications,
       onLogout: widget.onLogout,
+    );
+    ClinicianFcmService.instance.bindConsultationNavigation(
+      _openConsultationDetail,
+    );
+    ClinicianFcmService.instance.bindNotificationsNavigation(
+      _openNotifications,
+    );
+    ClinicianFcmService.instance.bindAnalysisNavigation(
+      _openAnalysisDetailById,
     );
   }
 
@@ -191,6 +203,32 @@ class _NeurologyMainShellState extends State<NeurologyMainShell> {
     });
   }
 
+  Future<void> _openAnalysisDetailById(String analysisId) async {
+    if (analysisId.isEmpty) return;
+    try {
+      final response = await widget.apiClient.get(
+        '/api/v1/ai-analyses/$analysisId',
+      );
+      final request = RadiologyAnalysisRequest.fromJson(response);
+      if (request.analysisId != analysisId || !mounted) {
+        return;
+      }
+      setState(() {
+        _assistantPage = null;
+        _detailBackPage = null;
+        _detailPage = RadiologyAnalysisDetailPage(
+          key: ValueKey('neurology-analysis-$analysisId'),
+          apiClient: widget.apiClient,
+          request: request,
+        );
+      });
+    } on ClinicianApiException {
+      if (mounted) _openNotifications();
+    } catch (_) {
+      if (mounted) _openNotifications();
+    }
+  }
+
   void _openAssistant() {
     setState(
       () => _assistantPage = ClinicianAiAssistantPage(
@@ -221,7 +259,11 @@ class _NeurologyMainShellState extends State<NeurologyMainShell> {
     setState(() {
       _detailBackPage = _assistantPage ?? _detailPage;
       _assistantPage = null;
-      _detailPage = const RadiologyNotificationsPage();
+      _detailPage = RadiologyNotificationsPage(
+        apiClient: widget.apiClient,
+        onOpenConsultation: _openConsultationDetail,
+        onOpenAnalysis: _openAnalysisDetailById,
+      );
     });
   }
 

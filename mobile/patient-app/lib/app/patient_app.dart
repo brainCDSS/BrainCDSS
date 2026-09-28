@@ -22,6 +22,7 @@ class PatientApp extends StatefulWidget {
 class _PatientAppState extends State<PatientApp> {
   final ApiClient _apiClient = ApiClient();
   final _navigatorKey = GlobalKey<NavigatorState>();
+  final _mainShellKey = GlobalKey<PatientMainShellState>();
 
   AuthSession? _session;
   late final AuthStorage _authStorage;
@@ -32,7 +33,11 @@ class _PatientAppState extends State<PatientApp> {
   void initState() {
     super.initState();
     _authStorage = widget.authStorage ?? SecureAuthStorage();
-    _pushService = PatientPushService(_apiClient, _navigatorKey);
+    _pushService = PatientPushService(
+      _apiClient,
+      _navigatorKey,
+      onOpenMedicationReminder: _openMedicationReminder,
+    );
     _apiClient.setTokenRefresher(_refreshAccessToken);
     _restoreSession();
   }
@@ -109,6 +114,19 @@ class _PatientAppState extends State<PatientApp> {
     if (mounted) {
       setState(() => _session = null);
     }
+  }
+
+  Future<void> _openMedicationReminder() async {
+    if (_session == null) return;
+    _navigatorKey.currentState?.popUntil((route) => route.isFirst);
+    final shell = _mainShellKey.currentState;
+    if (shell != null) {
+      shell.openMedicationReminder();
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _openMedicationReminder();
+    });
   }
 
   @override
@@ -246,14 +264,19 @@ class _PatientAppState extends State<PatientApp> {
                   onLoginSuccess: _handleLoginSuccess,
                 )
               : PatientMainShell(
+                  key: _mainShellKey,
                   apiClient: _apiClient,
                   session: _session!,
                   onLogout: _logout,
+                  onOpenMedicationReminder: _openMedicationReminder,
                 ),
       onGenerateRoute: (settings) {
         if (settings.name == '/notifications' && _session != null) {
           return MaterialPageRoute<void>(
-            builder: (_) => NotificationsPage(apiClient: _apiClient),
+            builder: (_) => NotificationsPage(
+              apiClient: _apiClient,
+              onOpenMedicationReminder: _openMedicationReminder,
+            ),
           );
         }
         return null;

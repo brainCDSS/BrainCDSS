@@ -471,7 +471,8 @@ class _ConsultationReasonCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (reason.isEmpty) {
-      return const Text('정보 없음', style: TextStyle(color: radiologyNavy));
+      return const Text('등록된 협진 사유가 없습니다.',
+          style: TextStyle(color: radiologyMuted));
     }
 
     return Column(

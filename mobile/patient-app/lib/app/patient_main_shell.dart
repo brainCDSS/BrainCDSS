@@ -18,29 +18,32 @@ class PatientMainShell extends StatefulWidget {
     required this.apiClient,
     required this.session,
     required this.onLogout,
+    required this.onOpenMedicationReminder,
   });
 
   final ApiClient apiClient;
   final AuthSession session;
   final Future<void> Function() onLogout;
+  final Future<void> Function() onOpenMedicationReminder;
 
   @override
-  State<PatientMainShell> createState() => _PatientMainShellState();
+  State<PatientMainShell> createState() => PatientMainShellState();
 }
 
-class _PatientMainShellState extends State<PatientMainShell> {
+class PatientMainShellState extends State<PatientMainShell> {
   int _selectedIndex = 2;
   bool _isReservationFlow = false;
   bool _isProfileNotificationSettings = false;
   String? _clinicalHistoryEncounterId;
   final _homeKey = GlobalKey<HomePageState>();
   final _appointmentsKey = GlobalKey<AppointmentsPageState>();
+  final _medicationsKey = GlobalKey<MedicationsPageState>();
 
   late final List<Widget> _pages;
 
   static const List<String> _titles = [
     '예약',
-    '진료기록',
+    '진료내역',
     '호닥',
     '복약관리',
     '마이페이지',
@@ -65,7 +68,7 @@ class _PatientMainShellState extends State<PatientMainShell> {
         onOpenAppointmentDetail: _openAppointmentDetail,
         onOpenNotifications: _openNotifications,
       ),
-      MedicationsPage(apiClient: widget.apiClient),
+      MedicationsPage(key: _medicationsKey, apiClient: widget.apiClient),
       ProfilePage(
         session: widget.session,
         onLogout: widget.onLogout,
@@ -152,10 +155,20 @@ class _PatientMainShellState extends State<PatientMainShell> {
   Future<void> _openNotifications() async {
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => NotificationsPage(apiClient: widget.apiClient),
+        builder: (_) => NotificationsPage(
+          apiClient: widget.apiClient,
+          onOpenMedicationReminder: widget.onOpenMedicationReminder,
+        ),
       ),
     );
     _homeKey.currentState?.refreshNotifications();
+  }
+
+  void openMedicationReminder() {
+    _selectTab(3);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _medicationsKey.currentState?.reload();
+    });
   }
 
   Future<void> _openChatbot() => Navigator.of(context).push(
@@ -286,7 +299,7 @@ class _PatientMainShellState extends State<PatientMainShell> {
             selectedIcon: Icon(
               Icons.description,
             ),
-            label: '진료기록',
+            label: '진료내역',
           ),
           NavigationDestination(
             icon: Icon(
@@ -425,7 +438,7 @@ class _PatientDrawer extends StatelessWidget {
                     ),
                     _topLevelTile(
                       icon: Icons.health_and_safety_outlined,
-                      title: '검사결과',
+                      title: '진료내역',
                       index: 1,
                     ),
                     _topLevelTile(

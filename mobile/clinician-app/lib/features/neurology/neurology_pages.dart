@@ -1096,13 +1096,17 @@ class _GreetingBanner extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 12),
           Expanded(
-            flex: 3,
-            child: Image.asset(
-              'asset/images/main2.png',
-              fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+            flex: 4,
+            child: Transform.scale(
+              scale: 1.12,
+              alignment: Alignment.centerRight,
+              child: Image.asset(
+                'asset/images/main2.png',
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              ),
             ),
           ),
         ],

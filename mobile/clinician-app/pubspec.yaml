@@ -19,6 +19,7 @@ dependencies:
   firebase_core: ^4.14.0
   firebase_messaging: ^16.6.0
   flutter_markdown_plus: ^1.0.12
+  shared_preferences: ^2.5.4
 
 dev_dependencies:
   flutter_test:

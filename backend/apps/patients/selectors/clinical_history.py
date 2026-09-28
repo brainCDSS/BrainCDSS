@@ -1,7 +1,9 @@
 from django.db.models.functions import Coalesce
 
+from apps.assessments.models import InitialAssessment
 from apps.clinical_records.models import ClinicalNote, Encounter
 from apps.imaging.models import ImagingOrder, ImagingStudy
+from apps.organizations.models import Clinician
 from apps.prescriptions.models import Prescription
 
 
@@ -63,27 +65,74 @@ def _history_related_records(encounters):
             status="FINAL",
         ).values_list("encounter_id", flat=True)
     )
+    emergency_care = _emergency_care_by_encounter(encounter_ids)
     return {
         "orders": orders_by_encounter,
         "studies": studies_by_order,
         "opinions": opinions,
         "prescriptions": prescription_encounter_ids,
+        "emergency_care": emergency_care,
     }
 
 
-def _base_payload(encounter):
+def _emergency_care_by_encounter(encounter_ids):
+    assigned_users = {}
+    for assessment in InitialAssessment.objects.filter(
+        encounter_id__in=encounter_ids,
+        status="COMPLETED",
+        assigned_neurologist_id__isnull=False,
+    ).select_related("assigned_neurologist"):
+        assigned_users.setdefault(assessment.encounter_id, {})[
+            assessment.assigned_neurologist_id
+        ] = assessment.assigned_neurologist
+
+    unambiguous_users = {
+        encounter_id: next(iter(users.values()))
+        for encounter_id, users in assigned_users.items()
+        if len(users) == 1
+    }
+    clinicians = {
+        clinician.user_id: clinician
+        for clinician in Clinician.objects.filter(
+            user_id__in=[user.id for user in unambiguous_users.values()]
+        ).select_related("department")
+    }
+    return {
+        encounter_id: {
+            "clinician_name": user.name or None,
+            "department_name": (
+                clinicians[user.id].department.name
+                if user.id in clinicians
+                else None
+            ),
+        }
+        for encounter_id, user in unambiguous_users.items()
+    }
+
+
+def _base_payload(encounter, records):
     appointment = encounter.appointment
+    emergency_care = (
+        records["emergency_care"].get(encounter.id, {})
+        if appointment is None and encounter.encounter_type in {"EMERGENCY", "ER"}
+        else {}
+    )
     return {
         "encounter_id": str(encounter.id),
+        "encounter_type": encounter.encounter_type,
         "visited_at": encounter.visited_at,
-        "department_name": appointment.department.name if appointment else None,
-        "clinician_name": appointment.clinician.user.name if appointment else None,
+        "department_name": (
+            appointment.department.name if appointment else emergency_care.get("department_name")
+        ),
+        "clinician_name": (
+            appointment.clinician.user.name if appointment else emergency_care.get("clinician_name")
+        ),
         "diagnosis_name": None,
     }
 
 
 def _list_payload(encounter, records):
-    payload = _base_payload(encounter)
+    payload = _base_payload(encounter, records)
     payload.update(
         {
             "exam_names": [
@@ -92,13 +141,14 @@ def _list_payload(encounter, records):
                 if order.procedure_name
             ],
             "has_prescription": encounter.id in records["prescriptions"],
+            "clinical_opinion": records["opinions"].get(encounter.id),
         }
     )
     return payload
 
 
 def _detail_payload(encounter, records):
-    payload = _base_payload(encounter)
+    payload = _base_payload(encounter, records)
     exams = []
     for order in records["orders"].get(encounter.id, []):
         study = (records["studies"].get(order.id) or [None])[0]

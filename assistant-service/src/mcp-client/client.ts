@@ -306,6 +306,29 @@ export function selectClinicalToolsForMessage(
   }
 
 
+  // 환자앱에서 "내가 예약한 게 있나?"처럼 묻는 표현도
+  // 로그인 환자 범위의 예약 조회로 처리한다.
+  if (
+    !selected.has(
+      "get_today_appointments",
+    )
+    &&
+    includesAny(
+      normalized,
+      [
+        "내가 예약",
+        "내 예약",
+        "예약한 게 있나",
+        "예약했나",
+      ],
+    )
+  ) {
+    selected.add(
+      "get_appointments",
+    );
+  }
+
+
   /*
    * ----------------------------------------------------------
    * Patient Tool 3

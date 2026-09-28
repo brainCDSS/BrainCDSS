@@ -245,9 +245,21 @@ services:
       GOOGLE_CLOUD_LOCATION: "${GOOGLE_CLOUD_LOCATION:-global}"
       GEMINI_MODEL: "${GEMINI_MODEL:-gemini-2.5-flash}"
       MCP_SERVER_URL: "http://mcp-server:8300/mcp"
+      GOOGLE_APPLICATION_CREDENTIALS: "/gcloud/adc.json" #추가
+
+    ports: #추가
+      - "127.0.0.1:8200:8200"
+
+    volumes: #추가
+      - type: bind
+        source: "${APPDATA}/gcloud/application_default_credentials.json"
+        target: /gcloud/adc.json
+        read_only: true
+
     depends_on:
       - mcp-server
     restart: unless-stopped
+
 
   mcp-server:
     profiles: ["assistant"]

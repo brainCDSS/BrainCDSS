@@ -27,6 +27,14 @@ class _ClinicianLoginPageState extends State<ClinicianLoginPage> {
   bool _obscurePassword = true;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      debugPrint('BRAINON_LOGIN_PAGE_FIRST_FRAME');
+    });
+  }
+
+  @override
   void dispose() {
     _loginIdController.dispose();
     _passwordController.dispose();
@@ -76,6 +84,7 @@ class _ClinicianLoginPageState extends State<ClinicianLoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('BRAINON_LOGIN_PAGE_BUILD');
     return Scaffold(
       backgroundColor: const Color(0xFFF3F7FC),
       resizeToAvoidBottomInset: true,

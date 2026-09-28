@@ -250,14 +250,13 @@ textarea {
 /* =========================================================
    6. HEADER 오른쪽 업무 영역
 
-   소속기관 | 환자검색 | 알림/Theme/User
+   환자검색 | 알림/Theme/User
    ========================================================= */
 
 .header-main-area {
   display: grid;
 
   grid-template-columns:
-    max-content
     minmax(320px, 560px)
     max-content;
 
@@ -1198,7 +1197,6 @@ textarea {
 @media (max-width: 1350px) {
   .header-main-area {
     grid-template-columns:
-      max-content
       minmax(260px, 1fr)
       max-content;
 

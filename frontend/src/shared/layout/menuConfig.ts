@@ -11,7 +11,6 @@ export const MENU_LABELS: Record<SidebarMenuKey, string> = {
   imaging: "검사 / 영상",
   "ai-results": "AI 분석 결과",
   "radiology-reports": "최종 판독",
-  cdss: "CDSS 결과",
   consultations: "협진",
   prescriptions: "처방 / DUR",
   notifications: "알림 센터",
@@ -111,14 +110,6 @@ export const MENU_ALLOWED_ROLES: Record<
    */
   "radiology-reports": [
     "RADIOLOGY",
-  ],
-
-  /*
-   * CDSS 결과
-   */
-  cdss: [
-    "NEUROLOGIST",
-    "NEUROSURGEON",
   ],
 
   /*

@@ -11,7 +11,6 @@ import type { RadiologyReport, RadiologyReportDraft } from "../radiology/types";
 import "./ai-analysis.css";
 
 const NiftiViewer = lazy(() => import("./NiftiViewer"));
-const RustViewer = lazy(() => import("../rust-viewer/RustViewer"));
 const TERMINAL = new Set(["COMPLETED", "FAILED", "CANCELLED"]);
 const accessErrorMessage = "이 AI 분석 결과에 접근할 권한이 없거나 더 이상 조회할 수 없습니다.";
 const STATUS: Record<string, string> = { QUEUED: "분석 대기", PROCESSING: "분석 중", COMPLETED: "분석 완료", FAILED: "분석 실패", RETRYING: "재시도 중", CANCELLED: "분석 취소" };
@@ -52,7 +51,6 @@ export default function AIAnalysisResultsPage({ initialAnalysisId, onShareConsul
   const [patientQuery, setPatientQuery] = useState("");
   const [listCollapsed, setListCollapsed] = useState(false);
   const [probe, setProbe] = useState<NiftiProbe | null>(null);
-  const [viewerKind, setViewerKind] = useState<"existing" | "rust">("existing");
   const [radiologyReport, setRadiologyReport] = useState<RadiologyReport | null>(null);
   const [radiologyReportLoading, setRadiologyReportLoading] = useState(false);
 
@@ -272,7 +270,7 @@ export default function AIAnalysisResultsPage({ initialAnalysisId, onShareConsul
       </aside>
       {listCollapsed && <button type="button" className="ai-result-list-opener" onClick={() => setListCollapsed(false)}>환자 결과 <span>{items.length}</span> ›</button>}
       <div className="ai-workspace-body">
-      <main className="ai-workspace-primary"><nav className="viewer-kind-tabs" aria-label="의료영상 Viewer 선택"><button type="button" className={viewerKind === "existing" ? "is-active" : ""} onClick={() => setViewerKind("existing")}>기존 Viewer</button><button type="button" className={viewerKind === "rust" ? "is-active is-beta" : "is-beta"} onClick={() => setViewerKind("rust")}>Rust Viewer Beta <small>RUST / WASM</small></button></nav>{selected?.status === "COMPLETED" ? <Suspense fallback={<div className="nifti-viewer__message">뷰어 준비 중</div>}>{viewerKind === "existing" ? <NiftiViewer key={selected.analysis_id} analysisId={selected.analysis_id} focusSlice={selectedLesion == null ? null : lesions[selectedLesion]?.representative_slice} focusRequest={focusRequest} onProbe={setProbe}/> : <RustViewer key={selected.analysis_id} analysisId={selected.analysis_id}/>}</Suspense> : <section className="ai-viewer-card ai-viewer-empty"><strong>{selected ? "분석 결과를 기다리는 중입니다." : "분석을 선택하세요."}</strong></section>}</main>
+      <main className="ai-workspace-primary">{selected?.status === "COMPLETED" ? <Suspense fallback={<div className="nifti-viewer__message">뷰어 준비 중</div>}><NiftiViewer key={selected.analysis_id} analysisId={selected.analysis_id} focusSlice={selectedLesion == null ? null : lesions[selectedLesion]?.representative_slice} focusRequest={focusRequest} onProbe={setProbe}/></Suspense> : <section className="ai-viewer-card ai-viewer-empty"><strong>{selected ? "분석 결과를 기다리는 중입니다." : "분석을 선택하세요."}</strong></section>}</main>
       <aside className="ai-workspace-secondary clinical-result-panel clinical-result-overview">
         <div className="result-overview-body">
           <section className="clinical-summary">

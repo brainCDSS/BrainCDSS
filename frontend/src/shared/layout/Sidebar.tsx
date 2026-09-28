@@ -35,7 +35,6 @@ export type SidebarMenuKey =
   | "imaging"
   | "ai-results"
   | "radiology-reports"
-  | "cdss"
 
   | "consultations"
   | "prescriptions"
@@ -306,11 +305,6 @@ const menuItems: SidebarMenuItem[] = [
         label: MENU_LABELS["ai-results"],
       },
 
-      {
-        key: "cdss",
-
-        label: MENU_LABELS.cdss,
-      },
     ],
   },
 
@@ -407,8 +401,7 @@ function getMenuGroup(
   if (
     menu === "imaging" ||
     menu === "ai-results" ||
-    menu === "radiology-reports" ||
-    menu === "cdss"
+    menu === "radiology-reports"
   ) {
     return "analysis";
   }

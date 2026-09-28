@@ -24,7 +24,6 @@ import { getConsultationDetail } from "../../features/consultations/api";
 import ImagingPage from "../../features/imaging/ImagingPage";
 import AIAnalysisResultsPage from "../../features/ai-analysis/AIAnalysisResultsPage";
 import RadiologyReportsPage from "../../features/radiology/RadiologyReportsPage";
-import CDSSResultsPage from "../../features/cdss/CDSSResultsPage";
 import MedicationSafetyPage from "../../features/medication-safety/MedicationSafetyPage";
 import {
   getActiveEncounter,
@@ -120,7 +119,7 @@ const RETIRED_ADMIN_MENU_KEYS = new Set([
 
 const SIDEBAR_MENU_KEYS: SidebarMenuKey[] = [
   "dashboard", "patients", "worklist", "triage", "clinical-notes",
-  "appointments", "imaging", "ai-results", "radiology-reports", "cdss",
+  "appointments", "imaging", "ai-results", "radiology-reports",
   "consultations", "prescriptions", "notifications", "policies",
   "admin-users", "admin-ml", "admin-settings",
 ];
@@ -811,7 +810,6 @@ export default function AppShell({
       menu !== "imaging" &&
       menu !== "ai-results" &&
       menu !== "radiology-reports" &&
-      menu !== "cdss" &&
       menu !== "prescriptions" &&
       menu !== "notifications" &&
 
@@ -2000,10 +1998,6 @@ export default function AppShell({
 
     if (activeMenu === "radiology-reports") {
       return <RadiologyReportsPage draft={radiologyReportDraft} onDraftConsumed={() => setRadiologyReportDraft(null)} />;
-    }
-
-    if (activeMenu === "cdss") {
-      return <CDSSResultsPage />;
     }
 
     if (activeMenu === "prescriptions") {

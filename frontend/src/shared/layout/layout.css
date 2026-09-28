@@ -280,51 +280,6 @@ textarea {
 
 
 /* =========================================================
-   7. 소속 기관
-   ========================================================= */
-
-.header-organization {
-  display: flex;
-
-  width: auto;
-  height: 38px;
-
-  align-items: center;
-
-  justify-self: start;
-
-  gap: 8px;
-
-  flex-shrink: 0;
-
-  padding: 0 12px;
-
-  border: 1px solid var(--border-color);
-
-  border-radius: 8px;
-
-  background: var(--bg-surface);
-
-  color: var(--text-secondary);
-
-  white-space: nowrap;
-
-  cursor: pointer;
-
-  transition:
-    background-color 0.15s ease,
-    color 0.15s ease;
-}
-
-
-.header-organization:hover {
-  background: var(--bg-hover);
-
-  color: var(--text-primary);
-}
-
-
-/* =========================================================
    8. 환자 통합 검색
    ========================================================= */
 
@@ -2365,7 +2320,6 @@ body,
   background: var(--bg-surface);
 }
 
-[data-theme="dark"] .header-organization,
 [data-theme="dark"] .header-icon-button {
   background: #1c2838;
 
@@ -2374,7 +2328,6 @@ body,
   color: var(--text-secondary);
 }
 
-[data-theme="dark"] .header-organization:hover,
 [data-theme="dark"] .header-icon-button:hover {
   background: var(--bg-hover);
 

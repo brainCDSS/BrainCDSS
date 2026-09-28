@@ -612,20 +612,6 @@ export default function Header({
 
       <div className="header-main-area">
 
-        {/* 소속 기관 */}
-
-        <button
-          type="button"
-          className="header-organization"
-        >
-          {currentUser.hospital?.name ?? "소속 기관"}
-
-          <span>
-            ⌄
-          </span>
-        </button>
-
-
         {/* ===================================================
             3. 환자 통합 검색
             =================================================== */}

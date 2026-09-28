@@ -44,7 +44,6 @@
 .clinical-ai-results .ai-results-main-layout{flex:1 1 0;height:0}
 .clinical-ai-results .ai-results-main-layout>.ai-workspace-body{height:100%;min-height:0;grid-template-rows:minmax(0,1fr)}
 .clinical-ai-results .ai-workspace-primary{min-height:0;overflow:hidden}
-.viewer-kind-tabs{display:flex;flex:0 0 34px;align-items:stretch;border:1px solid #d7e1ed;border-radius:8px 8px 0 0;background:#edf2f7}.viewer-kind-tabs button{padding:0 16px;border:0;border-right:1px solid #d7e1ed;background:transparent;color:#617188;font:inherit;font-size:10px;font-weight:800;cursor:pointer}.viewer-kind-tabs button.is-active{background:#fff;color:#176dc9;box-shadow:inset 0 -3px #1976d2}.viewer-kind-tabs button.is-beta.is-active{color:#ac4c27;box-shadow:inset 0 -3px #c05b32}.viewer-kind-tabs small{margin-left:5px;padding:2px 5px;border-radius:999px;background:#fff0e9;color:#b95731;font-size:7px}
 
 /* Header, workspace tabs, title and patient context consume part of the
    browser viewport before the viewer begins. Cap the card itself so its

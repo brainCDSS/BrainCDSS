@@ -51,7 +51,6 @@ const NEW_WORK_GROUPS: Array<{
       { key: "imaging", icon: "◇" },
       { key: "ai-results", icon: "◇" },
       { key: "radiology-reports", icon: "◇" },
-      { key: "cdss", icon: "◇" },
     ],
   },
   {

@@ -74,6 +74,8 @@ export interface AuditLogItem {
   resource_type: string;
   resource_id: string | null;
   outcome: string;
+  request_id: string | null;
+  tracking_code: string | null;
   occurred_at: string;
 }
 

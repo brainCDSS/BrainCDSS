@@ -41,6 +41,11 @@ class AuditListQuerySerializer(
     request_id = serializers.UUIDField(
         required=False
     )
+    tracking_code = serializers.RegexField(
+        regex=r"^ERR-[0-9A-Fa-f]{16}$",
+        required=False,
+        max_length=20,
+    )
     occurred_from = serializers.DateTimeField(
         required=False
     )

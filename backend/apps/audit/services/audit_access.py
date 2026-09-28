@@ -5,6 +5,7 @@ import uuid
 from django.utils import timezone
 
 from apps.audit.models import AuditLog
+from apps.common.tracking import build_tracking_code
 
 
 SECRET_FRAGMENTS = (
@@ -92,6 +93,11 @@ def list_payload(log):
         "resource_id": log.resource,
         "outcome": log.outcome,
         "request_id": log.request,
+        "tracking_code": (
+            build_tracking_code(
+                log.request
+            )
+        ),
         "occurred_at": (
             log.occurred_at
         ),
@@ -138,6 +144,11 @@ def detail_payload(log):
             log.user_agent
         ),
         "request_id": log.request,
+        "tracking_code": (
+            build_tracking_code(
+                log.request
+            )
+        ),
         "occurred_at": (
             log.occurred_at
         ),

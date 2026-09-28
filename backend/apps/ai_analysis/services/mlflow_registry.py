@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -86,6 +87,8 @@ def _authorized_mlflow_client() -> Iterator[MlflowClient]:
 class MLflowRegistryClient:
     """Enumerate Registry metadata without mutating MLflow state."""
 
+    RUN_FETCH_WORKERS = 8
+
     @staticmethod
     def _all_pages(fetch_page) -> list[object]:
         records: list[object] = []
@@ -106,6 +109,7 @@ class MLflowRegistryClient:
                     page_token=page_token,
                 )
             )
+            version_records: list[tuple[str, object]] = []
             for registered_model in registered_models:
                 name = str(registered_model.name)
                 escaped_name = name.replace("'", "\\\\'")
@@ -116,9 +120,28 @@ class MLflowRegistryClient:
                         page_token=page_token,
                     )
                 )
-                for model_version in versions:
-                    run_id = str(getattr(model_version, "run_id", "") or "")
-                    run = client.get_run(run_id) if run_id else None
+                version_records.extend((name, model_version) for model_version in versions)
+
+            run_ids = [
+                str(getattr(model_version, "run_id", "") or "")
+                for _, model_version in version_records
+            ]
+
+            # Registry versions do not include run metrics, parameters, or run
+            # tags. Fetch those independent read-only records concurrently so
+            # a full registry sync does not exceed the web worker timeout.
+            with ThreadPoolExecutor(max_workers=self.RUN_FETCH_WORKERS) as executor:
+                runs = list(executor.map(
+                    lambda run_id: client.get_run(run_id) if run_id else None,
+                    run_ids,
+                ))
+
+            for (name, model_version), run_id, run in zip(
+                version_records,
+                run_ids,
+                runs,
+                strict=True,
+            ):
                     run_data = getattr(run, "data", None)
                     run_info = getattr(run, "info", None)
                     version_tags = dict(getattr(model_version, "tags", None) or {})

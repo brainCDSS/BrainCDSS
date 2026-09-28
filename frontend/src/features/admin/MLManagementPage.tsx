@@ -195,13 +195,27 @@ export default function MLManagementPage() {
     [overview, selectedModelId],
   );
 
+  const activeRoutings = useMemo(
+    () => overview?.routing_configs.filter((item) => item.is_active) ?? [],
+    [overview],
+  );
+
+  const activeRoutingVersionIds = useMemo(
+    () => new Set(
+      activeRoutings
+        .map((routing) => routing.target_model_version?.version_id)
+        .filter((versionId): versionId is string => Boolean(versionId)),
+    ),
+    [activeRoutings],
+  );
+
   const filteredVersions = useMemo(
     () => selectedVersions.filter((item) => {
       if (versionFilter === "ALL") return true;
-      if (versionFilter === "ACTIVE") return item.is_active;
+      if (versionFilter === "ACTIVE") return activeRoutingVersionIds.has(item.version_id);
       return item.validation_status === versionFilter;
     }),
-    [selectedVersions, versionFilter],
+    [activeRoutingVersionIds, selectedVersions, versionFilter],
   );
 
   const selectedVersion = useMemo(
@@ -216,19 +230,9 @@ export default function MLManagementPage() {
     [overview],
   );
 
-  const activeRoutings = useMemo(
-    () => overview?.routing_configs.filter((item) => item.is_active) ?? [],
-    [overview],
-  );
-
   const selectedVersionIsRouted = useMemo(
-    () => Boolean(
-      selectedVersion
-      && activeRoutings.some(
-        (routing) => routing.target_model_version?.version_id === selectedVersion.version_id,
-      )
-    ),
-    [activeRoutings, selectedVersion],
+    () => Boolean(selectedVersion && activeRoutingVersionIds.has(selectedVersion.version_id)),
+    [activeRoutingVersionIds, selectedVersion],
   );
 
   const run = async (id: string, action: () => Promise<unknown>) => {
@@ -340,7 +344,7 @@ export default function MLManagementPage() {
     { key: "DRAFT", label: "DRAFT " + selectedVersions.filter((item) => item.validation_status === "DRAFT").length },
     { key: "VALIDATED", label: "VALIDATED " + selectedVersions.filter((item) => item.validation_status === "VALIDATED").length },
     { key: "APPROVED", label: "APPROVED " + selectedVersions.filter((item) => item.validation_status === "APPROVED").length },
-    { key: "ACTIVE", label: "운영 " + selectedVersions.filter((item) => item.is_active).length },
+    { key: "ACTIVE", label: "운영 " + selectedVersions.filter((item) => activeRoutingVersionIds.has(item.version_id)).length },
   ];
 
   const metrics = selectedVersion ? metricEntries(selectedVersion.performance_metrics) : [];
@@ -432,7 +436,7 @@ export default function MLManagementPage() {
           <div className="ml-model-rail__list">
             {overview.models.map((model) => {
               const versions = overview.versions.filter((item) => item.model_id === model.model_id);
-              const activeCount = versions.filter((item) => item.is_active).length;
+              const activeCount = versions.filter((item) => activeRoutingVersionIds.has(item.version_id)).length;
               return <button
                 key={model.model_id}
                 type="button"
@@ -503,7 +507,9 @@ export default function MLManagementPage() {
                     </td>
                     <td>
                       <span className={"ml-status is-" + version.validation_status.toLowerCase()}>{statusLabel[version.validation_status]}</span>
-                      {version.is_active && <span className="ml-status is-active">운영</span>}
+                      {activeRoutingVersionIds.has(version.version_id)
+                        ? <span className="ml-status is-active">운영</span>
+                        : version.is_active && <span className="ml-status">사용 가능</span>}
                     </td>
                     <td>{metricEntries(version.performance_metrics).slice(0, 2).map(([key, value]) => (
                       <small key={key}>{metricLabel(key)}: {metricValue(value)}</small>
@@ -558,7 +564,9 @@ export default function MLManagementPage() {
                 <strong>{versionDisplayName(selectedVersion)}</strong>
                 <span>{selectedVersion.model_name} · Registry v{selectedVersion.mlflow_model_version}</span>
               </div>
-              {selectedVersion.is_active && <span className="ml-status is-active">운영 중</span>}
+              {selectedVersionIsRouted
+                ? <span className="ml-status is-active">운영 중</span>
+                : selectedVersion.is_active && <span className="ml-status">사용 가능</span>}
             </div>
 
             <dl className="ml-detail-list ml-detail-list--compact">
@@ -664,7 +672,7 @@ export default function MLManagementPage() {
 
         <section className="ml-workflow-summary">
           <div><span>현재 상태</span><strong>{statusLabel[selectedVersion.validation_status]}</strong></div>
-          <div><span>운영 활성</span><strong>{selectedVersion.is_active ? "활성" : "비활성"}</strong></div>
+          <div><span>운영 라우팅</span><strong>{selectedVersionIsRouted ? "운영 중" : "미라우팅"}</strong></div>
           <div><span>성능 지표</span><strong>{metrics.length ? `${metrics.length}개` : "미등록"}</strong></div>
         </section>
 

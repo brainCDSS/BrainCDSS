@@ -34,8 +34,6 @@ class InputArtifactSerializer(serializers.Serializer):
 
 class AnalysisCreateSerializer(serializers.Serializer):
     study_id = serializers.UUIDField()
-    model_version_id = serializers.UUIDField(required=False)
-    model_config_version_id = serializers.UUIDField(required=False)
     analysis_type = serializers.ChoiceField(choices=list(ROLE_ORDER))
     priority = serializers.ChoiceField(choices=["NORMAL", "HIGH", "CRITICAL"], default="NORMAL")
     series_ids = serializers.ListField(child=serializers.UUIDField(), min_length=1, max_length=2, required=False)
@@ -45,16 +43,14 @@ class AnalysisCreateSerializer(serializers.Serializer):
         routing = AIRoutingConfigVersion.objects.filter(
             analysis_type=attrs["analysis_type"], is_active=True
         ).select_related("target_model_version__model").order_by("-created_at").first()
-        requested_version_id = attrs.get("model_version_id")
         version = ModelVersion.objects.filter(
-            pk=requested_version_id or (routing.target_model_version_id if routing else None),
+            pk=routing.target_model_version_id if routing else None,
             is_active=True, validation_status="APPROVED"
         ).select_related("model").first()
         if version is None:
             raise serializers.ValidationError({"model_version_id": "Approved model version not found."})
         config_query = AIModelConfigVersion.objects.filter(model_version=version, is_active=True)
-        config_id = attrs.get("model_config_version_id")
-        config = config_query.filter(pk=config_id).first() if config_id else config_query.order_by("-created_at").first()
+        config = config_query.order_by("-created_at").first()
         if config is None:
             raise serializers.ValidationError({"model_config_version_id": "Active model config not found."})
         study = ImagingStudy.objects.filter(pk=attrs["study_id"], status="AVAILABLE").first()

@@ -144,3 +144,19 @@ class MLModelAdminAPITests(APITestCase):
         self.approved.refresh_from_db()
         self.assertFalse(self.previous_routing.is_active)
         self.assertTrue(self.approved.is_active)
+        self.assertEqual(
+            AIRoutingConfigVersion.objects.filter(
+                modality="MRA",
+                analysis_type="ANEURYSM",
+                is_active=True,
+            ).count(),
+            1,
+        )
+        self.assertEqual(
+            AIRoutingConfigVersion.objects.get(
+                modality="MRA",
+                analysis_type="ANEURYSM",
+                is_active=True,
+            ).target_model_version_id,
+            self.approved.id,
+        )

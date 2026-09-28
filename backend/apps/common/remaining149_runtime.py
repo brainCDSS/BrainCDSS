@@ -7719,6 +7719,7 @@ from rest_framework.response import Response as _medm_Response
 
 from apps.medications.models import (
     Medication as _MEDMMedication,
+    MedicationDiseaseGroup as _MEDMMedicationDiseaseGroup,
 )
 
 from apps.medication_safety.models import (
@@ -7895,6 +7896,10 @@ def _medm_list(
         or ""
     ).strip()
 
+    disease_group = str(
+        request.query_params.get("disease_group", "") or ""
+    ).strip().upper()
+
     if len(search) > 200:
         return _medm_error(
             "INVALID_QUERY",
@@ -7906,6 +7911,12 @@ def _medm_list(
             "INVALID_QUERY",
             "dosage_form must be <= 50 characters.",
         )
+
+    allowed_disease_groups = {
+        choice for choice, _label in _MEDMMedicationDiseaseGroup.DiseaseGroup.choices
+    }
+    if disease_group and disease_group not in allowed_disease_groups:
+        return _medm_error("INVALID_QUERY", "Unsupported disease_group.")
 
     try:
         is_active = _medm_bool(
@@ -7963,6 +7974,12 @@ def _medm_list(
             dosage_form__iexact=
                 dosage_form
         )
+
+    if disease_group:
+        queryset = queryset.filter(
+            disease_groups__disease_group=disease_group,
+            disease_groups__is_active=True,
+        ).distinct()
 
     queryset = queryset.order_by(
         "medication_name",

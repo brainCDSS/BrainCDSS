@@ -7,12 +7,16 @@ import {
   getMLModelOverview,
   retireMLModelVersion,
   syncMLflowModelVersions,
+  validateMLModelVersion,
 } from "./api";
-import type { MLModelOverview, MLModelVersionSummary, MLflowSyncResult } from "./types";
+import { ApiRequestError } from "../../api/client";
+import type { MLModelOverview, MLModelVersionSummary, MLflowSyncResult, MLValidationCheck } from "./types";
 import "./admin.css";
 
 type VersionFilter = "ALL" | MLModelVersionSummary["validation_status"] | "ACTIVE";
 type DetailModal = "run" | "workflow" | "routing" | null;
+
+const mlflowUiUrl = import.meta.env.VITE_MLFLOW_UI_URL?.trim();
 
 const statusLabel: Record<MLModelVersionSummary["validation_status"], string> = {
   DRAFT: "DRAFT",
@@ -34,24 +38,111 @@ function formatDate(value: string) {
 }
 
 function metricEntries(metrics: Record<string, unknown>) {
+  const priority = [
+    "standard.dice", "val_macro_dice_positive", "val_lesion_recall",
+    "val_lesion_precision", "val_lesion_f1", "val_voxel_recall",
+    "val_voxel_precision", "val_small_lesion_recall", "val_small_lesion_dice",
+    "standard.lesion_recall", "standard.lesion_precision", "standard.lesion_f1",
+    "standard.voxel_recall", "standard.voxel_precision", "standard.fp_per_case",
+    "val_fp_per_scan", "val_negative_case_fp_rate",
+  ];
+  const priorityIndex = new Map(priority.map((key, index) => [key, index]));
   return Object.entries(metrics)
-    .filter(([key, value]) => key !== "_mlflow" && (typeof value === "number" || typeof value === "string"))
-    .slice(0, 6);
+    .filter(([key, value]) => key !== "_mlflow" && key !== "epochs" && key !== "val_epoch" && key !== "val_positive_cases" && (typeof value === "number" || typeof value === "string"))
+    .sort(([left], [right]) => (priorityIndex.get(left) ?? 999) - (priorityIndex.get(right) ?? 999))
+    .slice(0, 8);
+}
+
+function trainingEntries(metrics: Record<string, unknown>) {
+  return ["epochs", "val_epoch", "val_positive_cases"]
+    .filter((key) => metrics[key] !== undefined)
+    .map((key) => [key, metrics[key]] as [string, unknown]);
+}
+
+const metricLabels: Record<string, string> = {
+  epochs: "학습 Epoch",
+  val_epoch: "선택 Epoch",
+  "standard.dice": "Dice",
+  val_macro_dice_positive: "양성 Dice",
+  val_positive_cases: "양성 Case",
+  val_lesion_recall: "병변 Recall",
+  val_lesion_precision: "병변 Precision",
+  val_lesion_f1: "병변 F1",
+  val_voxel_recall: "Voxel Recall",
+  val_voxel_precision: "Voxel Precision",
+  val_small_lesion_recall: "소병변 Recall",
+  val_small_lesion_dice: "소병변 Dice",
+  val_fp_per_scan: "Scan당 FP",
+  val_negative_case_fp_rate: "음성 FP 비율",
+};
+
+function metricLabel(key: string) {
+  return metricLabels[key] ?? key.replaceAll("_", " ");
+}
+
+function metricValue(value: unknown) {
+  if (typeof value !== "number") return displayValue(value);
+  if (Number.isInteger(value)) return value.toLocaleString("ko-KR");
+  return value.toLocaleString("ko-KR", { maximumFractionDigits: 4 });
+}
+
+function modelModality(model: MLModelOverview["models"][number]) {
+  if (model.display_name.toUpperCase().includes("MRA") || model.disease_scope === "ANEURYSM") return "MRA";
+  if (model.display_name.toUpperCase().includes("DWI") || model.display_name.toUpperCase().includes("MRI")) return "MRI";
+  return model.supported_modalities?.join("/") || "AI";
+}
+
+function modelClinicalName(model: MLModelOverview["models"][number]) {
+  const name = model.display_name.toUpperCase();
+  if (model.disease_scope === "ANEURYSM" || name.includes("ANEURYSM")) return "뇌동맥류";
+  if (model.disease_scope.includes("HEMORRH") || name.includes("HEMORRH")) return "뇌출혈";
+  if (model.disease_scope === "ISCHEMIC_STROKE" || model.display_name.toUpperCase().includes("ISCHEMIC")) return "뇌경색";
+  return model.display_name;
+}
+
+function versionDisplayName(version: MLModelVersionSummary) {
+  return version.experiment_id || mlflowMetadata(version.performance_metrics).experimentId || `Registry v${version.mlflow_model_version}`;
 }
 
 function mlflowMetadata(metrics: Record<string, unknown>) {
   const raw = metrics._mlflow;
   if (!raw || typeof raw !== "object") {
-    return { params: {} as Record<string, unknown>, tags: {} as Record<string, unknown> };
+    return {
+      params: {} as Record<string, unknown>,
+      tags: {} as Record<string, unknown>,
+      experimentId: "", modelBundleUri: "", manifestUri: "", checkpointUri: "",
+    };
   }
   const metadata = raw as Record<string, unknown>;
   const params = metadata.params && typeof metadata.params === "object"
     ? metadata.params as Record<string, unknown>
     : {};
-  const tags = metadata.tags && typeof metadata.tags === "object"
-    ? metadata.tags as Record<string, unknown>
-    : {};
-  return { params, tags };
+  const tagGroups = metadata.tags && typeof metadata.tags === "object"
+    ? metadata.tags as Record<string, unknown> : {};
+  const runTags = tagGroups.run && typeof tagGroups.run === "object"
+    ? tagGroups.run as Record<string, unknown> : {};
+  const versionTags = tagGroups.model_version && typeof tagGroups.model_version === "object"
+    ? tagGroups.model_version as Record<string, unknown> : {};
+  const tags = { ...runTags, ...versionTags };
+  const text = (key: string) => typeof metadata[key] === "string" ? metadata[key] as string : "";
+  const tagText = (key: string) => typeof tags[key] === "string" ? tags[key] as string : "";
+  return {
+    params,
+    tags,
+    experimentId: text("experiment_id") || tagText("experiment_id"),
+    modelBundleUri: text("model_bundle_uri") || tagText("model_bundle_uri"),
+    manifestUri: text("manifest_uri") || tagText("manifest_uri"),
+    checkpointUri: text("checkpoint_uri") || tagText("checkpoint_uri"),
+  };
+}
+
+const visibleTagKeys = [
+  "analysis_type", "modality", "architecture", "dataset", "framework",
+  "experiment_status", "lifecycle_status", "checkpoint_name", "source_git_commit",
+];
+
+function tagEntries(tags: Record<string, unknown>) {
+  return visibleTagKeys.filter((key) => tags[key] !== undefined).map((key) => [key, tags[key]] as const);
 }
 
 function displayValue(value: unknown) {
@@ -75,6 +166,8 @@ export default function MLManagementPage() {
   const [routingTargetId, setRoutingTargetId] = useState("");
   const [routingReason, setRoutingReason] = useState("");
   const [syncResult, setSyncResult] = useState<MLflowSyncResult | null>(null);
+  const [validationChecks, setValidationChecks] = useState<MLValidationCheck[] | null>(null);
+  const [validationThreshold, setValidationThreshold] = useState("0.5");
 
   const load = async () => {
     setLoading(true);
@@ -191,6 +284,57 @@ export default function MLManagementPage() {
     });
   };
 
+  const validateSelectedVersion = async () => {
+    if (!selectedVersion) return;
+    const reason = requestReason("기술 검증 실행 사유를 입력하세요.");
+    if (!reason) return;
+    const threshold = Number(validationThreshold);
+    if (!Number.isFinite(threshold) || threshold < 0 || threshold > 1) {
+      setError("운영 threshold는 0~1 사이 숫자로 입력해 주세요.");
+      return;
+    }
+    setWorkingId(selectedVersion.version_id);
+    setError(null);
+    setValidationChecks(null);
+    try {
+      const result = await validateMLModelVersion(selectedVersion.version_id, reason, threshold);
+      setValidationChecks(result.checks);
+      await load();
+    } catch (validationError) {
+      if (validationError instanceof ApiRequestError) {
+        try {
+          const payload = JSON.parse(validationError.detail) as { checks?: MLValidationCheck[] };
+          if (Array.isArray(payload.checks)) {
+            setValidationChecks(payload.checks);
+            return;
+          }
+        } catch { /* Use the generic message below. */ }
+      }
+      setError("기술 검증을 실행하지 못했습니다. 서버 연결과 관리자 권한을 확인해 주세요.");
+    } finally {
+      setWorkingId(null);
+    }
+  };
+
+  const openWorkflow = (version: MLModelVersionSummary) => {
+    const params = mlflowMetadata(version.performance_metrics).params;
+    const threshold = Number(params.threshold);
+    setValidationThreshold(Number.isFinite(threshold) && threshold >= 0 && threshold <= 1 ? String(threshold) : "0.5");
+    setValidationChecks(null);
+    setDetailModal("workflow");
+  };
+
+  const openRoutingForVersion = (version: MLModelVersionSummary) => {
+    const tags = mlflowMetadata(version.performance_metrics).tags;
+    const modality = String(tags.modality || "MR").toUpperCase();
+    setRoutingTargetId(version.version_id);
+    setRoutingModality(modality === "CT" ? "CT" : modality === "MRA" ? "MRA" : "MR");
+    setRoutingAnalysisType(String(tags.analysis_type || ""));
+    setRoutingVersion(`${versionDisplayName(version).toLowerCase()}-route`);
+    setRoutingReason("");
+    setDetailModal("routing");
+  };
+
   const filters: Array<{ key: VersionFilter; label: string }> = [
     { key: "ALL", label: "전체 " + selectedVersions.length },
     { key: "DRAFT", label: "DRAFT " + selectedVersions.filter((item) => item.validation_status === "DRAFT").length },
@@ -202,7 +346,8 @@ export default function MLManagementPage() {
   const metrics = selectedVersion ? metricEntries(selectedVersion.performance_metrics) : [];
   const metadata = selectedVersion
     ? mlflowMetadata(selectedVersion.performance_metrics)
-    : { params: {}, tags: {} };
+    : { params: {}, tags: {}, experimentId: "", modelBundleUri: "", manifestUri: "", checkpointUri: "" };
+  const training = selectedVersion ? trainingEntries(selectedVersion.performance_metrics) : [];
 
   const workflowIndex = selectedVersionIsRouted
     ? 3
@@ -226,6 +371,15 @@ export default function MLManagementPage() {
         <p>MLflow Registry 동기화부터 검증·승인·운영 라우팅까지 한 화면에서 관리합니다.</p>
       </div>
       <div className="ml-header-actions">
+        {mlflowUiUrl && <a
+          className="admin-action"
+          href={mlflowUiUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="인증된 MLflow 원본 화면을 새 탭에서 엽니다."
+        >
+          MLflow 원본 열기
+        </a>}
         <button
           type="button"
           className="admin-action admin-action--primary"
@@ -289,9 +443,9 @@ export default function MLManagementPage() {
                   setVersionFilter("ALL");
                 }}
               >
-                <span>{model.supported_modalities?.join("/") || "AI"}</span>
-                <strong>{model.display_name}</strong>
-                <small>{model.code}</small>
+                <span>{modelModality(model)}</span>
+                <strong>{modelClinicalName(model)}</strong>
+                <small>{model.display_name} · {model.code}</small>
                 <em>버전 {versions.length} · 운영 {activeCount}</em>
               </button>;
             })}
@@ -302,7 +456,7 @@ export default function MLManagementPage() {
           <div className="ml-compact-title ml-version-panel__title">
             <div>
               <strong>모델 버전</strong>
-              <span>{selectedModel?.display_name ?? "-"}</span>
+                <span>{selectedModel ? `${modelClinicalName(selectedModel)} · ${selectedModel.display_name}` : "-"}</span>
             </div>
           </div>
 
@@ -340,8 +494,8 @@ export default function MLManagementPage() {
                     onClick={() => setSelectedVersionId(version.version_id)}
                   >
                     <td>
-                      <strong>{version.version}</strong>
-                      <small>MLflow v{version.mlflow_model_version || "-"}</small>
+                      <strong>{versionDisplayName(version)}</strong>
+                      <small>Registry v{version.mlflow_model_version || "-"} · DB {version.version}</small>
                     </td>
                     <td>
                       <strong className="ml-run-id-cell">{version.mlflow_run_id || "-"}</strong>
@@ -352,8 +506,8 @@ export default function MLManagementPage() {
                       {version.is_active && <span className="ml-status is-active">운영</span>}
                     </td>
                     <td>{metricEntries(version.performance_metrics).slice(0, 2).map(([key, value]) => (
-                      <small key={key}>{key}: {displayValue(value)}</small>
-                    ))}{metricEntries(version.performance_metrics).length === 0 && "-"}</td>
+                      <small key={key}>{metricLabel(key)}: {metricValue(value)}</small>
+                    ))}{metricEntries(version.performance_metrics).length === 0 && <small className="ml-metric-empty">성능 지표 미등록</small>}</td>
                     <td>{formatDate(version.created_at)}</td>
                     <td onClick={(event) => event.stopPropagation()}>
                       <div className="ml-inline-actions">
@@ -377,7 +531,7 @@ export default function MLManagementPage() {
                             if (reason) void run(version.version_id, () => retireMLModelVersion(version.version_id, reason));
                           }}
                         >
-                          종료
+                          사용 종료
                         </button>}
                       </div>
                     </td>
@@ -401,34 +555,33 @@ export default function MLManagementPage() {
           {selectedVersion && <div className="ml-version-detail__body">
             <div className="ml-detail-title ml-detail-title--compact">
               <div>
-                <strong>{selectedVersion.version}</strong>
-                <span>{selectedVersion.model_name}</span>
+                <strong>{versionDisplayName(selectedVersion)}</strong>
+                <span>{selectedVersion.model_name} · Registry v{selectedVersion.mlflow_model_version}</span>
               </div>
               {selectedVersion.is_active && <span className="ml-status is-active">운영 중</span>}
             </div>
 
             <dl className="ml-detail-list ml-detail-list--compact">
               <div><dt>상태</dt><dd>{statusDescription[selectedVersion.validation_status]}</dd></div>
-              <div><dt>MLflow 모델</dt><dd>{selectedVersion.mlflow_registered_model_name || "-"}</dd></div>
-              <div><dt>MLflow Version</dt><dd>{selectedVersion.mlflow_model_version || "-"}</dd></div>
-              <div><dt>Run ID</dt><dd className="ml-mono ml-break">{selectedVersion.mlflow_run_id || "-"}</dd></div>
-              <div><dt>Artifact</dt><dd className="ml-mono ml-break">{selectedVersion.artifact_uri || "-"}</dd></div>
+              <div><dt>실험 ID</dt><dd><strong>{versionDisplayName(selectedVersion)}</strong></dd></div>
+              <div><dt>Registry</dt><dd>{selectedVersion.mlflow_registered_model_name || "-"} · v{selectedVersion.mlflow_model_version || "-"}</dd></div>
+              <div><dt>Run ID</dt><dd className="ml-mono ml-ellipsis" title={selectedVersion.mlflow_run_id}>{selectedVersion.mlflow_run_id || "-"}</dd></div>
             </dl>
 
             <div className="ml-detail-metrics ml-detail-metrics--compact">
               {metrics.slice(0, 4).map(([key, value]) => <article key={key}>
-                <span>{key}</span>
-                <strong>{displayValue(value)}</strong>
+                <span>{metricLabel(key)}</span>
+                <strong>{metricValue(value)}</strong>
               </article>)}
-              {metrics.length === 0 && <p className="ml-section-caption">동기화된 성능 지표가 없습니다.</p>}
+              {metrics.length === 0 && <p className="ml-section-caption">평가용 성능 지표가 등록되지 않았습니다.</p>}
             </div>
 
             <div className="ml-detail-actions">
               <button type="button" className="admin-action admin-action--primary" onClick={() => setDetailModal("run")}>
-                Run 상세
+                상세정보
               </button>
-              <button type="button" className="admin-action" onClick={() => setDetailModal("workflow")}>
-                검증·승인
+              <button type="button" className="admin-action" onClick={() => openWorkflow(selectedVersion)}>
+                검증 · 승인
               </button>
             </div>
           </div>}
@@ -440,48 +593,60 @@ export default function MLManagementPage() {
       <section className="admin-modal ml-run-modal" role="dialog" aria-modal="true" aria-labelledby="ml-run-title" onMouseDown={(event) => event.stopPropagation()}>
         <header className="admin-modal__header">
           <div>
-            <h3 id="ml-run-title">MLflow Run 상세 정보</h3>
-            <p>BrainCDSS에 동기화되어 저장된 MLflow Run 메타데이터입니다.</p>
+            <h3 id="ml-run-title">{versionDisplayName(selectedVersion)} 상세정보</h3>
+            <p>{selectedVersion.model_name} · MLflow Registry v{selectedVersion.mlflow_model_version}</p>
           </div>
           <button type="button" className="admin-action" onClick={() => setDetailModal(null)}>닫기</button>
         </header>
 
-        <dl className="ml-detail-list">
+        <dl className="ml-detail-list ml-run-identity">
+          <div><dt>실험 ID</dt><dd><strong>{versionDisplayName(selectedVersion)}</strong></dd></div>
           <div><dt>Registered Model</dt><dd>{selectedVersion.mlflow_registered_model_name || "-"}</dd></div>
-          <div><dt>Model Version</dt><dd>{selectedVersion.mlflow_model_version || "-"}</dd></div>
+          <div><dt>Registry Version</dt><dd>v{selectedVersion.mlflow_model_version || "-"}</dd></div>
           <div><dt>Run ID</dt><dd className="ml-mono">{selectedVersion.mlflow_run_id || "-"}</dd></div>
           <div><dt>Artifact URI</dt><dd className="ml-mono ml-break">{selectedVersion.artifact_uri || "-"}</dd></div>
+          <div><dt>Model Bundle</dt><dd className="ml-mono ml-break">{selectedVersion.model_bundle_uri || metadata.modelBundleUri || "-"}</dd></div>
+          <div><dt>Manifest</dt><dd className="ml-mono ml-break">{selectedVersion.manifest_uri || metadata.manifestUri || "-"}</dd></div>
+          <div><dt>Checkpoint</dt><dd className="ml-mono ml-break">{selectedVersion.checkpoint_uri || metadata.checkpointUri || "-"}</dd></div>
         </dl>
 
         <div className="ml-run-section">
-          <h4>Metrics</h4>
+          <h4>성능 지표 <span>Validation metrics</span></h4>
           <div className="ml-detail-metrics ml-detail-metrics--wide">
             {metricEntries(selectedVersion.performance_metrics).map(([key, value]) => <article key={key}>
-              <span>{key}</span>
-              <strong>{displayValue(value)}</strong>
+              <span>{metricLabel(key)}</span>
+              <strong>{metricValue(value)}</strong>
             </article>)}
-            {metricEntries(selectedVersion.performance_metrics).length === 0 && <p className="ml-section-caption">동기화된 metric이 없습니다.</p>}
+            {metrics.length === 0 && <p className="ml-section-caption">이 Run에는 평가용 성능 지표가 없습니다. Epoch 정보는 학습 정보에서 확인할 수 있습니다.</p>}
+          </div>
+        </div>
+
+        <div className="ml-run-section">
+          <h4>학습 정보 <span>Training summary</span></h4>
+          <div className="ml-training-summary">
+            {training.map(([key, value]) => <article key={key}><span>{metricLabel(key)}</span><strong>{metricValue(value)}</strong></article>)}
+            {training.length === 0 && <p className="ml-section-caption">동기화된 학습 요약이 없습니다.</p>}
           </div>
         </div>
 
         <div className="ml-run-columns">
           <div className="ml-run-section">
-            <h4>Parameters</h4>
+            <h4>학습 설정 <span>Parameters</span></h4>
             <dl className="ml-kv-list">
               {Object.entries(metadata.params).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{displayValue(value)}</dd></div>)}
               {Object.keys(metadata.params).length === 0 && <p className="ml-section-caption">동기화된 parameter가 없습니다.</p>}
             </dl>
           </div>
           <div className="ml-run-section">
-            <h4>Tags</h4>
+            <h4>모델 메타데이터 <span>Tags</span></h4>
             <dl className="ml-kv-list">
-              {Object.entries(metadata.tags).map(([key, value]) => <div key={key}><dt>{key}</dt><dd className="ml-break">{displayValue(value)}</dd></div>)}
-              {Object.keys(metadata.tags).length === 0 && <p className="ml-section-caption">동기화된 tag가 없습니다.</p>}
+              {tagEntries(metadata.tags).map(([key, value]) => <div key={key}><dt>{key}</dt><dd className="ml-break">{displayValue(value)}</dd></div>)}
+              {tagEntries(metadata.tags).length === 0 && <p className="ml-section-caption">표시할 모델 태그가 없습니다.</p>}
             </dl>
           </div>
         </div>
 
-        <p className="ml-run-note">학습 epoch별 곡선은 현재 ModelVersion 동기화 데이터에 포함되지 않습니다. 필요하면 후속 단계에서 MLflow metric history 조회 API를 추가할 수 있습니다.</p>
+        <p className="ml-run-note">현재 화면은 Registry 동기화 시점의 최종 지표를 표시합니다. Epoch별 학습 곡선은 MLflow metric history 연동 후 제공할 수 있습니다.</p>
       </section>
     </div>}
 
@@ -490,12 +655,18 @@ export default function MLManagementPage() {
         <header className="admin-modal__header">
           <div>
             <h3 id="ml-workflow-title">모델 검증·승인 프로세스</h3>
-            <p>{selectedVersion.model_name} / {selectedVersion.version}의 현재 운영 단계를 확인합니다.</p>
+            <p>{versionDisplayName(selectedVersion)} · {selectedVersion.model_name}</p>
           </div>
           <button type="button" className="admin-action" onClick={() => setDetailModal(null)}>닫기</button>
         </header>
 
         {selectedVersion.validation_status === "RETIRED" && <p className="admin-message admin-message--error">이 모델 버전은 RETIRED 상태입니다.</p>}
+
+        <section className="ml-workflow-summary">
+          <div><span>현재 상태</span><strong>{statusLabel[selectedVersion.validation_status]}</strong></div>
+          <div><span>운영 활성</span><strong>{selectedVersion.is_active ? "활성" : "비활성"}</strong></div>
+          <div><span>성능 지표</span><strong>{metrics.length ? `${metrics.length}개` : "미등록"}</strong></div>
+        </section>
 
         <ol className="ml-workflow-steps">
           {workflowSteps.map((step, index) => <li
@@ -510,7 +681,41 @@ export default function MLManagementPage() {
           </li>)}
         </ol>
 
-        <p className="ml-run-note">MLflow 동기화는 모델을 자동 승인하거나 라우팅하지 않습니다. 검증, 운영 승인, 라우팅 전환은 각각 별도 절차로 진행됩니다.</p>
+        <section className="ml-readiness-card">
+          <h4>다음 단계 안내</h4>
+          {selectedVersion.validation_status === "DRAFT" && <p>현재 버전은 기술 검증 대기 상태입니다. Artifact와 성능 기준, 입출력 계약, smoke inference 검증이 완료되어야 VALIDATED로 전환할 수 있습니다.</p>}
+          {selectedVersion.validation_status === "VALIDATED" && <p>기술 검증이 완료됐습니다. 운영 사용 승인 후 라우팅 대상으로 선택할 수 있습니다.</p>}
+          {selectedVersion.validation_status === "APPROVED" && <p>운영 사용 승인이 완료됐습니다. 라우팅 관리에서 대상 버전으로 선택해 운영 전환할 수 있습니다.</p>}
+          {selectedVersion.validation_status === "RETIRED" && <p>사용 종료된 버전으로 신규 승인이나 라우팅 전환을 할 수 없습니다.</p>}
+        </section>
+
+        {selectedVersion.validation_status === "DRAFT" && <label className="ml-validation-threshold">
+          <span>운영 Threshold</span>
+          <input type="number" min="0" max="1" step="0.01" value={validationThreshold} onChange={(event) => setValidationThreshold(event.target.value)} />
+          <small>MLflow 값이 비어 있으면 기본 제안값 0.5를 검토 후 변경하세요.</small>
+        </label>}
+
+        {validationChecks && <section className="ml-validation-results">
+          <h4>최근 기술 검증 결과</h4>
+          <ul>
+            {validationChecks.map((check) => <li className={check.passed ? "is-passed" : "is-failed"} key={check.code}>
+              <span aria-hidden="true">{check.passed ? "✓" : "!"}</span>
+              <div><strong>{check.label}</strong><p>{check.message}</p></div>
+            </li>)}
+          </ul>
+        </section>}
+
+        <div className="ml-workflow-actions">
+          {selectedVersion.validation_status === "VALIDATED" && <button type="button" className="admin-action admin-action--primary" disabled={workingId === selectedVersion.version_id} onClick={() => {
+            const reason = requestReason("사용 승인 사유를 입력하세요.");
+            if (reason) void run(selectedVersion.version_id, () => approveMLModelVersion(selectedVersion.version_id, reason));
+          }}>운영 사용 승인</button>}
+          {selectedVersion.validation_status === "DRAFT" && <button type="button" className="admin-action admin-action--primary" disabled={workingId === selectedVersion.version_id} onClick={() => void validateSelectedVersion()}>{workingId === selectedVersion.version_id ? "검증 중..." : "기술 검증 실행"}</button>}
+          {selectedVersion.validation_status === "APPROVED" && <button type="button" className="admin-action admin-action--primary" onClick={() => openRoutingForVersion(selectedVersion)}>라우팅 관리 열기</button>}
+          <button type="button" className="admin-action" onClick={() => setDetailModal(null)}>닫기</button>
+        </div>
+
+        <p className="ml-run-note">MLflow 동기화만으로 승인이나 운영 라우팅이 자동 변경되지 않습니다.</p>
       </section>
     </div>}
 

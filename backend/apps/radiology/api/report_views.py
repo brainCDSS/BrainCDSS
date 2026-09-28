@@ -103,8 +103,21 @@ class RadiologyReportCollectionView(APIView):
         study = _study_for_actor(study_id, request.user)
         if study.status != "AVAILABLE":
             raise ValidationError({"code": "STUDY_NOT_AVAILABLE", "detail": "Study must be AVAILABLE."})
-        if RadiologyReport.objects.select_for_update().filter(study=study, is_current=True, status__in=EDITABLE_STATES).exists():
-            raise ValidationError({"code": "REPORT_DRAFT_ALREADY_EXISTS", "detail": "An editable report already exists."})
+        current_report = (
+            RadiologyReport.objects.select_for_update()
+            .filter(study=study, is_current=True)
+            .first()
+        )
+        if current_report is not None:
+            if current_report.status in {"FINAL", "AMENDED"}:
+                raise ValidationError({
+                    "code": "REPORT_ALREADY_FINALIZED",
+                    "detail": "The current report is finalized. Use the amendment workflow instead.",
+                })
+            raise ValidationError({
+                "code": "REPORT_DRAFT_ALREADY_EXISTS",
+                "detail": "An editable report already exists.",
+            })
         ai_id = request.data.get("referenced_ai_analysis_id")
         analysis = None
         if ai_id:

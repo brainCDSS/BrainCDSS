@@ -43,8 +43,10 @@ export async function getActiveEncounter(patientId: string) {
     })[0] ?? null;
 }
 
-export function searchMedications(search: string) {
-  const params = new URLSearchParams({ search, is_active: "True" });
+export function searchMedications(search: string, diseaseGroup = "") {
+  const params = new URLSearchParams({ is_active: "True" });
+  if (search) params.set("search", search);
+  if (diseaseGroup) params.set("disease_group", diseaseGroup);
   return apiRequest<MedicationListResponse>(`/api/v1/medications?${params}`);
 }
 

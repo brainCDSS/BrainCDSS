@@ -14,6 +14,7 @@ import type {
   MLRoutingConfig,
   MLModelVersionSummary,
   MLflowSyncResult,
+  MLValidationResult,
 } from "./types";
 
 
@@ -146,6 +147,13 @@ export function approveMLModelVersion(versionId: string, reason: string) {
   return apiRequest<MLModelVersionSummary>(
     `/api/v1/admin/ml/model-versions/${encodeURIComponent(versionId)}/approve`,
     jsonRequest("POST", { reason, confirmation: true }),
+  );
+}
+
+export function validateMLModelVersion(versionId: string, reason: string, threshold: number) {
+  return apiRequest<MLValidationResult>(
+    `/api/v1/admin/ml/model-versions/${encodeURIComponent(versionId)}/validate`,
+    jsonRequest("POST", { reason, confirmation: true, threshold }),
   );
 }
 

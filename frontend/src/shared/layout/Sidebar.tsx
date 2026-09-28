@@ -38,8 +38,6 @@ export type SidebarMenuKey =
   | "cdss"
 
   | "consultations"
-  | "surgical-planning"
-
   | "prescriptions"
   | "notifications"
   // [추가] 관리자 화면 연결
@@ -194,7 +192,6 @@ type SidebarMenuItem =
 
    협진
      - 협진 목록
-     - 수술 · 시술 플래닝
 
    처방 / DUR
    알림 센터
@@ -336,11 +333,6 @@ const menuItems: SidebarMenuItem[] = [
         label: MENU_LABELS.consultations,
       },
 
-      {
-        key: "surgical-planning",
-
-        label: MENU_LABELS["surgical-planning"],
-      },
     ],
   },
 
@@ -418,10 +410,7 @@ function getMenuGroup(
   }
 
 
-  if (
-    menu === "consultations" ||
-    menu === "surgical-planning"
-  ) {
+  if (menu === "consultations") {
     return "consultation";
   }
 

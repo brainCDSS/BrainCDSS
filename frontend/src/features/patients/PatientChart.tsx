@@ -34,6 +34,8 @@ import type {
 } from "../consultations/types";
 import { getImagingStudies } from "../imaging/api";
 import type { ImagingStudy } from "../imaging/types";
+import { getRadiologyReport } from "../radiology/api";
+import type { RadiologyReport } from "../radiology/types";
 import ClinicalNotesReadOnly from "../clinical-notes/ClinicalNotesReadOnly";
 import { getCurrentMedications, getPatientEncounters } from "../medication-safety/api";
 import type { CurrentMedicationItem, EncounterListItem } from "../medication-safety/types";
@@ -459,7 +461,34 @@ function SummaryCards({
   vitalError: boolean;
 }) {
   const latest = studies[0];
+  const visibleReport = latest?.current_report &&
+    ["PRELIMINARY", "FINAL", "AMENDED"].includes(latest.current_report.status)
+    ? latest.current_report
+    : null;
   const consultation = consultations[0];
+  const [radiologyReport, setRadiologyReport] = useState<RadiologyReport | null>(null);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
+
+  async function openRadiologyReport() {
+    if (!visibleReport) return;
+    setReportLoading(true);
+    setReportError(null);
+    try {
+      setRadiologyReport(await getRadiologyReport(visibleReport.report_id));
+    } catch {
+      setReportError("판독문을 불러오지 못했습니다. 환자 접근 권한을 확인해 주세요.");
+    } finally {
+      setReportLoading(false);
+    }
+  }
+
+  function reportLabel(status?: string | null) {
+    if (status === "PRELIMINARY") return "예비 판독";
+    if (status === "FINAL") return "최종 판독";
+    if (status === "AMENDED") return "정정 판독";
+    return "판독 대기";
+  }
   const parsedAssessment =
     latestAssessment
       ? parseInitialAssessment(latestAssessment)
@@ -562,6 +591,26 @@ function SummaryCards({
           </div>
         )}
 
+        {latest && (
+          <div className="patient-report-status">
+            <span>영상의학과 판독</span>
+            <strong className={`is-${(visibleReport?.status ?? "pending").toLowerCase()}`}>
+              {reportLabel(visibleReport?.status)}
+            </strong>
+          </div>
+        )}
+        {visibleReport && (
+          <button
+            className="patient-report-open"
+            type="button"
+            disabled={reportLoading}
+            onClick={() => void openRadiologyReport()}
+          >
+            {reportLoading ? "불러오는 중..." : `${reportLabel(visibleReport.status)} 보기`}
+          </button>
+        )}
+        {reportError && <p className="patient-report-error">{reportError}</p>}
+
         <button
           type="button"
           onClick={() => onNavigate?.("imaging")}
@@ -618,6 +667,27 @@ function SummaryCards({
           </div>
         )}
       </article>
+      {radiologyReport && (
+        <div className="radiology-report-backdrop" role="presentation" onMouseDown={() => setRadiologyReport(null)}>
+          <section className="radiology-report-modal" role="dialog" aria-modal="true" aria-labelledby="radiology-report-title" onMouseDown={(event) => event.stopPropagation()}>
+            <header>
+              <div><span>{reportLabel(radiologyReport.status)}</span><h2 id="radiology-report-title">영상의학과 판독문</h2></div>
+              <button type="button" aria-label="닫기" onClick={() => setRadiologyReport(null)}>×</button>
+            </header>
+            <dl className="radiology-report-meta">
+              <div><dt>상태</dt><dd>{reportLabel(radiologyReport.status)}</dd></div>
+              <div><dt>확정 시각</dt><dd>{dateTime(radiologyReport.finalized_at)}</dd></div>
+              <div><dt>Critical finding</dt><dd>{radiologyReport.critical_finding ? radiologyReport.critical_level : "없음"}</dd></div>
+            </dl>
+            <div className="radiology-report-content">
+              <section><h3>소견</h3><p>{radiologyReport.findings || "기록 없음"}</p></section>
+              <section><h3>결론</h3><p>{radiologyReport.impression || "기록 없음"}</p></section>
+              <section><h3>권고사항</h3><p>{radiologyReport.recommendation || "기록 없음"}</p></section>
+            </div>
+            <footer><button type="button" onClick={() => setRadiologyReport(null)}>닫기</button></footer>
+          </section>
+        </div>
+      )}
     </section>
   );
 }

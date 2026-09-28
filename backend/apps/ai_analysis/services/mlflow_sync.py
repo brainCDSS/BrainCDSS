@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import re
 
 from django.db import transaction
 from django.utils import timezone
@@ -44,10 +45,29 @@ def _performance_metrics(record: RegistryModelVersion) -> dict[str, object]:
     return {
         **{str(key): value for key, value in record.metrics.items()},
         "_mlflow": {
+            "experiment_id": _tag_value(record, "experiment_id") or record.experiment_id,
+            "mlflow_experiment_id": record.experiment_id,
             "params": {str(key): value for key, value in record.params.items()},
             "tags": _safe_tags(record.tags),
+            "model_bundle_uri": _tag_value(record, "model_bundle_uri"),
+            "manifest_uri": _tag_value(record, "manifest_uri"),
+            "checkpoint_uri": _tag_value(record, "checkpoint_uri"),
         },
     }
+
+
+def _tag_value(record: RegistryModelVersion, key: str) -> object:
+    version_tags = record.tags.get("model_version", {})
+    run_tags = record.tags.get("run", {})
+    if isinstance(version_tags, dict) and version_tags.get(key) not in (None, ""):
+        return version_tags[key]
+    if isinstance(run_tags, dict):
+        return run_tags.get(key, "")
+    return ""
+
+
+def _normalized_identifier(value: object) -> str:
+    return re.sub(r"[^a-z0-9]", "", str(value).casefold())
 
 
 def _matching_model(record: RegistryModelVersion) -> AIModel | None:
@@ -63,10 +83,21 @@ def _matching_model(record: RegistryModelVersion) -> AIModel | None:
     if len(existing_model_ids) > 1:
         return None
 
-    candidates = list(
-        AIModel.objects.filter(code__iexact=record.registered_model_name)
-        | AIModel.objects.filter(display_name__iexact=record.registered_model_name)
-    )
+    aliases = {record.registered_model_name}
+    for tag_group in (record.tags.get("model_version", {}), record.tags.get("run", {})):
+        if isinstance(tag_group, dict):
+            aliases.update(
+                str(tag_group.get(key, ""))
+                for key in ("analysis_type", "model_name")
+                if tag_group.get(key)
+            )
+    normalized_aliases = {_normalized_identifier(alias) for alias in aliases}
+    candidates = [
+        model
+        for model in AIModel.objects.all()
+        if _normalized_identifier(model.code) in normalized_aliases
+        or _normalized_identifier(model.display_name) in normalized_aliases
+    ]
     return candidates[0] if len(candidates) == 1 else None
 
 
@@ -77,7 +108,9 @@ def _metadata(record: RegistryModelVersion) -> dict[str, object]:
         "mlflow_run": record.run_id,
         "artifact_uri": record.artifact_uri,
         "container_image_digest": str(tags.get("container_image_digest", "")),
-        "code_commit_sha": str(tags.get("code_commit_sha", "")),
+        "code_commit_sha": str(
+            tags.get("code_commit_sha", "") or tags.get("source_git_commit", "")
+        ),
         "performance_metrics": _performance_metrics(record),
     }
 

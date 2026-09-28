@@ -63,7 +63,6 @@ const NEW_WORK_GROUPS: Array<{
   {
     label: "기타",
     items: [
-      { key: "surgical-planning", icon: "○" },
       { key: "prescriptions", icon: "+" },
       { key: "notifications", icon: "!" },
     ],

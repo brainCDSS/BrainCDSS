@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import os
+import re
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request as UrlRequest, urlopen
@@ -38,6 +40,11 @@ _MLFLOW_PROXY_SESSION_SECONDS = 15 * 60
 _MLFLOW_PROXY_RESPONSE_HEADERS = {
     "cache-control", "content-disposition", "content-language", "content-type",
     "etag", "last-modified", "vary",
+}
+_MLFLOW_READ_ONLY_POST_PATHS = {
+    "search",
+    "search-datasets",
+    "get-experiment",
 }
 
 
@@ -78,6 +85,29 @@ def _proxy_response_headers(upstream_headers, response) -> None:
             response[name] = value
 
 
+def _is_read_only_mlflow_post(request, proxy_path: str) -> bool:
+    """Allow MLflow's query-style POSTs while rejecting state changes."""
+
+    normalized_path = proxy_path.strip("/").lower()
+    if normalized_path.endswith("graphql"):
+        try:
+            payload = json.loads(request.body)
+        except (TypeError, UnicodeDecodeError, json.JSONDecodeError):
+            return False
+        query = payload.get("query") if isinstance(payload, dict) else None
+        if not isinstance(query, str):
+            return False
+        return bool(
+            re.match(r"^\s*(query\b|\{)", query, flags=re.IGNORECASE)
+            and not re.search(r"\bmutation\b", query, flags=re.IGNORECASE)
+        )
+    return (
+        normalized_path in _MLFLOW_READ_ONLY_POST_PATHS
+        or normalized_path.endswith("/search")
+        or normalized_path.endswith("/search-datasets")
+    )
+
+
 class MLflowProxySessionView(APIView):
     """Issue a short-lived, HttpOnly session for the browser-only MLflow proxy."""
 
@@ -113,17 +143,21 @@ class MLflowReadOnlyProxyView(APIView):
 
     permission_classes = [AllowAny]
 
-    def get(self, request, proxy_path=""):
+    def _forward(self, request, proxy_path: str, *, method: str, data: bytes | None = None):
         if _mlflow_proxy_user(request) is None:
             return Response({"code": "SYSTEM_ADMIN_REQUIRED"}, status=status.HTTP_403_FORBIDDEN)
         try:
+            headers = {
+                "Authorization": f"Bearer {fetch_mlflow_cloud_run_id_token()}",
+                "User-Agent": "BrainOn-MLflow-ReadOnly-Proxy/1.0",
+            }
+            if data is not None:
+                headers["Content-Type"] = request.content_type or "application/json"
             upstream_request = UrlRequest(
                 _mlflow_proxy_url(proxy_path, request.META.get("QUERY_STRING", "")),
-                headers={
-                    "Authorization": f"Bearer {fetch_mlflow_cloud_run_id_token()}",
-                    "User-Agent": "BrainOn-MLflow-ReadOnly-Proxy/1.0",
-                },
-                method="GET",
+                data=data,
+                headers=headers,
+                method=method,
             )
             upstream = urlopen(
                 upstream_request,
@@ -151,8 +185,13 @@ class MLflowReadOnlyProxyView(APIView):
         response["Cache-Control"] = "no-store"
         return response
 
+    def get(self, request, proxy_path=""):
+        return self._forward(request, proxy_path, method="GET")
+
     def post(self, request, proxy_path=""):
-        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
+        if not _is_read_only_mlflow_post(request, proxy_path):
+            return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
+        return self._forward(request, proxy_path, method="POST", data=request.body)
 
     put = post
     patch = post

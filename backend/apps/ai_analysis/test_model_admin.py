@@ -203,3 +203,52 @@ class MLModelAdminAPITests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(b"".join(response.streaming_content), b"<html>MLflow</html>")
         self.assertEqual(urlopen_mock.call_args.args[0].full_url, "https://mlflow.example/static-files/main.js")
+
+    def test_mlflow_proxy_allows_query_posts_but_rejects_mutations(self):
+        self.client.post("/api/v1/admin/ml/mlflow/session")
+
+        class UpstreamResponse:
+            status = 200
+
+            def __init__(self):
+                self.headers = Message()
+                self.headers["Content-Type"] = "application/json"
+                self.sent = False
+
+            def read(self, _size):
+                if self.sent:
+                    return b""
+                self.sent = True
+                return b'{"data":{}}'
+
+            def close(self):
+                return None
+
+        with patch.dict(
+            "os.environ",
+            {"MLFLOW_TRACKING_URI": "https://mlflow.example"},
+            clear=False,
+        ), patch(
+            "apps.ai_analysis.api.model_admin.fetch_mlflow_cloud_run_id_token",
+            return_value="test-id-token",
+        ), patch(
+            "apps.ai_analysis.api.model_admin.urlopen",
+            return_value=UpstreamResponse(),
+        ) as urlopen_mock:
+            response = self.client.post(
+                "/api/v1/admin/ml/mlflow/graphql",
+                {"query": "query { experiments { id } }"},
+                format="json",
+            )
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(b"".join(response.streaming_content), b'{"data":{}}')
+            self.assertEqual(urlopen_mock.call_args.args[0].get_method(), "POST")
+
+            response = self.client.post(
+                "/api/v1/admin/ml/mlflow/graphql",
+                {"query": "mutation { deleteExperiment(id: \"x\") }"},
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, 405)

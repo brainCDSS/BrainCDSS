@@ -50,6 +50,16 @@ def _configured_value(name: str) -> str:
     return value
 
 
+def fetch_mlflow_cloud_run_id_token() -> str:
+    """Return a short-lived ID token for the private MLflow Cloud Run service."""
+
+    audience = _configured_value("MLFLOW_CLOUD_RUN_AUDIENCE")
+    try:
+        return id_token.fetch_id_token(GoogleAuthRequest(), audience)
+    except Exception as exc:  # google-auth has several transport-specific errors
+        raise MLflowRegistryError("could not obtain Cloud Run ID token") from exc
+
+
 def _to_datetime(timestamp_ms: object) -> datetime:
     try:
         return datetime.fromtimestamp(float(timestamp_ms) / 1000, tz=timezone.utc)
@@ -62,11 +72,7 @@ def _authorized_mlflow_client() -> Iterator[MlflowClient]:
     """Yield an MLflow client with a freshly minted Cloud Run ID token."""
 
     tracking_uri = _configured_value("MLFLOW_TRACKING_URI").rstrip("/")
-    audience = _configured_value("MLFLOW_CLOUD_RUN_AUDIENCE")
-    try:
-        token = id_token.fetch_id_token(GoogleAuthRequest(), audience)
-    except Exception as exc:  # google-auth has several transport-specific errors
-        raise MLflowRegistryError("could not obtain Cloud Run ID token") from exc
+    token = fetch_mlflow_cloud_run_id_token()
 
     with _MLFLOW_TOKEN_LOCK:
         previous_token = os.environ.get("MLFLOW_TRACKING_TOKEN")

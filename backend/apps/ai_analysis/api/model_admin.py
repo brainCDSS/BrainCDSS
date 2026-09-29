@@ -1,15 +1,26 @@
 """System-admin model routing operations backed by existing AI tables."""
 
+from __future__ import annotations
+
+import os
+from urllib.error import HTTPError, URLError
+from urllib.parse import quote
+from urllib.request import Request as UrlRequest, urlopen
+
+from django.conf import settings
+from django.core import signing
 from django.db import transaction
+from django.http import HttpResponse, StreamingHttpResponse
 from django.utils import timezone
 from rest_framework import serializers, status
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.accounts.models import RoleCode, User
 from apps.ai_analysis.models import AIModel, AIModelConfigVersion, AIRoutingConfigVersion, ModelVersion
-from apps.ai_analysis.services.mlflow_registry import MLflowRegistryError
+from apps.ai_analysis.services.mlflow_registry import MLflowRegistryError, fetch_mlflow_cloud_run_id_token
 from apps.ai_analysis.services.mlflow_sync import MLflowModelVersionSyncService
 from apps.ai_analysis.services.model_validation import MLModelVersionValidationService
 from apps.audit.services.audit_event import record_audit_event
@@ -18,6 +29,134 @@ from apps.audit.services.audit_event import record_audit_event
 def _require_system_admin(request):
     if getattr(getattr(request.user, "role", None), "code", None) != "SYSTEM_ADMIN":
         raise PermissionDenied({"code": "SYSTEM_ADMIN_REQUIRED"})
+
+
+_MLFLOW_PROXY_COOKIE = "brainon_mlflow_proxy"
+_MLFLOW_PROXY_SALT = "brainon.mlflow.proxy.v1"
+_MLFLOW_PROXY_PREFIX = "/api/v1/admin/ml/mlflow/"
+_MLFLOW_PROXY_SESSION_SECONDS = 15 * 60
+_MLFLOW_PROXY_RESPONSE_HEADERS = {
+    "cache-control", "content-disposition", "content-language", "content-type",
+    "etag", "last-modified", "vary",
+}
+
+
+def _mlflow_proxy_session(user: User) -> str:
+    return signing.dumps({"user_id": str(user.id)}, salt=_MLFLOW_PROXY_SALT, compress=True)
+
+
+def _mlflow_proxy_user(request) -> User | None:
+    token = request.COOKIES.get(_MLFLOW_PROXY_COOKIE, "")
+    if not token:
+        return None
+    try:
+        payload = signing.loads(token, salt=_MLFLOW_PROXY_SALT, max_age=_MLFLOW_PROXY_SESSION_SECONDS)
+    except signing.BadSignature:
+        return None
+    user_id = payload.get("user_id") if isinstance(payload, dict) else None
+    if not user_id:
+        return None
+    return (
+        User.objects.select_related("role")
+        .filter(pk=user_id, is_active=True, role__code=RoleCode.SYSTEM_ADMIN, role__is_active=True)
+        .first()
+    )
+
+
+def _mlflow_proxy_url(proxy_path: str, query_string: str) -> str:
+    tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "").strip().rstrip("/")
+    if not tracking_uri:
+        raise MLflowRegistryError("MLFLOW_TRACKING_URI is not configured")
+    safe_path = quote(proxy_path.lstrip("/"), safe="/@:+,;=-._~")
+    url = f"{tracking_uri}/{safe_path}"
+    return f"{url}?{query_string}" if query_string else url
+
+
+def _proxy_response_headers(upstream_headers, response) -> None:
+    for name, value in upstream_headers.items():
+        if name.lower() in _MLFLOW_PROXY_RESPONSE_HEADERS:
+            response[name] = value
+
+
+class MLflowProxySessionView(APIView):
+    """Issue a short-lived, HttpOnly session for the browser-only MLflow proxy."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        _require_system_admin(request)
+        response = Response(status=status.HTTP_204_NO_CONTENT)
+        response.set_cookie(
+            _MLFLOW_PROXY_COOKIE,
+            _mlflow_proxy_session(request.user),
+            max_age=_MLFLOW_PROXY_SESSION_SECONDS,
+            httponly=True,
+            secure=not settings.DEBUG,
+            samesite="Strict",
+            path=_MLFLOW_PROXY_PREFIX,
+        )
+        response["Cache-Control"] = "no-store"
+        record_audit_event(
+            source_service="backend.ai_analysis",
+            action="MLFLOW_UI_SESSION_OPENED",
+            resource_type="MLflowUI",
+            resource_id=request.user.id,
+            outcome="SUCCESS",
+            request=request,
+            reason="SYSTEM_ADMIN MLflow read-only UI access",
+        )
+        return response
+
+
+class MLflowReadOnlyProxyView(APIView):
+    """Serve private MLflow read-only pages to active BrainOn system administrators."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request, proxy_path=""):
+        if _mlflow_proxy_user(request) is None:
+            return Response({"code": "SYSTEM_ADMIN_REQUIRED"}, status=status.HTTP_403_FORBIDDEN)
+        try:
+            upstream_request = UrlRequest(
+                _mlflow_proxy_url(proxy_path, request.META.get("QUERY_STRING", "")),
+                headers={
+                    "Authorization": f"Bearer {fetch_mlflow_cloud_run_id_token()}",
+                    "User-Agent": "BrainOn-MLflow-ReadOnly-Proxy/1.0",
+                },
+                method="GET",
+            )
+            upstream = urlopen(
+                upstream_request,
+                timeout=int(os.getenv("MLFLOW_UI_PROXY_TIMEOUT_SECONDS", "30")),
+            )
+        except HTTPError as error:
+            response = HttpResponse(error.read(), status=error.code)
+            _proxy_response_headers(error.headers, response)
+            return response
+        except (MLflowRegistryError, URLError, OSError, ValueError):
+            return Response({"code": "MLFLOW_UNAVAILABLE"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        def body_iterator():
+            try:
+                while chunk := upstream.read(64 * 1024):
+                    yield chunk
+            finally:
+                upstream.close()
+
+        response = StreamingHttpResponse(
+            body_iterator(), status=upstream.status,
+            content_type=upstream.headers.get("Content-Type"),
+        )
+        _proxy_response_headers(upstream.headers, response)
+        response["Cache-Control"] = "no-store"
+        return response
+
+    def post(self, request, proxy_path=""):
+        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    put = post
+    patch = post
+    delete = post
 
 
 def _model_version_payload(version):

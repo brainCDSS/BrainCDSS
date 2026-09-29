@@ -4,6 +4,7 @@ import {
   activateMLRoutingConfig,
   approveMLModelVersion,
   createMLRoutingConfig,
+  createMLflowUiSession,
   getMLModelOverview,
   retireMLModelVersion,
   syncMLflowModelVersions,
@@ -16,7 +17,7 @@ import "./admin.css";
 type VersionFilter = "ALL" | MLModelVersionSummary["validation_status"] | "ACTIVE";
 type DetailModal = "run" | "workflow" | "routing" | null;
 
-const mlflowUiUrl = import.meta.env.VITE_MLFLOW_UI_URL?.trim();
+const mlflowUiProxyUrl = "/api/v1/admin/ml/mlflow/";
 
 const statusLabel: Record<MLModelVersionSummary["validation_status"], string> = {
   DRAFT: "DRAFT",
@@ -268,6 +269,26 @@ export default function MLManagementPage() {
     }
   };
 
+  const openMLflowUi = async () => {
+    const popup = window.open("about:blank", "_blank");
+    if (popup) popup.opener = null;
+    setWorkingId("mlflow-ui");
+    setError(null);
+    try {
+      await createMLflowUiSession();
+      if (popup) {
+        popup.location.replace(mlflowUiProxyUrl);
+      } else {
+        window.location.assign(mlflowUiProxyUrl);
+      }
+    } catch {
+      popup?.close();
+      setError("MLflow 화면 접근 권한을 확인하지 못했습니다. 관리자 로그인과 백엔드 연결을 확인해주세요.");
+    } finally {
+      setWorkingId(null);
+    }
+  };
+
   const submitRouting = async () => {
     if (!routingVersion.trim() || !routingAnalysisType.trim() || !routingTargetId || !routingReason.trim()) {
       setError("라우팅 버전, 분석 유형, 대상 모델 버전, 변경 사유를 모두 입력해 주세요.");
@@ -375,15 +396,15 @@ export default function MLManagementPage() {
         <p>MLflow Registry 동기화부터 검증·승인·운영 라우팅까지 한 화면에서 관리합니다.</p>
       </div>
       <div className="ml-header-actions">
-        {mlflowUiUrl && <a
+        <button
+          type="button"
           className="admin-action"
-          href={mlflowUiUrl}
-          target="_blank"
-          rel="noopener noreferrer"
+          disabled={workingId === "mlflow-ui"}
+          onClick={() => void openMLflowUi()}
           title="인증된 MLflow 원본 화면을 새 탭에서 엽니다."
         >
           MLflow 원본 열기
-        </a>}
+        </button>
         <button
           type="button"
           className="admin-action admin-action--primary"

@@ -1,6 +1,7 @@
 from django.utils import timezone
 from rest_framework.test import APITestCase
 from unittest.mock import patch
+from email.message import Message
 
 from apps.accounts.models import Role, RoleCode, User
 from apps.ai_analysis.models import AIModel, AIModelConfigVersion, AIRoutingConfigVersion, ModelVersion
@@ -160,3 +161,45 @@ class MLModelAdminAPITests(APITestCase):
             ).target_model_version_id,
             self.approved.id,
         )
+
+    def test_mlflow_proxy_requires_a_short_lived_admin_session(self):
+        response = self.client.get("/api/v1/admin/ml/mlflow/")
+        self.assertEqual(response.status_code, 403)
+
+        response = self.client.post("/api/v1/admin/ml/mlflow/session")
+        self.assertEqual(response.status_code, 204)
+        self.assertIn("brainon_mlflow_proxy", response.cookies)
+
+        class UpstreamResponse:
+            status = 200
+
+            def __init__(self):
+                self.headers = Message()
+                self.headers["Content-Type"] = "text/html"
+                self.sent = False
+
+            def read(self, _size):
+                if self.sent:
+                    return b""
+                self.sent = True
+                return b"<html>MLflow</html>"
+
+            def close(self):
+                return None
+
+        with patch.dict(
+            "os.environ",
+            {"MLFLOW_TRACKING_URI": "https://mlflow.example"},
+            clear=False,
+        ), patch(
+            "apps.ai_analysis.api.model_admin.fetch_mlflow_cloud_run_id_token",
+            return_value="test-id-token",
+        ), patch(
+            "apps.ai_analysis.api.model_admin.urlopen",
+            return_value=UpstreamResponse(),
+        ) as urlopen_mock:
+            response = self.client.get("/api/v1/admin/ml/mlflow/static-files/main.js")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(b"".join(response.streaming_content), b"<html>MLflow</html>")
+        self.assertEqual(urlopen_mock.call_args.args[0].full_url, "https://mlflow.example/static-files/main.js")

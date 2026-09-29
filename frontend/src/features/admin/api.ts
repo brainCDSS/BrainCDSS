@@ -143,6 +143,13 @@ export function syncMLflowModelVersions() {
   );
 }
 
+export function createMLflowUiSession() {
+  return apiRequest<void>(
+    "/api/v1/admin/ml/mlflow/session",
+    { method: "POST" },
+  );
+}
+
 export function approveMLModelVersion(versionId: string, reason: string) {
   return apiRequest<MLModelVersionSummary>(
     `/api/v1/admin/ml/model-versions/${encodeURIComponent(versionId)}/approve`,

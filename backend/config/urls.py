@@ -18,6 +18,8 @@ from apps.ai_analysis.api.inference import (
     ResultArtifactContentView,
 )
 from apps.ai_analysis.api.model_admin import (
+    MLflowProxySessionView,
+    MLflowReadOnlyProxyView,
     MLflowModelVersionSyncView,
     MLModelOverviewView,
     MLModelVersionApproveView,
@@ -76,7 +78,10 @@ urlpatterns = [
         DevelopmentAnalysisView.as_view(),
     ),
     path("api/v1/admin/ml/overview", MLModelOverviewView.as_view()),
+    path("api/v1/admin/ml/mlflow/session", MLflowProxySessionView.as_view()),
+    path("api/v1/admin/ml/mlflow/", MLflowReadOnlyProxyView.as_view()),
     path("api/v1/admin/ml/mlflow/sync", MLflowModelVersionSyncView.as_view()),
+    path("api/v1/admin/ml/mlflow/<path:proxy_path>", MLflowReadOnlyProxyView.as_view()),
     path(
         "api/v1/admin/ml/model-versions/<uuid:version_id>/validate",
         MLModelVersionValidateView.as_view(),

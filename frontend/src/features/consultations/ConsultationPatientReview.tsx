@@ -70,13 +70,14 @@ type PatientReviewTab =
    ========================================================= */
 
 const STATUS_LABEL: Record<
-  ConsultationStatus,
+  string,
   string
 > = {
   REQUESTED: "요청됨",
   ACCEPTED: "수락됨",
   IN_PROGRESS: "검토 중",
   RESPONDED: "회신 완료",
+  COMPLETED: "회신 완료",
   CLOSED: "종결",
   REJECTED: "거절",
   CANCELLED: "취소",
@@ -95,11 +96,12 @@ const PRIORITY_LABEL: Record<
 
 
 const TYPE_LABEL: Record<
-  ConsultationType,
+  string,
   string
 > = {
   RADIOLOGY: "영상의학과",
   NEUROSURGERY: "신경외과",
+  NEUROLOGY: "신경과",
 };
 
 const ASSESSMENT_ITEM_LABEL: Record<string, string> = {
@@ -1424,7 +1426,9 @@ export default function ConsultationPatientReview({
                 consultation.ui_status ||
                 STATUS_LABEL[
                   consultation.status
-                ]
+                ] ||
+                consultation.status ||
+                "-"
               }
             </strong>
 
@@ -1441,7 +1445,9 @@ export default function ConsultationPatientReview({
               {
                 TYPE_LABEL[
                   consultation.type
-                ]
+                ] ||
+                consultation.type ||
+                "-"
               }
             </strong>
 

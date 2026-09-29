@@ -22,6 +22,26 @@ from apps.notifications.services.consultations import (
 
 LIST_SPEC = next(spec for spec in SPECS if spec["api_id"] == "API-CON-002")
 
+UI_STATUS = {
+    "REQUESTED": "요청됨",
+    "ACCEPTED": "수락됨",
+    "IN_PROGRESS": "검토 중",
+    "RESPONDED": "회신 완료",
+    "COMPLETED": "회신 완료",
+    "CLOSED": "종결",
+    "REJECTED": "거절",
+    "CANCELLED": "취소",
+    "EXPIRED": "만료",
+}
+
+ROLE_DEPARTMENT_LABEL = {
+    "NEUROLOGIST": "신경과",
+    "NEUROSURGEON": "신경외과",
+    "RADIOLOGY": "영상의학과",
+    "RADIOLOGIST": "영상의학과",
+    "NURSE": "간호부",
+}
+
 
 def _department_matches_consultation_type(
     department,
@@ -60,10 +80,18 @@ def _user_summary(user, clinicians_by_user_id):
         return None
 
     clinician = clinicians_by_user_id.get(user.id)
+    role = getattr(user, "role", None)
+    role_code = getattr(role, "code", None)
+    department = (
+        clinician.department.name
+        if clinician is not None and clinician.department is not None
+        else ROLE_DEPARTMENT_LABEL.get(role_code)
+    )
+
     return {
         "id": str(user.id),
         "name": user.name,
-        "department": clinician.department.name if clinician else None,
+        "department": department,
     }
 
 
@@ -260,11 +288,15 @@ class ConsultationListCreateView(ContractView000):
         check_access(request, LIST_SPEC)
         queryset = Consultation.objects.select_related(
             "encounter__patient",
-            "requested_by",
-            "assigned_to",
+            "requested_by__role",
+            "assigned_to__role",
         ).filter(
             Q(requested_by_id=request.user.id) | Q(assigned_to_id=request.user.id),
         )
+
+        patient_id = request.query_params.get("patient_id")
+        if patient_id:
+            queryset = queryset.filter(encounter__patient_id=patient_id)
 
         for query_name in ("encounter_id", "status", "consultation_type"):
             value = request.query_params.get(query_name)
@@ -343,7 +375,7 @@ class ConsultationListCreateView(ContractView000):
                 "completed_at": consultation.completed_at,
                 "response_viewed_at": consultation.response_viewed_at,
                 "viewer_relation": "REQUESTED_BY" if consultation.requested_by_id == request.user.id else "ASSIGNED_TO",
-                "ui_status": consultation.status,
+                "ui_status": UI_STATUS.get(consultation.status, consultation.status),
                 "allowed_actions": _allowed_actions(consultation, request.user),
             })
 

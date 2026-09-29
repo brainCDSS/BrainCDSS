@@ -57,10 +57,25 @@ function age(patient: Patient) {
   return formatPatientAge(patient);
 }
 function encounterBadge(encounter?: { status?: string | null; endedAt?: string | null }) {
-  if (encounter?.endedAt) return { label: "완료", tone: "completed" };
+  if (encounter?.endedAt || encounter?.status === "COMPLETED") {
+    return { label: "완료", tone: "completed" };
+  }
   if (encounter?.status === "IN_PROGRESS") return { label: "진료중", tone: "in-progress" };
   if (encounter?.status === "REGISTERED") return { label: "진료대기", tone: "registered" };
+  if (encounter?.status === "CANCELLED") return { label: "취소", tone: "cancelled" };
   return null;
+}
+
+function encounterTypeLabel(value?: string | null) {
+  const labels: Record<string, string> = {
+    STAT: "긴급",
+    EMERGENCY: "응급",
+    ER: "응급",
+    ROUTINE: "일반",
+    OUTPATIENT: "외래",
+    INPATIENT: "입원",
+  };
+  return labels[value ?? ""] ?? value ?? "-";
 }
 function dateTime(value?: string | null) { if (!value) return "-"; const date = new Date(value); return Number.isNaN(date.getTime()) ? value : date.toLocaleString("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }); }
 function analysisName(value: string) { const key = value.toUpperCase(); if (key.includes("ISCHEM")) return "허혈성 뇌졸중"; if (key.includes("HEMORRH")) return "출혈성 뇌졸중"; if (key.includes("ANEURYSM")) return "뇌동맥류"; return value; }
@@ -72,9 +87,11 @@ function consultationStatusLabel(value?: string | null) {
     REJECTED: "거절됨",
     COMPLETED: "회신 완료",
     RESPONDED: "회신 완료",
+    CLOSED: "종결",
     CANCELLED: "취소됨",
+    EXPIRED: "만료",
   };
-  return labels[value ?? ""] ?? "-";
+  return labels[value ?? ""] ?? value ?? "-";
 }
 function consultationPriorityLabel(value?: string | null) {
   const labels: Record<string, string> = { ROUTINE: "일반", URGENT: "응급", STAT: "긴급" };
@@ -82,7 +99,30 @@ function consultationPriorityLabel(value?: string | null) {
 }
 function consultationTypeLabel(value?: string | null) {
   const labels: Record<string, string> = { RADIOLOGY: "영상의학과", NEUROSURGERY: "신경외과", NEUROLOGY: "신경과" };
-  return labels[value ?? ""] ?? "-";
+  return labels[value ?? ""] ?? value ?? "-";
+}
+
+function matchesConsultationDepartment(
+  consultationType: ConsultationType,
+  code: string,
+  name: string,
+): boolean {
+  const normalizedCode = code.trim().toUpperCase();
+  const normalizedName = name.trim().toLowerCase();
+
+  if (consultationType === "RADIOLOGY") {
+    return (
+      ["RADIOLOGY", "FT-RAD", "LOCAL_CHAT_RADIOLOGY"].includes(normalizedCode) ||
+      normalizedName.includes("영상의학") ||
+      normalizedName.includes("radiology")
+    );
+  }
+
+  return (
+    ["NEUROSURGERY", "FT-NS", "LOCAL_CHAT_NEUROSURGERY"].includes(normalizedCode) ||
+    normalizedName.includes("신경외과") ||
+    normalizedName.includes("neurosurgery")
+  );
 }
 
 function isAbnormalClinicalValue(
@@ -182,9 +222,15 @@ export function PatientRail({ selectedId, patients, onSelect }: { selectedId: st
         if (result.status !== "fulfilled") return;
         const latest = [...result.value.encounters].sort((left, right) => (right.arrived_at ?? "").localeCompare(left.arrived_at ?? ""))[0];
         if (!latest) return;
-        if (latest.ended_at) next[result.value.patientId] = { label: "완료", tone: "completed" };
-        else if (latest.status === "IN_PROGRESS") next[result.value.patientId] = { label: "진료중", tone: "in-progress" };
-        else if (latest.status === "REGISTERED") next[result.value.patientId] = { label: "진료대기", tone: "registered" };
+        if (latest.ended_at || latest.status === "COMPLETED") {
+          next[result.value.patientId] = { label: "완료", tone: "completed" };
+        } else if (latest.status === "IN_PROGRESS") {
+          next[result.value.patientId] = { label: "진료중", tone: "in-progress" };
+        } else if (latest.status === "REGISTERED") {
+          next[result.value.patientId] = { label: "진료대기", tone: "registered" };
+        } else if (latest.status === "CANCELLED") {
+          next[result.value.patientId] = { label: "취소", tone: "cancelled" };
+        }
       });
       setEncounterBadges(next);
     });
@@ -264,7 +310,7 @@ export function PatientHeader({
       {care?.encounterStatus || care?.encounterType || care?.arrivedAt ? <>
         <div><dt>내원일시</dt><dd>{dateTime(care.arrivedAt)}</dd></div>
         <div><dt>진료 상태</dt><dd>{badge?.label ?? "-"}</dd></div>
-        <div><dt>내원 형태</dt><dd>{{ STAT: "긴급", EMERGENCY: "응급", ROUTINE: "일반" }[care.encounterType ?? ""] ?? care.encounterType ?? "-"}</dd></div>
+        <div><dt>내원 형태</dt><dd>{encounterTypeLabel(care.encounterType)}</dd></div>
         <div><dt>종료일시</dt><dd>{dateTime(care.endedAt)}</dd></div>
       </> : <>
         <div><dt>진료과</dt><dd>{care?.department || "-"}</dd></div>
@@ -798,7 +844,9 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
     if (!patient) { setLoading(false); return; }
     setLoading(true);
     const analysesRequest = canViewAIAnalyses ? getAIAnalyses() : Promise.resolve({ count: 0, results: [] as AIAnalysisItem[] });
-    const consultationsRequest = canViewConsultations ? getConsultations() : Promise.resolve({ count: 0, results: [] as ConsultationListItem[] });
+    const consultationsRequest = canViewConsultations
+      ? getConsultations({ patientId: patient.id })
+      : Promise.resolve({ count: 0, results: [] as ConsultationListItem[] });
     void Promise.allSettled([getPatient(patient.id), getImagingStudies({ patientId: patient.id }), analysesRequest, consultationsRequest]).then(([detail, imaging, analyses, consultations]) => {
       if (clinicalRequestId.current !== requestId) return;
       if (detail.status === "rejected" && [403, 404].includes(getApiRequestStatus(detail.reason) ?? 0)) {
@@ -1085,20 +1133,46 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
           ? [currentUser.hospital.id]
           : (await getActiveHospitals()).results.map((hospital) => hospital.id);
         const hospitals = await Promise.all(hospitalIds.map(getHospitalDetail));
-        const department = hospitals
+        const departments = hospitals
           .flatMap((hospital) => hospital.departments)
-          .find(
-            (item) => item.code.trim().toUpperCase() === consultationType,
+          .filter((department) =>
+            matchesConsultationDepartment(
+              consultationType,
+              department.code,
+              department.name,
+            ),
           );
 
-        if (!department) return;
+        if (departments.length === 0) {
+          if (active) {
+            setConsultationClinicians([]);
+            setConsultationCliniciansError(
+              "선택한 협진 진료과를 찾을 수 없습니다.",
+            );
+          }
+          return;
+        }
 
-        const response = await getClinicians(department.id);
+        const responses = await Promise.all(
+          departments.map((department) => getClinicians(department.id)),
+        );
+        const clinicianMap = new Map<string, Clinician>();
+
+        responses.forEach((response) => {
+          response.clinicians
+            .filter((clinician) => clinician.is_active)
+            .forEach((clinician) => {
+              clinicianMap.set(clinician.user_id, clinician);
+            });
+        });
 
         if (active) {
-          setConsultationClinicians(
-            response.clinicians.filter((clinician) => clinician.is_active),
-          );
+          setConsultationClinicians(Array.from(clinicianMap.values()));
+          if (clinicianMap.size === 0) {
+            setConsultationCliniciansError(
+              "선택한 협진 진료과에 활성 의료진이 없습니다.",
+            );
+          }
         }
       } catch {
         if (active) {
@@ -1150,7 +1224,9 @@ export default function PatientChart({ patient, encounterId, patients = [], onSe
         reason,
       });
 
-      const refreshed = await getConsultations();
+      const refreshed = await getConsultations({
+        patientId: patient.id,
+      });
 
       setData((current) => ({
         ...current,

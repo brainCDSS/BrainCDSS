@@ -72,6 +72,43 @@ class ConsultationListResponseTests(APITestCase):
         self.assertEqual(item["allowed_actions"], ["CANCEL"])
         self.assertEqual(item["reason"], "검토 요청")
 
+    def test_list_localizes_legacy_completed_status(self):
+        self.consultation.status = "COMPLETED"
+        self.consultation.save(update_fields=["status"])
+        self.client.force_authenticate(self.requester)
+
+        response = self.client.get(reverse("api_con_001_api_con_002"))
+
+        self.assertEqual(response.status_code, 200)
+        item = response.json()["results"][0]
+        self.assertEqual(item["status"], "COMPLETED")
+        self.assertEqual(item["ui_status"], "회신 완료")
+
+    def test_list_uses_role_department_when_legacy_clinician_mapping_is_missing(self):
+        Clinician.objects.filter(user=self.assignee).delete()
+        self.client.force_authenticate(self.requester)
+
+        response = self.client.get(reverse("api_con_001_api_con_002"))
+
+        self.assertEqual(response.status_code, 200)
+        item = response.json()["results"][0]
+        self.assertEqual(item["assigned_to"]["department"], "신경외과")
+
+    def test_list_supports_patient_id_filter(self):
+        self.client.force_authenticate(self.requester)
+
+        response = self.client.get(
+            reverse("api_con_001_api_con_002"),
+            {"patient_id": str(self.consultation.encounter.patient_id)},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["count"], 1)
+        self.assertEqual(
+            response.json()["results"][0]["patient_summary"]["id"],
+            str(self.consultation.encounter.patient_id),
+        )
+
     def test_detail_preserves_raw_fields_and_adds_frontend_shape(self):
         self.client.force_authenticate(self.requester)
 

@@ -14,10 +14,29 @@ import type {
    GET /api/v1/consultations
    ========================================================= */
 
-export function getConsultations():
-Promise<ConsultationListResponse> {
+export function getConsultations(
+  filters: {
+    patientId?: string;
+    encounterId?: string;
+    status?: string;
+    consultationType?: string;
+    activeOnly?: boolean;
+    viewerRelation?: "REQUESTED_BY" | "ASSIGNED_TO";
+  } = {},
+): Promise<ConsultationListResponse> {
+  const query = new URLSearchParams();
+
+  if (filters.patientId) query.set("patient_id", filters.patientId);
+  if (filters.encounterId) query.set("encounter_id", filters.encounterId);
+  if (filters.status) query.set("status", filters.status);
+  if (filters.consultationType) query.set("consultation_type", filters.consultationType);
+  if (filters.activeOnly !== undefined) query.set("active_only", String(filters.activeOnly));
+  if (filters.viewerRelation) query.set("viewer_relation", filters.viewerRelation);
+
+  const suffix = query.size ? `?${query.toString()}` : "";
+
   return apiRequest<ConsultationListResponse>(
-    "/api/v1/consultations",
+    `/api/v1/consultations${suffix}`,
   );
 }
 

@@ -1,5 +1,5 @@
 # CPU/API runtime; model framework and MOSEC are integrated only when selected.
-fastapi>=0.115,<1
+fastapi>=0.143.3,<1
 uvicorn[standard]>=0.34,<1
 pydantic>=2.10,<3
 httpx>=0.28,<1
